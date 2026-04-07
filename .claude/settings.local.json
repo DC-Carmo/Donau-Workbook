@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sed -i 's|donau-logo.png|RugbyUnionDonauLogo2024.svg|g' \"c:\\\\Users\\\\Diego\\\\Desktop\\\\Rugby\\\\Game Plan Coach Mato\\\\Rugby-GamePlan\\\\artifact.html\")",
+      "Bash(sed -i 's|src=\"mato.jpg\"|src=\"Coach Intro.jpg\"|g' \"c:\\\\Users\\\\Diego\\\\Desktop\\\\Rugby\\\\Game Plan Coach Mato\\\\Rugby-GamePlan\\\\artifact.html\")"
+    ]
+  }
+}
