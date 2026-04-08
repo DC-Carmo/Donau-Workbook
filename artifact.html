@@ -78,7 +78,7 @@ position:relative;z-index:50;
 
 } 
 
-.topbar-logo{display:flex;align-items:center;gap:12px;} 
+.topbar-logo{display:flex;align-items:center;gap:12px;cursor:pointer;} 
 
 .wallaby-icon{width:32px;height:32px;background:var(--green-dim);border:1px solid rgba(46,139,87,0.4);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;}
 
@@ -304,7 +304,19 @@ margin-bottom:8px;cursor:pointer;transition:all .18s;
 
 .play-detail{display:none;margin-top:10px;font-size:.82rem;color:var(--muted);line-height:1.6;border-top:1px solid var(--border);padding-top:10px;} 
 
-.play-list-item.active .play-detail{display:block;} 
+.play-list-item.active .play-detail{display:block;}
+
+.diagram-btn{
+  margin-top:10px;
+  background:rgba(46,139,87,0.12);
+  border:1px solid rgba(46,139,87,0.5);
+  color:var(--green);
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:700;font-size:.75rem;letter-spacing:2px;text-transform:uppercase;
+  padding:5px 14px;border-radius:2px;cursor:pointer;
+  transition:background .2s, color .2s;
+}
+.diagram-btn:hover{background:var(--green);color:#fff;}
 
 .play-detail ul{list-style:none;display:flex;flex-direction:column;gap:5px;} 
 
@@ -699,7 +711,47 @@ margin-bottom:6px;transition:all .18s;line-height:1.4;
 .field-map-panel img{
   width:100%;display:block;border-radius:2px;
   border:1px solid var(--border);
+  cursor:pointer;
+  transition:opacity .2s ease;
 }
+.field-map-panel img:hover{opacity:.85;}
+
+/* ── FIELD IMAGE LIGHTBOX ── */
+.field-lightbox{
+  position:fixed;inset:0;z-index:9999;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,0);
+  opacity:0;pointer-events:none;
+  transition:background .25s ease, opacity .25s ease;
+}
+.field-lightbox.open{
+  background:rgba(0,0,0,.85);
+  opacity:1;pointer-events:all;
+}
+.field-lightbox-inner{
+  position:relative;
+  max-width:90vw;max-height:88vh;
+  transform:scale(.94);
+  transition:transform .25s cubic-bezier(.22,.8,.36,1);
+}
+.field-lightbox.open .field-lightbox-inner{
+  transform:scale(1);
+}
+.field-lightbox-inner img{
+  display:block;max-width:100%;max-height:88vh;
+  border-radius:3px;border:1px solid rgba(46,139,87,0.35);
+  box-shadow:0 8px 48px rgba(0,0,0,.7);
+}
+.field-lightbox-close{
+  position:absolute;top:-14px;right:-14px;
+  width:30px;height:30px;border-radius:50%;
+  background:var(--card);border:1px solid var(--border);
+  color:var(--text);font-size:1rem;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  transition:background .2s ease, color .2s ease;
+}
+.field-lightbox-close:hover{background:var(--green);color:#fff;}
 
 /* ── OVERLAY SYSTEM ── */
 .overlay{
@@ -797,7 +849,7 @@ margin-bottom:6px;transition:all .18s;line-height:1.4;
 
   <div class="topbar"> 
 
-    <div class="topbar-logo">
+    <div class="topbar-logo" onclick="goTo(1)">
       <img src="RugbyUnionDonauLogo2024.svg" style="height:30px;width:auto;object-fit:contain;" alt="Rugby Union Donau"/>
       <div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Coaching Document</div></div>
     </div> 
@@ -876,7 +928,7 @@ margin-bottom:6px;transition:all .18s;line-height:1.4;
 <div class="slide" id="s2">
 
   <div class="topbar">
-    <div class="topbar-logo">
+    <div class="topbar-logo" onclick="goTo(1)">
       <img src="RugbyUnionDonauLogo2024.svg" style="height:30px;width:auto;object-fit:contain;" alt="Rugby Union Donau"/>
       <div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Game Plan · Standards</div></div>
     </div>
@@ -971,7 +1023,7 @@ margin-bottom:6px;transition:all .18s;line-height:1.4;
 
   <div class="topbar"> 
 
-    <div class="topbar-logo">
+    <div class="topbar-logo" onclick="goTo(1)">
       <img src="RugbyUnionDonauLogo2024.svg" style="height:30px;width:auto;object-fit:contain;" alt="Rugby Union Donau"/>
       <div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Game Plan · Attack System</div></div>
     </div>
@@ -997,7 +1049,7 @@ margin-bottom:6px;transition:all .18s;line-height:1.4;
       </button>
 
       <div class="field-map-panel" id="fieldMapPanel">
-        <img src="Field Landmarks.png" alt="Field Areas — Street, Tramlines, Sidewalk"/>
+        <img src="Field Landmarks.png" alt="Field Areas — Street, Tramlines, Sidewalk" onclick="openFieldLightbox('Field Landmarks.png','Field Areas — Street, Tramlines, Sidewalk')" title="Click to enlarge"/>
       </div>
 
       <div style="margin-bottom:18px;">
@@ -1045,16 +1097,6 @@ margin-bottom:6px;transition:all .18s;line-height:1.4;
               <li>High-pressure zone</li>
               <li>If ball gets stuck — 9 + winger communicate early</li>
             </ul>
-            <div class="fa-call">GREY</div>
-            <ul style="margin-top:4px;margin-bottom:8px;">
-              <li>Pod runs dummy line</li>
-              <li>Play out the back to a back</li>
-            </ul>
-            <div class="fa-call">BLACK</div>
-            <ul style="margin-top:4px;">
-              <li>9 to forward pod</li>
-              <li>Carry hard or tip short</li>
-            </ul>
           </div>
         </div>
 
@@ -1064,21 +1106,29 @@ margin-bottom:6px;transition:all .18s;line-height:1.4;
 
       <div class="terminology-grid" style="margin-bottom:16px;"> 
 
-        <div class="term-chip"><div class="term-key">GREEN</div><div class="term-val">Same way off 9</div></div> 
+        <div class="term-chip"><div class="term-key">BLACK</div><div class="term-val">Off 9 to pod</div></div>
 
-        <div class="term-chip"><div class="term-key">FLOOD</div><div class="term-val">Change direction off 9</div></div> 
+        <div class="term-chip"><div class="term-key">RED</div><div class="term-val">Off 9 to 10/12</div></div>
 
-        <div class="term-chip"><div class="term-key">GOLD</div><div class="term-val">Same way off 10</div></div> 
+        <div class="term-chip"><div class="term-key">SUNSHINE</div><div class="term-val">Change direction off 9</div></div>
 
-        <div class="term-chip"><div class="term-key">RAIN</div><div class="term-val">Change direction off 10</div></div> 
+        <div class="term-chip"><div class="term-key">PINK</div><div class="term-val">Off 9 out the back to playmaker</div></div> 
 
       </div> 
 
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.68rem;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Forward Pods</div> 
+      <button class="field-areas-label-btn" id="forwardPodsBtn" onclick="toggleForwardPodsMap()" aria-expanded="false" aria-controls="forwardPodsMapPanel" style="margin-top:16px;">
+        Forward Pods <span class="field-areas-map-arrow">&#9660;</span>
+      </button>
 
-      <div class="term-chip" style="margin-bottom:6px;"><div class="term-key">HAMMERS</div><div class="term-val">Props & Hooker (1, 2, 3)</div></div> 
+      <div class="term-chip" style="margin-bottom:6px;"><div class="term-key">BATMAN</div><div class="term-val">Props & Hooker (1, 2, 3)</div></div>
 
-      <div class="term-chip"><div class="term-key">SICKLES</div><div class="term-val">Locks & Flanker (4, 5, 6)</div></div> 
+      <div class="term-chip" style="margin-bottom:6px;"><div class="term-key">LION</div><div class="term-val">Locks & No.8 (4, 5, 8)</div></div>
+
+      <div class="term-chip" style="margin-bottom:10px;"><div class="term-key">FIJI</div><div class="term-val">Flankers (6, 7)</div></div>
+
+      <div class="field-map-panel" id="forwardPodsMapPanel">
+        <img src="Forwards Role.png" alt="Forward Pods Structure" onclick="openFieldLightbox('Forwards Role.png','Forward Pods Structure')" title="Click to enlarge"/>
+      </div>
 
     </div> 
 
@@ -1088,7 +1138,7 @@ margin-bottom:6px;transition:all .18s;line-height:1.4;
 
         <button class="zone-btn active" role="tab" aria-selected="true" onclick="setCategory('setpiece',this)">Set Piece</button>
 
-        <button class="zone-btn" role="tab" aria-selected="false" onclick="setCategory('phase',this)">Phase Play</button>
+        <button class="zone-btn" role="tab" aria-selected="false" onclick="setCategory('phase',this)">Backs Calls</button>
 
         <button class="zone-btn" role="tab" aria-selected="false" onclick="setCategory('exits',this)">Exits</button>
 
@@ -1114,7 +1164,7 @@ margin-bottom:6px;transition:all .18s;line-height:1.4;
 
   <div class="topbar"> 
 
-    <div class="topbar-logo"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Game Plan · Lineout</div></div></div> 
+    <div class="topbar-logo" onclick="goTo(1)"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Game Plan · Lineout</div></div></div> 
 
     <div class="topbar-right"><div class="motto">Work Ethic · <span>Attack</span> · Belief</div><div class="slide-num">04 / 06</div></div> 
 
@@ -1216,7 +1266,7 @@ margin-bottom:6px;transition:all .18s;line-height:1.4;
 
   <div class="topbar"> 
 
-    <div class="topbar-logo"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Game Plan · Defence</div></div></div> 
+    <div class="topbar-logo" onclick="goTo(1)"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Game Plan · Defence</div></div></div> 
 
     <div class="topbar-right"><div class="motto">Work Ethic · <span>Attack</span> · Belief</div><div class="slide-num">05 / 06</div></div> 
 
@@ -1332,7 +1382,7 @@ margin-bottom:6px;transition:all .18s;line-height:1.4;
 
   <div class="topbar"> 
 
-    <div class="topbar-logo"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">AI Coaching Assistant</div></div></div> 
+    <div class="topbar-logo" onclick="goTo(1)"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">AI Coaching Assistant</div></div></div> 
 
     <div class="topbar-right"><div class="motto">Work Ethic · <span>Attack</span> · Belief</div><div class="slide-num">06 / 06</div></div> 
 
@@ -1383,9 +1433,7 @@ margin-bottom:6px;transition:all .18s;line-height:1.4;
 
       <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What is the STORM call in defence?</div> 
 
-      <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">Describe the Launch Fly scrum play</div> 
-
-      <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">How does the lineout calling structure work?</div> 
+<div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">How does the lineout calling structure work?</div> 
 
       <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What is the Axe role in defence?</div> 
 
@@ -1520,6 +1568,31 @@ margin-bottom:6px;transition:all .18s;line-height:1.4;
 // ═══════════════════════════════════
 //  FIELD AREAS ENGINE
 // ═══════════════════════════════════
+
+function openFieldLightbox(src, alt){
+  const lb = document.getElementById('fieldLightbox');
+  const img = document.getElementById('fieldLightboxImg');
+  img.src = src;
+  img.alt = alt || '';
+  lb.classList.add('open');
+  document.addEventListener('keydown', _fieldLightboxEsc);
+}
+function closeFieldLightbox(e){
+  if(e && e.target !== document.getElementById('fieldLightbox') && !e.target.classList.contains('field-lightbox-close')) return;
+  const lb = document.getElementById('fieldLightbox');
+  lb.classList.remove('open');
+  document.removeEventListener('keydown', _fieldLightboxEsc);
+}
+function _fieldLightboxEsc(e){ if(e.key==='Escape') closeFieldLightbox(); }
+
+function toggleForwardPodsMap(){
+  const btn = document.getElementById('forwardPodsBtn');
+  const panel = document.getElementById('forwardPodsMapPanel');
+  const isOpen = panel.classList.contains('open');
+  panel.classList.toggle('open', !isOpen);
+  btn.classList.toggle('open', !isOpen);
+  btn.setAttribute('aria-expanded', String(!isOpen));
+}
 
 function toggleFieldMap(){
   const btn = document.getElementById('fieldAreasBtn');
@@ -1688,21 +1761,13 @@ const attackData = {
 
   setpiece:[ 
 
-    {name:'Launch Fly',type:'Scrum Starter',detail:['8 to 9, 9 attacks opposition 10','12 on hard line attacking opp 12','10 on fly behind 12, 11 on 10\'s rails','Options: 9 hits 12 short OR 9 hits 10 out back with options either side']}, 
+    {name:'Launch Double 1',type:'Scrum Starter',detail:['9 + 12 fix Opp 10 inside','10 out the back, straightens to fix Opp 12','11 hits seam at pace','13 fixes Opp 13, back three hold width'],diagram:'Launch Double 1.png'},
 
-    {name:'Launch Slaughter',type:'Scrum Starter',detail:['8 to 9 launch, 9 forward and out to interest opp 10','12 coming hard and in late to chop opp 10','10 out back and straightening to interest opp 12','11 on slaughter behind 12, 13 straight line to interest opp 13']}, 
+    {name:'C.C +',type:'Scrum — Kicking Option',detail:['Attacking kicking option: 8 to 9, 9 to 10 behind 12','10 kicks for 14/15','Positioning on field requires read of their 15'],diagram:'C.C+.png'}, 
 
-    {name:'Laser',type:'Scrum — Kicking Option',detail:['Attacking kicking option: 8 to 9, 9 to 10 behind 12','10 kicks for 14/15','Positioning on field requires read of their 15']}, 
+    {name:'Launch 41',type:'Scrum Starter',detail:['9 to 14, 12 short (attacking opp 10)','10 out back','Option of playing slider between 13/15'],diagram:'Launch 41.png'}, 
 
-    {name:'Canterbury',type:'Scrum Starter',detail:['9 to 14, 12 short (attacking opp 10)','10 out back','Option of playing firefly between 13/15']}, 
-
-    {name:'Snickers',type:'Scrum + 7 Man',detail:['8 to 12, 12 to 9 on doggy','13 on hard fire line attacking opp 12','10 on fly behind 13, 11 on 10\'s rails','Options: 12 into contact, hit 13 short, or 10 out back with options inside and outside']}, 
-
-    {name:'Paper Jack',type:'7 Man Lineout',detail:['9 to 10 flat, 11/12 going to line with 10','10 returns ball to 9','13/15/14 coming to the line off 9','12 tries to fix their 12 — allows 9 time to play and pick right option']}, 
-
-    {name:'Top Cat',type:'Scrum + 7 Man',detail:['10 to 12, 12 square with 13 short','12 back to 10, 11 chase 10\'s rails','WING variant: 10 splits early, 12 to 11 behind 13']}, 
-
-    {name:'Bozo',type:'7 Man + Scrum',detail:['Ball won towards tail (middle OK)','OTT or rip/feed to 9 by first man in lineout','9 attacking tail gunner','11/12/13 all hitting line square — 13 leads','10 out back to sell play but not an option','2 backs only to first breakdown']}, 
+    {name:'Rhino & Lion',type:'Mid Field Scrum',detail:['RHINO (Right)','8 to 9','12 unders to fix inside','Out the back to 10','14 as outside option','LION (Left)','9 takes easy space left','Fix Opp 10','13 to 10','Pop to 15 or straight to 11'],diagram:'Mid Field Scrum.png'},
 
   ], 
 
@@ -1760,13 +1825,13 @@ const attackData = {
 
     {name:'BERMUDA',type:'Field Landmark',detail:['Between Rock and the Coast on both sides']}, 
 
-    {name:'GREEN',type:'Direction',detail:['Same way off 9']}, 
+    {name:'BLACK',type:'Direction',detail:['Off 9 to pod']},
 
-    {name:'FLOOD',type:'Direction',detail:['Change direction off 9']}, 
+    {name:'RED',type:'Direction',detail:['Off 9 to 10/12']},
 
-    {name:'GOLD',type:'Direction',detail:['Same way off 10']}, 
+    {name:'SUNSHINE',type:'Direction',detail:['Change direction off 9']},
 
-    {name:'RAIN',type:'Direction',detail:['Change direction off 10']}, 
+    {name:'PINK',type:'Direction',detail:['Off 9 out the back to playmaker']}, 
 
     {name:'TONGA',type:'Scrum Delivery',detail:['8 to 9 standard delivery']}, 
 
@@ -1810,6 +1875,8 @@ function setCategory(cat,btn){
       <div class="play-detail">
 
         <ul>${p.detail.map(d=>`<li>${d}</li>`).join('')}</ul>
+
+        ${p.diagram ? `<button class="diagram-btn" onclick="event.stopPropagation();openFieldLightbox('${p.diagram}','${p.name}')" onkeydown="event.stopPropagation();">View Diagram</button>` : ''}
 
       </div>
 
@@ -2008,11 +2075,11 @@ FIELD LANDMARKS: ROCK = centre field (Hammers' running line). COAST = 15m line e
 
  
 
-FORWARD PODS: HAMMERS = props & hooker (1,2,3). SICKLES = locks & flanker (4,5,6). Backrow = 7, 8, 6. 
+FORWARD PODS: BATMAN = props & hooker (1,2,3). LION = locks & no.8 (4,5,8). FIJI = flankers (6,7). 
 
  
 
-DIRECTION CALLS: GREEN = same way off 9. FLOOD = change direction off 9. GOLD = same way off 10. RAIN = change direction off 10. 
+DIRECTION CALLS: BLACK = off 9 to pod. RED = off 9 to 10/12. SUNSHINE = change direction off 9. PINK = off 9 out the back to playmaker. 
 
  
 
@@ -2030,7 +2097,7 @@ SCRUM 42: RIVER = right (8-9-15-14). LAKE = left (hands to 11 with 10/12 skippin
 
  
 
-SCRUM STARTERS: LAUNCH FLY = 8 to 9, attacks opp 10; 12 on hard line; 10 on fly behind 12. LAUNCH SLAUGHTER = 8 to 9, 9 forward to interest 10; 12 chops opp 10; 10 straightens. LASER = kicking option: 8-9-10 kicks for 14/15. CANTERBURY = 9 to 14; 12 short; 10 out back. SNICKERS = 8 to 12, 12 to 9 doggy; 13 on hard line; 10 on fly. SLAUGHTER FLY = 9 to 10 who attacks line; 12/13 firefly; 14 slaughter line. 
+SCRUM STARTERS: LAUNCH DOUBLE 1 = 9 + 12 fix opp 10 inside; 10 out the back, straightens to fix opp 12; 11 hits seam at pace; 13 fixes opp 13, back three hold width. C.C + = kicking option: 8-9-10 kicks for 14/15. LAUNCH 41 = 9 to 14; 12 short; 10 out back. SNICKERS = 8 to 12, 12 to 9 doggy; 13 on hard line; 10 on fly. SLAUGHTER FLY = 9 to 10 who attacks line; 12/13 15 cut, 13 unders; 14 slaughter line. 
 
  
 
@@ -2216,6 +2283,14 @@ function askQ(el){
 
  
 
-</body> 
+<!-- Field Image Lightbox -->
+<div class="field-lightbox" id="fieldLightbox" onclick="closeFieldLightbox(event)">
+  <div class="field-lightbox-inner">
+    <button class="field-lightbox-close" onclick="closeFieldLightbox()" aria-label="Close">&times;</button>
+    <img id="fieldLightboxImg" src="" alt=""/>
+  </div>
+</div>
+
+</body>
 
 </html>  
