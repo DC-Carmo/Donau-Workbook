@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tactical Board - Rugby Union Donau</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tactical-board.css">
+</head>
+<body>
+<div id="app">
+
+<div id="topbar">
+  <div class="tb-brand-block">
+    <div class="tb-brand">
+      <svg width="28" height="28" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="250" cy="230" rx="180" ry="90" fill="none" stroke="#10b981" stroke-width="24"/>
+        <g fill="none" stroke="#EEF3EE" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M260 80C280 40,340 20,360 60C350 90,320 110,290 120"/>
+          <path d="M290 120C270 110,240 120,220 150C210 170,210 200,230 220C250 240,290 230,300 200C310 170,300 140,290 120Z"/>
+        </g>
+      </svg>
+      <div>
+        <div class="tb-brand-name">Tactical Board</div>
+        <div class="tb-brand-sub">Rugby Union Donau</div>
+      </div>
+    </div>
+    <a class="c-btn tb-portal" href="../../index.html"><span>&#9664;</span> Portal</a>
+  </div>
+
+  <div class="tb-cluster tb-title">
+    <div class="tb-label">Board Name</div>
+    <input id="playName" placeholder="Play name..." value="New Play"/>
+  </div>
+
+  <div class="tb-cluster">
+    <div class="tb-label">Edit Tools</div>
+    <div class="tool-strip">
+      <button class="t-btn active" id="t-move" onclick="setTool('move')" title="Move (V)">
+        &#8598;<kbd>V</kbd><span class="tip">Move Players</span>
+      </button>
+      <button class="t-btn" id="t-path" onclick="setTool('path')" title="Draw Run">
+        &#8767;<kbd>R</kbd><span class="tip">Draw Run Path</span>
+      </button>
+      <button class="t-btn" id="t-pass" onclick="setTool('pass')" title="Pass">
+        &#10548;<kbd>P</kbd><span class="tip">Draw Pass</span>
+      </button>
+      <button class="t-btn" id="t-kick" onclick="setTool('kick')" title="Kick">
+        K<kbd>K</kbd><span class="tip">Draw Kick</span>
+      </button>
+      <button class="t-btn" id="t-erase" onclick="setTool('erase')" title="Erase">
+        &#10005;<kbd>E</kbd><span class="tip">Erase</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="tb-cluster">
+    <div class="tb-label">Board Actions</div>
+    <div class="tb-actions">
+      <button class="c-btn" onclick="undo()">&#8630; Undo</button>
+      <button class="c-btn" onclick="clearPaths()">Clear Paths</button>
+      <button class="c-btn danger" onclick="clearAll()">Clear All</button>
+    </div>
+  </div>
+
+  <div class="tb-cluster ml tb-playback">
+    <div class="tb-label">Playback</div>
+    <div class="ctrl-grp">
+      <div class="spd-grp">
+        <button class="spd-btn" onclick="chSpd(-1)">-</button>
+        <span id="spdLabel">1x</span>
+        <button class="spd-btn" onclick="chSpd(1)">+</button>
+      </div>
+      <div class="vd"></div>
+      <button class="c-btn" onclick="resetAnim()">&#9166; Reset</button>
+      <button class="c-btn play" id="playBtn" onclick="togglePlay()">&#9654; Play</button>
+    </div>
+  </div>
+</div>
+
+<div id="workspace">
+  <div id="palette">
+    <div class="pal-tabs">
+      <button class="pal-tab atk active" id="tab-atk" onclick="setTab('atk')">
+        <span class="pal-tab-label">Attack</span>
+        <span class="pal-tab-count" id="tab-atk-count">0 / 15</span>
+      </button>
+      <button class="pal-tab def" id="tab-def" onclick="setTab('def')">
+        <span class="pal-tab-label">Defence</span>
+        <span class="pal-tab-count" id="tab-def-count">0 / 15</span>
+      </button>
+    </div>
+
+    <div class="pal-body">
+      <section class="pal-section">
+        <div class="pal-header">
+          <div class="pal-title">Player Palette</div>
+          <div class="pal-copy" id="palCopy">Click a number to place it on the field.</div>
+        </div>
+        <div class="pal-overview">
+          <div class="pal-stat">
+            <span class="pal-stat-label">On Board</span>
+            <strong class="pal-stat-value" id="palOnBoard">0 / 15</strong>
+          </div>
+          <div class="pal-stat">
+            <span class="pal-stat-label">Available</span>
+            <strong class="pal-stat-value" id="palAvailable">15</strong>
+          </div>
+          <div class="pal-stat">
+            <span class="pal-stat-label">Ball</span>
+            <strong class="pal-stat-value" id="palBallStatus">Not Placed</strong>
+          </div>
+        </div>
+        <div class="pal-legend">
+          <span class="pal-legend-item"><span class="pal-dot"></span> Available to place</span>
+          <span class="pal-legend-item"><span class="pal-dot on"></span> Already on the board</span>
+        </div>
+        <div class="pal-quick-actions">
+          <button class="pal-quick-btn" onclick="setTab('atk')">Add Attack</button>
+          <button class="pal-quick-btn" onclick="setTab('def')">Add Defence</button>
+          <button class="pal-quick-btn accent" onclick="addBall()">Place Ball</button>
+        </div>
+        <div class="pal-grid" id="palGrid"></div>
+      </section>
+
+      <section class="pal-section">
+        <div class="pal-header">
+          <div class="pal-title">Selection</div>
+          <div class="pal-copy">Quick actions for the current player.</div>
+        </div>
+        <div class="sel-info" id="selInfo">
+          <div class="sel-info-header">Selected Player</div>
+          <div class="sel-info-name" id="selName">-</div>
+          <div class="sel-info-meta" id="selMeta">Select a player or ball to inspect it here.</div>
+          <div class="sel-actions">
+            <button class="sel-btn" id="selClearBtn" onclick="clearSelection()">Clear Selection</button>
+            <button class="sel-btn danger" id="selDeleteBtn" onclick="deleteSelected()">Remove Player</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="pal-section">
+        <div class="pal-header">
+          <div class="pal-title">Board Build</div>
+          <div class="pal-copy">Set up the picture quickly, then move into paths, passes, and playback.</div>
+        </div>
+        <div class="build-flow">
+          <div class="build-step">
+            <span class="build-step-no">1</span>
+            <div class="build-step-copy">
+              <strong>Place Numbers</strong>
+              <span>Use Attack or Defence to add players fast.</span>
+            </div>
+          </div>
+          <div class="build-step">
+            <span class="build-step-no">2</span>
+            <div class="build-step-copy">
+              <strong>Set The Ball</strong>
+              <span>Add the ball before drawing the movement picture.</span>
+            </div>
+          </div>
+          <div class="build-step">
+            <span class="build-step-no">3</span>
+            <div class="build-step-copy">
+              <strong>Adjust Or Reset</strong>
+              <span>Remove a selection, clear paths, or reset the whole board.</span>
+            </div>
+          </div>
+        </div>
+        <div class="build-actions">
+          <button class="c-btn build-action" onclick="clearPaths()">Clear Paths</button>
+          <button class="c-btn danger build-action" onclick="clearAll()">Reset Board</button>
+        </div>
+      </section>
+
+      <section class="pal-section">
+        <div class="pal-header">
+          <div class="pal-title">Board Files</div>
+          <div class="pal-copy">Save current work locally, reload it later, or move it as JSON.</div>
+        </div>
+        <div class="file-actions">
+          <button class="c-btn file-action" onclick="saveCurrentPlay()">Save Play</button>
+          <button class="c-btn file-action" onclick="exportCurrentPlay()">Export JSON</button>
+          <button class="c-btn file-action" onclick="triggerImportPlay()">Import JSON</button>
+        </div>
+        <input type="file" id="importPlayInput" accept=".json,application/json" hidden>
+        <div class="file-shell">
+          <div class="file-shell-header">
+            <span>Saved Plays</span>
+            <button class="shell-link" onclick="refreshSavedPlayList()">Refresh</button>
+          </div>
+          <div id="savedPlayList" class="saved-play-list"></div>
+        </div>
+        <div class="file-shell future-shell">
+          <div class="file-shell-header">
+            <span>Future Export</span>
+          </div>
+          <div class="future-copy">Image and PDF export can slot in here next without changing the core board workflow.</div>
+        </div>
+      </section>
+
+      <section class="pal-section pal-section-plays">
+        <div class="pal-header">
+          <div class="pal-title">Play Library</div>
+          <div class="pal-copy">Load a starting structure, then build from there.</div>
+        </div>
+        <div id="playList"></div>
+      </section>
+    </div>
+  </div>
+
+  <div id="canvasWrap">
+    <canvas id="field"></canvas>
+    <div id="boardStatus" class="board-status">
+      <div class="board-status-mode" id="boardModeLabel">Move</div>
+      <div class="board-status-copy" id="boardStatusText">Select a tool to start building.</div>
+    </div>
+    <div id="emptyState" class="empty-state">
+      <div class="empty-state-kicker">Start Here</div>
+      <div class="empty-state-title">Build your first board state</div>
+      <div class="empty-state-copy">Add players from the left, place the ball, then choose a tool to move, draw, pass, or kick.</div>
+    </div>
+    <div id="hint">MOVE - drag any player or ball</div>
+  </div>
+</div>
+
+<div id="timeline">
+  <div class="tl-label-group">
+    <div class="tb-label">Playback Rail</div>
+    <div class="tl-copy">Review movement timing and run the animation.</div>
+  </div>
+  <div class="tl-ctrl">
+    <button class="tl-btn" onclick="resetAnim()" title="Reset">&#9166;</button>
+    <button class="tl-btn tl-play" id="tlPlayBtn" onclick="togglePlay()">&#9654;</button>
+  </div>
+  <div id="track" onclick="seekTrack(event)">
+    <div id="trackFill"></div>
+    <div id="trackThumb"></div>
+  </div>
+  <span id="tlTime">0.0 / 5.0s</span>
+  <div class="vd"></div>
+  <div class="spd-grp">
+    <button class="spd-btn" onclick="chSpd(-1)">-</button>
+    <span id="spdLabel2">1x</span>
+    <button class="spd-btn" onclick="chSpd(1)">+</button>
+  </div>
+</div>
+
+</div>
+<script src="js/tactical-board.js"></script>
+</body>
+</html>

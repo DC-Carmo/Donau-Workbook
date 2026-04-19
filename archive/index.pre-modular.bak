@@ -1,0 +1,2305 @@
+       <!DOCTYPE html> 
+
+ 
+
+<html lang="en"> 
+
+<head> 
+
+<meta charset="UTF-8"> 
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+
+<title>Rugby Union Donau — Game Plan</title> 
+
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"> 
+
+<style> 
+
+:root {
+
+  --green: #2E8B57;
+
+  --green-dim: rgba(46,139,87,0.15);
+
+  --navy: #0B1F33;
+
+  --dark: #081929;
+
+  --panel: #0D2036;
+
+  --card: #102540;
+
+  --border: rgba(46,139,87,0.2);
+
+  --text: #F0F4F0;
+
+  --muted: rgba(160,185,200,0.65);
+
+  --accent: #2E8B57;
+
+  --red: #C8102E;
+
+  --text-light: rgba(240,244,240,0.7);
+
+}
+
+*{margin:0;padding:0;box-sizing:border-box;} 
+
+html,body{width:100vw;height:100vh;overflow:hidden;background:var(--dark);color:var(--text);} 
+
+body{font-family:'Barlow',sans-serif;} 
+
+ 
+
+/* ── SLIDE ENGINE ── */ 
+
+.slide{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden;} 
+
+.slide.active{display:flex;} 
+
+ 
+
+/* ── TOPBAR ── */ 
+
+.topbar{ 
+
+height:52px;flex-shrink:0; 
+
+background:var(--dark); 
+
+border-bottom:1px solid var(--border); 
+
+display:flex;align-items:center;justify-content:space-between; 
+
+padding:0 28px; 
+
+position:relative;z-index:50; 
+
+} 
+
+.topbar-logo{display:flex;align-items:center;gap:12px;cursor:pointer;} 
+
+.wallaby-icon{width:32px;height:32px;background:var(--green-dim);border:1px solid rgba(46,139,87,0.4);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;}
+
+.topbar-title{font-family:'Barlow Condensed',sans-serif;font-weight:800;letter-spacing:3px;text-transform:uppercase;font-size:.85rem;color:var(--text);}
+
+.topbar-sub{font-size:.7rem;letter-spacing:2px;color:var(--muted);margin-top:1px;}
+
+.topbar-right{display:flex;align-items:center;gap:20px;}
+
+.motto{font-family:'Barlow Condensed',sans-serif;font-size:.75rem;letter-spacing:3px;text-transform:uppercase;color:var(--muted);}
+
+.motto span{color:var(--green);}
+
+.slide-num{font-family:'Anton',sans-serif;font-size:1rem;letter-spacing:2px;color:var(--muted);} 
+
+ 
+
+/* ── PROGRESS ── */ 
+
+.progress{position:fixed;top:52px;left:0;right:0;height:2px;background:rgba(62,143,99,0.1);z-index:100;} 
+
+.progress-fill{height:100%;background:var(--green);transition:width .4s ease;} 
+
+ 
+
+/* ── NAV ── */ 
+
+.nav{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:center;z-index:999;} 
+
+body.overlay-active .nav{opacity:0;pointer-events:none;}
+
+.nav-btn{
+background:rgba(46,139,87,0.08);border:1px solid rgba(46,139,87,0.3);
+color:var(--text);padding:9px 20px;border-radius:2px;
+font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.8rem;
+letter-spacing:2.5px;text-transform:uppercase;cursor:pointer;transition:all .18s;
+}
+
+.nav-btn:hover:not(:disabled){background:var(--green);color:white;}
+
+.nav-btn:disabled{opacity:.2;cursor:not-allowed;}
+
+.dots{display:flex;gap:6px;align-items:center;}
+
+.dot{width:6px;height:6px;border-radius:50%;background:rgba(46,139,87,0.2);cursor:pointer;transition:all .2s;}
+
+.dot.active{background:var(--green);width:18px;border-radius:3px;} 
+
+ 
+
+/* ── HEADING STYLES ── */ 
+
+h1.hero{font-family:'Anton',sans-serif;font-size:clamp(3.5rem,8vw,7rem);letter-spacing:4px;line-height:.92;text-transform:uppercase;} 
+
+h2.section{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:2rem;letter-spacing:4px;text-transform:uppercase;} 
+
+.tag{font-family:'Barlow Condensed',sans-serif;font-size:.82rem;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--green);border:1px solid rgba(46,139,87,0.55);padding:5px 13px;border-radius:2px;}
+
+ 
+
+/* ── SLIDE HEADER ── */ 
+
+.sl-header{padding:22px 32px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;flex-shrink:0;} 
+
+.sl-body{flex:1;overflow:hidden;display:flex;} 
+
+ 
+
+/* ─── SLIDE 1: COVER ─── */ 
+
+#s1{background:var(--dark);align-items:stretch;} 
+
+#s1 .cover-left{
+flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;
+padding:60px;position:relative;
+}
+
+#s1 .cover-left::after{
+content:'';position:absolute;right:0;top:0;bottom:0;width:1px;
+background:var(--border);
+}
+
+#s1 .cover-right{
+width:340px;flex-shrink:0;
+background:var(--panel);
+border-left:1px solid var(--border);
+display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+padding:28px 36px 36px;gap:0;
+}
+.cover-right-body{
+flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+gap:18px;width:100%;padding-top:8px;
+}
+
+.cover-badge{
+width:100px;height:100px;border:1px solid var(--border);border-radius:50%;
+display:flex;align-items:center;justify-content:center;
+font-size:3rem;
+position:relative;
+}
+
+.cover-pillar{text-align:center;}
+
+.cover-pillar .p-num{font-family:'Anton',sans-serif;font-size:2.4rem;color:var(--text);}
+
+.cover-pillar .p-word{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:.9rem;letter-spacing:2px;text-transform:uppercase;color:rgba(160,185,200,0.85);line-height:1.6;}
+
+.cover-divider{width:40px;height:1px;background:var(--border);}
+
+.year-tag{font-family:'Anton',sans-serif;font-size:1.2rem;letter-spacing:6px;color:var(--muted);}
+
+.author-line{font-family:'Barlow Condensed',sans-serif;font-size:.8rem;letter-spacing:2px;color:var(--muted);margin-top:28px;} 
+
+ 
+
+/* ─── SLIDE 2: PHILOSOPHY ─── */ 
+
+#s2 .sl-body{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:1px;background:var(--border);} 
+
+.phil-zone{background:var(--panel);padding:28px 32px;display:flex;flex-direction:column;gap:12px;transition:background .2s;position:relative;overflow:hidden;} 
+
+.phil-zone::before{
+content:attr(data-label);
+position:absolute;right:20px;top:14px;
+font-family:'Anton',sans-serif;font-size:4rem;color:rgba(46,139,87,0.04);letter-spacing:3px;
+}
+
+.phil-zone h3{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.7rem;letter-spacing:3px;text-transform:uppercase;}
+
+.phil-zone h3.gold{color:var(--text);}
+
+.phil-zone h3.green{color:var(--green);}
+
+.phil-zone ul{list-style:none;display:flex;flex-direction:column;gap:7px;}
+
+.phil-zone ul li{font-size:.97rem;color:var(--text-light);padding-left:18px;position:relative;line-height:1.6;}
+
+.phil-zone ul li::before{content:'—';position:absolute;left:0;color:var(--green);font-size:.75rem;}
+
+.metric-row{display:flex;gap:12px;flex-wrap:wrap;}
+
+.metric-chip{background:rgba(46,139,87,0.08);border:1px solid var(--border);padding:8px 14px;border-radius:2px;text-align:center;}
+
+.metric-chip .m-val{font-family:'Anton',sans-serif;font-size:1.5rem;color:var(--green);}
+
+.metric-chip .m-label{font-size:.82rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:rgba(210,225,235,0.92);} 
+
+ 
+
+/* ─── SLIDE 3: ATTACK SYSTEM ─── */ 
+
+#s3 .sl-body{display:flex;gap:0;} 
+
+.attack-sidebar{width:290px;flex-shrink:0;border-right:1px solid var(--border);overflow-y:auto;padding:18px;}
+
+/* ── FIELD AREAS ── */
+.field-areas-label{font-family:'Barlow Condensed',sans-serif;font-size:.72rem;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
+
+.field-area{
+  border:1px solid var(--border);border-radius:2px;
+  margin-bottom:8px;cursor:pointer;
+  transition:border-color .2s,background .2s;
+  background:rgba(46,139,87,0.04);
+}
+.field-area:hover{border-color:rgba(46,139,87,0.45);background:rgba(46,139,87,0.07);}
+.field-area.open{border-color:var(--green);background:rgba(46,139,87,0.09);}
+
+.fa-header{display:flex;align-items:center;gap:10px;padding:11px 13px;}
+.fa-name{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:1.05rem;letter-spacing:2px;text-transform:uppercase;color:var(--text);}
+.field-area.open .fa-name{color:var(--green);}
+.fa-short{font-family:'Barlow Condensed',sans-serif;font-size:.75rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);flex:1;}
+.fa-arrow{
+  width:16px;height:16px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--muted);font-size:.65rem;
+  transition:transform .25s ease, color .2s;
+}
+.field-area.open .fa-arrow{transform:rotate(180deg);color:var(--green);}
+
+.fa-body{
+  max-height:0;overflow:hidden;
+  opacity:0;
+  transition:max-height .28s ease, opacity .22s ease;
+  padding:0 13px;
+}
+.field-area.open .fa-body{max-height:300px;opacity:1;padding:0 13px 13px;}
+
+.fa-body ul{list-style:none;display:flex;flex-direction:column;gap:5px;margin-bottom:0;}
+.fa-body ul li{font-size:.82rem;color:var(--text-light);padding-left:14px;position:relative;line-height:1.5;}
+.fa-body ul li::before{content:'—';position:absolute;left:0;color:var(--green);font-size:.7rem;}
+.fa-call{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.78rem;letter-spacing:1.5px;color:var(--green);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+.fa-call span{color:var(--text);font-weight:400;letter-spacing:.5px;}
+
+.attack-main{flex:1;display:flex;flex-direction:column;overflow:hidden;} 
+
+.zone-btns{display:flex;gap:6px;padding:14px 20px;border-bottom:1px solid var(--border);flex-shrink:0;} 
+
+.zone-btn{
+padding:7px 16px;border:1px solid var(--border);background:transparent;
+color:var(--muted);font-family:'Barlow Condensed',sans-serif;font-weight:700;
+font-size:.75rem;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all .18s;border-radius:2px;
+}
+
+.zone-btn:hover{border-color:rgba(46,139,87,0.5);color:var(--text);}
+
+.zone-btn.active{background:var(--green);color:white;border-color:var(--green);} 
+
+.attack-content{flex:1;overflow-y:auto;padding:20px;} 
+
+.play-list-item{ 
+
+padding:12px 14px;border:1px solid var(--border);border-radius:2px; 
+
+margin-bottom:8px;cursor:pointer;transition:all .18s; 
+
+} 
+
+.play-list-item:hover{border-color:rgba(62,143,99,0.4);background:rgba(62,143,99,0.05);} 
+
+.play-list-item.active{border-color:var(--green);background:rgba(62,143,99,0.1);} 
+
+.play-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1rem;letter-spacing:1px;} 
+
+.play-type{font-size:.65rem;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-top:2px;} 
+
+.play-detail{display:none;margin-top:10px;font-size:.82rem;color:var(--muted);line-height:1.6;border-top:1px solid var(--border);padding-top:10px;} 
+
+.play-list-item.active .play-detail{display:block;}
+
+.diagram-btn{
+  margin-top:10px;
+  background:rgba(46,139,87,0.12);
+  border:1px solid rgba(46,139,87,0.5);
+  color:var(--green);
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:700;font-size:.75rem;letter-spacing:2px;text-transform:uppercase;
+  padding:5px 14px;border-radius:2px;cursor:pointer;
+  transition:background .2s, color .2s;
+}
+.diagram-btn:hover{background:var(--green);color:#fff;}
+
+.play-detail ul{list-style:none;display:flex;flex-direction:column;gap:5px;} 
+
+.play-detail ul li{padding-left:14px;position:relative;} 
+
+.play-detail ul li::before{content:'›';position:absolute;left:0;color:var(--green);} 
+
+.terminology-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;} 
+
+.term-chip{padding:8px 12px;background:rgba(46,139,87,0.06);border:1px solid var(--border);border-radius:2px;}
+
+.term-key{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.85rem;color:var(--green);}
+
+.term-val{font-size:.75rem;color:var(--muted);margin-top:2px;} 
+
+ 
+
+/* ─── SLIDE 4: LINEOUT ─── */ 
+
+#s4 .sl-body{display:grid;grid-template-columns:1fr 1.2fr;gap:1px;background:var(--border);} 
+
+.lineout-left{background:var(--panel);overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:10px;} 
+
+.lineout-right{background:var(--panel);overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:14px;} 
+
+.lo-call{ 
+
+border:1px solid var(--border);padding:12px 16px;border-radius:2px; 
+
+cursor:pointer;transition:all .18s; 
+
+} 
+
+.lo-call:hover{border-color:rgba(46,139,87,0.45);}
+
+.lo-call.active{border-color:var(--green);background:rgba(46,139,87,0.08);}
+
+.lo-call .lc-name{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1rem;letter-spacing:1px;}
+
+.lo-call .lc-sub{font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--green);margin-top:2px;} 
+
+.lo-call .lc-detail{display:none;margin-top:10px;font-size:.82rem;color:var(--muted);line-height:1.6;border-top:1px solid var(--border);padding-top:10px;} 
+
+.lo-call.active .lc-detail{display:block;} 
+
+.success-block{background:rgba(46,139,87,0.07);border:1px solid var(--border);border-radius:2px;padding:16px;}
+
+.success-block h4{font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:2px;text-transform:uppercase;font-size:.8rem;color:var(--green);margin-bottom:10px;} 
+
+.success-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;} 
+
+.s-metric{text-align:center;} 
+
+.s-metric .sv{font-family:'Anton',sans-serif;font-size:1.8rem;color:var(--green);} 
+
+.s-metric .sl{font-size:.65rem;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);} 
+
+.formation-codes{background:rgba(62,143,99,0.06);border:1px solid var(--border);border-radius:2px;padding:14px;} 
+
+.fc-title{font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:2px;text-transform:uppercase;font-size:.75rem;color:var(--green);margin-bottom:10px;} 
+
+.code-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);} 
+
+.code-row:last-child{border-bottom:none;} 
+
+.code-key{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.9rem;} 
+
+.code-desc{font-size:.78rem;color:var(--muted);} 
+
+.technique-list{display:flex;flex-direction:column;gap:8px;} 
+
+.tech-item{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;background:rgba(46,139,87,0.05);border:1px solid var(--border);border-radius:2px;} 
+
+.tech-icon{font-size:1.2rem;flex-shrink:0;margin-top:2px;} 
+
+.tech-text{font-size:.82rem;color:var(--muted);line-height:1.5;} 
+
+.tech-text strong{color:var(--text);} 
+
+ 
+
+/* ─── SLIDE 5: DEFENCE ─── */ 
+
+#s5 .sl-body{display:grid;grid-template-columns:1fr 1fr;gap:0;} 
+
+.def-left{border-right:1px solid var(--border);overflow-y:auto;padding:20px 24px;} 
+
+.def-right{overflow-y:auto;padding:20px 24px;} 
+
+.zone-tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;} 
+
+.zone-tab{
+padding:6px 14px;border:1px solid var(--border);background:transparent;
+font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.72rem;
+letter-spacing:2px;text-transform:uppercase;cursor:pointer;border-radius:2px;color:var(--muted);transition:all .18s;
+}
+
+.zone-tab:hover{border-color:rgba(46,139,87,0.4);color:var(--text);}
+
+.zone-tab.active{background:var(--green);color:white;border-color:var(--green);} 
+
+.zone-content{display:none;} 
+
+.zone-content.active{display:block;} 
+
+.def-block{margin-bottom:16px;} 
+
+.def-block h4{font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:2px;text-transform:uppercase;font-size:.8rem;margin-bottom:8px;} 
+
+.def-block h4.g{color:var(--green);}
+
+.def-block h4.o{color:var(--text);}
+
+.def-block h4.r{color:var(--red);} 
+
+.def-block ul{list-style:none;display:flex;flex-direction:column;gap:6px;} 
+
+.def-block ul li{font-size:.82rem;color:var(--muted);padding-left:16px;position:relative;line-height:1.5;} 
+
+.def-block ul li::before{content:'—';position:absolute;left:0;color:var(--green);} 
+
+.role-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;} 
+
+.role-card{padding:12px;background:rgba(46,139,87,0.06);border:1px solid var(--border);border-radius:2px;} 
+
+.role-card .rc-role{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.95rem;color:var(--green);} 
+
+.role-card .rc-desc{font-size:.75rem;color:var(--muted);margin-top:4px;line-height:1.4;} 
+
+.attitude-block{background:rgba(46,139,87,0.07);border:1px solid var(--border);border-radius:2px;padding:16px;margin-bottom:14px;}
+
+.attitude-block h4{font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:2px;text-transform:uppercase;font-size:.78rem;color:var(--green);margin-bottom:10px;} 
+
+.attitude-block ul{list-style:none;display:flex;flex-direction:column;gap:5px;} 
+
+.attitude-block ul li{font-size:.82rem;color:var(--text-light);padding-left:16px;position:relative;} 
+
+.attitude-block ul li::before{content:'✦';position:absolute;left:0;color:var(--green);font-size:.55rem;top:3px;} 
+
+.call-table{width:100%;border-collapse:collapse;font-size:.78rem;} 
+
+.call-table th{font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:2px;text-transform:uppercase;font-size:.68rem;color:var(--green);text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);} 
+
+.call-table td{padding:7px 10px;border-bottom:1px solid rgba(62,143,99,0.07);color:var(--muted);vertical-align:top;} 
+
+.call-table td:first-child{color:var(--text);font-weight:600;} 
+
+ 
+
+/* ─── SLIDE 6: AI Q&A ─── */ 
+
+#s6 .sl-body{display:flex;overflow:hidden;} 
+
+.chat-area{flex:1;display:flex;flex-direction:column;overflow:hidden;} 
+
+.chat-msgs{flex:1;overflow-y:auto;padding:20px 28px;display:flex;flex-direction:column;gap:14px;} 
+
+.msg{display:flex;flex-direction:column;max-width:78%;} 
+
+.msg.user{align-self:flex-end;align-items:flex-end;} 
+
+.msg.ai{align-self:flex-start;} 
+
+.msg-label{font-size:.62rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:5px;} 
+
+.msg-bubble{padding:12px 16px;border-radius:3px;font-size:.88rem;line-height:1.6;} 
+
+.msg.user .msg-bubble{background:var(--green);color:white;font-weight:500;}
+
+.msg.ai .msg-bubble{background:var(--card);border:1px solid var(--border);color:var(--text-light);} 
+
+.chat-input-row{padding:14px 28px 16px;border-top:1px solid var(--border);display:flex;gap:10px;flex-shrink:0;} 
+
+.chat-inp{ 
+
+flex:1;background:var(--card);border:1px solid var(--border); 
+
+color:var(--text);padding:11px 16px;border-radius:2px; 
+
+font-family:'Barlow',sans-serif;font-size:.88rem;outline:none;transition:border-color .18s; 
+
+} 
+
+.chat-inp:focus{border-color:rgba(62,143,99,0.5);} 
+
+.chat-inp::placeholder{color:var(--muted);} 
+
+.send-btn{
+background:var(--green);border:none;color:white;padding:11px 22px;
+border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-weight:800;
+font-size:.8rem;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:opacity .18s;
+} 
+
+.send-btn:hover{opacity:.85;} 
+
+.send-btn:disabled{opacity:.4;cursor:not-allowed;} 
+
+.ai-panel{width:230px;border-left:1px solid var(--border);padding:18px;overflow-y:auto;flex-shrink:0;} 
+
+.ai-panel h4{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.7rem;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:12px;} 
+
+.suggest{
+padding:9px 12px;border:1px solid var(--border);border-radius:2px;
+font-size:.78rem;color:var(--muted);cursor:pointer;
+margin-bottom:6px;transition:all .18s;line-height:1.4;
+}
+
+.suggest:hover{border-color:var(--green);color:var(--text);background:rgba(46,139,87,0.08);} 
+
+.typing-indicator{display:flex;gap:5px;padding:12px 16px;background:var(--card);border:1px solid var(--border);border-radius:3px;align-self:flex-start;width:60px;} 
+
+.typing-indicator span{width:7px;height:7px;border-radius:50%;background:var(--green);opacity:.4;animation:blink 1.2s infinite;} 
+
+.typing-indicator span:nth-child(2){animation-delay:.2s;} 
+
+.typing-indicator span:nth-child(3){animation-delay:.4s;} 
+
+@keyframes blink{0%,100%{opacity:.2;}50%{opacity:1;}} 
+
+ 
+
+/* SCROLLBAR */ 
+
+::-webkit-scrollbar{width:3px;} 
+
+::-webkit-scrollbar-track{background:transparent;} 
+
+::-webkit-scrollbar-thumb{background:rgba(46,139,87,0.35);border-radius:2px;} 
+
+ 
+
+/* FADE IN */
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+@keyframes s1Panel{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+.slide.active .fadeup{animation:fadeUp .4s ease forwards;}
+
+.slide.active .fadeup:nth-child(2){animation-delay:.08s;opacity:0;}
+
+.slide.active .fadeup:nth-child(3){animation-delay:.16s;opacity:0;}
+
+.slide.active .fadeup:nth-child(4){animation-delay:.24s;opacity:0;}
+
+/* Slide 1 — panel-level entrance (left first, right delayed) */
+#s1.active .cover-left{animation:s1Panel .7s cubic-bezier(.22,.8,.36,1) both;}
+#s1.active .cover-right{animation:s1Panel .7s cubic-bezier(.22,.8,.36,1) .28s both;}
+
+/* Suppress inner fadeup double-movement on slide 1 */
+#s1.active .cover-left .fadeup,
+#s1.active .cover-right .fadeup{animation:none;opacity:1;}
+
+/* ── FOCUS & A11Y ── */
+:focus-visible{outline:2px solid var(--green);outline-offset:2px;}
+.nav-btn:focus-visible,.zone-btn:focus-visible,.zone-tab:focus-visible,.send-btn:focus-visible{outline:2px solid var(--green);outline-offset:2px;}
+.play-list-item:focus-visible,.lo-call:focus-visible,.suggest:focus-visible,.dot:focus-visible{outline:2px solid var(--green);outline-offset:2px;}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+
+/* ── DOT TOUCH TARGET ── */
+.dot{position:relative;}
+.dot::before{content:'';position:absolute;inset:-19px;/* 6px dot + 19px padding each side = 44px hit area */}
+
+/* ── RESPONSIVE ── */
+
+/* Tablet: <= 900px */
+@media(max-width:900px){
+  html,body{overflow:auto;overflow-x:hidden;height:auto;min-height:100vh;}
+  .slide{position:relative;inset:auto;display:none;flex-direction:column;min-height:100vh;}
+  .slide.active{display:flex;}
+
+  #s1 .cover-right{width:100%;border-left:none;border-top:1px solid var(--border);}
+  #s1 .cover-left::after{display:none;}
+  #s1 > div[style]{flex-direction:column;}
+
+  #s2 .sl-body{grid-template-columns:1fr;grid-template-rows:auto;}
+  #s3 .sl-body{flex-direction:column;}
+  .attack-sidebar{width:100%;border-right:none;border-bottom:1px solid var(--border);max-height:200px;overflow-y:auto;}
+  .attack-main{min-height:300px;}
+
+  #s4 .sl-body{grid-template-columns:1fr;grid-template-rows:auto auto;}
+  #s5 .sl-body{grid-template-columns:1fr;grid-template-rows:auto auto;}
+  .def-left{border-right:none;border-bottom:1px solid var(--border);}
+
+  #s6 .sl-body{flex-direction:column;}
+  .ai-panel{width:100%;border-left:none;border-top:1px solid var(--border);max-height:180px;overflow-y:auto;}
+
+  .nav{position:sticky;bottom:0;background:rgba(8,25,41,0.97);padding:12px 0;width:100%;justify-content:center;transform:none;left:0;}
+}
+
+/* Mobile: <= 560px */
+@media(max-width:560px){
+  #s1 .cover-left{padding:30px 20px 40px;}
+  h1.hero{font-size:clamp(2.5rem,10vw,4rem);}
+  .topbar{padding:0 14px;height:44px;}
+  .topbar-right .motto{display:none;}
+  .sl-header{padding:14px 16px 10px;}
+  h2.section{font-size:1.3rem;letter-spacing:2px;}
+
+  .cover-pillar .p-num{font-size:2rem;}
+  #s1 .cover-right{padding:20px;gap:16px;}
+
+  .phil-zone{padding:16px;}
+  .metric-row{flex-direction:column;}
+
+  .attack-sidebar{padding:10px;max-height:160px;}
+  .terminology-grid{grid-template-columns:1fr;}
+  .attack-content{padding:12px;}
+
+  .lineout-left,.lineout-right,.def-left,.def-right{padding:12px 14px;}
+  .role-grid{grid-template-columns:1fr;}
+  .success-metrics{grid-template-columns:1fr 1fr;}
+
+  .chat-input-row{padding:10px 14px;}
+  .chat-msgs{padding:12px 14px;}
+  .ai-panel{padding:12px;}
+
+  .zone-btns,.zone-tabs{flex-wrap:wrap;}
+  .zone-btn,.zone-tab{padding:8px 12px;font-size:.7rem;min-height:44px;display:flex;align-items:center;}
+
+  .nav-btn{padding:10px 14px;min-height:44px;}
+  .suggest{min-height:44px;display:flex;align-items:center;}
+}
+
+/* ── TOPBAR COACH BUTTON ── */
+.coach-intro-btn{
+  background:rgba(46,139,87,0.12);
+  border:1px solid var(--green);
+  color:var(--green);
+  padding:9px 20px;
+  border-radius:2px;
+  font-family:'Barlow Condensed',sans-serif;font-weight:700;
+  font-size:.82rem;letter-spacing:2.5px;text-transform:uppercase;
+  cursor:pointer;
+  transition:background .25s ease, color .25s ease, box-shadow .25s ease, transform .25s ease, border-color .25s ease;
+  white-space:nowrap;
+}
+.coach-intro-btn:hover{
+  background:var(--green);
+  color:#fff;
+  border-color:rgba(46,139,87,0.8);
+  box-shadow:0 0 14px rgba(46,139,87,0.22), 0 2px 8px rgba(0,0,0,0.2);
+  transform:scale(1.02);
+}
+
+/* ── COVER PAGE BUTTONS ── */
+.cover-btns{display:flex;flex-direction:column;gap:8px;margin-top:36px;}
+
+.cover-expand-btn{
+  display:flex;align-items:center;gap:14px;
+  padding:13px 18px;
+  background:transparent;
+  border:1px solid var(--border);
+  border-radius:2px;
+  color:var(--text-light);
+  font-family:'Barlow Condensed',sans-serif;font-weight:700;
+  font-size:.82rem;letter-spacing:2.5px;text-transform:uppercase;
+  cursor:pointer;transition:all .2s;text-align:left;width:100%;
+}
+.cover-expand-btn:hover{
+  border-color:var(--green);
+  background:rgba(46,139,87,0.07);
+  color:var(--text);
+}
+.cover-expand-btn .btn-num{
+  font-family:'Anton',sans-serif;font-size:.9rem;color:var(--green);min-width:18px;
+}
+.cover-expand-btn .btn-arrow{
+  margin-left:auto;font-size:.65rem;color:var(--muted);
+  transition:transform .2s;
+}
+
+/* ── FIELD AREAS LABEL BUTTON ── */
+.field-areas-label-btn{
+  display:flex;align-items:center;gap:6px;
+  background:none;border:none;padding:0;margin-bottom:12px;
+  font-family:'Barlow Condensed',sans-serif;font-size:.72rem;
+  letter-spacing:2.5px;text-transform:uppercase;
+  color:var(--muted);cursor:pointer;
+  transition:color .2s;
+}
+.field-areas-label-btn:hover,.field-areas-label-btn.open{color:var(--green);}
+.field-areas-map-arrow{font-size:.6rem;transition:transform .25s ease;}
+.field-areas-label-btn.open .field-areas-map-arrow{transform:rotate(180deg);}
+
+/* ── FIELD MAP INLINE PANEL ── */
+.field-map-panel{
+  max-height:0;overflow:hidden;opacity:0;
+  transition:max-height .32s ease, opacity .25s ease;
+  margin-bottom:0;
+}
+.field-map-panel.open{max-height:500px;opacity:1;margin-bottom:16px;}
+.field-map-panel img{
+  width:100%;display:block;border-radius:2px;
+  border:1px solid var(--border);
+  cursor:pointer;
+  transition:opacity .2s ease;
+}
+.field-map-panel img:hover{opacity:.85;}
+
+/* ── FIELD IMAGE LIGHTBOX ── */
+.field-lightbox{
+  position:fixed;inset:0;z-index:9999;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,0);
+  opacity:0;pointer-events:none;
+  transition:background .25s ease, opacity .25s ease;
+}
+.field-lightbox.open{
+  background:rgba(0,0,0,.85);
+  opacity:1;pointer-events:all;
+}
+.field-lightbox-inner{
+  position:relative;
+  max-width:90vw;max-height:88vh;
+  transform:scale(.94);
+  transition:transform .25s cubic-bezier(.22,.8,.36,1);
+}
+.field-lightbox.open .field-lightbox-inner{
+  transform:scale(1);
+}
+.field-lightbox-inner img{
+  display:block;max-width:100%;max-height:88vh;
+  border-radius:3px;border:1px solid rgba(46,139,87,0.35);
+  box-shadow:0 8px 48px rgba(0,0,0,.7);
+}
+.field-lightbox-close{
+  position:absolute;top:-14px;right:-14px;
+  width:30px;height:30px;border-radius:50%;
+  background:var(--card);border:1px solid var(--border);
+  color:var(--text);font-size:1rem;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  transition:background .2s ease, color .2s ease;
+}
+.field-lightbox-close:hover{background:var(--green);color:#fff;}
+
+/* ── OVERLAY SYSTEM ── */
+.overlay{
+  position:fixed;inset:0;z-index:600;
+  background:rgba(8,25,41,0.97);
+  display:flex;flex-direction:column;
+  opacity:0;pointer-events:none;
+  transition:opacity .28s ease;
+  overflow:hidden;
+}
+.overlay.open{opacity:1;pointer-events:all;}
+
+.overlay-topbar{
+  height:52px;flex-shrink:0;
+  background:var(--dark);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 28px;
+}
+.overlay-body{flex:1;overflow-y:auto;padding:32px 40px 60px;}
+.overlay-close{
+  background:transparent;border:1px solid var(--border);
+  color:var(--muted);width:34px;height:34px;border-radius:2px;
+  cursor:pointer;font-size:.95rem;display:flex;align-items:center;justify-content:center;
+  transition:all .18s;font-family:'Barlow',sans-serif;line-height:1;
+}
+.overlay-close:hover{border-color:var(--green);color:var(--text);}
+
+.ov-title{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:.8rem;letter-spacing:5px;text-transform:uppercase;color:var(--muted);}
+.ov-sub{font-size:.75rem;letter-spacing:2px;color:var(--muted);margin-top:4px;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;}
+.ov-name{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:2rem;letter-spacing:3px;text-transform:uppercase;color:var(--text);margin-bottom:28px;}
+
+/* Coach intro layout */
+.coach-layout{display:flex;gap:36px;align-items:flex-start;margin-top:28px;}
+.coach-photo{width:42%;flex-shrink:0;}
+.coach-photo img{width:100%;border-radius:2px;border:1px solid var(--border);display:block;}
+.coach-content{flex:1;display:flex;flex-direction:column;gap:22px;}
+
+.ov-section-label{
+  font-family:'Barlow Condensed',sans-serif;font-weight:800;
+  font-size:.78rem;letter-spacing:3px;text-transform:uppercase;
+  color:var(--green);margin-bottom:14px;
+  padding-bottom:8px;border-bottom:1px solid var(--border);
+}
+.ov-fact-item{margin-bottom:18px;}
+.ov-fact-item strong{
+  display:block;font-family:'Barlow Condensed',sans-serif;font-weight:800;
+  font-size:1rem;letter-spacing:2px;text-transform:uppercase;
+  color:var(--text);margin-bottom:6px;
+}
+.ov-fact-item p,.ov-fact-item ul{font-size:.92rem;color:var(--text-light);line-height:1.7;}
+.ov-fact-item ul{list-style:none;display:flex;flex-direction:column;gap:6px;padding-left:0;}
+.ov-fact-item ul li{padding-left:16px;position:relative;}
+.ov-fact-item ul li::before{content:'—';position:absolute;left:0;color:var(--green);font-size:.75rem;}
+
+/* Philosophy / Work Ethic content */
+.ov-prose{font-size:.9rem;color:var(--text-light);line-height:1.7;}
+.ov-prose p{margin-bottom:12px;}
+.ov-prose ul{list-style:none;display:flex;flex-direction:column;gap:6px;margin:12px 0;}
+.ov-prose ul li{padding-left:18px;position:relative;}
+.ov-prose ul li::before{content:'—';position:absolute;left:0;color:var(--green);font-size:.75rem;}
+.ov-pull{
+  font-family:'Barlow Condensed',sans-serif;font-weight:700;
+  font-size:1.25rem;letter-spacing:2px;color:var(--text);
+  border-left:3px solid var(--green);padding-left:16px;
+  margin:20px 0;line-height:1.35;
+}
+
+/* Responsive overlay */
+@media(max-width:700px){
+  .overlay-body{padding:20px 16px 50px;}
+  .coach-layout{flex-direction:column;}
+  .coach-photo{width:100%;}
+}
+
+</style> 
+
+ 
+
+</head> 
+
+<body>
+
+<a href="#s1" class="sr-only" id="skipLink">Skip to content</a>
+
+<div class="progress" role="progressbar" aria-valuenow="1" aria-valuemin="1" aria-valuemax="6" aria-label="Slide progress"><div class="progress-fill" id="pFill" style="width:16.6%"></div></div> 
+
+ 
+
+<!-- ══════════════ SLIDE 1: COVER ══════════════ --> 
+
+ 
+
+<div class="slide active" id="s1"> 
+
+  <div class="topbar"> 
+
+    <div class="topbar-logo" onclick="goTo(1)">
+      <img src="RugbyUnionDonauLogo2024.svg" style="height:30px;width:auto;object-fit:contain;" alt="Rugby Union Donau"/>
+      <div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Coaching Document</div></div>
+    </div> 
+
+    <div class="topbar-right">
+      <div class="motto">Work Ethic · <span>Attack</span> · Belief</div>
+      <div class="slide-num" id="slideNum">01 / 06</div>
+    </div>
+
+  </div>
+
+  <div style="flex:1;display:flex;overflow:hidden;">
+
+    <div class="cover-left">
+
+      <img src="RugbyUnionDonauLogo2024.svg" class="fadeup" style="width:160px;height:auto;object-fit:contain;margin-bottom:16px;" alt="Rugby Union Donau"/>
+
+      <h1 class="hero fadeup">GAME<br><span style="color:var(--green);">PLAN</span></h1>
+
+    </div>
+
+    <div class="cover-right">
+
+      <button class="coach-intro-btn fadeup" onclick="openOverlay('ovCoach')" aria-haspopup="dialog">
+        Coach Introduction <span style="font-size:.65rem;opacity:.6;">&#9654;</span>
+      </button>
+
+      <div class="cover-right-body">
+
+        <img src="RugbyUnionDonauLogo2024.svg" class="fadeup" style="width:108px;height:auto;object-fit:contain;opacity:0.42;" alt=""/>
+
+        <div class="cover-divider"></div>
+
+        <div class="cover-pillar fadeup">
+          <div class="p-num">#1</div>
+          <div class="p-word">Target: Fewest Points Against</div>
+        </div>
+
+        <div class="cover-divider"></div>
+
+        <div style="display:flex;flex-direction:column;gap:26px;width:100%;">
+
+          <div class="cover-pillar fadeup">
+            <div class="p-num" style="font-size:1.5rem;margin-bottom:6px;">WORK ETHIC</div>
+            <div class="p-word">Train as you play. No walking.</div>
+            <div class="p-word" style="margin-top:5px;">Better wrong and decisive than right and passive.</div>
+            <div class="p-word" style="margin-top:5px;">Challenge the opposition by challenging ourselves.</div>
+            <div class="p-word" style="margin-top:5px;">Training reflects games.</div>
+          </div>
+
+          <div class="cover-pillar fadeup">
+            <div class="p-num" style="font-size:1.5rem;color:var(--green);margin-bottom:6px;">ATTACK</div>
+            <div class="p-word">High skill. Challenge opposition.</div>
+          </div>
+
+          <div class="cover-pillar fadeup">
+            <div class="p-num" style="font-size:1.5rem;margin-bottom:6px;">BELIEF</div>
+            <div class="p-word">Trust our skills. Keep attacking.</div>
+            <div class="p-word" style="margin-top:5px;">Share leadership and own your responsibilities.</div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div> 
+
+</div> 
+
+ 
+
+<!-- ══════════════ SLIDE 2: TEAM STANDARDS ══════════════ -->
+
+<div class="slide" id="s2">
+
+  <div class="topbar">
+    <div class="topbar-logo" onclick="goTo(1)">
+      <img src="RugbyUnionDonauLogo2024.svg" style="height:30px;width:auto;object-fit:contain;" alt="Rugby Union Donau"/>
+      <div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Game Plan · Standards</div></div>
+    </div>
+    <div class="topbar-right"><div class="motto">Work Ethic · <span>Attack</span> · Belief</div><div class="slide-num">02 / 06</div></div>
+  </div>
+
+  <div class="sl-header fadeup">
+    <h2 class="section">Team Standards</h2>
+    <div class="tag" style="font-size:.62rem;color:rgba(46,139,87,0.38);border-color:rgba(46,139,87,0.18);">Non-Negotiable</div>
+  </div>
+
+  <div class="sl-body">
+
+    <!-- TOP LEFT: Team Identity -->
+    <div class="phil-zone fadeup" data-label="ID">
+      <h3 class="green">Team Identity</h3>
+      <ul>
+        <li>Fast. Connected.</li>
+        <li>Play what's in front</li>
+        <li>Decisions early. No hesitation.</li>
+        <li>Pressure every phase</li>
+        <li>Win collisions</li>
+        <li>Reload and go again</li>
+        <li>80 minutes. Stay in it.</li>
+      </ul>
+      <div style="margin-top:auto;padding-top:14px;border-top:1px solid var(--border);">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.8rem;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Game Areas</div>
+        <div style="display:flex;flex-wrap:wrap;gap:9px;">
+          <span class="tag" style="font-size:.88rem;padding:6px 15px;border-color:rgba(46,139,87,0.65);color:var(--green);">Transition</span><span class="tag" style="font-size:.88rem;padding:6px 15px;border-color:rgba(46,139,87,0.65);color:var(--green);">Set Piece</span><span class="tag" style="font-size:.88rem;padding:6px 15px;border-color:rgba(46,139,87,0.65);color:var(--green);">Attack</span><span class="tag" style="font-size:.88rem;padding:6px 15px;border-color:rgba(46,139,87,0.65);color:var(--green);">Contact</span><span class="tag" style="font-size:.88rem;padding:6px 15px;border-color:rgba(46,139,87,0.65);color:var(--green);">Defence</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOP RIGHT: Set Piece Targets -->
+    <div class="phil-zone fadeup" data-label="SET">
+      <h3 class="gold">Lineout</h3>
+      <div class="metric-row" style="margin-bottom:14px;">
+        <div class="metric-chip"><div class="m-val">90%</div><div class="m-label">Own ball</div></div>
+      </div>
+      <ul style="margin-bottom:18px;">
+        <li>Clean, fast delivery</li>
+        <li>Pressure opposition throw</li>
+      </ul>
+
+      <h3 class="gold" style="margin-top:4px;">Scrum</h3>
+      <div class="metric-row" style="margin-bottom:14px;">
+        <div class="metric-chip"><div class="m-val">100%</div><div class="m-label">Own ball</div></div>
+      </div>
+      <ul>
+        <li>Stable platform</li>
+        <li>Apply pressure</li>
+      </ul>
+    </div>
+
+    <!-- BOTTOM LEFT: Attack -->
+    <div class="phil-zone fadeup" data-label="ATK">
+      <h3 class="green">Attack</h3>
+      <ul>
+        <li>Reload faster than the defence</li>
+        <li>Core skills first — catch, pass, support, breakdown</li>
+        <li>Use the 3F's (Feet, Fight, Finish)</li>
+        <li>All 15 as decision-makers</li>
+        <li>Know roles, shapes, exits</li>
+      </ul>
+    </div>
+
+    <!-- BOTTOM RIGHT: Defence -->
+    <div class="phil-zone fadeup" data-label="DEF">
+      <h3 class="green">Defence</h3>
+      <ul>
+        <li>Tough. Physical. Relentless.</li>
+        <li>Work rate</li>
+        <li>Presence — talk, body language</li>
+        <li>On the ball — accelerate</li>
+        <li>Off the ball — stay square</li>
+        <li>Win collisions — bodies in front</li>
+        <li>Repeat</li>
+      </ul>
+    </div>
+
+  </div>
+
+</div> 
+
+ 
+
+<!-- ══════════════ SLIDE 3: ATTACK SYSTEM ══════════════ --> 
+
+ 
+
+<div class="slide" id="s3"> 
+
+  <div class="topbar"> 
+
+    <div class="topbar-logo" onclick="goTo(1)">
+      <img src="RugbyUnionDonauLogo2024.svg" style="height:30px;width:auto;object-fit:contain;" alt="Rugby Union Donau"/>
+      <div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Game Plan · Attack System</div></div>
+    </div>
+
+    <div class="topbar-right"><div class="motto">Work Ethic · <span>Attack</span> · Belief</div><div class="slide-num">03 / 06</div></div> 
+
+  </div> 
+
+  <div class="sl-header fadeup"> 
+
+    <h2 class="section">Attack System</h2> 
+
+    <div class="tag">Select a category</div> 
+
+  </div> 
+
+  <div class="sl-body"> 
+
+    <div class="attack-sidebar"> 
+
+      <button class="field-areas-label-btn" id="fieldAreasBtn" onclick="toggleFieldMap()" aria-expanded="false" aria-controls="fieldMapPanel">
+        Field Areas <span class="field-areas-map-arrow">&#9660;</span>
+      </button>
+
+      <div class="field-map-panel" id="fieldMapPanel">
+        <img src="Field Landmarks.png" alt="Field Areas — Street, Tramlines, Sidewalk" onclick="openFieldLightbox('Field Landmarks.png','Field Areas — Street, Tramlines, Sidewalk')" title="Click to enlarge"/>
+      </div>
+
+      <div style="margin-bottom:18px;">
+
+        <div class="field-area" onclick="toggleFieldArea(this)" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleFieldArea(this);}">
+          <div class="fa-header">
+            <div class="fa-name">Street</div>
+            <div class="fa-short">Central field zone</div>
+            <div class="fa-arrow">&#9660;</div>
+          </div>
+          <div class="fa-body">
+            <ul>
+              <li>Best attacking zone for backs</li>
+              <li>Space available</li>
+              <li>Create mismatches</li>
+              <li>Play fast and wide options</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="field-area" onclick="toggleFieldArea(this)" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleFieldArea(this);}">
+          <div class="fa-header">
+            <div class="fa-name">Tramlines</div>
+            <div class="fa-short">Inside 15m channels</div>
+            <div class="fa-arrow">&#9660;</div>
+          </div>
+          <div class="fa-body">
+            <ul>
+              <li>Edge of the field</li>
+              <li>Limited space</li>
+              <li>Force decisions</li>
+              <li>Opportunity to isolate defenders</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="field-area" onclick="toggleFieldArea(this)" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleFieldArea(this);}">
+          <div class="fa-header">
+            <div class="fa-name">Sidewalk</div>
+            <div class="fa-short">Between Street &amp; Tramlines</div>
+            <div class="fa-arrow">&#9660;</div>
+          </div>
+          <div class="fa-body">
+            <ul>
+              <li>High-pressure zone</li>
+              <li>If ball gets stuck — 9 + winger communicate early</li>
+            </ul>
+          </div>
+        </div>
+
+      </div> 
+
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.68rem;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Direction Calls</div> 
+
+      <div class="terminology-grid" style="margin-bottom:16px;"> 
+
+        <div class="term-chip"><div class="term-key">BLACK</div><div class="term-val">Off 9 to pod</div></div>
+
+        <div class="term-chip"><div class="term-key">RED</div><div class="term-val">Off 9 to 10/12</div></div>
+
+        <div class="term-chip"><div class="term-key">SUNSHINE</div><div class="term-val">Change direction off 9</div></div>
+
+        <div class="term-chip"><div class="term-key">PINK</div><div class="term-val">Off 9 out the back to playmaker</div></div> 
+
+      </div> 
+
+      <button class="field-areas-label-btn" id="forwardPodsBtn" onclick="toggleForwardPodsMap()" aria-expanded="false" aria-controls="forwardPodsMapPanel" style="margin-top:16px;">
+        Forward Pods <span class="field-areas-map-arrow">&#9660;</span>
+      </button>
+
+      <div class="term-chip" style="margin-bottom:6px;"><div class="term-key">BATMAN</div><div class="term-val">Props & Hooker (1, 2, 3)</div></div>
+
+      <div class="term-chip" style="margin-bottom:6px;"><div class="term-key">LION</div><div class="term-val">Locks & No.8 (4, 5, 8)</div></div>
+
+      <div class="term-chip" style="margin-bottom:10px;"><div class="term-key">FIJI</div><div class="term-val">Flankers (6, 7)</div></div>
+
+      <div class="field-map-panel" id="forwardPodsMapPanel">
+        <img src="Forwards Role.png" alt="Forward Pods Structure" onclick="openFieldLightbox('Forwards Role.png','Forward Pods Structure')" title="Click to enlarge"/>
+      </div>
+
+    </div> 
+
+    <div class="attack-main"> 
+
+      <div class="zone-btns" role="tablist" aria-label="Attack categories">
+
+        <button class="zone-btn active" role="tab" aria-selected="true" onclick="setCategory('setpiece',this)">Set Piece</button>
+
+        <button class="zone-btn" role="tab" aria-selected="false" onclick="setCategory('phase',this)">Backs Calls</button>
+
+        <button class="zone-btn" role="tab" aria-selected="false" onclick="setCategory('exits',this)">Exits</button>
+
+        <button class="zone-btn" role="tab" aria-selected="false" onclick="setCategory('calls',this)">Calls Glossary</button>
+
+      </div> 
+
+      <div class="attack-content" id="attackContent"></div> 
+
+    </div> 
+
+  </div> 
+
+</div> 
+
+ 
+
+<!-- ══════════════ SLIDE 4: LINEOUT ══════════════ --> 
+
+ 
+
+<div class="slide" id="s4"> 
+
+  <div class="topbar"> 
+
+    <div class="topbar-logo" onclick="goTo(1)"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Game Plan · Lineout</div></div></div> 
+
+    <div class="topbar-right"><div class="motto">Work Ethic · <span>Attack</span> · Belief</div><div class="slide-num">04 / 06</div></div> 
+
+  </div> 
+
+  <div class="sl-header fadeup"> 
+
+    <h2 class="section">Lineout System</h2> 
+
+    <div class="tag">Click calls to expand</div> 
+
+  </div> 
+
+  <div class="sl-body"> 
+
+    <div class="lineout-left"> 
+
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Attacking Calls — 80/70 Formation</div>
+
+      <div id="loCalls80"></div>
+
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-top:14px;margin-bottom:6px;">50 & 40 Man Formations</div> 
+
+      <div id="loCalls50"></div> 
+
+    </div> 
+
+    <div class="lineout-right"> 
+
+      <div class="success-block fadeup"> 
+
+        <h4>Success KPIs</h4> 
+
+        <div class="success-metrics"> 
+
+          <div class="s-metric"><div class="sv">90%</div><div class="sl">Own throw success</div></div> 
+
+          <div class="s-metric"><div class="sv">85%</div><div class="sl">Delivery quality</div></div> 
+
+          <div class="s-metric"><div class="sv">20%</div><div class="sl">Opp turnover</div></div> 
+
+          <div class="s-metric"><div class="sv">70%</div><div class="sl">Opp unwanted del.</div></div> 
+
+        </div> 
+
+      </div> 
+
+      <div class="formation-codes fadeup"> 
+
+        <div class="fc-title">Formation Codes</div> 
+
+        <div class="code-row"><span class="code-key">40</span><span class="code-desc">4-man lineout, 9 at receiver — L-E-O</span></div> 
+
+        <div class="code-row"><span class="code-key">50</span><span class="code-desc">5-man lineout, 9 at receiver — L-O-U-T</span></div> 
+
+        <div class="code-row"><span class="code-key">70</span><span class="code-desc">Full lineout (inside our 40m) — L-I-N-E-O-U-T</span></div> 
+
+        <div class="code-row"><span class="code-key">80</span><span class="code-desc">Full lineout (outside 40m) — L-I-N-E-O-U-T</span></div> 
+
+        <div class="code-row"><span class="code-key">1</span><span class="code-desc">Ball delivery: Off the top</span></div> 
+
+        <div class="code-row"><span class="code-key">2</span><span class="code-desc">Ball delivery: Down and feed</span></div> 
+
+        <div class="code-row"><span class="code-key">3</span><span class="code-desc">Ball delivery: Drive</span></div> 
+
+      </div> 
+
+      <div class="formation-codes fadeup"> 
+
+        <div class="fc-title">Calling Structure</div> 
+
+        <div class="technique-list"> 
+
+          <div class="tech-item"><div class="tech-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" aria-hidden="true"><path d="M3 11l18-5v12L3 13v-2z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></div><div class="tech-text"><strong>Pre-call</strong> made on the way to the lineout</div></div> 
+
+          <div class="tech-item"><div class="tech-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></div><div class="tech-text"><strong>Front prop</strong> passes call onto hooker on the way to the lineout</div></div> 
+
+          <div class="tech-item"><div class="tech-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><div class="tech-text"><strong>Pre-call activated</strong> by trigger. Alpha/Zulu off is called if can't use standard</div></div> 
+
+          <div class="tech-item"><div class="tech-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" aria-hidden="true"><path d="M12 19V5"/><polyline points="5 12 12 5 19 12"/></svg></div><div class="tech-text"><strong>Execution keys:</strong> patience with triggers, clear gaps, effective delivery, speed of lift</div></div> 
+
+        </div> 
+
+      </div> 
+
+    </div> 
+
+  </div> 
+
+</div> 
+
+ 
+
+<!-- ══════════════ SLIDE 5: DEFENCE ══════════════ --> 
+
+ 
+
+<div class="slide" id="s5"> 
+
+  <div class="topbar"> 
+
+    <div class="topbar-logo" onclick="goTo(1)"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Game Plan · Defence</div></div></div> 
+
+    <div class="topbar-right"><div class="motto">Work Ethic · <span>Attack</span> · Belief</div><div class="slide-num">05 / 06</div></div> 
+
+  </div> 
+
+  <div class="sl-header fadeup"> 
+
+    <h2 class="section">Defensive System</h2> 
+
+    <div class="tag">Select side & zone</div> 
+
+  </div> 
+
+  <div class="sl-body"> 
+
+    <div class="def-left"> 
+
+      <div class="attitude-block fadeup"> 
+
+        <h4>Mindset — Total Commitment</h4> 
+
+        <ul> 
+
+          <li>Toughness + Physicality</li> 
+
+          <li>Workrate — relentless + discipline</li> 
+
+          <li>Inside the ball — Hunt Hard / Concrete</li> 
+
+          <li>On the ball — Accelerate through contact</li> 
+
+          <li>Outside the ball — Square up</li> 
+
+          <li>Violence at contact — bodies in front</li> 
+
+        </ul> 
+
+      </div> 
+
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Line Principles — 13 On Feet / 2 @ Breakdown</div> 
+
+      <div class="role-grid fadeup"> 
+
+        <div class="role-card"><div class="rc-role">AXE</div><div class="rc-desc">1st tackler — low chop, dominant tackle. Roll away if non-dominant with ruck.</div></div> 
+
+        <div class="role-card"><div class="rc-role">HUNT</div><div class="rc-desc">Inside defender — attack the ball if space; fight to slow ball if bodies present.</div></div> 
+
+        <div class="role-card"><div class="rc-role">DOUBLE HUNT</div><div class="rc-desc">2nd inside defender at the tackle — reads breakdown, decides counter ruck.</div></div> 
+
+        <div class="role-card"><div class="rc-role">COP</div><div class="rc-desc">Outside the Axe — holds width, organises fold, 2nd tackler if overs run.</div></div> 
+
+      </div> 
+
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;margin-top:10px;">Defensive Calls</div> 
+
+      <table class="call-table fadeup"> 
+
+        <thead><tr><th>Call</th><th>Action</th></tr></thead> 
+
+        <tbody> 
+
+          <tr><td>READY, UP</td><td>Line call led by '1' defender</td></tr> 
+
+          <tr><td>HAMMER</td><td>Linespeed call when we have good numbers</td></tr> 
+
+          <tr><td>HOVER</td><td>Movement call when we have poor numbers</td></tr> 
+
+          <tr><td>STORM</td><td>Red Zone change-up — aggressive up-and-in, 100% commitment</td></tr> 
+
+          <tr><td>RED</td><td>Linebreak / tap defence call</td></tr> 
+
+          <tr><td>ICE</td><td>Counter ruck</td></tr> 
+
+          <tr><td>SPACE</td><td>Get past the ball</td></tr> 
+
+          <tr><td>STEAL</td><td>Pilfer attempt</td></tr> 
+
+        </tbody> 
+
+      </table> 
+
+    </div> 
+
+    <div class="def-right"> 
+
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Scrum Defence by Side & Zone</div> 
+
+      <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;" role="tablist" aria-label="Defence field sides">
+
+        <button class="zone-tab active" role="tab" aria-selected="true" onclick="setDefSide('rhs',this)">Right Hand Side</button>
+
+        <button class="zone-tab" role="tab" aria-selected="false" onclick="setDefSide('lhs',this)">Left Hand Side</button>
+
+        <button class="zone-tab" role="tab" aria-selected="false" onclick="setDefSide('cfs',this)">Centre Field</button>
+
+      </div> 
+
+      <div id="defContent"></div> 
+
+    </div> 
+
+  </div> 
+
+</div> 
+
+ 
+
+<!-- ══════════════ SLIDE 6: AI Q&A ══════════════ --> 
+
+ 
+
+<div class="slide" id="s6"> 
+
+  <div class="topbar"> 
+
+    <div class="topbar-logo" onclick="goTo(1)"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">AI Coaching Assistant</div></div></div> 
+
+    <div class="topbar-right"><div class="motto">Work Ethic · <span>Attack</span> · Belief</div><div class="slide-num">06 / 06</div></div> 
+
+  </div> 
+
+  <div class="sl-header fadeup"> 
+
+    <h2 class="section">Ask the Playbook</h2> 
+
+    <div class="tag">Powered by Claude AI</div> 
+
+  </div> 
+
+  <div class="sl-body"> 
+
+    <div class="chat-area"> 
+
+      <div class="chat-msgs" id="chatMsgs" role="log" aria-label="Chat messages" aria-live="polite"> 
+
+        <div class="msg ai"> 
+
+          <div class="msg-label">AI Coach</div> 
+
+          <div class="msg-bubble">G'day! I've read the full Wallabies U20 playbook. Ask me anything — attack system calls, lineout formations, defensive principles, scrum starters, exit strategies, or player roles. </div> 
+
+        </div> 
+
+      </div> 
+
+      <div class="chat-input-row"> 
+
+        <label for="chatInp" class="sr-only">Ask a question about the playbook</label>
+        <input class="chat-inp" id="chatInp" placeholder="E.g. What does SNAP mean? or Explain the Paper Jack play…" onkeydown="if(event.key==='Enter')sendMsg()" aria-label="Ask a question about the playbook"/> 
+
+        <button class="send-btn" id="sendBtn" onclick="sendMsg()">Send</button> 
+
+      </div> 
+
+    </div> 
+
+    <div class="ai-panel"> 
+
+      <h4>Quick Questions</h4> 
+
+      <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What is the ROCK zone?</div> 
+
+      <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">Explain the Hammers and Sickles pods</div> 
+
+      <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What is the STORM call in defence?</div> 
+
+<div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">How does the lineout calling structure work?</div> 
+
+      <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What is the Axe role in defence?</div> 
+
+      <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">Explain exit strategy kick types</div> 
+
+      <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What does STRIKE mean in attack?</div> 
+
+      <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">Describe Paper Jack set play</div> 
+
+    </div> 
+
+  </div> 
+
+</div> 
+
+ 
+
+<!-- ══════════════ OVERLAYS ══════════════ -->
+
+<!-- OVERLAY 1: COACH INTRODUCTION -->
+<div class="overlay" id="ovCoach" role="dialog" aria-modal="true" aria-label="Coach Introduction">
+  <div class="overlay-topbar">
+    <div class="ov-title">Coach Introduction</div>
+    <button class="overlay-close" onclick="closeOverlay('ovCoach')" aria-label="Close">✕</button>
+  </div>
+  <div class="overlay-body">
+
+    <div class="ov-name">Hi, I'm Mato</div>
+
+    <div class="coach-layout">
+
+      <div class="coach-photo">
+        <img src="Coach Intro.jpg" alt="Coach Mato"/>
+      </div>
+
+      <div class="coach-content">
+
+        <div>
+          <div class="ov-section-label">Quick Facts</div>
+
+          <div class="ov-fact-item">
+            <strong>Coaching Experience</strong>
+            <p>I have worked with refugee communities and in the favelas of Brazil, using sport as a tool for development and inclusion.</p>
+            <p style="margin-top:8px;">I have been coaching at Donau for nearly a decade across multiple age groups. Currently coaching the Second and Third teams, the U18 squad, and Head Coach of the U18 National Team.</p>
+          </div>
+
+          <div class="ov-fact-item">
+            <strong>What Being a Pirate Means to Me</strong>
+            <p>Being a Pirate means being part of a family. For a period of my life, this club was not only my team, but also my home. For that, I will always be deeply grateful.</p>
+          </div>
+        </div>
+
+        <div style="margin-top:28px;">
+          <div class="ov-section-label">Coaching Philosophy</div>
+
+          <div class="ov-pull">All sports involve teamwork, but rugby is built on it. Teamwork is the essence of the game.</div>
+
+          <div class="ov-fact-item">
+            <strong>My goal is to create an environment where every player:</strong>
+            <ul>
+              <li>feels a strong sense of purpose</li>
+              <li>understands their role</li>
+              <li>supports one another</li>
+              <li>grows together as a team</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- OVERLAY 2: PHILOSOPHY & CORE BELIEFS -->
+<div class="overlay" id="ovPhil" role="dialog" aria-modal="true" aria-label="Philosophy and Core Beliefs">
+  <div class="overlay-topbar">
+    <div>
+      <div class="ov-title">Philosophy &amp; Core Beliefs</div>
+      <div class="ov-sub">How we play the game</div>
+    </div>
+    <button class="overlay-close" onclick="closeOverlay('ovPhil')" aria-label="Close">✕</button>
+  </div>
+  <div class="overlay-body" style="max-width:680px;margin:0 auto;">
+    <div class="ov-prose">
+      <p>From 0 to 100 meters, keep your head up and look for opportunity.</p>
+      <p>Our shape gives us options: <strong style="color:var(--text);font-family:'Barlow Condensed',sans-serif;letter-spacing:2px;">— · + ×</strong></p>
+      <div class="ov-pull">Trust our skills and trust your teammates.</div>
+      <p>Challenge the opposition by challenging ourselves.</p>
+      <p>Every individual knows every call.</p>
+      <div class="ov-pull">Share leadership and own your responsibilities.</div>
+      <p>Better a wrong decision made with conviction than the passive right one.</p>
+    </div>
+  </div>
+</div>
+
+<!-- OVERLAY 3: WORK ETHIC -->
+<div class="overlay" id="ovEthic" role="dialog" aria-modal="true" aria-label="Work Ethic">
+  <div class="overlay-topbar">
+    <div>
+      <div class="ov-title">Work Ethic</div>
+      <div class="ov-sub">Standards on and off the pitch</div>
+    </div>
+    <button class="overlay-close" onclick="closeOverlay('ovEthic')" aria-label="Close">✕</button>
+  </div>
+  <div class="overlay-body" style="max-width:680px;margin:0 auto;">
+    <div class="ov-prose">
+      <div class="ov-pull">Training reflects games.</div>
+      <p>High standards on and off the pitch.</p>
+      <div class="ov-pull">What are you doing when nobody is watching?</div>
+    </div>
+  </div>
+</div>
+
+<!-- NAVIGATION -->
+
+ 
+
+<nav class="nav" aria-label="Slide navigation">
+
+  <button class="nav-btn" id="prevBtn" onclick="changeSlide(-1)" disabled aria-label="Previous slide">&#9664; PREV</button>
+
+  <div class="dots" id="dots" role="tablist" aria-label="Slide selector"></div>
+
+  <button class="nav-btn" id="nextBtn" onclick="changeSlide(1)" aria-label="Next slide">NEXT &#9654;</button>
+
+</nav> 
+
+ 
+
+<script> 
+
+// ═══════════════════════════════════
+//  FIELD AREAS ENGINE
+// ═══════════════════════════════════
+
+function openFieldLightbox(src, alt){
+  const lb = document.getElementById('fieldLightbox');
+  const img = document.getElementById('fieldLightboxImg');
+  img.src = src;
+  img.alt = alt || '';
+  lb.classList.add('open');
+  document.addEventListener('keydown', _fieldLightboxEsc);
+}
+function closeFieldLightbox(e){
+  if(e && e.target !== document.getElementById('fieldLightbox') && !e.target.classList.contains('field-lightbox-close')) return;
+  const lb = document.getElementById('fieldLightbox');
+  lb.classList.remove('open');
+  document.removeEventListener('keydown', _fieldLightboxEsc);
+}
+function _fieldLightboxEsc(e){ if(e.key==='Escape') closeFieldLightbox(); }
+
+function toggleForwardPodsMap(){
+  const btn = document.getElementById('forwardPodsBtn');
+  const panel = document.getElementById('forwardPodsMapPanel');
+  const isOpen = panel.classList.contains('open');
+  panel.classList.toggle('open', !isOpen);
+  btn.classList.toggle('open', !isOpen);
+  btn.setAttribute('aria-expanded', String(!isOpen));
+}
+
+function toggleFieldMap(){
+  const btn = document.getElementById('fieldAreasBtn');
+  const panel = document.getElementById('fieldMapPanel');
+  const isOpen = panel.classList.contains('open');
+  panel.classList.toggle('open', !isOpen);
+  btn.classList.toggle('open', !isOpen);
+  btn.setAttribute('aria-expanded', String(!isOpen));
+}
+
+function toggleFieldArea(el){
+  const isOpen = el.classList.contains('open');
+  document.querySelectorAll('.field-area').forEach(f => {
+    f.classList.remove('open');
+    f.setAttribute('aria-expanded','false');
+  });
+  if(!isOpen){
+    el.classList.add('open');
+    el.setAttribute('aria-expanded','true');
+  }
+}
+
+// ═══════════════════════════════════
+//  OVERLAY ENGINE
+// ═══════════════════════════════════
+
+function openOverlay(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.classList.add('open');
+  document.body.classList.add('overlay-active');
+  el.querySelector('.overlay-close').focus();
+  document.addEventListener('keydown', _ovKeyHandler);
+}
+
+function closeOverlay(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.classList.remove('open');
+  if(!document.querySelector('.overlay.open')){
+    document.body.classList.remove('overlay-active');
+  }
+  document.removeEventListener('keydown', _ovKeyHandler);
+}
+
+function _ovKeyHandler(e){
+  if(e.key === 'Escape'){
+    document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
+    document.body.classList.remove('overlay-active');
+    document.removeEventListener('keydown', _ovKeyHandler);
+  }
+}
+
+// Close overlay on backdrop click
+document.querySelectorAll('.overlay').forEach(ov => {
+  ov.addEventListener('click', e => { if(e.target === ov) closeOverlay(ov.id); });
+});
+
+// ═══════════════════════════════════
+//  SLIDE ENGINE
+// ═══════════════════════════════════ 
+
+let cur = 1; 
+
+const total = 6; 
+
+ 
+
+function buildDots(){
+
+  const d = document.getElementById('dots');
+
+  for(let i=1;i<=total;i++){
+
+    const dot = document.createElement('div');
+
+    dot.className = 'dot' + (i===1?' active':'');
+
+    dot.setAttribute('role','tab');
+    dot.setAttribute('tabindex','0');
+    dot.setAttribute('aria-label','Slide '+i);
+    dot.setAttribute('aria-selected', i===1?'true':'false');
+
+    dot.onclick = ()=>goTo(i);
+    dot.onkeydown = (e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();goTo(i);}};
+
+    d.appendChild(dot);
+
+  }
+
+} 
+
+function updateNav(){ 
+
+  document.getElementById('prevBtn').disabled = cur===1; 
+
+  document.getElementById('nextBtn').disabled = cur===total; 
+
+  document.getElementById('pFill').style.width = (cur/total*100)+'%';
+  const pb = document.querySelector('.progress');
+  if(pb){pb.setAttribute('aria-valuenow',cur);} 
+
+  document.querySelectorAll('.dot').forEach((d,i)=>{
+
+    d.className = 'dot'+(i+1===cur?' active':'');
+    d.setAttribute('aria-selected', i+1===cur?'true':'false');
+
+  }); 
+
+  document.getElementById('slideNum') && (document.getElementById('slideNum').textContent = String(cur).padStart(2,'0')+' / '+String(total).padStart(2,'0')); 
+
+} 
+
+function changeSlide(dir){ 
+  if(document.body.classList.contains('overlay-active')) return;
+
+  const n=cur+dir; 
+
+  if(n>=1&&n<=total)goTo(n); 
+
+} 
+
+function goTo(n){ 
+  if(document.body.classList.contains('overlay-active')) return;
+
+  document.getElementById('s'+cur).classList.remove('active'); 
+
+  cur=n; 
+
+  document.getElementById('s'+cur).classList.add('active'); 
+
+  updateNav(); 
+
+} 
+
+document.addEventListener('keydown',e=>{ 
+
+  if(e.key==='ArrowRight'||e.key==='ArrowDown')changeSlide(1); 
+
+  else if(e.key==='ArrowLeft'||e.key==='ArrowUp')changeSlide(-1); 
+
+}); 
+
+// swipe 
+
+let sx=null; 
+
+document.addEventListener('touchstart',e=>sx=e.touches[0].clientX); 
+
+document.addEventListener('touchend',e=>{ 
+
+  if(sx===null)return; 
+
+  const diff=sx-e.changedTouches[0].clientX; 
+
+  if(Math.abs(diff)>50)changeSlide(diff>0?1:-1); 
+
+  sx=null; 
+
+}); 
+
+buildDots(); 
+
+ 
+
+// ═══════════════════════════════════ 
+
+//  SLIDE 3 — ATTACK CATEGORIES 
+
+// ═══════════════════════════════════ 
+
+const attackData = { 
+
+  setpiece:[ 
+
+    {name:'O²',type:'Scrum Starter',detail:['9 + 12 fix Opp 10 inside','10 out the back, straightens to fix Opp 12','11 hits seam at pace','13 fixes Opp 13, back three hold width'],diagram:'Launch Double 1.png'},
+
+    {name:'C.C +',type:'Scrum — Kicking Option',detail:['Attacking kicking option: 8 to 9, 9 to 10 behind 12','10 kicks for 14/15','Positioning on field requires read of their 15'],diagram:'C.C+.png'}, 
+
+    {name:'Launch 41',type:'Scrum Starter',detail:['9 to 14, 12 short (attacking opp 10)','10 out back','Option of playing slider between 13/15'],diagram:'Launch 41.png'}, 
+
+    {name:'Rhino & Lion',type:'Mid Field Scrum',detail:['RHINO (Right)','8 to 9','12 unders to fix inside','Out the back to 10','14 as outside option','LION (Left)','9 takes easy space left','Fix Opp 10','13 to 10','Pop to 15 or straight to 11'],diagram:'Mid Field Scrum.png'},
+
+  ], 
+
+  phase:[ 
+
+    {name:'Strike',type:'Phase Direction',detail:['9 passes across face of forwards to 1st receiver','1st receiver must push up (flatter) — due to front-foot ball','Gives ball to a deeper backline','Default when ball is fast and positive']}, 
+
+    {name:'Roll',type:'Phase Direction',detail:['Ball passed behind forward runners','Forward pod runs hard and remains an option if defenders don\'t bite','Creates space for deeper 1st receiver','Flatter backline option']}, 
+
+    {name:'Kick Start',type:'Slow Ball — Gold Zone',detail:['Slow ball movements targeted to speed the game back up','Play towards the posts to give TWO SIDES','Kick, Block, Fetch, Fetch, Latch Pick — draw in 3rd defender','Skills: pick with 4 legs vs 2, target defenders 2/3, low powerful leg drive']}, 
+
+    {name:'Spark',type:'Slow Ball — Gold Zone',detail:['Simple option to maintain shape','Move hammer or sickles close to 9','Early latch and drive into contact']}, 
+
+    {name:'Snap',type:'Call',detail:['Switch pass']}, 
+
+    {name:'Crackle',type:'Call',detail:['Dummy Snap with unders/overs']}, 
+
+    {name:'Snoop',type:'Call',detail:['Cut, double loop']}, 
+
+    {name:'Doggy',type:'Call',detail:['Circle ball']}, 
+
+    {name:'Firefly',type:'Call',detail:['Blocker — both options available']}, 
+
+    {name:'Trigger',type:'Call',detail:['Point passes behind tip to a back who transfers the ball']}, 
+
+    {name:'Turbo',type:'Call',detail:['Pick and drive']}, 
+
+    {name:'Rails',type:'Call',detail:['Inside ball']}, 
+
+  ], 
+
+  exits:[ 
+
+    {name:'Driver',type:'Exit Kick Type',detail:['Long kick — goal: ball in touch past our 40m OR long kick bouncing over halfway']}, 
+
+    {name:'Bingo',type:'Exit Kick Type',detail:['Contestable kick — get possession back inside 40m line']}, 
+
+    {name:'Banana',type:'Exit Kick Type',detail:['Box kick — used from lineout (72 Banana), down and feed to 9 then kick']}, 
+
+    {name:'Zero',type:'Exit Option',detail:['Bail-out option when under pressure']}, 
+
+    {name:'Ramp 1 — Left',type:'Exit from Lineout Left',detail:['Phase 1: 9 to 8, then 11/12/8/7 to breakdown, 10 stays in pocket','Phase 2: Sickles around the corner or block (Right Side)','Phase 3: 9 to 15 — kick (driver or bingo) or run option']}, 
+
+    {name:'Ramp 2 — Right',type:'Exit from Lineout Right',detail:['Phase 1: 9 to 8, 14/12/8/7 to breakdown, 10 stays in pocket','Phase 2: Sickles stay on right side','9 back to 10 to kick out or option to shift left with numbers']}, 
+
+  ], 
+
+  calls:[ 
+
+    {name:'PAINT',type:'Field Landmark',detail:['Sideline on both sides of the field']}, 
+
+    {name:'ROCK',type:'Field Landmark',detail:['Centre field — Hammers\' running line']}, 
+
+    {name:'COAST',type:'Field Landmark',detail:['15m line on either side — Sickles\' running line']}, 
+
+    {name:'BERMUDA',type:'Field Landmark',detail:['Between Rock and the Coast on both sides']}, 
+
+    {name:'BLACK',type:'Direction',detail:['Off 9 to pod']},
+
+    {name:'RED',type:'Direction',detail:['Off 9 to 10/12']},
+
+    {name:'SUNSHINE',type:'Direction',detail:['Change direction off 9']},
+
+    {name:'PINK',type:'Direction',detail:['Off 9 out the back to playmaker']}, 
+
+    {name:'TONGA',type:'Scrum Delivery',detail:['8 to 9 standard delivery']}, 
+
+    {name:'FIJI',type:'Scrum Delivery',detail:['Through legs delivery']}, 
+
+    {name:'RAMBO',type:'Scrum Delivery',detail:['8 takes the ball himself']}, 
+
+    {name:'RIVER',type:'Scrum 42',detail:['Right side — 8-9-15-14']}, 
+
+    {name:'LAKE',type:'Scrum 42',detail:['Left side — hands to 11 with 10 or 12 skipping, or Snoop']}, 
+
+    {name:'MUST',type:'Override',detail:['Must get the ball — overrides all other calls']}, 
+
+    {name:'DARK',type:'Direction',detail:['Blind side']}, 
+
+  ], 
+
+}; 
+
+ 
+
+function setCategory(cat,btn){
+
+  document.querySelectorAll('.zone-btn').forEach(b=>{b.classList.remove('active');b.setAttribute('aria-selected','false');});
+
+  btn.classList.add('active');
+  btn.setAttribute('aria-selected','true');
+
+  const container = document.getElementById('attackContent');
+
+  const items = attackData[cat]||[];
+
+  container.innerHTML = items.map((p,i)=>`
+
+    <div class="play-list-item" onclick="togglePlay(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();togglePlay(this);}" tabindex="0" role="button" aria-expanded="false" data-i="${i}">
+
+      <div class="play-name">${p.name}</div>
+
+      <div class="play-type">${p.type}</div>
+
+      <div class="play-detail">
+
+        <ul>${p.detail.map(d=>`<li>${d}</li>`).join('')}</ul>
+
+        ${p.diagram ? `<button class="diagram-btn" onclick="event.stopPropagation();openFieldLightbox('${p.diagram}','${p.name}')" onkeydown="event.stopPropagation();">View Diagram</button>` : ''}
+
+      </div>
+
+    </div>
+
+  `).join('');
+
+} 
+
+function togglePlay(el){
+
+  const wasActive = el.classList.contains('active');
+
+  document.querySelectorAll('.play-list-item').forEach(e=>{e.classList.remove('active');e.setAttribute('aria-expanded','false');});
+
+  if(!wasActive){el.classList.add('active');el.setAttribute('aria-expanded','true');}
+
+} 
+
+setCategory('setpiece', document.querySelector('.zone-btn.active')); 
+
+ 
+
+// ═══════════════════════════════════ 
+
+//  SLIDE 4 — LINEOUT CALLS 
+
+// ═══════════════════════════════════ 
+
+const lo80 = [ 
+
+  {name:'L — Alpha',sub:'80/70 Formation',detail:'1 and 6 lift 4 at the front. Alpha: 5 arrives last and rushes forward to lift 4.'}, 
+
+  {name:'N — Dummy L',sub:'80/70 Formation',detail:'Dummy L with 1 going past and lifting 6.'}, 
+
+  {name:'E — Forward Move',sub:'80/70 — Trigger 4 (163)',detail:'Dummy L as 5 moves forward inside 3/6 (1 step dummy and back), then 3 lifts 5.'}, 
+
+  {name:'O — Back Move',sub:'80/70 — Trigger 4 (653)',detail:'Dummy L, 5 goes one step forward and up lifted by 3 and 8.'}, 
+
+  {name:'U — Counter',sub:'80/70 — Trigger 4 (387)',detail:'Dummy N as 5 moves back to 8, then 8 and 7 slide past 5 to 3. 3 and 7 lift 8.'}, 
+
+  {name:'T — Tail',sub:'80/70 — Trigger 4 (587)',detail:'Dummy L as 5 moves back to 8, 8 is lifted by 5 and 7.'}, 
+
+  {name:'CAT — Front',sub:'All Formations',detail:'Throw to the front man. Used when space is clear at front.'}, 
+
+  {name:'I — No Jump',sub:'80/70 — Trigger 2 (4)',detail:'No jump — throw directly to 4 without a lift.'}, 
+
+]; 
+
+const lo50 = [ 
+
+  {name:'L — Front Lift',sub:'50 Formation — Trigger 4 (145)',detail:'4 lifted at front by 1 and 5. Alpha: 5 arrives last and rushes forward to lift 4.'}, 
+
+  {name:'O — Back Lift',sub:'50 Formation — Trigger 8 (458)',detail:'4 turns and lifts 5 with 8. Zulu: 5 arrives last and rushes back to lift 8.'}, 
+
+  {name:'U — Counter',sub:'50 Formation — Trigger 5 (483)',detail:'Dummy T: 5 moves back to 8, 8 and 3 slide past 5 to 4. 4 and 3 lift 8.'}, 
+
+  {name:'T — Tail',sub:'50 Formation — Trigger 4 (583)',detail:'4 fakes forward to 1. At the same time 5 comes back to lift 8 with 3.'}, 
+
+  {name:'L — 40 Front',sub:'40 Formation — Trigger 4 (145)',detail:'4 lifted at front by 1 and 5. Alpha same as L. Zulu same as O.'}, 
+
+  {name:'E — Dummy O',sub:'40 Formation — Trigger 4 (158)',detail:'Dummy O: as 4 comes back, 5 and 8 move to 1.'}, 
+
+  {name:'O — 40 Back',sub:'40 Formation — Trigger 2 (458)',detail:'4 and 8 lift 5 off the standard 40 setup.'}, 
+
+]; 
+
+function buildLoCalls(){ 
+
+  document.getElementById('loCalls80').innerHTML = lo80.map(c=>`
+
+    <div class="lo-call" onclick="toggleLo(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLo(this);}" tabindex="0" role="button" aria-expanded="false">
+
+      <div class="lc-name">${c.name}</div>
+
+      <div class="lc-sub">${c.sub}</div>
+
+      <div class="lc-detail">${c.detail}</div>
+
+    </div>
+
+  `).join('');
+
+  document.getElementById('loCalls50').innerHTML = lo50.map(c=>`
+
+    <div class="lo-call" onclick="toggleLo(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLo(this);}" tabindex="0" role="button" aria-expanded="false">
+
+      <div class="lc-name">${c.name}</div>
+
+      <div class="lc-sub">${c.sub}</div>
+
+      <div class="lc-detail">${c.detail}</div>
+
+    </div>
+
+  `).join(''); 
+
+} 
+
+function toggleLo(el){
+
+  const was = el.classList.contains('active');
+
+  document.querySelectorAll('.lo-call').forEach(e=>{e.classList.remove('active');e.setAttribute('aria-expanded','false');});
+
+  if(!was){el.classList.add('active');el.setAttribute('aria-expanded','true');}
+
+} 
+
+buildLoCalls(); 
+
+ 
+
+// ═══════════════════════════════════ 
+
+//  SLIDE 5 — DEFENCE 
+
+// ═══════════════════════════════════ 
+
+const defData = { 
+
+  rhs:{ 
+
+    green:{title:'Green Zone — Low Risk',color:'g',points:['9 chases up and around to close off shortside OR moves to neutral (based on width, scrum screw, opp blind winger)','9 closing off shortside enables a 2-fullback mentality','Shortside winger can change picture: start deep and move forward, or start flat and move back','Pendulum with 14/15/11 constantly working','Kick return: open winger connects with 15, 13 connects to end of the line','BR: 7 covering 8/connection with 10; 8 working hard in the pocket; 6 awareness of shortside']}, 
+
+    orange:{title:'Orange Zone — Mid Field',color:'o',points:['9 closes off shortside OR moves to neutral as above','If attacking blind winger aligns between 9 and 10, defending 9 matches alignment, blind winger covers with 6','This drags 15 across with open winger dropping back into pocket','Pendulum with 14/15/11 constantly working','7 covers 8/9 (soften up, don\'t bite hard on the 9); 8 in pocket; 6 aware of shortside']}, 
+
+    red:{title:'Red Zone — Danger',color:'r',points:['9 closes off shortside OR moves to neutral','Blind winger always holds shortside initially, must move quickly on pass to cover short kick/run threat','Blind winger can get behind scrum if on 5m line and 9 can cover 7/10 seam & short kick','Defending 15 alert to cover short kicks','STORM option: aggressive up-and-in, 100% commitment, 10 moves up first to sell system']}, 
+
+  }, 
+
+  lhs:{ 
+
+    green:{title:'Green Zone — Low Risk',color:'g',points:['9 stays on scrum feed side OR moves to neutral (width, scrum screw)','Backline players align outside shoulder of their attacker and push quickly into next channel','D9=No.8, D10=1st attacker, D12=2nd, D13=3rd, D14=2nd last, D15=last attacker','Pendulum with 14/15/11 constantly working','BR: 7 connecting with D10; 8 working hard in pocket; 6 awareness of shortside']}, 
+
+    orange:{title:'Orange Zone — Mid Field',color:'o',points:['9 stays on feed side OR neutral','Defending blind winger must hold shortside until ball is released open','Backline players align outside shoulder of attacker, push quickly into next channel','Must be aware of attacking blind wing and 15 alignment prior to ball being fed','Shuffle call can change the picture','BR: 7 covering inside 9; 8 in pocket; 6 shortside awareness']}, 
+
+    red:{title:'Red Zone — Danger',color:'r',points:['Defensive 9 aware of neutral position to cover shortside','D15 starts in pocket of D13 & D14 to cover short kick or cover sideline quickly','Blind winger holds more width on shortside for 8/9/winger, covers on pass open','Midfield holds square','STORM also an option']}, 
+
+  }, 
+
+  cfs:{ 
+
+    green:{title:'Centre Field Scrum — Green Zone',color:'g',points:['10/12 defend together on the side with highest numbers','9 pressures/takes 10/scrum angle','13 works hard with 7 for connection — soften up, no need to bite hard narrow','Pendulum with 11/15/14 constantly working','BR: 7 defends less numbers side (quicker footspeed than 6), covers 8/9; 8 in pocket both sides; 6 connects with 10']}, 
+
+    orange:{title:'Centre Field Scrum — Orange Zone',color:'o',points:['Same principles as green but with higher defensive urgency','10 and 12 aware of attacking shape between them','9 decisions on scrum angle become more critical']}, 
+
+    red:{title:'Centre Field Scrum — Red Zone',color:'r',points:['Lake: 9-10 kick for exit','River: 8-9-15 kick for exit','Running options same as rest of the field','STORM change-up available']}, 
+
+  } 
+
+}; 
+
+function setDefSide(side, btn){
+
+  document.querySelectorAll('.zone-tab').forEach(t=>{t.classList.remove('active');t.setAttribute('aria-selected','false');}); 
+
+  btn.classList.add('active');
+  btn.setAttribute('aria-selected','true');
+
+  const d = defData[side]; 
+
+  document.getElementById('defContent').innerHTML = ` 
+
+    <div class="def-block"><h4 class="${d.green.color}"><span class="sr-only">Low Risk: </span>${d.green.title}</h4><ul>${d.green.points.map(p=>`<li>${p}</li>`).join('')}</ul></div>
+
+    <div class="def-block"><h4 class="${d.orange.color}"><span class="sr-only">Medium Risk: </span>${d.orange.title}</h4><ul>${d.orange.points.map(p=>`<li>${p}</li>`).join('')}</ul></div>
+
+    <div class="def-block"><h4 class="${d.red.color}"><span class="sr-only">High Risk: </span>${d.red.title}</h4><ul>${d.red.points.map(p=>`<li>${p}</li>`).join('')}</ul></div> 
+
+  `; 
+
+} 
+
+setDefSide('rhs', document.querySelector('.zone-tab')); 
+
+ 
+
+// ═══════════════════════════════════ 
+
+//  SLIDE 6 — AI Q&A 
+
+// ═══════════════════════════════════ 
+
+const PLAYBOOK_CONTEXT = ` 
+
+You are an expert rugby coaching assistant for the Australian Wallabies Under 20s team, based on the 2016 Junior World Cup Coaching Document by Jason Gilmore. Answer questions using ONLY the following playbook knowledge. Be precise, use terminology from the playbook, and keep answers concise but complete. 
+
+ 
+
+PHILOSOPHY: Work Ethic, Attack, Belief. Winning determined by: Transition, Set Piece, Attack, Contact, Defence. Target: #1 Points Against at U20 World Championship. 
+
+ 
+
+FIELD LANDMARKS: ROCK = centre field (Hammers' running line). COAST = 15m line either side (Sickles' running line). BERMUDA = between Rock and Coast. PAINT = sideline. 
+
+ 
+
+FORWARD PODS: BATMAN = props & hooker (1,2,3). LION = locks & no.8 (4,5,8). FIJI = flankers (6,7). 
+
+ 
+
+DIRECTION CALLS: BLACK = off 9 to pod. RED = off 9 to 10/12. SUNSHINE = change direction off 9. PINK = off 9 out the back to playmaker. 
+
+ 
+
+ATTACK CALLS: STRIKE = 9 passes across face of forwards to 1st receiver (positive/front-foot ball). ROLL = ball passed behind forward runners. SNAP = switch. CRACKLE = dummy Snap with unders/overs. DOGGY = circle ball. SNOOP = cut, double loop. FIREFLY = blocker. TRIGGER = point passes behind tip to a back who transfers the ball. MUST = overrides call (must get the ball). RAILS = inside ball. DARK = blind side. TURBO = pick and drive. 
+
+ 
+
+SLOW BALL (GOLD ZONE): KICK START = slow ball movements to speed game up, play towards posts, draw in 3rd defender. SPARK = simple option, move hammer/sickle close to 9, early latch. 
+
+ 
+
+SCRUM DELIVERY: TONGA = 8 to 9. FIJI = through legs. RAMBO = 8 takes it. 
+
+SCRUM 42: RIVER = right (8-9-15-14). LAKE = left (hands to 11 with 10/12 skipping, or Snoop). 
+
+ 
+
+SCRUM STARTERS: LAUNCH DOUBLE 1 = 9 + 12 fix opp 10 inside; 10 out the back, straightens to fix opp 12; 11 hits seam at pace; 13 fixes opp 13, back three hold width. C.C + = kicking option: 8-9-10 kicks for 14/15. LAUNCH 41 = 9 to 14; 12 short; 10 out back. SNICKERS = 8 to 12, 12 to 9 doggy; 13 on hard line; 10 on fly. SLAUGHTER FLY = 9 to 10 who attacks line; 12/13 15 cut, 13 unders; 14 slaughter line. 
+
+ 
+
+7 MAN LINEOUT STARTERS: PAPER JACK = 9 to 10 flat; 11/12 going to line; 10 returns to 9; 13/15/14 on line off 9. BOZO = ball won at tail; 9 attacking tail gunner; 11/12/13 all hitting line square. TUESDAY = 9 direct to 12 flat; option to 13 short or 10 behind. 
+
+ 
+
+SEQUENCED PLAYS: CAR (5 Man, Phase 2) = 12/8/7 at breakdown; forwards fake same way; dark side off 9 to sickles. TRUCK (5 Man, Phase 2) = hammers same-way fake; Phase 3: 4/5 hard line targeting D2+D3; 9 to 15 change of direction. CHECKOUT (7 Man) = Phase 1: ball at front, 3 forwards drop back, 9 to middle forward to 12 on hard line. Phase 2: 8 around corner square with both locks; play across to 10 with 11. 
+
+ 
+
+LINEOUT SYSTEM: 40 = 4-man (caller: L-E-O). 50 = 5-man (L-O-U-T). 70 = full lineout inside 40m (L-I-N-E-O-U-T). 80 = full outside 40m. Ball delivery: 1=off top, 2=down & feed, 3=drive. Alpha = Zulu same-way (front). Zulu = same as T/Tail (back). CAT = throw to front man. Pre-call triggered by trigger word. Calls for 80/70: L (1&6 lift 4), N (dummy L, 1 past lifts 6), E (5 forward, 3 lifts 5), O (dummy L, 5 up lifted by 3&8), U (dummy N, 8 lifted by 3&7), T (dummy L, 8 lifted by 5&7), I (no-jump throw to 4). Calling structure: Pre-call made on way to lineout, front prop passes to hooker, activated by trigger. 
+
+ 
+
+LINEOUT MAUL ROLES: Lifters = leg hook, survive initial drive. Wedge = arrive same time, heads inside. Transfer = gets momentum on rip, becomes another wedge. Gun = makes ball visible to referee, stays patient. Spare = reads where best needed. 
+
+ 
+
+EXITS: Goals = ball in touch past our 40m OR contestable kick past 40m OR long kick bouncing over halfway. DRIVER = long kick. BINGO = contestable. BANANA = box kick. ZERO = bail-out. RAMP 1 LEFT = 9 to 8; 11/12/8/7 to breakdown; 10 in pocket; Phase 3: 9-15 kick driver/bingo. RAMP 2 RIGHT = 9 to 8; 14/12/8/7 to breakdown; sickles stay right; 9 back to 10 kick. 
+
+ 
+
+DEFENCE MINDSET: Toughness, workrate, relentless discipline. Presence, spacing, inside ball = hunt hard/concrete. On ball = accelerate. Outside ball = square. Violence at contact, bodies in front. Repeat. 
+
+ 
+
+DEFENCE LINE PRINCIPLES (13 on feet, 2 at breakdown): AXE = 1st tackler, low chop, dominant tackle, roll away with ruck. HUNT = inside defender, attack ball if space, fight to slow if bodies. DOUBLE HUNT = 2nd inside defender, reads breakdown, counter ruck or fold. COP = outside Axe, holds width, organises fold, 2nd tackler if overs run. 
+
+ 
+
+DEFENSIVE CALLS: READY/UP = line call by '1' defender. HAMMER = linespeed call, good numbers. HOVER = movement call, poor numbers. STORM = Red Zone change-up: aggressive up-and-in, 100% commitment, D10 covers holes. RED = linebreak/tap defence. ICE = counter ruck. SPACE = get past ball. STEAL = pilfer. 
+
+ 
+
+RHS DEFENCE - GREEN: 9 closes shortside or neutral; 2-fullback mentality; pendulum 14/15/11; kick return: open winger to 15 to 13. 
+
+RHS DEFENCE - ORANGE: if attacking BW aligns between 9 & 10, D9 matches alignment; drag 15 across; open winger drops to pocket. 
+
+RHS DEFENCE - RED: BW holds shortside, moves quickly on pass. STORM option: up-and-in, D10 sells system then covers inside ball. 
+
+LHS DEFENCE: Backs align outside shoulder of attacker, push into next channel. D9=No.8, D10=1st, D12=2nd, D13=3rd, D14=2nd last, D15=last. 
+
+CFS DEFENCE: 10/12 defend together on side with highest numbers; 9 pressures/takes 10; 13 works with 7 for connection. 
+
+ 
+
+SCRUM SUCCESS: 100% own feed, 90% quality, 10% opp turnover, 40% opp unwanted delivery. Attitude: scrum low and square, scrum longer = commitment as 8, patience = 16 feet on ground, earn the right to move forward, give a good picture to the referee. 
+
+ 
+
+TRANSITION ATTACK: Attack areas for back 3 = 15m channel to sideline. Mid field = attack middle for Rock breakdown. Hammers and Sickles rush to home. 15/11/14 work for channel space. Same-side centre runs to sideline as extra number. 
+
+ 
+
+RESTARTS: Our kick-off: all chase same line (10 decides), MUST make first tackle, attack that breakdown on shift, option of quick kick-offs. Opposition kick-off: 8/12/11/14 primary carriers, 4 used to secure then hammer/sickles. 
+
+`; 
+
+ 
+
+function escapeHtml(str){
+  const d=document.createElement('div');
+  d.textContent=str;
+  return d.innerHTML;
+}
+
+function addMsg(role, text){
+
+  const msgs = document.getElementById('chatMsgs');
+
+  const div = document.createElement('div');
+
+  div.className = 'msg '+role;
+
+  const safe = escapeHtml(text).replace(/\n/g,'<br>');
+
+  div.innerHTML = `<div class="msg-label">${role==='user'?'You':'AI Coach'}</div><div class="msg-bubble">${safe}</div>`;
+
+  msgs.appendChild(div);
+
+  msgs.scrollTop = msgs.scrollHeight;
+
+  return div;
+
+} 
+
+function showTyping(){ 
+
+  const msgs = document.getElementById('chatMsgs'); 
+
+  const div = document.createElement('div'); 
+
+  div.className = 'msg ai'; 
+
+  div.id = 'typing'; 
+
+  div.innerHTML = `<div class="msg-label">AI Coach</div><div class="typing-indicator"><span></span><span></span><span></span></div>`; 
+
+  msgs.appendChild(div); 
+
+  msgs.scrollTop = msgs.scrollHeight; 
+
+} 
+
+function removeTyping(){ 
+
+  const t = document.getElementById('typing'); 
+
+  if(t)t.remove(); 
+
+} 
+
+ 
+
+async function sendMsg(){ 
+
+  const inp = document.getElementById('chatInp'); 
+
+  const q = inp.value.trim(); 
+
+  if(!q)return; 
+
+  inp.value=''; 
+
+  document.getElementById('sendBtn').disabled=true; 
+
+  addMsg('user', q); 
+
+  showTyping(); 
+
+  try{ 
+
+    const res = await fetch('https://api.anthropic.com/v1/messages',{ 
+
+      method:'POST', 
+
+      headers:{'Content-Type':'application/json'}, 
+
+      body:JSON.stringify({ 
+
+        model:'claude-sonnet-4-20250514', 
+
+        max_tokens:1000, 
+
+        system: PLAYBOOK_CONTEXT + '\n\nAnswer concisely in plain text. Use short bullet points where helpful. Do not use markdown headers.', 
+
+        messages:[{role:'user',content:q}] 
+
+      }) 
+
+    }); 
+
+    const data = await res.json(); 
+
+    removeTyping(); 
+
+    const text = data.content?.map(b=>b.text||'').join('')||'Sorry, I couldn\'t process that.'; 
+
+    addMsg('ai', text); 
+
+  }catch(e){ 
+
+    removeTyping(); 
+
+    addMsg('ai','Connection error. Please try again.'); 
+
+  } 
+
+  document.getElementById('sendBtn').disabled=false; 
+
+} 
+
+function askQ(el){ 
+
+  document.getElementById('chatInp').value = el.textContent; 
+
+  sendMsg(); 
+
+} 
+
+</script> 
+
+ 
+
+<!-- Field Image Lightbox -->
+<div class="field-lightbox" id="fieldLightbox" onclick="closeFieldLightbox(event)">
+  <div class="field-lightbox-inner">
+    <button class="field-lightbox-close" onclick="closeFieldLightbox()" aria-label="Close">&times;</button>
+    <img id="fieldLightboxImg" src="" alt=""/>
+  </div>
+</div>
+
+</body>
+
+</html>  

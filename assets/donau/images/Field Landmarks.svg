@@ -1,0 +1,123 @@
+<svg width="1536" height="1024" viewBox="0 0 1536 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="pitch" x1="0" y1="0" x2="1536" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0BAA4A"/>
+      <stop offset="1" stop-color="#0B9A45"/>
+    </linearGradient>
+    <linearGradient id="street" x1="768" y1="158" x2="768" y2="1000" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0A6788"/>
+      <stop offset="1" stop-color="#0C5E7B"/>
+    </linearGradient>
+    <linearGradient id="walkway" x1="0" y1="158" x2="0" y2="1000" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C7A51F"/>
+      <stop offset="1" stop-color="#B99314"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1536" height="1024" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#062C18" flood-opacity="0.25"/>
+    </filter>
+    <style>
+      .line { stroke: #F5F5EF; stroke-width: 8; stroke-linecap: square; }
+      .half { stroke: #A7C7D7; stroke-width: 8; stroke-linecap: square; opacity: 0.95; }
+      .gold { stroke: #F3CA72; stroke-width: 8; stroke-linecap: square; opacity: 0.95; }
+      .label-box { fill: #F4F3F0; }
+      .label {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 38px;
+        font-weight: 700;
+        letter-spacing: 2px;
+        fill: #111111;
+        text-anchor: middle;
+        dominant-baseline: middle;
+      }
+      .label-small {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 34px;
+        font-weight: 700;
+        letter-spacing: 2px;
+        fill: #111111;
+        text-anchor: middle;
+        dominant-baseline: middle;
+      }
+    </style>
+  </defs>
+
+  <rect width="1536" height="1024" fill="url(#pitch)"/>
+
+  <rect x="47" y="26" width="1442" height="978" class="line"/>
+  <rect x="47" y="26" width="1442" height="122" class="line"/>
+  <rect x="701" y="26" width="134" height="122" class="line"/>
+  <rect x="701" y="26" width="134" height="57" class="line"/>
+  <line x1="47" y1="455" x2="1489" y2="455" class="line"/>
+  <line x1="47" y1="848" x2="1489" y2="848" class="line"/>
+  <line x1="701" y1="148" x2="701" y2="455" class="line"/>
+  <line x1="835" y1="148" x2="835" y2="455" class="line"/>
+
+  <line x1="768" y1="158" x2="768" y2="1000" class="half"/>
+  <line x1="233" y1="455" x2="726" y2="455" class="half"/>
+  <line x1="810" y1="455" x2="1303" y2="455" class="half"/>
+  <line x1="303" y1="710" x2="471" y2="710" class="half"/>
+  <line x1="587" y1="710" x2="719" y2="710" class="half"/>
+  <line x1="819" y1="710" x2="951" y2="710" class="half"/>
+  <line x1="1067" y1="710" x2="1199" y2="710" class="half"/>
+
+  <rect x="174" y="158" width="270" height="842" rx="20" fill="url(#walkway)" filter="url(#shadow)"/>
+  <rect x="1092" y="158" width="270" height="842" rx="20" fill="url(#walkway)" filter="url(#shadow)"/>
+  <rect x="444" y="158" width="648" height="842" rx="28" fill="url(#street)" filter="url(#shadow)"/>
+
+  <line x1="107" y1="216" x2="107" y2="294" class="line"/>
+  <line x1="107" y1="412" x2="107" y2="490" class="line"/>
+  <line x1="107" y1="630" x2="107" y2="708" class="line"/>
+  <line x1="107" y1="804" x2="107" y2="882" class="line"/>
+  <line x1="1429" y1="216" x2="1429" y2="294" class="line"/>
+  <line x1="1429" y1="412" x2="1429" y2="490" class="line"/>
+  <line x1="1429" y1="630" x2="1429" y2="708" class="line"/>
+  <line x1="1429" y1="804" x2="1429" y2="882" class="line"/>
+
+  <line x1="266" y1="158" x2="266" y2="218" class="gold"/>
+  <line x1="1268" y1="158" x2="1268" y2="218" class="gold"/>
+  <line x1="291" y1="215" x2="241" y2="215" class="gold"/>
+  <line x1="1293" y1="215" x2="1243" y2="215" class="gold"/>
+  <line x1="296" y1="412" x2="296" y2="492" class="gold"/>
+  <line x1="1240" y1="412" x2="1240" y2="492" class="gold"/>
+  <line x1="346" y1="455" x2="246" y2="455" class="gold"/>
+  <line x1="1290" y1="455" x2="1190" y2="455" class="gold"/>
+  <line x1="143" y1="710" x2="235" y2="710" class="gold"/>
+  <line x1="361" y1="710" x2="469" y2="710" class="gold"/>
+  <line x1="1067" y1="710" x2="1175" y2="710" class="gold"/>
+  <line x1="1301" y1="710" x2="1409" y2="710" class="gold"/>
+  <line x1="296" y1="800" x2="296" y2="884" class="gold"/>
+  <line x1="1240" y1="800" x2="1240" y2="884" class="gold"/>
+
+  <g filter="url(#shadow)">
+    <rect x="605" y="500" width="324" height="76" rx="22" class="label-box"/>
+    <text x="767" y="538" class="label">STREET</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="201" y="327" width="78" height="356" rx="24" class="label-box"/>
+    <g transform="translate(240 505) rotate(-90)">
+      <text class="label">SIDEWALK</text>
+    </g>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="1257" y="327" width="78" height="356" rx="24" class="label-box"/>
+    <g transform="translate(1296 505) rotate(90)">
+      <text class="label">SIDEWALK</text>
+    </g>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="17" y="270" width="74" height="354" rx="22" class="label-box"/>
+    <g transform="translate(54 447) rotate(-90)">
+      <text class="label-small">TRAMLINES</text>
+    </g>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="1445" y="270" width="74" height="354" rx="22" class="label-box"/>
+    <g transform="translate(1482 447) rotate(90)">
+      <text class="label-small">TRAMLINES</text>
+    </g>
+  </g>
+</svg>
