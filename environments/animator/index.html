@@ -126,12 +126,16 @@
       <section class="pal-section">
         <div class="pal-header">
           <div class="pal-title">Selection</div>
-          <div class="pal-copy">Quick actions for the current player.</div>
+          <div class="pal-copy">Quick actions for the current board item.</div>
         </div>
         <div class="sel-info" id="selInfo">
-          <div class="sel-info-header">Selected Player</div>
+          <div class="sel-info-header">Selected Item</div>
           <div class="sel-info-name" id="selName">-</div>
           <div class="sel-info-meta" id="selMeta">Select a player or ball to inspect it here.</div>
+          <div class="sel-edit" id="selEditWrap">
+            <label class="sel-edit-label" id="selEditLabel" for="selNoteInput">Note Text</label>
+            <input id="selNoteInput" class="sel-edit-input" type="text" maxlength="48" placeholder="Update note text"/>
+          </div>
           <div class="sel-actions">
             <button class="sel-btn" id="selClearBtn" onclick="clearSelection()">Clear Selection</button>
             <button class="sel-btn danger" id="selDeleteBtn" onclick="deleteSelected()">Remove Player</button>
@@ -196,6 +200,64 @@
             <span>Future Export</span>
           </div>
           <div class="future-copy">Image and PDF export can slot in here next without changing the core board workflow.</div>
+        </div>
+      </section>
+
+      <section class="pal-section">
+        <div class="pal-header">
+          <div class="pal-title">Play Metadata</div>
+          <div class="pal-copy">Attach a clear coaching purpose to the board so saves carry meaning, not just movement.</div>
+        </div>
+        <div class="meta-shell">
+          <div class="meta-title-row">
+            <span class="meta-title-label">Title</span>
+            <strong class="meta-title-value" id="metaTitleValue">New Play</strong>
+          </div>
+
+          <div class="meta-group">
+            <label class="meta-label" for="metaPurpose">Purpose</label>
+            <textarea id="metaPurpose" class="meta-input meta-textarea" rows="2" maxlength="160" placeholder="What is this play trying to achieve?"></textarea>
+          </div>
+
+          <div class="meta-group">
+            <label class="meta-label">Coaching Points</label>
+            <div class="meta-list">
+              <input id="metaCoachingPoint1" class="meta-input" type="text" maxlength="80" placeholder="Coaching point 1">
+              <input id="metaCoachingPoint2" class="meta-input" type="text" maxlength="80" placeholder="Coaching point 2">
+              <input id="metaCoachingPoint3" class="meta-input" type="text" maxlength="80" placeholder="Coaching point 3">
+            </div>
+          </div>
+
+          <div class="meta-group">
+            <label class="meta-label" for="metaDecisionCue">Decision Cue</label>
+            <input id="metaDecisionCue" class="meta-input" type="text" maxlength="96" placeholder="What should the player read or feel?">
+          </div>
+
+          <div class="meta-group">
+            <label class="meta-label">Common Mistakes</label>
+            <div class="meta-list">
+              <input id="metaCommonMistake1" class="meta-input" type="text" maxlength="80" placeholder="Common mistake 1">
+              <input id="metaCommonMistake2" class="meta-input" type="text" maxlength="80" placeholder="Common mistake 2">
+              <input id="metaCommonMistake3" class="meta-input" type="text" maxlength="80" placeholder="Common mistake 3">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="pal-section">
+        <div class="pal-header">
+          <div class="pal-title">Tactical Annotations</div>
+          <div class="pal-copy">Add lightweight coaching notes without changing the core board flow.</div>
+        </div>
+        <div class="ann-toolbar">
+          <button class="ann-tool-btn" id="t-note" onclick="setTool('note')">Note</button>
+          <button class="ann-tool-btn" id="t-arrow" onclick="setTool('arrow')">Arrow</button>
+          <button class="ann-tool-btn" id="t-zone" onclick="setTool('zone')">Zone</button>
+        </div>
+        <div class="ann-config">
+          <label class="ann-config-label" for="annotationText">Default Note Text</label>
+          <input id="annotationText" class="ann-config-input" type="text" maxlength="48" placeholder="Phase cue"/>
+          <div class="ann-config-copy" id="annotationCopy">Choose an annotation tool, then click or drag on the field.</div>
         </div>
       </section>
 

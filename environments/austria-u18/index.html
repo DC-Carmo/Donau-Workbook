@@ -7,48 +7,514 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../css/base.css">
+  <link rel="stylesheet" href="../../css/overlays.css">
+  <link rel="stylesheet" href="../../css/components.css">
   <link rel="stylesheet" href="../../css/platform.css">
+  <link rel="stylesheet" href="./theme.css">
 </head>
-<body class="platform-page placeholder-page">
-  <main class="placeholder-panel">
-    <div class="placeholder-topbar">
-      <div class="platform-brand">
-        <div class="platform-brand-mark">
-          <img src="../../assets/donau/branding/rugby-logo.png" alt="Coach Mato platform mark">
-        </div>
-        <div class="platform-brand-copy">
-          <div class="platform-kicker">Environment 02</div>
-          <div class="platform-kicker">Austria U18 National Team</div>
+<body class="platform-page austria-u18-theme">
+  <a href="#s1" class="sr-only" id="skipLink">Skip to content</a>
+
+  <div class="progress" role="progressbar" aria-valuenow="1" aria-valuemin="1" aria-valuemax="8" aria-label="Slide progress">
+    <div class="progress-fill" id="pFill" style="width:12.5%"></div>
+  </div>
+
+  <div class="slide active" id="s1">
+    <div class="topbar">
+      <div class="topbar-logo" onclick="goTo(1)">
+        <img src="./assets/oesterreich-logo.png" class="nt-topbar-logo" alt="Rugby Austria logo">
+        <div>
+          <div class="topbar-title">Austria U18 National Team</div>
+          <div class="topbar-sub">National Team Program</div>
         </div>
       </div>
-      <a class="portal-return" href="../../index.html"><span>&#9664;</span> Back to Portal</a>
+      <div class="topbar-right">
+        <div class="motto">Represent · <span>Compete</span> · Finish</div>
+        <div class="slide-num" id="slideNum">01 / 08</div>
+      </div>
     </div>
 
-    <div class="placeholder-grid">
-      <section class="placeholder-copy">
-        <div class="placeholder-note">Coming soon</div>
-        <h1 class="placeholder-title">Austria U18 <span>National Team</span></h1>
-        <p class="placeholder-lead">
-          This environment is reserved for national-team standards, campaign language, age-grade game model detail,
-          and competition-specific preparation. The platform shell is ready, while the full rugby content build will come in a later phase.
+    <div class="nt-cover-shell">
+      <section class="nt-cover-main">
+        <div class="cover-badge fadeup">Austria Rugby · U18 Campaign Playbook</div>
+        <img src="./assets/oesterreich-logo.png" class="nt-cover-crest fadeup" alt="Rugby Austria crest">
+        <h1 class="hero fadeup">AUSTRIA<br><span>U18</span></h1>
+        <p class="nt-cover-copy fadeup">
+          A national-team environment built for role clarity, shared language, and campaign readiness.
+          Every section helps the squad understand how Austria wants to play, prepare, and represent the jersey under pressure.
         </p>
+        <div class="nt-cover-actions fadeup">
+          <button class="coach-intro-btn" onclick="openOverlay('ovCoach')" aria-haspopup="dialog">
+            Program Introduction <span style="font-size:.65rem;opacity:.6;">&#9654;</span>
+          </button>
+          <button class="coach-intro-btn coach-intro-btn-secondary" onclick="openOverlay('ovIdentity')" aria-haspopup="dialog">
+            National Identity <span style="font-size:.65rem;opacity:.6;">&#9654;</span>
+          </button>
+        </div>
       </section>
 
-      <aside class="placeholder-sidebar">
-        <div class="placeholder-stat">
-          <strong>Status</strong>
-          <p>Environment path is live and connected to the platform homepage.</p>
+      <aside class="nt-cover-side">
+        <div class="nt-side-panel fadeup">
+          <div class="nt-panel-kicker">Campaign Targets</div>
+          <div class="nt-pillar">
+            <div class="p-num">#1</div>
+            <div class="p-word">Install one language fast enough that meeting-room detail becomes match-day clarity.</div>
+          </div>
+          <div class="cover-divider"></div>
+          <div class="nt-pillar">
+            <div class="p-num">#2</div>
+            <div class="p-word">Own territory, collisions, and transition so the team can play on terms, not react under stress.</div>
+          </div>
+          <div class="cover-divider"></div>
+          <div class="nt-pillar">
+            <div class="p-num">#3</div>
+            <div class="p-word">Represent Austria with discipline, composure, and a finish that holds under scoreboard pressure.</div>
+          </div>
         </div>
-        <div class="placeholder-stat">
-          <strong>Planned Use</strong>
-          <p>National program principles, weekly standards, game model frameworks, and campaign resources.</p>
-        </div>
-        <div class="placeholder-stat">
-          <strong>Current Reference</strong>
-          <p>Donau remains the active benchmark for experience, interaction patterns, and layout quality.</p>
+
+        <div class="nt-side-panel nt-side-panel-compact fadeup">
+          <div class="nt-panel-kicker">Program Register</div>
+          <div class="nt-mini-grid">
+            <div class="metric-chip"><div class="m-val">8</div><div class="m-label">Core sections</div></div>
+            <div class="metric-chip"><div class="m-val">2</div><div class="m-label">Program layers</div></div>
+            <div class="metric-chip"><div class="m-val">U18</div><div class="m-label">National squad</div></div>
+            <div class="metric-chip"><div class="m-val">Live</div><div class="m-label">Theme layer</div></div>
+          </div>
         </div>
       </aside>
     </div>
-  </main>
+  </div>
+
+  <div class="slide" id="s2">
+    <div class="topbar">
+      <div class="topbar-logo" onclick="goTo(1)">
+        <img src="./assets/oesterreich-logo.png" class="nt-topbar-logo" alt="Rugby Austria logo">
+        <div>
+          <div class="topbar-title">Austria U18 National Team</div>
+          <div class="topbar-sub">National Program · Game Model</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="motto">Represent · <span>Compete</span> · Finish</div>
+        <div class="slide-num">02 / 08</div>
+      </div>
+    </div>
+
+    <div class="sl-header fadeup">
+      <h2 class="section">Game Model</h2>
+      <div class="tag nt-tag">Selection Standard</div>
+    </div>
+    <p class="nt-section-intro fadeup">
+      The game model is the shared picture the squad is selected to execute. It defines how Austria should look under pressure, not just what to call.
+    </p>
+
+    <div class="sl-body">
+      <div class="phil-zone fadeup" data-label="ID">
+        <h3 class="red">National Identity</h3>
+        <ul>
+          <li>Every action must look like an Austria player, not an individual solving the game alone.</li>
+          <li>Arrive camp-ready: language, role, and expectation already understood.</li>
+          <li>Unit connection matters more than isolated effort.</li>
+          <li>Pressure the game with intent, discipline, and repeatability.</li>
+          <li>Hold composure when momentum swings or the game goes off-script.</li>
+        </ul>
+        <div class="nt-zone-foot">
+          <div class="tagline">Program Game Areas</div>
+          <div class="nt-chip-row">
+            <span class="tag nt-chip">Transition</span>
+            <span class="tag nt-chip">Set Piece</span>
+            <span class="tag nt-chip">Attack</span>
+            <span class="tag nt-chip">Contact</span>
+            <span class="tag nt-chip">Defence</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="phil-zone fadeup" data-label="SET">
+        <h3 class="gold">Set Piece Standards</h3>
+        <div class="metric-row">
+          <div class="metric-chip"><div class="m-val">90%</div><div class="m-label">Own lineout</div></div>
+          <div class="metric-chip"><div class="m-val">100%</div><div class="m-label">Own scrum</div></div>
+        </div>
+        <ul>
+          <li>Selection standard: clean picture, clean communication, clean delivery.</li>
+          <li>Protect launch quality before adding detail.</li>
+          <li>Use lineout, maul, and scrum as one contest layer.</li>
+          <li>Every unit must know where the next action lives.</li>
+        </ul>
+      </div>
+
+      <div class="phil-zone fadeup" data-label="ATK">
+        <h3 class="red">Attack Principles</h3>
+        <ul>
+          <li>Play flat enough to threaten, calm enough to stay connected.</li>
+          <li>Reload faster than the fold.</li>
+          <li>See the field picture before the ball leaves the source.</li>
+          <li>Forwards and back three solve space together.</li>
+          <li>Finish pressure with clear decisions, not hopeful ones.</li>
+        </ul>
+      </div>
+
+      <div class="phil-zone fadeup" data-label="DEF">
+        <h3 class="red">Defensive DNA</h3>
+        <ul>
+          <li>Dominant line speed, every man, every phase.</li>
+          <li>Inside connection gives the outside line permission to hunt.</li>
+          <li>Win first contact, then reload with discipline.</li>
+          <li>Talk early. Fix edges before the ball gets there.</li>
+          <li>Turn pressure into territory, then back it up with repeat effort.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" id="s3">
+    <div class="topbar">
+      <div class="topbar-logo" onclick="goTo(1)">
+        <img src="./assets/oesterreich-logo.png" class="nt-topbar-logo" alt="Rugby Austria logo">
+        <div>
+          <div class="topbar-title">Austria U18 National Team</div>
+          <div class="topbar-sub">National Program · Attack System</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="motto">Represent · <span>Compete</span> · Finish</div>
+        <div class="slide-num">03 / 08</div>
+      </div>
+    </div>
+
+    <div class="sl-header fadeup">
+      <h2 class="section">Attack System</h2>
+      <div class="tag nt-tag">Program Language</div>
+    </div>
+    <p class="nt-section-intro fadeup">
+      Austria attack language should shorten decisions, not complicate them. The system exists to give the squad one clear picture at speed.
+    </p>
+
+    <div class="sl-body">
+      <div class="attack-sidebar">
+        <button class="field-areas-label-btn" id="fieldAreasBtn" onclick="toggleFieldMap()" aria-expanded="false" aria-controls="fieldMapPanel">
+          Field Areas <span class="field-areas-map-arrow">&#9660;</span>
+        </button>
+
+        <div class="field-map-panel" id="fieldMapPanel">
+          <div class="nt-map-placeholder">
+            <div class="nt-map-lane nt-map-lane-core">Core Lane</div>
+            <div class="nt-map-lane nt-map-lane-pressure">Pressure Lane</div>
+            <div class="nt-map-lane nt-map-lane-edge">Edge Lane</div>
+          </div>
+        </div>
+
+        <div id="attackFieldAreas"></div>
+
+        <div class="nt-side-label">Direction Calls</div>
+        <div class="terminology-grid" id="attackDirectionCalls"></div>
+
+        <button class="field-areas-label-btn" id="forwardPodsBtn" onclick="toggleForwardPodsMap()" aria-expanded="false" aria-controls="forwardPodsMapPanel" style="margin-top:16px;">
+          Forward Units <span class="field-areas-map-arrow">&#9660;</span>
+        </button>
+
+        <div id="attackPods"></div>
+
+        <div class="field-map-panel" id="forwardPodsMapPanel">
+          <div class="nt-pod-map">
+            <div class="term-chip"><div class="term-key">ALPS</div><div class="term-val">1, 2, 3 · front-five collision unit</div></div>
+            <div class="term-chip"><div class="term-key">DANUBE</div><div class="term-val">4, 5, 8 · launch and carry spine</div></div>
+            <div class="term-chip"><div class="term-key">FALCON</div><div class="term-val">6, 7 · edge-to-edge pressure unit</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="attack-main">
+        <div class="zone-btns" role="tablist" aria-label="Attack categories">
+          <button class="zone-btn active" role="tab" aria-selected="true" onclick="setCategory('setpiece',this)">Set Piece</button>
+          <button class="zone-btn" role="tab" aria-selected="false" onclick="setCategory('phase',this)">Backs Calls</button>
+          <button class="zone-btn" role="tab" aria-selected="false" onclick="setCategory('exits',this)">Exits</button>
+          <button class="zone-btn" role="tab" aria-selected="false" onclick="setCategory('calls',this)">Calls Glossary</button>
+        </div>
+        <div class="attack-content" id="attackContent"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" id="s4">
+    <div class="topbar">
+      <div class="topbar-logo" onclick="goTo(1)">
+        <img src="./assets/oesterreich-logo.png" class="nt-topbar-logo" alt="Rugby Austria logo">
+        <div>
+          <div class="topbar-title">Austria U18 National Team</div>
+          <div class="topbar-sub">National Program · Defensive System</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="motto">Represent · <span>Compete</span> · Finish</div>
+        <div class="slide-num">04 / 08</div>
+      </div>
+    </div>
+
+    <div class="sl-header fadeup">
+      <h2 class="section">Defensive System</h2>
+      <div class="tag nt-tag">Pressure First</div>
+    </div>
+    <p class="nt-section-intro fadeup">
+      The defensive system is built to look collective at speed: connected inside-out, physically honest, and clear in the red zone.
+    </p>
+
+    <div class="sl-body">
+      <div class="def-left">
+        <div class="attitude-block fadeup">
+          <h4>Mindset · National Standard</h4>
+          <ul>
+            <li>Dominant line speed — every man, every phase.</li>
+          <li>Workrate must show in the fold, not only at the collision.</li>
+            <li>Inside connection gives the line permission to hunt.</li>
+            <li>Shoulders square, feet alive, finish the tackle picture.</li>
+          <li>Repeat effort must survive fatigue, pressure, and broken shape.</li>
+          </ul>
+        </div>
+
+        <div class="nt-side-label">Line Roles</div>
+        <div class="role-grid fadeup" id="defRoles"></div>
+
+        <div class="nt-side-label">Defensive Calls</div>
+        <table class="call-table fadeup">
+          <thead><tr><th>Call</th><th>Action</th></tr></thead>
+          <tbody id="defCalls"></tbody>
+        </table>
+      </div>
+
+      <div class="def-right">
+        <div class="nt-side-label">Scrum Defence by Side &amp; Zone</div>
+        <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;" role="tablist" aria-label="Defence field sides">
+          <button class="zone-tab active" role="tab" aria-selected="true" onclick="setDefSide('rhs',this)">Right Hand Side</button>
+          <button class="zone-tab" role="tab" aria-selected="false" onclick="setDefSide('lhs',this)">Left Hand Side</button>
+          <button class="zone-tab" role="tab" aria-selected="false" onclick="setDefSide('cfs',this)">Centre Field</button>
+        </div>
+        <div id="defContent"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" id="s5">
+    <div class="topbar">
+      <div class="topbar-logo" onclick="goTo(1)">
+        <img src="./assets/oesterreich-logo.png" class="nt-topbar-logo" alt="Rugby Austria logo">
+        <div>
+          <div class="topbar-title">Austria U18 National Team</div>
+          <div class="topbar-sub">National Program · Set Piece</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="motto">Represent · <span>Compete</span> · Finish</div>
+        <div class="slide-num">05 / 08</div>
+      </div>
+    </div>
+
+    <div class="sl-header fadeup">
+      <h2 class="section">Set Piece</h2>
+      <div class="tag nt-tag">Lineout · Scrum · Maul</div>
+    </div>
+
+    <p class="nt-section-intro fadeup">
+      Set piece is one contest area. Austria should leave it with either launch quality, territorial gain, or direct scoreboard pressure.
+    </p>
+    <div class="sl-body">
+      <div class="lineout-left">
+        <div class="zone-btns" role="tablist" aria-label="Set piece tabs">
+          <button class="zone-btn active" role="tab" aria-selected="true" onclick="setSetPieceTab('lineout',this)">Lineout</button>
+          <button class="zone-btn" role="tab" aria-selected="false" onclick="setSetPieceTab('scrum',this)">Scrum</button>
+          <button class="zone-btn" role="tab" aria-selected="false" onclick="setSetPieceTab('maul',this)">Maul</button>
+        </div>
+        <div id="setPieceContent" class="nt-setpiece-content"></div>
+      </div>
+
+      <div class="lineout-right">
+        <div class="success-block fadeup">
+          <h4>Campaign KPIs</h4>
+          <div class="success-metrics" id="setPieceMetrics"></div>
+        </div>
+        <div class="formation-codes fadeup">
+          <div class="fc-title">Formation Codes</div>
+          <div id="setPieceCodes"></div>
+        </div>
+        <div class="formation-codes fadeup">
+          <div class="fc-title">Coaching Lens</div>
+          <div id="setPieceNotes" class="technique-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" id="s6">
+    <div class="topbar">
+      <div class="topbar-logo" onclick="goTo(1)">
+        <img src="./assets/oesterreich-logo.png" class="nt-topbar-logo" alt="Rugby Austria logo">
+        <div>
+          <div class="topbar-title">Austria U18 National Team</div>
+          <div class="topbar-sub">Campaign Layer · Roles &amp; Units</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="motto">Represent · <span>Compete</span> · Finish</div>
+        <div class="slide-num">06 / 08</div>
+      </div>
+    </div>
+
+    <div class="sl-header fadeup">
+      <h2 class="section">Roles &amp; Units</h2>
+      <div class="tag nt-tag">Phase 2 Layer</div>
+    </div>
+
+    <div class="sl-body nt-units-shell">
+      <div class="nt-units-intro fadeup">
+        <p>
+          National-team players must understand more than their own jersey number. Every unit needs a shared picture in attack,
+          defence, and set piece so the squad can connect quickly with limited campaign time.
+        </p>
+      </div>
+      <div class="nt-units-grid fadeup" id="unitsGrid"></div>
+    </div>
+  </div>
+
+  <div class="slide" id="s7">
+    <div class="topbar">
+      <div class="topbar-logo" onclick="goTo(1)">
+        <img src="./assets/oesterreich-logo.png" class="nt-topbar-logo" alt="Rugby Austria logo">
+        <div>
+          <div class="topbar-title">Austria U18 National Team</div>
+          <div class="topbar-sub">Campaign Layer · Analysis Hub</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="motto">Represent · <span>Compete</span> · Finish</div>
+        <div class="slide-num">07 / 08</div>
+      </div>
+    </div>
+
+    <div class="sl-header fadeup">
+      <h2 class="section">Analysis Hub</h2>
+      <div class="tag nt-tag">Living Section</div>
+    </div>
+
+    <div class="sl-body development-shell nt-analysis-shell">
+      <div class="module-main">
+        <div class="dev-copy fadeup">
+          <p>
+            This hub holds the competition-facing layer of the program: opponent prep, campaign rhythm, review notes,
+            and the evidence used to support preparation and selection decisions.
+          </p>
+        </div>
+        <div class="module-grid fadeup" id="analysisHub"></div>
+      </div>
+      <div class="module-side">
+        <div class="module-panel fadeup">
+          <div class="tagline">Campaign Status</div>
+          <div id="analysisStatus"></div>
+        </div>
+        <div class="module-panel fadeup">
+          <div class="tagline">Current Emphasis</div>
+          <div id="analysisPillars"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" id="s8">
+    <div class="topbar">
+      <div class="topbar-logo" onclick="goTo(1)">
+        <img src="./assets/oesterreich-logo.png" class="nt-topbar-logo" alt="Rugby Austria logo">
+        <div>
+          <div class="topbar-title">Austria U18 National Team</div>
+          <div class="topbar-sub">AI Playbook Assistant</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="motto">Represent · <span>Compete</span> · Finish</div>
+        <div class="slide-num">08 / 08</div>
+      </div>
+    </div>
+
+    <div class="sl-header fadeup">
+      <h2 class="section">AI Playbook Assistant</h2>
+      <div class="tag nt-tag">National Program Context</div>
+    </div>
+
+    <div class="sl-body">
+      <div class="chat-area">
+        <div class="chat-msgs" id="chatMsgs" role="log" aria-label="Chat messages" aria-live="polite">
+          <div class="msg ai">
+            <div class="msg-label">AI Coach</div>
+            <div class="msg-bubble">I’m loaded with the Austria U18 program language. Ask about launch calls, unit roles, defensive signals, or campaign preparation standards.</div>
+          </div>
+        </div>
+        <div class="chat-input-row">
+          <label for="chatInp" class="sr-only">Ask a question about the Austria U18 playbook</label>
+          <input class="chat-inp" id="chatInp" placeholder="E.g. What does TOR mean? or What is the Back Three unit responsible for?" onkeydown="if(event.key==='Enter')sendMsg()" aria-label="Ask a question about the Austria U18 playbook">
+          <button class="send-btn" id="sendBtn" onclick="sendMsg()">Send</button>
+        </div>
+      </div>
+
+      <div class="ai-panel">
+        <h4>Quick Questions</h4>
+        <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What is the difference between Core Lane and Edge Lane?</div>
+        <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">Explain the ALPS, DANUBE, and FALCON units</div>
+        <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What does the TOR call mean in attack?</div>
+        <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What is the STORM change-up in defence?</div>
+        <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">How do the lineout trigger numbers work?</div>
+        <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What are the non-negotiables for the Back Three unit?</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="ovCoach" role="dialog" aria-modal="true" aria-label="Program Introduction">
+    <div class="overlay-topbar">
+      <div class="ov-title">Program Introduction</div>
+      <button class="overlay-close" onclick="closeOverlay('ovCoach')" aria-label="Close">&times;</button>
+    </div>
+    <div class="overlay-body">
+      <div class="ov-name">Austria U18 National Team</div>
+      <div class="ov-prose nt-overlay-prose">
+        <p>This environment is built to reduce noise. The squad is selected to execute a clear model, not to learn a new language every week.</p>
+        <div class="ov-pull">Selection earns the jersey. Daily behaviour earns trust inside the jersey.</div>
+        <p>The program expects players to bring their strengths from domestic environments into a national framework that is fast to install, competition-ready, and connected under pressure.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="ovIdentity" role="dialog" aria-modal="true" aria-label="National Identity">
+    <div class="overlay-topbar">
+      <div>
+        <div class="ov-title">National Identity</div>
+        <div class="ov-sub">Represent · Compete · Finish</div>
+      </div>
+      <button class="overlay-close" onclick="closeOverlay('ovIdentity')" aria-label="Close">&times;</button>
+    </div>
+    <div class="overlay-body" style="max-width:720px;margin:0 auto;">
+      <div class="ov-prose nt-overlay-prose">
+        <p><strong>Represent</strong> means every action reflects the standard of wearing Austria on the chest.</p>
+        <p><strong>Compete</strong> means contests are attacked early: set piece, collision, kick chase, and fold.</p>
+        <p><strong>Finish</strong> means pressure is completed with detail, discipline, and calm late in the game.</p>
+        <div class="ov-pull">The jersey should feel heavier than the moment, never lighter.</div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="nav" aria-label="Slide navigation">
+    <button class="nav-btn" id="prevBtn" onclick="changeSlide(-1)" disabled aria-label="Previous slide">&#9664; PREV</button>
+    <div class="dots" id="dots" role="tablist" aria-label="Slide selector"></div>
+    <button class="nav-btn" id="nextBtn" onclick="changeSlide(1)" aria-label="Next slide">NEXT &#9654;</button>
+  </nav>
+
+  <div class="field-lightbox" id="fieldLightbox" onclick="closeFieldLightbox(event)">
+    <div class="field-lightbox-inner">
+      <button class="field-lightbox-close" onclick="closeFieldLightbox()" aria-label="Close">&times;</button>
+      <img id="fieldLightboxImg" src="" alt="">
+    </div>
+  </div>
+
+  <script src="../../js/shared/ui-helpers.js"></script>
+  <script src="../../data/austria-u18/content.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>

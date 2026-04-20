@@ -52,8 +52,15 @@ const S = {
   tab:  'atk',          // active palette tab
   players: [],          // { id, num, team:'A'|'D', x, y, isBC:false }
   ball: null,           // { x, y }
+  ballOwner: null,      // { num, team } for the starting ball carrier
   paths: [],            // { pid, pts:[{x,y}], color }
   passes: [],           // { from, to, style:'pass'|'kick' }
+  projectId: null,
+  projectMeta: null,
+  playMetadata: null,
+  projectPlayback: null,
+  annotations: [],
+  annotationDraft: null,
   selected: null,       // player id
   dragging: null,       // { type:'player'|'ball', id? }
   dragOff: { x:0, y:0 },
@@ -72,25 +79,311 @@ const S = {
 const SPEEDS = [0.25, 0.5, 1, 1.5, 2, 3];
 let   spdIdx = 2;
 const SAVED_PLAYS_KEY = 'coachmato.animator.savedPlays.v1';
+const PROJECT_SCHEMA_VERSION = 3;
+const PROJECT_TYPE = 'coachmato.animator.project';
+const PLAYBACK_TIMELINE_MODEL = 'global_progress_v1';
+const DEFAULT_PLAYBACK_DURATION = 5;
+const ANNOTATION_NOTE_DEFAULT = 'Note';
+const NOTE_FONT = '"Barlow Condensed"';
 
 // ─── PLAYER RADIUS (px on canvas) ─────────────────────────
 const R = () => Math.max(11, Math.min(18, sc * 1.3));
 
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function cloneData(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function mkProjectId() {
+  return `project_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function mkAnnotationId() {
+  return `ann_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function playerRef(pl) {
+  return pl ? { num: pl.num, team: pl.team } : null;
+}
+
+function samePlayerRef(a, b) {
+  return !!a && !!b && a.num === b.num && a.team === b.team;
+}
+
+function findPlayerByRef(ref) {
+  if (!ref) return null;
+  return S.players.find(pl => pl.num === ref.num && pl.team === ref.team) || null;
+}
+
+function normalizePlayerRef(ref) {
+  if (!ref || typeof ref !== 'object') return null;
+  const team = ref.team === 'D' ? 'D' : ref.team === 'A' ? 'A' : null;
+  const num = Number(ref.num);
+  if (!team || !Number.isFinite(num)) return null;
+  return { num, team };
+}
+
+function normalizePlaybackSettings(playback = {}) {
+  const currentSpeed = Number(playback.currentSpeed);
+  const defaultSpeed = Number(playback.defaultSpeed);
+  return {
+    durationSeconds: DEFAULT_PLAYBACK_DURATION,
+    currentSpeed: SPEEDS.includes(currentSpeed) ? currentSpeed : 1,
+    defaultSpeed: SPEEDS.includes(defaultSpeed) ? defaultSpeed : 1,
+    timelineModel: PLAYBACK_TIMELINE_MODEL,
+  };
+}
+
+function emptyPlayMetadata(title = '') {
+  return {
+    title: title || '',
+    purpose: '',
+    coachingPoints: [],
+    decisionCue: '',
+    commonMistakes: [],
+  };
+}
+
+function normalizeTextList(list, maxItems) {
+  const items = Array.isArray(list) ? list : [];
+  return items
+    .map(item => String(item || '').trim())
+    .filter(Boolean)
+    .slice(0, maxItems);
+}
+
+function normalizeProjectMetadata(project = {}, metadata = {}) {
+  const stamp = nowIso();
+  return {
+    title: String(metadata.title || project.name || '').trim(),
+    purpose: String(metadata.purpose || '').trim(),
+    coachingPoints: normalizeTextList(metadata.coachingPoints, 3),
+    decisionCue: String(metadata.decisionCue || '').trim(),
+    commonMistakes: normalizeTextList(metadata.commonMistakes, 3),
+    createdAt: metadata.createdAt || project.createdAt || project.savedAt || stamp,
+    updatedAt: metadata.updatedAt || project.updatedAt || project.savedAt || stamp,
+    source: metadata.source || project.source || 'animator',
+  };
+}
+
+function annotationSelection(id) {
+  return `ann:${id}`;
+}
+
+function selectedAnnotationId() {
+  return typeof S.selected === 'string' && S.selected.startsWith('ann:') ? S.selected.slice(4) : null;
+}
+
+function findAnnotationById(id) {
+  return S.annotations.find(item => item.id === id) || null;
+}
+
+function selectedAnnotation() {
+  const id = selectedAnnotationId();
+  return id ? findAnnotationById(id) : null;
+}
+
+function defaultAnnotationText() {
+  const input = document.getElementById('annotationText');
+  const txt = input?.value?.trim();
+  return txt || ANNOTATION_NOTE_DEFAULT;
+}
+
+function annotationColor(type) {
+  if (type === 'zone') return '#10b981';
+  if (type === 'arrow') return '#d9b46c';
+  return '#f3f4f6';
+}
+
+function normalizeAnnotation(annotation) {
+  if (!annotation || typeof annotation !== 'object' || !annotation.type) return null;
+  const base = {
+    id: annotation.id || mkAnnotationId(),
+    type: annotation.type,
+    color: annotation.color || annotationColor(annotation.type),
+  };
+  if (annotation.type === 'note') {
+    const x = Number(annotation.x), y = Number(annotation.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    return {
+      ...base,
+      x,
+      y,
+      text: String(annotation.text || ANNOTATION_NOTE_DEFAULT).slice(0, 48),
+    };
+  }
+  if (annotation.type === 'arrow') {
+    const start = annotation.start || {};
+    const end = annotation.end || {};
+    const sx = Number(start.x), sy = Number(start.y), ex = Number(end.x), ey = Number(end.y);
+    if (![sx, sy, ex, ey].every(Number.isFinite)) return null;
+    return {
+      ...base,
+      start: { x: sx, y: sy },
+      end: { x: ex, y: ey },
+    };
+  }
+  if (annotation.type === 'zone') {
+    const x = Number(annotation.x), y = Number(annotation.y), r = Number(annotation.r);
+    if (![x, y, r].every(Number.isFinite)) return null;
+    return {
+      ...base,
+      x,
+      y,
+      r: Math.max(1.5, r),
+    };
+  }
+  return null;
+}
+
+function applyBallOwnershipVisualState() {
+  S.players.forEach(pl => {
+    pl.isBC = samePlayerRef(playerRef(pl), S.ballOwner);
+  });
+}
+
+function currentPlayTitle() {
+  return document.getElementById('playName').value.trim() || 'Untitled Play';
+}
+
+function buildPlayMetadata() {
+  const current = normalizeProjectMetadata({ name: currentPlayTitle() }, S.playMetadata || {});
+  return {
+    ...current,
+    title: currentPlayTitle(),
+  };
+}
+
+function syncPlayMetadataTitle() {
+  if (!S.playMetadata) {
+    S.playMetadata = emptyPlayMetadata(currentPlayTitle());
+  }
+  S.playMetadata.title = currentPlayTitle();
+  updatePlayMetadataPanel();
+}
+
+function updateBallOwnerFromPosition() {
+  if (!S.ball) {
+    S.ballOwner = null;
+    applyBallOwnershipVisualState();
+    return;
+  }
+  let best = null;
+  let bestDist = Infinity;
+  S.players.forEach(pl => {
+    const dist = d2(S.ball, { x: pl.x, y: pl.y });
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = pl;
+    }
+  });
+  S.ballOwner = best && bestDist <= 3.5 ? playerRef(best) : null;
+  applyBallOwnershipVisualState();
+}
+
+function makeProjectRecord(nameOverride, metadataOverrides = {}) {
+  const prevMeta = S.projectMeta || {};
+  const stamp = nowIso();
+  const title = nameOverride || currentPlayTitle();
+  const playMetadata = {
+    ...buildPlayMetadata(),
+    ...metadataOverrides,
+    title,
+  };
+  const meta = {
+    ...playMetadata,
+    createdAt: prevMeta.createdAt || stamp,
+    updatedAt: stamp,
+    source: prevMeta.source || 'animator',
+  };
+  const playback = normalizePlaybackSettings(S.projectPlayback || {});
+
+  return {
+    schemaVersion: PROJECT_SCHEMA_VERSION,
+    projectType: PROJECT_TYPE,
+    id: S.projectId || mkProjectId(),
+    name: title,
+    cat: 'Saved Board',
+    metadata: meta,
+    playback,
+    annotations: cloneData(Array.isArray(S.annotations) ? S.annotations : []),
+    players: S.players.map(({ num, team, x, y }) => ({ num, team, x, y })),
+    ball: S.ball ? { ...S.ball } : null,
+    ballOwner: normalizePlayerRef(S.ballOwner),
+    paths: S.paths.map(path => {
+      const pl = S.players.find(q => q.id === path.pid);
+      return pl ? { num: pl.num, team: pl.team, pts: path.pts.map(pt => ({ ...pt })) } : null;
+    }).filter(Boolean),
+    passes: S.passes.map(pass => {
+      const from = S.players.find(q => q.id === pass.from);
+      const to = S.players.find(q => q.id === pass.to);
+      return from && to ? {
+        fromNum: from.num,
+        fromT: from.team,
+        toNum: to.num,
+        toT: to.team,
+        style: pass.style,
+      } : null;
+    }).filter(Boolean),
+  };
+}
+
+function normalizeProjectRecord(input) {
+  const project = input?.project || input?.play || input;
+  if (!project || !Array.isArray(project.players)) return null;
+
+  const normalized = {
+    schemaVersion: Number.isFinite(project.schemaVersion) ? project.schemaVersion : 0,
+    projectType: project.projectType || PROJECT_TYPE,
+    id: project.id || mkProjectId(),
+    name: project.name || 'Untitled Play',
+    cat: project.cat || 'Saved Board',
+    metadata: normalizeProjectMetadata(project, project.metadata),
+    playback: normalizePlaybackSettings(project.playback),
+    annotations: Array.isArray(project.annotations) ? project.annotations.map(normalizeAnnotation).filter(Boolean) : [],
+    players: cloneData(project.players || []),
+    ball: project.ball ? cloneData(project.ball) : null,
+    ballOwner: normalizePlayerRef(project.ballOwner || project.ball?.owner),
+    paths: cloneData(project.paths || []),
+    passes: cloneData(project.passes || []),
+  };
+
+  normalized.metadata.title = normalized.name || normalized.metadata.title || '';
+
+  if (project.savedAt) normalized.savedAt = project.savedAt;
+  return normalized;
+}
+
 // ─── UNDO ──────────────────────────────────────────────────
 function snapshot() {
-  S.history.push(JSON.parse(JSON.stringify({
-    players: S.players, ball: S.ball, paths: S.paths, passes: S.passes
-  })));
+  S.history.push(cloneData({
+    players: S.players,
+    ball: S.ball,
+    ballOwner: S.ballOwner,
+    paths: S.paths,
+    passes: S.passes,
+    annotations: S.annotations,
+    playMetadata: S.playMetadata,
+  }));
   if (S.history.length > 30) S.history.shift();
 }
 function undo() {
   if (!S.history.length) return;
   const h = S.history.pop();
   S.players = h.players; S.ball = h.ball;
+  S.ballOwner = normalizePlayerRef(h.ballOwner);
   S.paths = h.paths;     S.passes = h.passes;
+  S.annotations = Array.isArray(h.annotations) ? h.annotations.map(normalizeAnnotation).filter(Boolean) : [];
+  S.playMetadata = normalizeProjectMetadata({ name: currentPlayTitle() }, h.playMetadata || {});
   S.atkUsed = new Set(S.players.filter(p=>p.team==='A').map(p=>p.num));
   S.defUsed = new Set(S.players.filter(p=>p.team==='D').map(p=>p.num));
   S.selected = null;
+  if (S.ball && !S.ballOwner) updateBallOwnerFromPosition();
+  else applyBallOwnershipVisualState();
+  updatePlayMetadataPanel();
   rebuildPalette(); refreshInteractionUI();
   render();
 }
@@ -578,6 +871,204 @@ function drawArc(x1, y1, x2, y2, color, progress = 1, thick = false) {
   ctx.restore();
 }
 
+function noteMetrics(note) {
+  const fontSize = Math.max(11, sc * 1.25);
+  ctx.save();
+  ctx.font = `700 ${fontSize}px ${NOTE_FONT}`;
+  const width = Math.max(sc * 5.2, ctx.measureText(note.text || ANNOTATION_NOTE_DEFAULT).width + 18);
+  ctx.restore();
+  return { fontSize, width, height: fontSize + 12 };
+}
+
+function drawAnnotationSelectionRing(x, y, r) {
+  const p = toC(x, y);
+  ctx.save();
+  ctx.strokeStyle = '#fbbf24';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+function drawNoteAnnotation(note, selected = false) {
+  const p = toC(note.x, note.y);
+  const box = noteMetrics(note);
+  const width = box.width;
+  const height = box.height;
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.28)';
+  ctx.shadowBlur = 16;
+  ctx.fillStyle = 'rgba(3,8,14,0.82)';
+  roundRect(ctx, p.x - width / 2, p.y - height / 2, width, height, 12);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  if (selected) {
+    ctx.shadowColor = 'rgba(251,191,36,0.22)';
+    ctx.shadowBlur = 18;
+  }
+  ctx.strokeStyle = selected ? '#fbbf24' : 'rgba(217,180,108,0.68)';
+  ctx.lineWidth = selected ? 2 : 1.2;
+  roundRect(ctx, p.x - width / 2, p.y - height / 2, width, height, 12);
+  ctx.stroke();
+  ctx.fillStyle = '#f7fafc';
+  ctx.font = `700 ${box.fontSize}px ${NOTE_FONT}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(note.text || ANNOTATION_NOTE_DEFAULT, p.x, p.y + 0.5);
+  ctx.restore();
+
+  if (selected) {
+    ctx.save();
+    ctx.fillStyle = '#fbbf24';
+    ctx.strokeStyle = '#0b1420';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawArrowAnnotation(arrow, selected = false, preview = false) {
+  const color = preview ? 'rgba(217,180,108,0.72)' : (arrow.color || annotationColor('arrow'));
+  const start = toC(arrow.start.x, arrow.start.y);
+  const end = toC(arrow.end.x, arrow.end.y);
+  const ang = Math.atan2(end.y - start.y, end.x - start.x);
+  const head = Math.max(9, sc * 1.6);
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(7,16,24,0.46)';
+  ctx.lineWidth = 5.2;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(start.x, start.y);
+  ctx.lineTo(end.x, end.y);
+  ctx.stroke();
+  ctx.restore();
+
+  if (selected) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(251,191,36,0.42)';
+    ctx.lineWidth = 8;
+    ctx.lineCap = 'round';
+    ctx.setLineDash([10, 8]);
+    ctx.beginPath();
+    ctx.moveTo(start.x, start.y);
+    ctx.lineTo(end.x, end.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = preview ? 2.6 : 3.2;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(start.x, start.y);
+  ctx.lineTo(end.x, end.y);
+  ctx.stroke();
+
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(end.x, end.y);
+  ctx.lineTo(end.x - head * Math.cos(ang - 0.42), end.y - head * Math.sin(ang - 0.42));
+  ctx.lineTo(end.x - head * Math.cos(ang + 0.42), end.y - head * Math.sin(ang + 0.42));
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  if (selected) {
+    [arrow.start, arrow.end].forEach(pt => {
+      const hp = toC(pt.x, pt.y);
+      ctx.save();
+      ctx.fillStyle = '#fbbf24';
+      ctx.strokeStyle = '#0b1420';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(hp.x, hp.y, 6.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+}
+
+function drawZoneAnnotation(zone, selected = false, preview = false) {
+  const p = toC(zone.x, zone.y);
+  const radius = Math.max(zone.r * sc, sc * 1.5);
+  ctx.save();
+  ctx.fillStyle = preview ? 'rgba(16,185,129,0.1)' : 'rgba(16,185,129,0.14)';
+  ctx.strokeStyle = selected ? '#fbbf24' : (zone.color || annotationColor('zone'));
+  ctx.lineWidth = selected ? 2.4 : 2;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  if (selected) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(251,191,36,0.28)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 5]);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    const handleGuide = toC(zone.x + zone.r, zone.y);
+    ctx.lineTo(handleGuide.x, handleGuide.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    ctx.save();
+    ctx.fillStyle = '#fbbf24';
+    ctx.strokeStyle = '#0b1420';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    const handle = toC(zone.x + zone.r, zone.y);
+    ctx.save();
+    ctx.fillStyle = '#fbbf24';
+    ctx.strokeStyle = '#0b1420';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(handle.x, handle.y, 6.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function renderAnnotations(layer) {
+  S.annotations.forEach(annotation => {
+    const selected = selectedAnnotationId() === annotation.id;
+    if (layer === 'zones' && annotation.type === 'zone') drawZoneAnnotation(annotation, selected);
+    if (layer === 'lines' && annotation.type === 'arrow') drawArrowAnnotation(annotation, selected);
+    if (layer === 'notes' && annotation.type === 'note') drawNoteAnnotation(annotation, selected);
+  });
+}
+
+function renderAnnotationDraft() {
+  if (!S.annotationDraft) return;
+  if (S.annotationDraft.type === 'arrow' && S.annotationDraft.end) {
+    drawArrowAnnotation(S.annotationDraft, false, true);
+  }
+  if (S.annotationDraft.type === 'zone' && Number.isFinite(S.annotationDraft.r)) {
+    drawZoneAnnotation(S.annotationDraft, false, true);
+  }
+}
+
 // ════════════════════════════════════════════════════════════
 //  MAIN RENDER
 // ════════════════════════════════════════════════════════════
@@ -585,6 +1076,7 @@ function render() {
   drawField();
 
   const t = S.animT;
+  renderAnnotations('zones');
 
   // ── Completed passes ────────────────────────────────────
   S.passes.forEach(pass => {
@@ -601,6 +1093,7 @@ function render() {
     if (path.pts.length < 2) return;
     drawRunPath(path.pts, path.color, 2.8, t > 0 ? t : 1);
   });
+  renderAnnotations('lines');
 
   // ── Freehand draw preview ────────────────────────────────
   if (S.drawing && S.drawing.pts.length >= 2) {
@@ -608,6 +1101,7 @@ function render() {
     const col = pl?.team === 'A' ? 'rgba(96,165,250,0.7)' : 'rgba(248,113,113,0.7)';
     drawRunPath(S.drawing.pts, col, 2.2, 1, true);
   }
+  renderAnnotationDraft();
 
   // ── Pass-from indicator ──────────────────────────────────
   if (S.passFrom) {
@@ -634,6 +1128,7 @@ function render() {
     const sel = S.selected === pl.id;
     drawPlayer(pos.x, pos.y, pl.num, pl.team, sel, pl.isBC);
   });
+  renderAnnotations('notes');
 }
 
 // ─── Catmull-Rom position at t ──────────────────────────────
@@ -658,11 +1153,54 @@ function hitBall(fp) {
   return d2(fp, S.ball) < PRT();
 }
 
+function pointSegDist(p, a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  if (!dx && !dy) return d2(p, a);
+  const t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy);
+  const tc = clamp(t, 0, 1);
+  return d2(p, { x: a.x + tc * dx, y: a.y + tc * dy });
+}
+
+function hitAnnotation(fp) {
+  for (let i = S.annotations.length - 1; i >= 0; i--) {
+    const ann = S.annotations[i];
+    if (ann.type === 'note') {
+      const box = noteMetrics(ann);
+      const halfW = (box.width / sc) / 2;
+      const halfH = (box.height / sc) / 2;
+      if (Math.abs(fp.x - ann.x) <= halfW && Math.abs(fp.y - ann.y) <= halfH) {
+        return { id: ann.id, part: 'move' };
+      }
+    }
+    if (ann.type === 'arrow') {
+      if (d2(fp, ann.start) <= 2.2) return { id: ann.id, part: 'start' };
+      if (d2(fp, ann.end) <= 2.2) return { id: ann.id, part: 'end' };
+      if (pointSegDist(fp, ann.start, ann.end) <= 1.9) return { id: ann.id, part: 'move' };
+    }
+    if (ann.type === 'zone') {
+      const handle = { x: ann.x + ann.r, y: ann.y };
+      if (d2(fp, handle) <= 2.2) return { id: ann.id, part: 'radius' };
+      if (d2(fp, { x: ann.x, y: ann.y }) <= 2) return { id: ann.id, part: 'center' };
+      if (d2(fp, { x: ann.x, y: ann.y }) <= ann.r) return { id: ann.id, part: 'move' };
+    }
+  }
+  return null;
+}
+
+function removeAnnotation(id) {
+  const ann = findAnnotationById(id);
+  if (!ann) return;
+  S.annotations = S.annotations.filter(item => item.id !== id);
+  if (selectedAnnotationId() === id) S.selected = null;
+  setHint(`${MODE_LABELS[ann.type] || 'Annotation'} removed.`);
+}
+
 cv.addEventListener('mousedown', e => {
   const fp = getF(e);
 
   if (S.tool === 'move') {
     const pl = hitPlayer(fp);
+    const annHit = !pl && !hitBall(fp) ? hitAnnotation(fp) : null;
     if (pl) {
       snapshot();
       S.selected = pl.id;
@@ -673,6 +1211,19 @@ cv.addEventListener('mousedown', e => {
       S.selected = '__ball__';
       S.dragging  = { type:'ball' };
       S.dragOff   = { x:fp.x - S.ball.x, y:fp.y - S.ball.y };
+    } else if (annHit) {
+      snapshot();
+      S.selected = annotationSelection(annHit.id);
+      const ann = findAnnotationById(annHit.id);
+      const dragOff = ann && (ann.type === 'note' || ann.type === 'zone') ? { x: fp.x - ann.x, y: fp.y - ann.y } : { x: 0, y: 0 };
+      S.dragging = {
+        type:'annotation',
+        id:annHit.id,
+        part:annHit.part,
+        anchor:{ x:fp.x, y:fp.y },
+        dragOff,
+        startSnapshot: ann ? cloneData(ann) : null,
+      };
     } else {
       S.selected = null;
     }
@@ -687,6 +1238,51 @@ cv.addEventListener('mousedown', e => {
       setHint('Draw the run path, then release to finish.');
       refreshInteractionUI();
     }
+  }
+
+  else if (S.tool === 'note') {
+    snapshot();
+    const annotation = normalizeAnnotation({
+      id: mkAnnotationId(),
+      type: 'note',
+      x: fp.x,
+      y: fp.y,
+      text: defaultAnnotationText(),
+      color: annotationColor('note'),
+    });
+    if (annotation) {
+      S.annotations.push(annotation);
+      S.selected = annotationSelection(annotation.id);
+      setHint('Note placed. Drag it in Move or update the text from Selection.');
+      refreshInteractionUI();
+      render();
+      focusSelectedNoteInput(true);
+    }
+  }
+
+  else if (S.tool === 'arrow') {
+    S.annotationDraft = normalizeAnnotation({
+      id: mkAnnotationId(),
+      type: 'arrow',
+      start: { x: fp.x, y: fp.y },
+      end: { x: fp.x, y: fp.y },
+      color: annotationColor('arrow'),
+    });
+    setHint('Drag out the tactical arrow, then release to place it.');
+    refreshInteractionUI();
+  }
+
+  else if (S.tool === 'zone') {
+    S.annotationDraft = normalizeAnnotation({
+      id: mkAnnotationId(),
+      type: 'zone',
+      x: fp.x,
+      y: fp.y,
+      r: 0.1,
+      color: annotationColor('zone'),
+    });
+    setHint('Drag outward to size the highlight zone.');
+    refreshInteractionUI();
   }
 
   else if (S.tool === 'pass' || S.tool === 'kick') {
@@ -719,7 +1315,16 @@ cv.addEventListener('mousedown', e => {
       removePlayer(pl.id);
     } else if (hitBall(fp)) {
       S.ball = null;
+      S.ballOwner = null;
+      applyBallOwnershipVisualState();
     } else {
+      const annHit = hitAnnotation(fp);
+      if (annHit) {
+        removeAnnotation(annHit.id);
+        refreshInteractionUI();
+        render();
+        return;
+      }
       // Erase nearest path segment
       let removed = false;
       S.paths = S.paths.filter(path => {
@@ -739,6 +1344,7 @@ cv.addEventListener('mousedown', e => {
         });
       }
     }
+    refreshInteractionUI();
     render();
   }
 });
@@ -756,10 +1362,46 @@ cv.addEventListener('mousemove', e => {
         pl.y = clamp(fp.y - S.dragOff.y, -11, 111);
         const path = S.paths.find(p => p.pid === pl.id);
         if (path && path.pts.length) path.pts[0] = {x:pl.x, y:pl.y};
+        if (samePlayerRef(playerRef(pl), S.ballOwner)) updateBallOwnerFromPosition();
       }
     } else if (S.dragging.type === 'ball' && S.ball) {
       S.ball.x = clamp(fp.x - S.dragOff.x, -2, 70);
       S.ball.y = clamp(fp.y - S.dragOff.y, -11, 111);
+      updateBallOwnerFromPosition();
+    } else if (S.dragging.type === 'annotation') {
+      const ann = findAnnotationById(S.dragging.id);
+      if (ann) {
+        if (ann.type === 'note') {
+          ann.x = fp.x - (S.dragging.dragOff?.x || 0);
+          ann.y = fp.y - (S.dragging.dragOff?.y || 0);
+        } else if (ann.type === 'arrow') {
+          if (S.dragging.part === 'start') {
+            ann.start = { x: fp.x, y: fp.y };
+          } else if (S.dragging.part === 'end') {
+            ann.end = { x: fp.x, y: fp.y };
+          } else {
+            const dx = fp.x - S.dragging.anchor.x;
+            const dy = fp.y - S.dragging.anchor.y;
+            ann.start = { x: ann.start.x + dx, y: ann.start.y + dy };
+            ann.end = { x: ann.end.x + dx, y: ann.end.y + dy };
+            S.dragging.anchor = { x: fp.x, y: fp.y };
+          }
+        } else if (ann.type === 'zone') {
+          if (S.dragging.part === 'radius') {
+            ann.r = Math.max(1.5, d2(fp, { x: ann.x, y: ann.y }));
+          } else if (S.dragging.part === 'center') {
+            const base = S.dragging.startSnapshot || ann;
+            const angle = Math.atan2(fp.y - base.y, fp.x - base.x);
+            ann.r = Math.max(1.5, d2(fp, { x: base.x, y: base.y }));
+            ann.x = base.x;
+            ann.y = base.y;
+            S.dragging.lastAngle = angle;
+          } else {
+            ann.x = fp.x - (S.dragging.dragOff?.x || 0);
+            ann.y = fp.y - (S.dragging.dragOff?.y || 0);
+          }
+        }
+      }
     }
     render(); return;
   }
@@ -774,21 +1416,41 @@ cv.addEventListener('mousemove', e => {
     return;
   }
 
+  if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone')) {
+    if (S.annotationDraft.type === 'arrow') {
+      S.annotationDraft.end = { x: fp.x, y: fp.y };
+    }
+    if (S.annotationDraft.type === 'zone') {
+      S.annotationDraft.r = Math.max(1.5, d2(fp, { x: S.annotationDraft.x, y: S.annotationDraft.y }));
+    }
+    render();
+    return;
+  }
+
   // Cursor
-  const pl = hitPlayer(fp), bl = hitBall(fp);
-  if      (S.tool === 'move')  cv.style.cursor = (pl||bl) ? 'grab' : 'default';
+  const pl = hitPlayer(fp), bl = hitBall(fp), ann = hitAnnotation(fp);
+  if      (S.tool === 'move')  cv.style.cursor = (pl||bl||ann) ? 'grab' : 'default';
   else if (S.tool === 'erase') cv.style.cursor = 'crosshair';
   else if (S.tool === 'path')  cv.style.cursor = pl ? 'crosshair' : 'default';
   else                          cv.style.cursor = pl ? 'pointer' : 'default';
 });
 
 cv.addEventListener('mouseup', () => {
-  if (S.dragging) { S.dragging = null; render(); }
+  if (S.dragging) {
+    if (S.dragging.type === 'ball' || S.dragging.type === 'player') updateBallOwnerFromPosition();
+    S.dragging = null;
+    render();
+  }
   if (S.drawing && S.tool === 'path') finishDraw();
+  if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone')) finishAnnotationDraft();
 });
 cv.addEventListener('mouseleave', () => {
-  if (S.dragging) S.dragging = null;
+  if (S.dragging) {
+    if (S.dragging.type === 'ball' || S.dragging.type === 'player') updateBallOwnerFromPosition();
+    S.dragging = null;
+  }
   if (S.drawing)  finishDraw();
+  if (S.annotationDraft) finishAnnotationDraft();
 });
 
 // ─── Finish freehand draw ────────────────────────────────────
@@ -804,6 +1466,34 @@ function finishDraw() {
   }
   S.drawing = null;
   setHint('Run path saved. Choose the next action.');
+  refreshInteractionUI();
+  render();
+}
+
+function finishAnnotationDraft() {
+  if (!S.annotationDraft) return;
+  const draft = normalizeAnnotation(S.annotationDraft);
+  S.annotationDraft = null;
+  if (!draft) {
+    render();
+    return;
+  }
+  if (draft.type === 'arrow' && d2(draft.start, draft.end) < 1.8) {
+    setHint('Arrow cancelled. Drag a little farther to place it.');
+    refreshInteractionUI();
+    render();
+    return;
+  }
+  if (draft.type === 'zone' && draft.r < 1.5) {
+    setHint('Zone cancelled. Drag outward to create a highlight.');
+    refreshInteractionUI();
+    render();
+    return;
+  }
+  snapshot();
+  S.annotations.push(draft);
+  S.selected = annotationSelection(draft.id);
+  setHint(`${MODE_LABELS[draft.type] || 'Annotation'} placed. Switch to Move to adjust it.`);
   refreshInteractionUI();
   render();
 }
@@ -862,6 +1552,7 @@ function addPlayerByNum(num, team) {
 function addBall() {
   if (!S.ball) snapshot();
   S.ball = { x:34, y:50 };
+  updateBallOwnerFromPosition();
   setTool('move'); setHint('Ball placed. Drag it to the right spot.'); refreshInteractionUI(); render();
 }
 
@@ -871,16 +1562,23 @@ function removePlayer(id) {
   if (pl.team === 'A') S.atkUsed.delete(pl.num);
   else                  S.defUsed.delete(pl.num);
   S.players = S.players.filter(p => p.id !== id);
+  if (samePlayerRef(playerRef(pl), S.ballOwner)) S.ballOwner = null;
   S.paths   = S.paths.filter(p => p.pid !== id);
   S.passes  = S.passes.filter(p => p.from!==id && p.to!==id);
   if (S.selected === id) S.selected = null;
+  applyBallOwnershipVisualState();
   setHint(`${pl.team === 'A' ? 'Attack' : 'Defence'} #${pl.num} removed. That number is available again.`);
   rebuildPalette(); refreshInteractionUI(); render();
 }
 
 function deleteSelected() {
-  if (S.selected && S.selected !== '__ball__') removePlayer(S.selected);
-  else if (S.selected === '__ball__') { snapshot(); S.ball=null; S.selected=null; setHint('Ball removed from the board.'); }
+  const annId = selectedAnnotationId();
+  if (annId) {
+    snapshot();
+    removeAnnotation(annId);
+  }
+  else if (S.selected && S.selected !== '__ball__') removePlayer(S.selected);
+  else if (S.selected === '__ball__') { snapshot(); S.ball=null; S.ballOwner=null; S.selected=null; applyBallOwnershipVisualState(); setHint('Ball removed from the board.'); }
   refreshInteractionUI();
   render();
 }
@@ -898,7 +1596,7 @@ function togglePlay() {
 }
 function animLoop(ts) {
   if (!S.animating) return;
-  const DUR = 5;
+  const DUR = DEFAULT_PLAYBACK_DURATION;
   if (S.lastTs !== null) {
     S.animT = Math.min(1, S.animT + (ts - S.lastTs) / 1000 * S.animSpd / DUR);
     if (S.animT >= 1) { S.animT=1; S.animating=false; setPlayBtnState(); }
@@ -919,15 +1617,19 @@ function resetAnim() {
 function chSpd(d) {
   spdIdx = clamp(spdIdx+d, 0, SPEEDS.length-1);
   S.animSpd = SPEEDS[spdIdx];
+  S.projectPlayback = normalizePlaybackSettings({
+    ...(S.projectPlayback || {}),
+    currentSpeed: S.animSpd,
+  });
   const lbl = S.animSpd + '×';
-  document.getElementById('spdLabel').textContent  = lbl;
-  document.getElementById('spdLabel2').textContent = lbl;
+  document.getElementById('spdLabel').textContent  = S.animSpd + 'x';
+  document.getElementById('spdLabel2').textContent = S.animSpd + 'x';
 }
 function updateTL() {
   const pct = S.animT * 100;
   document.getElementById('trackFill').style.width = pct + '%';
   document.getElementById('trackThumb').style.left = pct + '%';
-  document.getElementById('tlTime').textContent = `${(S.animT*5).toFixed(1)} / 5.0s`;
+  document.getElementById('tlTime').textContent = `${(S.animT*DEFAULT_PLAYBACK_DURATION).toFixed(1)} / ${DEFAULT_PLAYBACK_DURATION.toFixed(1)}s`;
 }
 function seekTrack(e) {
   const r = document.getElementById('track').getBoundingClientRect();
@@ -954,9 +1656,30 @@ const MODE_LABELS = {
   erase: 'Erase',
 };
 
+HINTS.note = 'NOTE - click the pitch to place a text note';
+HINTS.arrow = 'ARROW - drag to draw a tactical arrow';
+HINTS.zone = 'ZONE - drag to place a highlight circle';
+MODE_LABELS.note = 'Note';
+MODE_LABELS.arrow = 'Arrow';
+MODE_LABELS.zone = 'Zone';
+
 function getSelectedSummary() {
   if (S.selected === '__ball__') {
-    return { title: 'Ball Selected', meta: 'Drag the ball to a new spot or remove it from the board.' };
+    const owner = findPlayerByRef(S.ballOwner);
+    const ownerLabel = owner ? ` Currently linked to ${owner.team==='A'?'Attack':'Defence'} #${owner.num}.` : '';
+    return { title: 'Ball Selected', meta: `Drag the ball to a new spot or remove it from the board.${ownerLabel}` };
+  }
+  const ann = selectedAnnotation();
+  if (ann) {
+    if (ann.type === 'note') {
+      return { title: 'Tactical Note', meta: 'Move it on the board or update the note text below.' };
+    }
+    if (ann.type === 'arrow') {
+      return { title: 'Free Arrow', meta: 'Drag the line or either endpoint in Move to refine the arrow.' };
+    }
+    if (ann.type === 'zone') {
+      return { title: 'Zone Highlight', meta: 'Drag the circle to move it or drag the outer handle to resize it.' };
+    }
   }
   if (S.selected) {
     const pl = S.players.find(p => p.id === S.selected);
@@ -973,12 +1696,16 @@ function getSelectedSummary() {
 }
 
 function getStatusMessage() {
-  if (!S.players.length && !S.ball) return 'Add players from the left, place the ball, then choose how to build the picture.';
+  if (!S.players.length && !S.ball && !S.annotations.length) return 'Add players from the left, place the ball, then choose how to build the picture.';
   if (S.dragging?.type === 'player') {
     const pl = S.players.find(p => p.id === S.dragging.id);
     return pl ? `Dragging ${pl.team==='A'?'Attack':'Defence'} #${pl.num}. Release to place.` : 'Dragging player.';
   }
   if (S.dragging?.type === 'ball') return 'Dragging the ball. Release to place it.';
+  if (S.dragging?.type === 'annotation') {
+    const ann = findAnnotationById(S.dragging.id);
+    return ann ? `Adjusting ${MODE_LABELS[ann.type] || 'annotation'}. Release to place.` : 'Adjusting annotation.';
+  }
   if (S.drawing) {
     const pl = S.players.find(p => p.id === S.drawing.pid);
     return pl ? `Drawing run for ${pl.team==='A'?'Attack':'Defence'} #${pl.num}. Release to finish.` : 'Drawing run path.';
@@ -987,7 +1714,10 @@ function getStatusMessage() {
     const pl = S.players.find(p => p.id === S.passFrom);
     return pl ? `${MODE_LABELS[S.tool]} armed from ${pl.team==='A'?'Attack':'Defence'} #${pl.num}. Choose the target.` : 'Choose the target.';
   }
+  if (S.annotationDraft) return `Drawing ${MODE_LABELS[S.annotationDraft.type] || 'annotation'}. Release to place it.`;
   if (S.selected === '__ball__') return 'Ball selected. Move it, or switch tools to build around it.';
+  const ann = selectedAnnotation();
+  if (ann) return `${MODE_LABELS[ann.type] || 'Annotation'} selected. Use Move to adjust it or Delete to remove it.`;
   if (S.selected) {
     const pl = S.players.find(p => p.id === S.selected);
     return pl ? `${pl.team==='A'?'Attack':'Defence'} #${pl.num} selected.` : 'Selection active.';
@@ -1012,7 +1742,14 @@ function updatePaletteSummary() {
   if (defTabCount) defTabCount.textContent = `${defCount} / 15`;
   if (onBoard) onBoard.textContent = `${activeCount} / 15`;
   if (available) available.textContent = String(15 - activeCount);
-  if (ballStatus) ballStatus.textContent = S.ball ? 'Placed' : 'Not Placed';
+  if (ballStatus) {
+    if (!S.ball) ballStatus.textContent = 'Not Placed';
+    else if (S.ballOwner) {
+      ballStatus.textContent = `${S.ballOwner.team === 'A' ? 'A' : 'D'} #${S.ballOwner.num}`;
+    } else {
+      ballStatus.textContent = 'Loose';
+    }
+  }
   if (palCopy) palCopy.textContent = `${activeLabel} numbers ready to place. Used numbers stay dimmed until removed.`;
 }
 
@@ -1022,24 +1759,111 @@ function updateBoardStatus() {
   const empty = document.getElementById('emptyState');
   if (mode) mode.textContent = MODE_LABELS[S.tool] || 'Board';
   if (text) text.textContent = getStatusMessage();
-  if (empty) empty.classList.toggle('hidden', !!S.players.length || !!S.ball);
+  if (empty) empty.classList.toggle('hidden', !!S.players.length || !!S.ball || !!S.annotations.length);
+}
+
+function updateAnnotationPanel() {
+  const copy = document.getElementById('annotationCopy');
+  const input = document.getElementById('annotationText');
+  if (!copy || !input) return;
+  if (S.tool === 'note') {
+    copy.textContent = 'Click the field to place a premium note card. The input above sets the default note text.';
+  } else if (S.tool === 'arrow') {
+    copy.textContent = 'Drag on the field to draw a free tactical arrow.';
+  } else if (S.tool === 'zone') {
+    copy.textContent = 'Drag on the field to size a highlight circle.';
+  } else {
+    copy.textContent = 'Choose an annotation tool, then click or drag on the field.';
+  }
+}
+
+function updatePlayMetadataPanel() {
+  const metadata = buildPlayMetadata();
+  const titleValue = document.getElementById('metaTitleValue');
+  if (titleValue) titleValue.textContent = metadata.title || 'Untitled Play';
+
+  const purpose = document.getElementById('metaPurpose');
+  const decisionCue = document.getElementById('metaDecisionCue');
+  const coachingInputs = [
+    document.getElementById('metaCoachingPoint1'),
+    document.getElementById('metaCoachingPoint2'),
+    document.getElementById('metaCoachingPoint3'),
+  ];
+  const mistakeInputs = [
+    document.getElementById('metaCommonMistake1'),
+    document.getElementById('metaCommonMistake2'),
+    document.getElementById('metaCommonMistake3'),
+  ];
+
+  if (purpose && purpose !== document.activeElement) purpose.value = metadata.purpose || '';
+  if (decisionCue && decisionCue !== document.activeElement) decisionCue.value = metadata.decisionCue || '';
+
+  coachingInputs.forEach((input, idx) => {
+    if (input && input !== document.activeElement) input.value = metadata.coachingPoints[idx] || '';
+  });
+  mistakeInputs.forEach((input, idx) => {
+    if (input && input !== document.activeElement) input.value = metadata.commonMistakes[idx] || '';
+  });
+}
+
+function readMetaList(ids, maxItems) {
+  return normalizeTextList(ids.map(id => document.getElementById(id)?.value || ''), maxItems);
+}
+
+function updatePlayMetadataFromInputs() {
+  S.playMetadata = normalizeProjectMetadata(
+    { name: currentPlayTitle() },
+    {
+      ...(S.playMetadata || {}),
+      title: currentPlayTitle(),
+      purpose: document.getElementById('metaPurpose')?.value || '',
+      coachingPoints: readMetaList(['metaCoachingPoint1', 'metaCoachingPoint2', 'metaCoachingPoint3'], 3),
+      decisionCue: document.getElementById('metaDecisionCue')?.value || '',
+      commonMistakes: readMetaList(['metaCommonMistake1', 'metaCommonMistake2', 'metaCommonMistake3'], 3),
+    }
+  );
+  updatePlayMetadataPanel();
+}
+
+function focusSelectedNoteInput(selectAll = false) {
+  const ann = selectedAnnotation();
+  const noteInput = document.getElementById('selNoteInput');
+  if (!ann || ann.type !== 'note' || !noteInput) return;
+  requestAnimationFrame(() => {
+    noteInput.focus();
+    if (selectAll) noteInput.select();
+  });
+}
+
+function updateSelectedNoteText(value) {
+  const ann = selectedAnnotation();
+  if (!ann || ann.type !== 'note') return;
+  ann.text = (value || '').trim() || ANNOTATION_NOTE_DEFAULT;
+  refreshInteractionUI();
+  render();
 }
 
 function refreshInteractionUI() {
   updateSelInfo();
   updatePaletteSummary();
   updateBoardStatus();
+  updatePlayMetadataPanel();
 }
 
 function setTool(t) {
   S.tool = t;
   if (t !== 'path')          S.drawing = null;
+  if (t !== 'arrow' && t !== 'zone') S.annotationDraft = null;
   if (t !== 'pass' && t !== 'kick') { S.passFrom=null; S.selected=null; }
   document.querySelectorAll('.t-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.ann-tool-btn').forEach(b => b.classList.remove('active'));
   const el = document.getElementById('t-' + t);
   if (el) el.classList.add('active');
+  const annEl = document.getElementById('t-' + t);
+  if (annEl && annEl.classList.contains('ann-tool-btn')) annEl.classList.add('active');
   cv.style.cursor = t === 'move' ? 'default' : 'crosshair';
   setHint(HINTS[t] || '');
+  updateAnnotationPanel();
   refreshInteractionUI();
   render();
 }
@@ -1050,18 +1874,33 @@ function clearSelection() {
   S.selected = null;
   S.passFrom = null;
   S.drawing = null;
+  S.annotationDraft = null;
   setHint('Selection cleared. Choose the next action.');
+  updateAnnotationPanel();
   refreshInteractionUI();
   render();
 }
 function clearAll() {
   snapshot();
-  S.players=[]; S.ball=null; S.paths=[]; S.passes=[];
-  S.drawing=null; S.passFrom=null; S.selected=null;
+  S.players=[]; S.ball=null; S.ballOwner=null; S.paths=[]; S.passes=[];
+  S.projectId = null;
+  S.projectMeta = null;
+  S.playMetadata = emptyPlayMetadata('New Play');
+  S.projectPlayback = null;
+  S.annotations = [];
+  S.drawing=null; S.passFrom=null; S.annotationDraft=null; S.selected=null;
   S.animT=0; S.animating=false;
+  S.animSpd=1; spdIdx=2;
   S.atkUsed=new Set(); S.defUsed=new Set();
   document.getElementById('playName').value='New Play';
   setHint('Board reset. Start by adding players from the left.');
+  document.getElementById('spdLabel').textContent = '1x';
+  document.getElementById('spdLabel2').textContent = '1x';
+  updateAnnotationPanel();
+  document.getElementById('spdLabel').textContent = '1Ã—';
+  document.getElementById('spdLabel2').textContent = '1Ã—';
+  document.getElementById('spdLabel').textContent = '1x';
+  document.getElementById('spdLabel2').textContent = '1x';
   setPlayBtnState(); rebuildPalette(); refreshInteractionUI(); updateTL(); render();
 }
 
@@ -1070,14 +1909,27 @@ function updateSelInfo() {
   const meta = document.getElementById('selMeta');
   const clearBtn = document.getElementById('selClearBtn');
   const deleteBtn = document.getElementById('selDeleteBtn');
+  const editWrap = document.getElementById('selEditWrap');
+  const editLabel = document.getElementById('selEditLabel');
+  const noteInput = document.getElementById('selNoteInput');
   const summary = getSelectedSummary();
+  const ann = selectedAnnotation();
   document.getElementById('selName').textContent = summary.title;
   if (meta) meta.textContent = summary.meta;
   box.classList.toggle('visible', summary.title !== '-');
+  box.classList.toggle('annotation-selected', !!ann);
+  if (editWrap) editWrap.classList.toggle('visible', ann?.type === 'note');
+  if (editLabel) editLabel.textContent = ann?.type === 'note' ? 'Note Text' : 'Details';
+  if (noteInput) {
+    noteInput.value = ann?.type === 'note' ? ann.text : '';
+    noteInput.disabled = ann?.type !== 'note';
+    noteInput.placeholder = ann?.type === 'note' ? 'Refine the coaching cue' : 'Update note text';
+  }
   if (clearBtn) clearBtn.textContent = S.selected ? 'Clear Selection' : 'No Selection';
   if (clearBtn) clearBtn.disabled = !S.selected;
   if (deleteBtn) {
     if (S.selected === '__ball__') deleteBtn.textContent = 'Remove Ball';
+    else if (ann) deleteBtn.textContent = `Remove ${MODE_LABELS[ann.type] || 'Item'}`;
     else if (S.selected) {
       const pl = S.players.find(p => p.id === S.selected);
       deleteBtn.textContent = pl ? `Remove ${pl.team==='A'?'Attack':'Defence'} #${pl.num}` : 'Remove Player';
@@ -1095,6 +1947,7 @@ function setTab(tab) {
   palTab = tab;
   document.querySelectorAll('.pal-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
+  updateAnnotationPanel();
   rebuildPalette();
   refreshInteractionUI();
 }
@@ -1118,44 +1971,33 @@ function rebuildPalette() {
 }
 
 function makeBoardData(nameOverride) {
-  return {
-    id: `saved_${Date.now()}`,
-    name: nameOverride || document.getElementById('playName').value.trim() || 'Untitled Play',
-    cat: 'Saved Board',
-    players: S.players.map(({ num, team, x, y }) => ({ num, team, x, y })),
-    ball: S.ball ? { ...S.ball } : null,
-    paths: S.paths.map(path => {
-      const pl = S.players.find(q => q.id === path.pid);
-      return pl ? { num: pl.num, team: pl.team, pts: path.pts.map(pt => ({ ...pt })) } : null;
-    }).filter(Boolean),
-    passes: S.passes.map(pass => {
-      const from = S.players.find(q => q.id === pass.from);
-      const to = S.players.find(q => q.id === pass.to);
-      return from && to ? {
-        fromNum: from.num,
-        fromT: from.team,
-        toNum: to.num,
-        toT: to.team,
-        style: pass.style,
-      } : null;
-    }).filter(Boolean),
-  };
+  return makeProjectRecord(nameOverride);
 }
 
 function applyBoardData(play, { snapshotBefore = true } = {}) {
-  if (!play || !Array.isArray(play.players)) return false;
+  const project = normalizeProjectRecord(play);
+  if (!project) return false;
   if (snapshotBefore) snapshot();
 
-  const p = JSON.parse(JSON.stringify(play));
+  const p = cloneData(project);
   S.players = p.players.map(pl => ({ ...pl, id: S.nextId++, isBC: false }));
   S.atkUsed = new Set(S.players.filter(pl => pl.team === 'A').map(pl => pl.num));
   S.defUsed = new Set(S.players.filter(pl => pl.team === 'D').map(pl => pl.num));
   S.ball = p.ball || null;
+  S.ballOwner = normalizePlayerRef(p.ballOwner);
   S.animT = 0;
   S.animating = false;
   S.selected = null;
   S.drawing = null;
+  S.annotationDraft = null;
   S.passFrom = null;
+  S.projectId = p.id;
+  S.projectMeta = p.metadata;
+  S.playMetadata = normalizeProjectMetadata({ name: p.name }, p.metadata);
+  S.projectPlayback = p.playback;
+  S.annotations = Array.isArray(p.annotations) ? p.annotations : [];
+  S.animSpd = S.projectPlayback?.currentSpeed || 1;
+  spdIdx = Math.max(0, SPEEDS.indexOf(S.animSpd));
 
   S.paths = (p.paths || []).map(path => {
     const pl = S.players.find(q => q.num === path.num && q.team === path.team);
@@ -1169,8 +2011,17 @@ function applyBoardData(play, { snapshotBefore = true } = {}) {
     return fp && tp ? { from: fp.id, to: tp.id, style: pass.style } : null;
   }).filter(Boolean);
 
-  document.getElementById('playName').value = play.name || 'Untitled Play';
+  if (S.ball && !S.ballOwner) updateBallOwnerFromPosition();
+  else applyBallOwnershipVisualState();
+  document.getElementById('playName').value = p.name || 'Untitled Play';
+  syncPlayMetadataTitle();
   setPlayBtnState();
+  document.getElementById('spdLabel').textContent = S.animSpd + 'x';
+  document.getElementById('spdLabel2').textContent = S.animSpd + 'x';
+  document.getElementById('spdLabel').textContent = S.animSpd + 'Ã—';
+  document.getElementById('spdLabel2').textContent = S.animSpd + 'Ã—';
+  document.getElementById('spdLabel').textContent = S.animSpd + 'x';
+  document.getElementById('spdLabel2').textContent = S.animSpd + 'x';
   rebuildPalette();
   refreshInteractionUI();
   updateTL();
@@ -1183,7 +2034,8 @@ function getSavedPlays() {
   try {
     const raw = localStorage.getItem(SAVED_PLAYS_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(item => normalizeProjectRecord(item)).filter(Boolean);
   } catch {
     return [];
   }
@@ -1196,8 +2048,21 @@ function setSavedPlays(plays) {
 function saveCurrentPlay() {
   const board = makeBoardData();
   const saved = getSavedPlays();
-  const entry = { ...board, savedAt: new Date().toISOString() };
-  const withoutSameName = saved.filter(item => item.name !== entry.name);
+  const stamp = nowIso();
+  const entry = {
+    ...board,
+    metadata: {
+      ...board.metadata,
+      updatedAt: stamp,
+    },
+    savedAt: stamp,
+  };
+  S.projectId = entry.id;
+  S.projectMeta = entry.metadata;
+  S.playMetadata = entry.metadata;
+  S.projectPlayback = entry.playback;
+  const withoutSameProject = saved.filter(item => item.id !== entry.id);
+  const withoutSameName = withoutSameProject.filter(item => item.name !== entry.name);
   withoutSameName.unshift(entry);
   setSavedPlays(withoutSameName.slice(0, 20));
   refreshSavedPlayList();
@@ -1250,22 +2115,24 @@ function deleteSavedPlay(id, name) {
 }
 
 function exportPlayData(play) {
+  const project = normalizeProjectRecord(play) || makeBoardData();
   const payload = {
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    play,
+    schemaVersion: PROJECT_SCHEMA_VERSION,
+    projectType: PROJECT_TYPE,
+    exportedAt: nowIso(),
+    project,
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
-  const safeName = (play.name || 'untitled-play').replace(/[^\w-]+/g, '_');
+  const safeName = (project.name || 'untitled-play').replace(/[^\w-]+/g, '_');
   link.href = url;
   link.download = `${safeName}.json`;
   document.body.appendChild(link);
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
-  setHint(`Exported "${play.name}" as JSON.`);
+  setHint(`Exported "${project.name}" as JSON.`);
   refreshInteractionUI();
 }
 
@@ -1284,8 +2151,8 @@ function importPlayFromFile(file) {
   reader.onload = () => {
     try {
       const raw = JSON.parse(reader.result);
-      const play = raw?.play || raw;
-      if (!applyBoardData(play)) throw new Error('Invalid play payload');
+      const play = normalizeProjectRecord(raw);
+      if (!play || !applyBoardData(play)) throw new Error('Invalid play payload');
       setHint(`Imported "${play.name || 'Untitled Play'}" from JSON.`);
       refreshInteractionUI();
     } catch {
@@ -1414,7 +2281,7 @@ document.addEventListener('keydown', e => {
   const map = {v:'move',r:'path',p:'pass',k:'kick',e:'erase'};
   if (map[k])           { setTool(map[k]); return; }
   if (k===' ')          { e.preventDefault(); togglePlay(); return; }
-  if (k==='escape')     { S.passFrom=null;S.drawing=null;S.selected=null; setHint(HINTS[S.tool] || ''); refreshInteractionUI(); render(); }
+  if (k==='escape')     { S.passFrom=null;S.drawing=null;S.annotationDraft=null;S.selected=null; setHint(HINTS[S.tool] || ''); updateAnnotationPanel(); refreshInteractionUI(); render(); }
   if (k==='z'&&(e.ctrlKey||e.metaKey)) { e.preventDefault(); undo(); }
   if (k==='delete'||k==='backspace') { if(S.selected){e.preventDefault();deleteSelected();} }
 });
@@ -1436,6 +2303,39 @@ document.addEventListener('mouseup',()=>trackDrag=false);
 buildPlayList();
 rebuildPalette();
 refreshSavedPlayList();
+S.playMetadata = emptyPlayMetadata('New Play');
+updateAnnotationPanel();
+updatePlayMetadataPanel();
+document.getElementById('playName').addEventListener('input', () => {
+  syncPlayMetadataTitle();
+  refreshInteractionUI();
+});
+[
+  'metaPurpose',
+  'metaCoachingPoint1',
+  'metaCoachingPoint2',
+  'metaCoachingPoint3',
+  'metaDecisionCue',
+  'metaCommonMistake1',
+  'metaCommonMistake2',
+  'metaCommonMistake3',
+].forEach(id => {
+  document.getElementById(id).addEventListener('input', updatePlayMetadataFromInputs);
+});
+document.getElementById('selNoteInput').addEventListener('input', e => updateSelectedNoteText(e.target.value));
+document.getElementById('selNoteInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    e.target.blur();
+  }
+  if (e.key === 'Escape') {
+    const ann = selectedAnnotation();
+    if (ann?.type === 'note') {
+      e.target.value = ann.text;
+    }
+    e.target.blur();
+  }
+});
 document.getElementById('importPlayInput').addEventListener('change', e => {
   importPlayFromFile(e.target.files?.[0]);
   e.target.value = '';

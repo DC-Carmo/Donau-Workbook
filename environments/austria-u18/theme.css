@@ -1,0 +1,538 @@
+.austria-u18-theme {
+  --green: #b11f30;
+  --green-dim: rgba(177, 31, 48, 0.14);
+  --navy: #111418;
+  --dark: #050607;
+  --panel: #0e1115;
+  --card: #15191f;
+  --border: rgba(177, 31, 48, 0.22);
+  --text: #f2f0ed;
+  --muted: rgba(184, 181, 176, 0.72);
+  --accent: #8f969f;
+  --red: #b11f30;
+  --text-light: rgba(242, 240, 237, 0.78);
+  --gold: #b79a61;
+  --shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+}
+
+body.austria-u18-theme {
+  background:
+    radial-gradient(circle at 14% 12%, rgba(177, 31, 48, 0.18), transparent 25%),
+    radial-gradient(circle at 84% 14%, rgba(143, 150, 159, 0.08), transparent 22%),
+    linear-gradient(150deg, #040506 0%, #0d1014 48%, #15191f 100%);
+}
+
+body.austria-u18-theme::before {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+}
+
+.austria-u18-theme .progress-fill,
+.austria-u18-theme .workspace-track.active .workspace-track-label,
+.austria-u18-theme .workspace-map-item.active .workspace-item-num,
+.austria-u18-theme .zone-btn.active,
+.austria-u18-theme .zone-tab.active,
+.austria-u18-theme .module-pill,
+.austria-u18-theme .portal-return span,
+.austria-u18-theme .send-btn,
+.austria-u18-theme .nav-btn:hover {
+  color: var(--text);
+}
+
+.austria-u18-theme .progress-fill,
+.austria-u18-theme .module-progress-fill-red,
+.austria-u18-theme .send-btn,
+.austria-u18-theme .zone-btn.active,
+.austria-u18-theme .zone-tab.active {
+  background: linear-gradient(90deg, #7e1421, #b11f30);
+}
+
+.austria-u18-theme .topbar,
+.austria-u18-theme .slide,
+.austria-u18-theme .workspace-map,
+.austria-u18-theme .portal-return,
+.austria-u18-theme .workspace-shell-status,
+.austria-u18-theme .field-area,
+.austria-u18-theme .term-chip,
+.austria-u18-theme .role-card,
+.austria-u18-theme .module-card,
+.austria-u18-theme .module-panel,
+.austria-u18-theme .module-status-row,
+.austria-u18-theme .module-sidebar-item,
+.austria-u18-theme .module-accordion,
+.austria-u18-theme .lo-call,
+.austria-u18-theme .def-block,
+.austria-u18-theme .field-map-panel,
+.austria-u18-theme .success-block,
+.austria-u18-theme .formation-codes,
+.austria-u18-theme .chat-area,
+.austria-u18-theme .ai-panel,
+.austria-u18-theme .suggest {
+  border-color: rgba(177, 31, 48, 0.18);
+}
+
+.austria-u18-theme .slide {
+  background:
+    linear-gradient(180deg, rgba(16, 19, 24, 0.95), rgba(9, 11, 14, 0.97));
+}
+
+.austria-u18-theme .slide::before {
+  background:
+    linear-gradient(140deg, rgba(177, 31, 48, 0.08), transparent 30%, transparent 70%, rgba(143, 150, 159, 0.05));
+}
+
+.austria-u18-theme .topbar-logo img.nt-topbar-logo {
+  height: 34px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.22));
+}
+
+.austria-u18-theme .topbar-sub,
+.austria-u18-theme .workspace-shell-label,
+.austria-u18-theme .workspace-item-short,
+.austria-u18-theme .workspace-track-meta,
+.austria-u18-theme .tagline,
+.austria-u18-theme .module-progress-label,
+.austria-u18-theme .module-accordion-sub,
+.austria-u18-theme .module-group-label,
+.austria-u18-theme .nt-panel-kicker,
+.austria-u18-theme .nt-side-label,
+.austria-u18-theme .nt-unit-lane-label {
+  color: var(--muted);
+}
+
+.austria-u18-theme .topbar-title,
+.austria-u18-theme .section,
+.austria-u18-theme .module-card-title,
+.austria-u18-theme .module-overview-title,
+.austria-u18-theme .fc-title,
+.austria-u18-theme .feature-title,
+.austria-u18-theme .module-panel-title,
+.austria-u18-theme .rc-role,
+.austria-u18-theme .play-name {
+  color: var(--text);
+}
+
+.austria-u18-theme .sl-header {
+  margin-bottom: 12px;
+}
+
+.austria-u18-theme .section {
+  letter-spacing: 2.4px;
+}
+
+.nt-section-intro {
+  max-width: 760px;
+  margin: 0 0 18px;
+  color: rgba(242, 240, 237, 0.72);
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+
+.austria-u18-theme .motto span,
+.austria-u18-theme .placeholder-title span,
+.austria-u18-theme .section,
+.austria-u18-theme .red,
+.austria-u18-theme .role-card .rc-role,
+.austria-u18-theme .feature-title,
+.austria-u18-theme .module-panel-title,
+.austria-u18-theme .lc-name,
+.austria-u18-theme .play-type,
+.austria-u18-theme .term-key {
+  color: var(--red);
+}
+
+.austria-u18-theme .gold,
+.austria-u18-theme .code-key,
+.austria-u18-theme .sv,
+.austria-u18-theme .metric-value,
+.austria-u18-theme .m-val {
+  color: var(--gold);
+}
+
+.austria-u18-theme .portal-return,
+.austria-u18-theme .workspace-shell-status,
+.austria-u18-theme .tag,
+.austria-u18-theme .module-status-pill,
+.austria-u18-theme .module-pill,
+.austria-u18-theme .coach-intro-btn,
+.austria-u18-theme .nav-btn,
+.austria-u18-theme .send-btn,
+.austria-u18-theme .chat-inp {
+  border-radius: 999px;
+}
+
+.austria-u18-theme .portal-return,
+.austria-u18-theme .workspace-shell-status,
+.austria-u18-theme .coach-intro-btn-secondary,
+.austria-u18-theme .chat-inp {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.austria-u18-theme .motto,
+.austria-u18-theme .portal-return,
+.austria-u18-theme .portal-inline,
+.austria-u18-theme .slide-num,
+.austria-u18-theme .workspace-shell-value,
+.austria-u18-theme .module-status-row-title,
+.austria-u18-theme .module-progress-value,
+.austria-u18-theme .module-related-link span:first-child {
+  letter-spacing: 1.2px;
+}
+
+.nt-tag,
+.nt-chip {
+  border-color: rgba(177, 31, 48, 0.32);
+  background: rgba(177, 31, 48, 0.08);
+}
+
+.nt-cover-shell {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.78fr);
+  gap: 22px;
+  padding: 24px;
+  overflow: hidden;
+}
+
+.nt-cover-main,
+.nt-cover-side {
+  min-height: 0;
+}
+
+.nt-cover-main {
+  border-radius: 30px;
+  padding: 34px;
+  border: 1px solid rgba(177, 31, 48, 0.18);
+  background:
+    radial-gradient(circle at top left, rgba(177, 31, 48, 0.17), transparent 28%),
+    linear-gradient(180deg, rgba(17, 20, 24, 0.98), rgba(10, 12, 16, 0.98));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.cover-badge {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(183, 154, 97, 0.22);
+  background: rgba(183, 154, 97, 0.08);
+  color: rgba(242, 240, 237, 0.72);
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.76rem;
+  letter-spacing: 2.2px;
+  text-transform: uppercase;
+}
+
+.nt-cover-crest {
+  width: 112px;
+  height: auto;
+  margin: 24px 0 18px;
+  filter: drop-shadow(0 18px 26px rgba(0, 0, 0, 0.22));
+}
+
+.austria-u18-theme .hero span {
+  color: var(--red);
+}
+
+.nt-cover-copy,
+.nt-units-intro p,
+.dev-copy p {
+  margin: 0;
+  max-width: 700px;
+  color: var(--text-light);
+  line-height: 1.78;
+}
+
+.nt-cover-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 26px;
+  flex-wrap: wrap;
+}
+
+.coach-intro-btn-secondary {
+  color: var(--text);
+}
+
+.nt-cover-side {
+  display: grid;
+  gap: 16px;
+}
+
+.nt-side-panel {
+  border-radius: 24px;
+  border: 1px solid rgba(177, 31, 48, 0.18);
+  background: linear-gradient(180deg, rgba(19, 22, 27, 0.96), rgba(11, 13, 17, 0.98));
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.nt-side-panel-compact {
+  gap: 14px;
+}
+
+.nt-panel-kicker,
+.nt-side-label {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+}
+
+.nt-pillar .p-num {
+  color: var(--gold);
+  font-family: "Anton", sans-serif;
+  font-size: 1.35rem;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.nt-pillar .p-word {
+  color: var(--text-light);
+  line-height: 1.68;
+}
+
+.nt-mini-grid,
+.nt-chip-row,
+.nt-analysis-points {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.nt-zone-foot {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid rgba(177, 31, 48, 0.16);
+}
+
+.nt-map-placeholder {
+  border-radius: 16px;
+  min-height: 156px;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
+}
+
+.nt-map-lane {
+  border-radius: 14px;
+  padding: 16px;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.82rem;
+  letter-spacing: 2.2px;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.nt-map-lane-core {
+  background: rgba(177, 31, 48, 0.12);
+}
+
+.nt-map-lane-pressure {
+  background: rgba(183, 154, 97, 0.1);
+}
+
+.nt-map-lane-edge {
+  background: rgba(143, 150, 159, 0.12);
+}
+
+.nt-pod-map {
+  display: grid;
+  gap: 10px;
+}
+
+.nt-setpiece-content {
+  display: grid;
+  gap: 14px;
+}
+
+.nt-setpiece-group {
+  display: grid;
+  gap: 12px;
+}
+
+.nt-setpiece-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.nt-setpiece-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.austria-u18-theme .tech-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 1px;
+  color: var(--text);
+  background: rgba(177, 31, 48, 0.14);
+  border: 1px solid rgba(177, 31, 48, 0.24);
+}
+
+.nt-units-shell {
+  display: grid;
+  gap: 20px;
+}
+
+.nt-units-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.nt-unit-card {
+  padding: 20px;
+}
+
+.nt-unit-lane {
+  padding-top: 12px;
+}
+
+.nt-unit-lane + .nt-unit-lane {
+  border-top: 1px solid rgba(177, 31, 48, 0.12);
+  margin-top: 12px;
+}
+
+.nt-unit-lane-label {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.7rem;
+  letter-spacing: 2.4px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.nt-analysis-shell .module-main,
+.nt-analysis-shell .module-side {
+  background: transparent;
+}
+
+.austria-u18-theme .module-card {
+  min-height: 280px;
+}
+
+.austria-u18-theme .module-card-desc,
+.austria-u18-theme .module-sidebar-item span,
+.austria-u18-theme .saved-play-meta,
+.austria-u18-theme .tech-text,
+.austria-u18-theme .rc-desc,
+.austria-u18-theme .lc-detail,
+.austria-u18-theme .code-desc {
+  line-height: 1.65;
+}
+
+.austria-u18-theme .term-chip,
+.austria-u18-theme .field-area,
+.austria-u18-theme .role-card,
+.austria-u18-theme .lo-call,
+.austria-u18-theme .def-block,
+.austria-u18-theme .module-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.02));
+}
+
+.module-card-red {
+  border-color: rgba(177, 31, 48, 0.22);
+}
+
+.module-icon-red,
+.module-overview-icon-red {
+  color: var(--red);
+  border-color: rgba(177, 31, 48, 0.34);
+  background: rgba(177, 31, 48, 0.12);
+}
+
+.module-progress-fill-red {
+  background: linear-gradient(90deg, rgba(177, 31, 48, 0.72), rgba(177, 31, 48, 1));
+}
+
+.austria-u18-theme .module-icon-gold,
+.austria-u18-theme .module-overview-icon-gold {
+  color: var(--gold);
+  border-color: rgba(183, 154, 97, 0.34);
+  background: rgba(183, 154, 97, 0.12);
+}
+
+.austria-u18-theme .module-progress-fill-gold {
+  background: linear-gradient(90deg, rgba(183, 154, 97, 0.72), rgba(183, 154, 97, 1));
+}
+
+.austria-u18-theme .module-icon-silver,
+.austria-u18-theme .module-overview-icon-silver {
+  color: #d6d9de;
+  border-color: rgba(214, 217, 222, 0.22);
+  background: rgba(214, 217, 222, 0.08);
+}
+
+.austria-u18-theme .module-progress-fill-silver {
+  background: linear-gradient(90deg, rgba(143, 150, 159, 0.72), rgba(214, 217, 222, 1));
+}
+
+.nt-overlay-prose {
+  color: var(--text-light);
+}
+
+.austria-u18-theme .overlay-body,
+.austria-u18-theme .overlay-topbar {
+  background: linear-gradient(180deg, rgba(15, 18, 22, 0.98), rgba(9, 11, 14, 0.98));
+  border-color: rgba(177, 31, 48, 0.16);
+}
+
+.austria-u18-theme .overlay-close {
+  color: var(--text);
+}
+
+.austria-u18-theme .module-list li::before {
+  color: var(--red);
+}
+
+.austria-u18-theme .workspace-map-item.active,
+.austria-u18-theme .workspace-track.active,
+.austria-u18-theme .field-area.open,
+.austria-u18-theme .module-accordion.active,
+.austria-u18-theme .play-list-item.active,
+.austria-u18-theme .lo-call.active,
+.austria-u18-theme .module-status-row:hover,
+.austria-u18-theme .module-sidebar-item:hover,
+.austria-u18-theme .module-card:hover {
+  border-color: rgba(177, 31, 48, 0.34);
+}
+
+@media (max-width: 1100px) {
+  .nt-cover-shell,
+  .nt-units-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 780px) {
+  .nt-cover-shell {
+    padding: 14px;
+  }
+
+  .nt-cover-main,
+  .nt-side-panel {
+    padding: 20px;
+    border-radius: 22px;
+  }
+
+  .nt-cover-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

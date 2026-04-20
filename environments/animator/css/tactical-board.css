@@ -303,8 +303,15 @@ html, body { width:100%; height:100%; overflow:hidden; background:#111827; color
   border:1px solid rgba(251,191,36,0.18); border-radius:12px; display:none;
 }
 .sel-info.visible { display:block; }
+.sel-info.annotation-selected {
+  background:rgba(16,185,129,0.08);
+  border-color:rgba(16,185,129,0.22);
+}
 .sel-info-header { font-family:'Barlow Condensed',sans-serif; font-size:.62rem;
   letter-spacing:2px; text-transform:uppercase; color:var(--gold); margin-bottom:8px; }
+.sel-info.annotation-selected .sel-info-header {
+  color:var(--accent);
+}
 .sel-info-name { font-family:'Barlow Condensed',sans-serif; font-weight:700;
   font-size:1.02rem; margin-bottom:8px; }
 .sel-info-meta {
@@ -312,6 +319,39 @@ html, body { width:100%; height:100%; overflow:hidden; background:#111827; color
   font-size:.78rem;
   line-height:1.5;
   margin-bottom:10px;
+}
+.sel-edit {
+  display:none;
+  margin-bottom:10px;
+}
+.sel-edit.visible {
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.sel-edit-label {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:.62rem;
+  letter-spacing:1.8px;
+  text-transform:uppercase;
+  color:var(--muted2);
+}
+.sel-edit-input {
+  width:100%;
+  padding:9px 10px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,0.03);
+  color:var(--text);
+  outline:none;
+  font-family:'Barlow',sans-serif;
+  font-size:.8rem;
+  transition:border-color .15s, background .15s;
+}
+.sel-edit-input:focus {
+  border-color:var(--accent);
+  background:rgba(255,255,255,0.06);
+  box-shadow:0 0 0 3px rgba(16,185,129,0.12);
 }
 .sel-actions {
   display:grid;
@@ -515,6 +555,141 @@ html, body { width:100%; height:100%; overflow:hidden; background:#111827; color
 }
 .future-shell {
   border-style:dashed;
+}
+
+.meta-shell {
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.meta-title-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:10px 11px;
+  border-radius:12px;
+  border:1px solid var(--border2);
+  background:rgba(255,255,255,0.03);
+}
+.meta-title-label,
+.meta-label {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:.62rem;
+  letter-spacing:1.9px;
+  text-transform:uppercase;
+  color:var(--muted2);
+}
+.meta-title-value {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:.88rem;
+  letter-spacing:.8px;
+  color:var(--text);
+  text-align:right;
+}
+.meta-group {
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+}
+.meta-list {
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.meta-input {
+  width:100%;
+  padding:10px 11px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,0.03);
+  color:var(--text);
+  outline:none;
+  font-family:'Barlow',sans-serif;
+  font-size:.8rem;
+  line-height:1.45;
+  transition:border-color .15s, background .15s, box-shadow .15s;
+}
+.meta-input::placeholder {
+  color:var(--muted);
+}
+.meta-input:focus {
+  border-color:var(--accent);
+  background:rgba(255,255,255,0.06);
+  box-shadow:0 0 0 3px rgba(16,185,129,0.12);
+}
+.meta-textarea {
+  resize:vertical;
+  min-height:64px;
+}
+
+.ann-toolbar {
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:8px;
+  margin-bottom:12px;
+}
+.ann-tool-btn {
+  padding:10px 8px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,0.03);
+  color:var(--muted2);
+  cursor:pointer;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:.68rem;
+  font-weight:700;
+  letter-spacing:1.8px;
+  text-transform:uppercase;
+  transition:all .15s;
+}
+.ann-tool-btn:hover {
+  border-color:var(--muted2);
+  color:#fff;
+  background:rgba(255,255,255,0.06);
+}
+.ann-tool-btn.active {
+  color:#fff;
+  border-color:rgba(16,185,129,0.9);
+  background:linear-gradient(180deg, rgba(16,185,129,0.22), rgba(5,150,105,0.28));
+  box-shadow:0 8px 18px rgba(16,185,129,0.16);
+}
+.ann-config {
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  padding:11px;
+  border-radius:12px;
+  border:1px solid var(--border2);
+  background:rgba(255,255,255,0.03);
+}
+.ann-config-label {
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:.62rem;
+  letter-spacing:1.9px;
+  text-transform:uppercase;
+  color:var(--muted2);
+}
+.ann-config-input {
+  width:100%;
+  padding:10px 11px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,0.03);
+  color:var(--text);
+  outline:none;
+  font-family:'Barlow',sans-serif;
+  font-size:.8rem;
+  transition:border-color .15s, background .15s;
+}
+.ann-config-input:focus {
+  border-color:var(--accent);
+  background:rgba(255,255,255,0.06);
+}
+.ann-config-copy {
+  color:var(--muted);
+  font-size:.74rem;
+  line-height:1.5;
 }
 
 /* Play list */
