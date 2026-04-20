@@ -1,268 +1,352 @@
 (function () {
   window.AUSTRIA_U18_DATA = {
     workspaceSections: [
-      { slide: 1, group: "Program Core", shortLabel: "Cover", title: "National Cover" },
-      { slide: 2, group: "Program Core", shortLabel: "Model", title: "Game Model" },
-      { slide: 3, group: "Program Core", shortLabel: "Attack", title: "Attack System" },
-      { slide: 4, group: "Program Core", shortLabel: "Defence", title: "Defensive System" },
+      { slide: 1, group: "Program Core", shortLabel: "Cover",     title: "National Cover" },
+      { slide: 2, group: "Program Core", shortLabel: "Model",     title: "Game Model" },
+      { slide: 3, group: "Program Core", shortLabel: "Attack",    title: "Attack System" },
+      { slide: 4, group: "Program Core", shortLabel: "Defence",   title: "Defensive System" },
       { slide: 5, group: "Program Core", shortLabel: "Set Piece", title: "Set Piece" },
-      { slide: 6, group: "Campaign Layer", shortLabel: "Units", title: "Roles & Units" },
-      { slide: 7, group: "Campaign Layer", shortLabel: "Analysis", title: "Analysis Hub" },
+      { slide: 6, group: "Campaign Layer", shortLabel: "Units",     title: "Roles & Units" },
+      { slide: 7, group: "Campaign Layer", shortLabel: "Analysis",  title: "Analysis Hub" },
       { slide: 8, group: "Campaign Layer", shortLabel: "Assistant", title: "AI Playbook Assistant" }
     ],
+
+    // ── ATTACK SIDEBAR ──────────────────────────────────────────────────
     attackSidebar: {
       fieldAreas: [
         {
-          name: "Core Lane",
-          short: "Central launch picture",
+          name: "A — Clean Exit",
+          short: "Own half / under pressure",
           points: [
-            "Primary tempo zone for launch, reload, and repeat pressure.",
-            "Best area to straighten the line and fix the midfield.",
-            "If tempo stalls here, reset the picture quickly and play again."
+            "Win territory first. Touch and out.",
+            "Minimal phases — exit clean before building.",
+            "Platform quality over play ambition in this zone."
           ]
         },
         {
-          name: "Pressure Lane",
-          short: "Between middle and edge space",
+          name: "B — Kick to Contest",
+          short: "Own half / momentum building",
           points: [
-            "High-value decision zone for inside-out support and late release.",
-            "Attack here to force hard choices on midfield defenders.",
-            "Communication between 9, 10, and edge finishers must be early and specific."
+            "Kick intelligently to pressure territory.",
+            "Chase connected and organised.",
+            "Only if the platform and momentum give you the right picture."
           ]
         },
         {
-          name: "Edge Lane",
-          short: "15m to touchline",
+          name: "C — Starter Plays",
+          short: "Mid-field / building to score",
           points: [
-            "Finish space, not hopeful width.",
-            "Back three must see kick, carry, and fold picture together.",
-            "If the edge is closed, reload before forcing the finish."
+            "Run starter plays with layered structure.",
+            "Two genuine avenues of attack.",
+            "Maintain width to keep the defence honest."
+          ]
+        },
+        {
+          name: "D — Earn the Width",
+          short: "Opposition territory / scoring range",
+          points: [
+            "Vary the forward attack first — earn the right to go wide.",
+            "Play for points. Be decisive.",
+            "Use Rhino, Magic, Boss to fix before releasing backs."
           ]
         }
       ],
       directionCalls: [
-        { key: "TOR", value: "Off 9 direct to the forward launch picture" },
-        { key: "RING", value: "Off 9 to the midfield decision-maker" },
-        { key: "SHIFT", value: "Change the point of attack off 9" },
-        { key: "SPINE", value: "Out the back to the second-layer playmaker" }
+        { key: "BLACK", value: "Pass to forward off 9" },
+        { key: "RED",   value: "Pass to forward off 10" }
       ],
-      pods: [
-        { key: "ALPS", value: "1, 2, 3 · front-five collision and cleanout unit" },
-        { key: "DANUBE", value: "4, 5, 8 · launch, carry, and lineout spine" },
-        { key: "FALCON", value: "6, 7 · mobility, pressure, and edge support" }
-      ]
+      pods: []
     },
+
+    // ── ATTACK TABS ─────────────────────────────────────────────────────
     attackData: {
       setpiece: [
         {
-          name: "Crest 12",
-          type: "Scrum Starter",
+          name: "5 Man",
+          type: "Lineout Formation",
           detail: [
-            "8 to 9, 12 fixes inside shoulder of opposition 10.",
-            "10 out the back and straightens to hold 12.",
-            "13 keeps the edge honest, back three hold depth."
+            "Compact shape. Best used when TEMPO is on and the defence is late arriving.",
+            "Quick-ball picture — 4 (Forward) or 3 (Back) called at the throw.",
+            "Creates immediate launch platform without contest build-up."
           ]
         },
         {
-          name: "Summit",
-          type: "Midfield Scrum",
+          name: "5 + 1",
+          type: "Lineout Formation",
           detail: [
-            "Front picture shows pod carry, second layer plays behind.",
-            "Best used when defence is tight around source.",
-            "Outside support must be alive for late transfer."
+            "5 players in the lineout, one forward floats outside.",
+            "Floating forward can enter the maul or support a pod play.",
+            "Gives an extra option without changing the throw picture."
           ]
         },
         {
-          name: "Crosswind",
-          type: "Lineout Launch",
+          name: "6 Man",
+          type: "Lineout Formation",
           detail: [
-            "Short transfer off the lineout to move pressure away from touch.",
-            "Back-field connection creates the second play immediately.",
-            "Use when maul threat has already fixed defenders."
+            "Primary attacking formation. Used mid-field and inside own 40m.",
+            "Good platform for maul entry or back-of-lineout launch.",
+            "4 or 3 delivery code determines whether the forward or back receives."
+          ]
+        },
+        {
+          name: "6 + 1",
+          type: "Lineout Formation",
+          detail: [
+            "6 in the lineout with a floating forward.",
+            "Extra body for maul entry or short-side defence bind.",
+            "Used when maul threat needs to look real before the ball moves."
+          ]
+        },
+        {
+          name: "Full",
+          type: "Lineout Formation",
+          detail: [
+            "Full lineout. Maximum forward presence.",
+            "Used inside the 22m for drive plays or high-pressure launch.",
+            "2 & 2 pod structure can apply to entry roles."
           ]
         }
       ],
       phase: [
         {
-          name: "Pulse",
-          type: "Phase Direction",
+          name: "Rhino",
+          type: "Phase Play",
           detail: [
-            "Fast-ball picture to attack before fold is live.",
-            "First receiver stays flat enough to challenge line speed.",
-            "Outside support runs for connection, not drift."
+            "Pick and go.",
+            "Forward takes the ball from the base and drives hard into contact.",
+            "Best used when the defence is still folding or numbers are short."
           ]
         },
         {
-          name: "Glide",
-          type: "Phase Direction",
+          name: "Magic",
+          type: "Phase Play",
           detail: [
-            "Ball moves behind live runners without losing inside threat.",
-            "Used when defence is overfolding early.",
-            "Pod must stay a real option."
+            "Forwards act as dummy runners. Play released to backs.",
+            "Forwards show carry intent to fix defensive attention.",
+            "Ball moves through or behind them to the backs line."
           ]
         },
         {
-          name: "Clamp",
-          type: "Slow Ball Reset",
+          name: "Boss",
+          type: "Phase Play",
           detail: [
-            "Tight, efficient carry to rebuild shape after slow ball.",
-            "Keep support square and arrive early on latch."
+            "Pull pass from a forward to the playmaker — out the back.",
+            "Forward fixes the inside defenders. Playmaker arrives late with space.",
+            "Effective when defence over-commits to the carry picture."
           ]
         },
-        { name: "Snap", type: "Call", detail: ["Short switch to attack inside shoulder."] },
-        { name: "Echo", type: "Call", detail: ["Dummy switch into second-layer release."] },
-        { name: "Blade", type: "Call", detail: ["Hard unders line to split folding defenders."] },
-        { name: "Mirror", type: "Call", detail: ["Same picture shown both sides before late decision."] }
+        {
+          name: "Tips",
+          type: "Phase Play",
+          detail: [
+            "Short pass close to contact.",
+            "Attack the shoulder of the defender just before or after contact.",
+            "Requires tight timing and early connection from support."
+          ]
+        },
+        {
+          name: "Fiji",
+          type: "Phase Play",
+          detail: [
+            "Change direction — snap the ball back against the grain.",
+            "Attack the blind side of the defence before they can reset.",
+            "Requires clear communication and a sharp support runner arriving from depth."
+          ]
+        },
+        {
+          name: "England",
+          type: "Phase Play · Sequence",
+          detail: [
+            "5-man lineout launch. Forwards carry same direction to fix the defence.",
+            "Then Magic: forwards become dummy runners, ball releases to backs.",
+            "Sets up the backs line late after a forward-heavy picture has been shown."
+          ]
+        },
+        {
+          name: "Wales",
+          type: "Phase Play · Sequence",
+          detail: [
+            "Two forward carries in the middle — pod shape, same direction.",
+            "Then play back inside off the second carry.",
+            "Forces the defence to commit before the ball reverses."
+          ]
+        }
       ],
       exits: [
         {
-          name: "Hammer",
-          type: "Exit Kick Type",
-          detail: ["Long clearance to win distance and reset the field."]
-        },
-        {
-          name: "Steel",
-          type: "Exit Kick Type",
-          detail: ["Contestable kick with connected chase and pressure line."]
-        },
-        {
-          name: "Latch",
-          type: "Exit Option",
-          detail: ["Carry-first option when kick picture is not clean enough."]
-        },
-        {
-          name: "Rail Left",
-          type: "Sequenced Exit",
+          name: "Tonic",
+          type: "Kicking Series · Box Kick",
           detail: [
-            "Lineout feed into two clean phases before left-foot clearance.",
-            "Back-field and edge chasers align before phase three."
+            "Box kick system. Three variants — Tonic 1, 2, or 3.",
+            "Variant determines chase alignment and back-field cover.",
+            "Used to contest possession from the box kick position."
           ]
         },
         {
-          name: "Rail Right",
-          type: "Sequenced Exit",
+          name: "Whiskey",
+          type: "Kicking Series · Exit Kick",
           detail: [
-            "Mirrored right-side build with same phase-three discipline.",
-            "Use when field picture opens to the 10-channel."
+            "Exit kick system. Three variants — Whiskey 1, 2, or 3.",
+            "Variant determines kick type, chase line, and cover alignment.",
+            "Used to exit own territory and win field position."
+          ]
+        },
+        {
+          name: "Vodka",
+          type: "Kicking Series · Chip & Regather",
+          detail: [
+            "Chip and regather system. Three variants — Vodka 1, 2, or 3.",
+            "Variant determines who chips, the target area, and regather support.",
+            "Used to attack space behind the defensive line."
           ]
         }
       ],
       calls: [
-        { name: "Core Lane", type: "Field Landmark", detail: ["Central field zone for launch and tempo."] },
-        { name: "Pressure Lane", type: "Field Landmark", detail: ["Between middle and edge — decision-rich channel."] },
-        { name: "Edge Lane", type: "Field Landmark", detail: ["15m to touchline finish zone."] },
-        { name: "TOR", type: "Direction", detail: ["Off 9 to forward launch picture."] },
-        { name: "RING", type: "Direction", detail: ["Off 9 to midfield decision-maker."] },
-        { name: "SHIFT", type: "Direction", detail: ["Change point of attack off 9."] },
-        { name: "SPINE", type: "Direction", detail: ["Out the back to second-layer playmaker."] },
-        { name: "LOCK", type: "Override", detail: ["Must keep ball in front-five picture."] }
+        { name: "BLACK",   type: "Direction Call",    detail: ["Pass to forward off 9."] },
+        { name: "RED",     type: "Direction Call",    detail: ["Pass to forward off 10."] },
+        { name: "Rhino",   type: "Phase Play",        detail: ["Pick and go."] },
+        { name: "Magic",   type: "Phase Play",        detail: ["Forwards dummy-run. Play released to backs."] },
+        { name: "Boss",    type: "Phase Play",        detail: ["Pull pass from forward to playmaker out the back."] },
+        { name: "Tips",    type: "Phase Play",        detail: ["Short pass close to contact."] },
+        { name: "Fiji",    type: "Phase Play",        detail: ["Change direction — snap back against the grain."] },
+        { name: "England", type: "Phase Play · Sequence", detail: ["5-man lineout launch into Magic sequence."] },
+        { name: "Wales",   type: "Phase Play · Sequence", detail: ["Two forward pod carries, then play back inside."] },
+        { name: "2 & 2",   type: "Forward Structure", detail: ["Pods of 2 forwards. Inside bind active. Outside pre-binds on contact."] },
+        { name: "Tonic",   type: "Kicking · Box Kick",       detail: ["Box kick system. Three variants (1 / 2 / 3)."] },
+        { name: "Whiskey", type: "Kicking · Exit Kick",      detail: ["Exit kick system. Three variants (1 / 2 / 3)."] },
+        { name: "Vodka",   type: "Kicking · Chip & Regather",detail: ["Chip and regather system. Three variants (1 / 2 / 3)."] },
+        { name: "A", type: "Pitch Principle · Attack", detail: ["Clean exit. Touch. Minimal phases."] },
+        { name: "B", type: "Pitch Principle · Attack", detail: ["Kick to contest if momentum allows."] },
+        { name: "C", type: "Pitch Principle · Attack", detail: ["Starter plays. Two avenues of attack. Hold width."] },
+        { name: "D", type: "Pitch Principle · Attack", detail: ["Vary forward attack. Earn the right to go wide. Play for points."] }
       ]
     },
+
+    // ── DEFENCE ─────────────────────────────────────────────────────────
     defenceRoles: [
-      { name: "AXE", desc: "First tackler. Wins shoulder, cuts space, and finishes the picture low and hard." },
-      { name: "HUNT", desc: "Inside pressure defender. Closes space early and attacks the next action." },
-      { name: "DOUBLE HUNT", desc: "Second inside defender. Reads breakdown picture and fold urgency." },
-      { name: "COP", desc: "Outside organiser. Protects width, fixes spacing, and keeps the edge honest." }
+      {
+        name: "INSIDE CHOP",
+        desc: "Low dominant tackle inside the ball carrier. Cut space and win the shoulder."
+      },
+      {
+        name: "OUTSIDE TOP",
+        desc: "High control tackle outside the ball carrier. Contain, slow ball speed."
+      },
+      {
+        name: "GUARD B",
+        desc: "First defender next to the ruck. Holds inside gate. Scans and contests if the picture is live."
+      },
+      {
+        name: "GUARD C",
+        desc: "Second defender next to the ruck. Scans a beat later. Contest if clean — otherwise Back in game."
+      },
+      {
+        name: "BACK IN GAME",
+        desc: "Reload from the breakdown back into the defensive line. Connection priority over contest attempt."
+      }
     ],
+
     defenceCalls: [
-      { name: "READY / UP", action: "Primary line call when the edge is set and connected." },
-      { name: "HAMMER", action: "Full line-speed picture when numbers and spacing are live." },
-      { name: "HOVER", action: "Controlled drift when shape is incomplete or late." },
-      { name: "STORM", action: "Red-zone change-up with hard up-and-in commitment." },
-      { name: "RED", action: "Tap, linebreak, or emergency scramble call." },
-      { name: "ICE", action: "Counter-ruck trigger." },
-      { name: "SPACE", action: "Get past the ball and rebuild the line." },
-      { name: "STEAL", action: "Pilfer chance is live." }
+      { name: "WIN THE RACE",  action: "Line speed standard — arrive at the tackle picture first, connected." },
+      { name: "READY / UP",    action: "Primary line call. Edge is set and connected before the ball is live." },
+      { name: "ICE",           action: "Counter-ruck trigger." },
+      { name: "RED",           action: "Emergency scramble or linebreak response." },
+      { name: "GUARD B",       action: "First defender locks inside gate and reads the next action." },
+      { name: "GUARD C",       action: "Second defender scans. Contest if clean, Back in game if not." },
+      { name: "BACK IN GAME",  action: "Clear the breakdown — reload into the line immediately." }
     ],
+
     defData: {
       rhs: {
         green: {
-          title: "Green Zone · Low Risk",
+          title: "Principle B — Organised Line",
           color: "g",
           points: [
-            "9 can close short side or sit neutral based on scrum angle and edge threat.",
-            "Back three keep a connected pendulum and solve kick-return early.",
-            "7 covers inside pressure while 8 protects pocket access."
+            "Organised line, connected inside-out.",
+            "Guard B holds inside gate and scans for contest opportunity.",
+            "Back three keep width and solve kick-return picture early."
           ]
         },
         orange: {
-          title: "Orange Zone · Mid Field",
+          title: "Principle C — Guard Scanning",
           color: "o",
           points: [
-            "Blind alignment changes the 9 picture; match it early and communicate it loudly.",
-            "15 must move before the pass if the edge picture is changing.",
-            "Do not lose inside connection while solving the edge."
+            "Guard B and C scan — contest if the picture is live.",
+            "If no clean contest: Back in game immediately.",
+            "Line must not wait — Win The Race applies to the fold too."
           ]
         },
         red: {
-          title: "Red Zone · Danger",
+          title: "Principle A — Blitz",
           color: "r",
           points: [
-            "Blind winger holds short side longer and moves fast on release.",
-            "15 protects kick space first, then works to edge support.",
-            "STORM is available when the attack is sitting too comfortably."
+            "Line speed. Stay connected. No ruck over-commit.",
+            "Inside CHOP dominates first contact. Outside TOP holds width.",
+            "ICE trigger available when the ball picture slows."
           ]
         }
       },
       lhs: {
         green: {
-          title: "Green Zone · Low Risk",
+          title: "Principle B — Organised Line",
           color: "g",
           points: [
-            "9 stays on feed side or neutral depending on width and pressure picture.",
-            "Midfield aligns outside shoulder and pushes into next channel together.",
-            "6 and 7 must protect short-side detail before overchasing width."
+            "Organised line from the inside out.",
+            "Guard C holds second gate and reads the next action.",
+            "Midfield stays square and connected before pushing up."
           ]
         },
         orange: {
-          title: "Orange Zone · Mid Field",
+          title: "Principle C — Guard Scanning",
           color: "o",
           points: [
-            "Blind wing holds until ball is released open.",
-            "Midfield must stay square enough to close the gate on inside balls.",
-            "Short-side awareness matters before the feed, not after."
+            "Guard B and C scanning. Contest if available.",
+            "Back in game takes priority over a loose pilfer.",
+            "Short-side picture must be read before the ball is live."
           ]
         },
         red: {
-          title: "Red Zone · Danger",
+          title: "Principle A — Blitz",
           color: "r",
           points: [
-            "15 starts deeper in support pocket of the midfield.",
-            "Blind wing protects width on the short side until release.",
-            "The line cannot overrun the kick picture."
+            "Maximum line speed, connected across the front.",
+            "Win The Race at this picture — no slow connections.",
+            "15 solves kick space. ICE remains live."
           ]
         }
       },
       cfs: {
         green: {
-          title: "Centre Field Scrum · Green",
+          title: "Principle B / D — Organised & Disciplined",
           color: "g",
           points: [
-            "10 and 12 defend together on the side with greatest attacking numbers.",
-            "9 pressures scrum angle while 13 and 7 own inside-out connection.",
-            "Back three keep the pendulum live behind the line."
+            "Organised line with width and discipline.",
+            "Guard B and C scan the breakdown before committing.",
+            "Back three keep pendulum alive and hold width."
           ]
         },
         orange: {
-          title: "Centre Field Scrum · Orange",
+          title: "Principle C — Guard Scanning",
           color: "o",
           points: [
-            "Same shape with greater urgency on midfield spacing.",
-            "10 and 12 cannot leave a soft seam between them.",
-            "9 decisions become more influential as space tightens."
+            "Guard B and C contest if clean — otherwise Back in game fast.",
+            "Line cannot afford a soft seam between 10 and 12.",
+            "Win The Race: fold speed matters as much as line speed."
           ]
         },
         red: {
-          title: "Centre Field Scrum · Red",
+          title: "Principle A / D — Blitz or Pressure",
           color: "r",
           points: [
-            "Prepare for kick and linebreak threat at the same time.",
-            "Back-field must move with the defensive line, not behind it.",
-            "STORM remains available as a pressure change-up."
+            "Principle A Blitz available from centre field when numbers and line speed are right.",
+            "Inside CHOP and Outside TOP organised before the ball is live.",
+            "Apply kick pressure when the platform allows — Principle D."
           ]
         }
       }
     },
+
+    // ── SET PIECE ────────────────────────────────────────────────────────
     setPiece: {
       metrics: [
         { value: "90%", label: "Own lineout" },
@@ -347,50 +431,108 @@
         }
       }
     },
+
+    // ── UNITS ────────────────────────────────────────────────────────────
     units: [
       {
         title: "Back Three",
         subtitle: "15 · 11 · 14",
-        attack: ["Own edge-lane finish decisions.", "Stay alive for kick-return and second-play pictures."],
-        defence: ["Solve pendulum early.", "Protect kick space before chase space."],
-        setPiece: ["Connect to exit plan immediately.", "Hold width without disconnecting from chase picture."]
+        attack: [
+          "Read and decide edge-zone finish in Principle C and D territory.",
+          "Stay alive for chip regather (Vodka series) and kick-return."
+        ],
+        defence: [
+          "Principle B and A: hold width, connect to line speed.",
+          "Protect kick space before chase space."
+        ],
+        setPiece: [
+          "Connect to exit plan immediately after set piece.",
+          "Hold width without disconnecting from the chase picture."
+        ]
       },
       {
         title: "Inside Backs",
         subtitle: "9 · 10 · 12 · 13",
-        attack: ["Share one field picture before ball leaves source.", "Straighten play and decide early."],
-        defence: ["Keep the gate closed inside-out.", "Drive line-speed language for the rest of the line."],
-        setPiece: ["Own launch clarity from scrum and lineout.", "Call the next play before contact."]
+        attack: [
+          "Call BLACK or RED to direct the forward picture before the ball leaves source.",
+          "Two avenues of attack — forward and wide — must both look live."
+        ],
+        defence: [
+          "Drive line-speed language. Win The Race applies to the whole line.",
+          "Close the gate inside-out. Guard B and C stay connected."
+        ],
+        setPiece: [
+          "Own launch clarity from scrum and lineout.",
+          "Call the next play before contact."
+        ]
       },
       {
         title: "Tight Five",
         subtitle: "1 · 2 · 3 · 4 · 5",
-        attack: ["Create clean collision pictures.", "Reload into launch support fast."],
-        defence: ["Win first contact near source.", "Protect fold integrity under fatigue."],
-        setPiece: ["Set the national standard at scrum and lineout.", "Create usable ball, not just retained ball."]
+        attack: [
+          "Execute Rhino, Tips, and 2&2 pod shape with accuracy.",
+          "Be the dummy runners in Magic — make the fix look real."
+        ],
+        defence: [
+          "Inside CHOP at first contact near the source.",
+          "Protect fold integrity. Back in game on second phase."
+        ],
+        setPiece: [
+          "Deliver own lineout at national standard — TEMPO decision is theirs.",
+          "2&2 entry in the maul. Square, same time, same height."
+        ]
       },
       {
         title: "Loose Forwards",
         subtitle: "6 · 7 · 8",
-        attack: ["Link inside pressure to outside speed.", "Be first into reload windows."],
-        defence: ["Solve short-side detail and breakdown pressure.", "Hunt past the ball without losing shape."],
-        setPiece: ["Support lineout movement and back-field connection.", "Keep launch alive after first action."]
+        attack: [
+          "Boss and Fiji plays live here — carry and release, or snap back.",
+          "Link inside forward pressure to outside speed."
+        ],
+        defence: [
+          "Guard B and C roles — own the ruck contest decision.",
+          "Back in game is the default when contest is not clean."
+        ],
+        setPiece: [
+          "England and Wales plays start here — carry same direction, then release.",
+          "Support lineout and maul movement and hold launch alive after first action."
+        ]
       },
       {
         title: "Halfback Spine",
         subtitle: "9 · 10 · 15",
-        attack: ["Manage tempo and territorial decisions.", "Keep second-layer picture calm under pressure."],
-        defence: ["Align line, back-field, and kick response quickly.", "Own emergency decisions when shape breaks."],
-        setPiece: ["Translate the platform into the correct contest picture.", "Protect exit discipline."]
+        attack: [
+          "Call BLACK (off 9) or RED (off 10) early. The forward picture must be set.",
+          "Manage kicking system — Tonic, Whiskey, or Vodka called with intent."
+        ],
+        defence: [
+          "Align line, back-field, and kick response fast.",
+          "Own the Win The Race standard — language and pace."
+        ],
+        setPiece: [
+          "Translate the platform into the correct contest picture.",
+          "Protect exit discipline — Principle A and B decisions start here."
+        ]
       },
       {
         title: "Finishers",
         subtitle: "Bench Impact",
-        attack: ["Lift tempo without losing clarity.", "Add accuracy, not chaos, to the final quarter."],
-        defence: ["Bring fresh line speed and fold urgency.", "Close the game with discipline."],
-        setPiece: ["Hold standards when fatigue rises.", "Protect the final launch pictures."]
+        attack: [
+          "Lift tempo without losing play clarity.",
+          "Add accuracy to the final quarter — Rhino and Boss especially."
+        ],
+        defence: [
+          "Bring fresh line speed and fold urgency.",
+          "Close the game with Win The Race discipline."
+        ],
+        setPiece: [
+          "Hold TEMPO read standards when fatigue rises.",
+          "Protect final launch pictures and lineout quality."
+        ]
       }
     ],
+
+    // ── ANALYSIS HUB ────────────────────────────────────────────────────
     analysis: {
       cards: [
         {
@@ -440,15 +582,17 @@
       ],
       statusRows: [
         { title: "Campaign Window", meta: "Pre-Tournament", value: "Open" },
-        { title: "Opponent File", meta: "Next Review", value: "48h" },
-        { title: "Video Layer", meta: "Current Batch", value: "Updated" }
+        { title: "Opponent File",   meta: "Next Review",    value: "48h" },
+        { title: "Video Layer",     meta: "Current Batch",  value: "Updated" }
       ],
       pillars: [
-        { title: "Preparation", text: "The squad should arrive at meetings already understanding the main contest picture." },
-        { title: "Evidence", text: "Video, notes, and KPIs should support decisions rather than decorate them." },
-        { title: "Speed", text: "Campaign layers must update fast without weakening clarity." }
+        { title: "Preparation", text: "The squad arrives at meetings already understanding the main contest picture." },
+        { title: "Evidence",    text: "Video, notes, and KPIs support decisions rather than decorate them." },
+        { title: "Speed",       text: "Campaign layers must update fast without weakening clarity." }
       ]
     },
-    playbookContext: "You are the Austria U18 National Team playbook assistant. Use only the environment context provided here. Keep answers concise, practical, and written in plain text. Motto: Represent, Compete, Finish. Field landmarks: Core Lane, Pressure Lane, Edge Lane. Forward units: ALPS = 1,2,3; DANUBE = 4,5,8; FALCON = 6,7. Direction calls: TOR = off 9 to forward launch picture. RING = off 9 to midfield decision-maker. SHIFT = change point of attack off 9. SPINE = out the back to second-layer playmaker. Attack calls: Pulse, Glide, Clamp, Snap, Echo, Blade, Mirror. Exit calls: Hammer, Steel, Latch, Rail Left, Rail Right. Defensive roles: Axe, Hunt, Double Hunt, Cop. Defensive calls: Ready/Up, Hammer, Hover, Storm, Red, Ice, Space, Steal. Game model: selection standard, national identity, dominant line speed, set piece clarity, unit connection, disciplined finish. Set piece: 40, 50, 70, 80 formation language; Alpha and Zulu trigger layer; lineout, scrum, and maul treated as one contest area. Unit cards: Back Three, Inside Backs, Tight Five, Loose Forwards, Halfback Spine, Finishers. Analysis hub themes: Opponent Prep, Film Review, Stats & KPIs, Match Notes."
+
+    // ── AI PLAYBOOK CONTEXT ──────────────────────────────────────────────
+    playbookContext: "You are the Austria U18 National Team playbook assistant. Use only the program context provided here. Keep answers concise, practical, and in plain text. Motto: Represent, Compete, Finish.\n\nAttack pitch principles: A = Clean exit (touch, minimal phases). B = Kick to contest if momentum allows. C = Starter plays, two avenues of attack, hold width. D = Vary forward attack, earn the right to go wide, play for points.\n\nDirection calls: BLACK = pass to forward off 9. RED = pass to forward off 10.\n\nPhase plays: Rhino = pick and go. Magic = forwards dummy-run, play released to backs. Boss = pull pass from forward to playmaker out the back. Tips = short pass close to contact. Fiji = change direction, snap back. England = 5-man lineout launch into Magic sequence. Wales = two forward pod carries then back inside. 2&2 = pods of 2 forwards, inside bind active, outside pre-binds on contact.\n\nKicking system: Tonic 1/2/3 = box kick system. Whiskey 1/2/3 = exit kick system. Vodka 1/2/3 = chip and regather system.\n\nLineout formations: 5 Man, 5+1, 6 Man, 6+1, Full. Throw codes: 4 = Forward, 3 = Back. TEMPO = quick throw before opposition sets. Lineout reads in order: Pre-set locations, Body shape, Are they switched on?, Can we tempo and get in and out?\n\nDefence pitch principles: A = Blitz (line speed, connected, no ruck over-commit). B = Organised line, connected, inside contest if possible. C = Guard B/C scanning, contest if possible, otherwise Back in game. D = Organised discipline, win collisions, apply kick pressure.\n\nDefensive roles: Inside CHOP = low dominant tackle inside. Outside TOP = high control tackle outside. Guard B = first defender next to ruck. Guard C = second defender next to ruck. Back in game = reload from breakdown into the defensive line.\n\nDefensive calls: Win The Race, Ready/Up, ICE, RED, Guard B, Guard C, Back in game.\n\nUnits: Back Three (15, 11, 14), Inside Backs (9, 10, 12, 13), Tight Five (1-5), Loose Forwards (6, 7, 8), Halfback Spine (9, 10, 15), Finishers (bench)."
   };
 })();

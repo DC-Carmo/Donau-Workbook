@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tactical Board - Rugby Union Donau</title>
+<title>Tactical Board — Coach Mato</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/tactical-board.css">
 </head>
@@ -13,16 +13,10 @@
 <div id="topbar">
   <div class="tb-brand-block">
     <div class="tb-brand">
-      <svg width="28" height="28" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
-        <ellipse cx="250" cy="230" rx="180" ry="90" fill="none" stroke="#10b981" stroke-width="24"/>
-        <g fill="none" stroke="#EEF3EE" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M260 80C280 40,340 20,360 60C350 90,320 110,290 120"/>
-          <path d="M290 120C270 110,240 120,220 150C210 170,210 200,230 220C250 240,290 230,300 200C310 170,300 140,290 120Z"/>
-        </g>
-      </svg>
+      <img class="tb-brand-logo" src="../../assets/donau/branding/RugbyUnionDonauLogo2024.svg" alt="Rugby Union Donau">
       <div>
-        <div class="tb-brand-name">Tactical Board</div>
-        <div class="tb-brand-sub">Rugby Union Donau</div>
+        <div class="tb-brand-name">Donau</div>
+        <div class="tb-brand-sub">Coach Mato Tactical Board</div>
       </div>
     </div>
     <a class="c-btn tb-portal" href="../../index.html"><span>&#9664;</span> Portal</a>
@@ -63,6 +57,26 @@
     </div>
   </div>
 
+  <div class="tb-cluster tb-sequence">
+    <div class="tb-label">Sequence</div>
+    <div class="seq-shell">
+      <div class="seq-nav">
+        <button class="seq-nav-btn" id="seqPrevBtn" onclick="prevStep()" title="Previous Step">&#9664;</button>
+        <div class="seq-status">
+          <div class="seq-status-main" id="stepStatus">Step 1 of 1</div>
+          <div class="seq-status-copy" id="stepStatusCopy">Build toward 3+ phases</div>
+        </div>
+        <button class="seq-nav-btn" id="seqNextBtn" onclick="nextStep()" title="Next Step">&#9654;</button>
+      </div>
+      <div class="seq-actions">
+        <button class="c-btn" onclick="addStep()">Add Step</button>
+        <button class="c-btn" onclick="duplicateStep()">Duplicate</button>
+        <button class="c-btn danger" id="seqDeleteBtn" onclick="deleteStep()">Delete Step</button>
+      </div>
+      <div class="seq-rail" id="stepRail"></div>
+    </div>
+  </div>
+
   <div class="tb-cluster ml tb-playback">
     <div class="tb-label">Playback</div>
     <div class="ctrl-grp">
@@ -92,9 +106,11 @@
     </div>
 
     <div class="pal-body">
+
+      <!-- ── Players ── -->
       <section class="pal-section">
         <div class="pal-header">
-          <div class="pal-title">Player Palette</div>
+          <div class="pal-title">Players</div>
           <div class="pal-copy" id="palCopy">Click a number to place it on the field.</div>
         </div>
         <div class="pal-overview">
@@ -111,10 +127,6 @@
             <strong class="pal-stat-value" id="palBallStatus">Not Placed</strong>
           </div>
         </div>
-        <div class="pal-legend">
-          <span class="pal-legend-item"><span class="pal-dot"></span> Available to place</span>
-          <span class="pal-legend-item"><span class="pal-dot on"></span> Already on the board</span>
-        </div>
         <div class="pal-quick-actions">
           <button class="pal-quick-btn" onclick="setTab('atk')">Add Attack</button>
           <button class="pal-quick-btn" onclick="setTab('def')">Add Defence</button>
@@ -123,10 +135,10 @@
         <div class="pal-grid" id="palGrid"></div>
       </section>
 
+      <!-- ── Selection ── -->
       <section class="pal-section">
         <div class="pal-header">
           <div class="pal-title">Selection</div>
-          <div class="pal-copy">Quick actions for the current board item.</div>
         </div>
         <div class="sel-info" id="selInfo">
           <div class="sel-info-header">Selected Item</div>
@@ -138,75 +150,33 @@
           </div>
           <div class="sel-actions">
             <button class="sel-btn" id="selClearBtn" onclick="clearSelection()">Clear Selection</button>
-            <button class="sel-btn danger" id="selDeleteBtn" onclick="deleteSelected()">Remove Player</button>
+            <button class="sel-btn danger" id="selDeleteBtn" onclick="deleteSelected()">Remove</button>
           </div>
         </div>
       </section>
 
+      <!-- ── Annotations ── -->
       <section class="pal-section">
         <div class="pal-header">
-          <div class="pal-title">Board Build</div>
-          <div class="pal-copy">Set up the picture quickly, then move into paths, passes, and playback.</div>
+          <div class="pal-title">Annotations</div>
         </div>
-        <div class="build-flow">
-          <div class="build-step">
-            <span class="build-step-no">1</span>
-            <div class="build-step-copy">
-              <strong>Place Numbers</strong>
-              <span>Use Attack or Defence to add players fast.</span>
-            </div>
-          </div>
-          <div class="build-step">
-            <span class="build-step-no">2</span>
-            <div class="build-step-copy">
-              <strong>Set The Ball</strong>
-              <span>Add the ball before drawing the movement picture.</span>
-            </div>
-          </div>
-          <div class="build-step">
-            <span class="build-step-no">3</span>
-            <div class="build-step-copy">
-              <strong>Adjust Or Reset</strong>
-              <span>Remove a selection, clear paths, or reset the whole board.</span>
-            </div>
-          </div>
+        <div class="ann-toolbar">
+          <button class="ann-tool-btn" id="t-note" onclick="setTool('note')">Note</button>
+          <button class="ann-tool-btn" id="t-arrow" onclick="setTool('arrow')">Arrow</button>
+          <button class="ann-tool-btn" id="t-zone" onclick="setTool('zone')">Zone</button>
         </div>
-        <div class="build-actions">
-          <button class="c-btn build-action" onclick="clearPaths()">Clear Paths</button>
-          <button class="c-btn danger build-action" onclick="clearAll()">Reset Board</button>
+        <div class="ann-config">
+          <label class="ann-config-label" for="annotationText">Note Text</label>
+          <input id="annotationText" class="ann-config-input" type="text" maxlength="48" placeholder="Phase cue"/>
+          <div class="ann-config-copy" id="annotationCopy">Choose an annotation tool, then click or drag on the field.</div>
         </div>
       </section>
 
+      <!-- ── Coaching Notes ── -->
       <section class="pal-section">
         <div class="pal-header">
-          <div class="pal-title">Board Files</div>
-          <div class="pal-copy">Save current work locally, reload it later, or move it as JSON.</div>
-        </div>
-        <div class="file-actions">
-          <button class="c-btn file-action" onclick="saveCurrentPlay()">Save Play</button>
-          <button class="c-btn file-action" onclick="exportCurrentPlay()">Export JSON</button>
-          <button class="c-btn file-action" onclick="triggerImportPlay()">Import JSON</button>
-        </div>
-        <input type="file" id="importPlayInput" accept=".json,application/json" hidden>
-        <div class="file-shell">
-          <div class="file-shell-header">
-            <span>Saved Plays</span>
-            <button class="shell-link" onclick="refreshSavedPlayList()">Refresh</button>
-          </div>
-          <div id="savedPlayList" class="saved-play-list"></div>
-        </div>
-        <div class="file-shell future-shell">
-          <div class="file-shell-header">
-            <span>Future Export</span>
-          </div>
-          <div class="future-copy">Image and PDF export can slot in here next without changing the core board workflow.</div>
-        </div>
-      </section>
-
-      <section class="pal-section">
-        <div class="pal-header">
-          <div class="pal-title">Play Metadata</div>
-          <div class="pal-copy">Attach a clear coaching purpose to the board so saves carry meaning, not just movement.</div>
+          <div class="pal-title">Coaching Notes</div>
+          <div class="pal-copy">Saved with the play. Purpose, cues, and common mistakes.</div>
         </div>
         <div class="meta-shell">
           <div class="meta-title-row">
@@ -222,52 +192,48 @@
           <div class="meta-group">
             <label class="meta-label">Coaching Points</label>
             <div class="meta-list">
-              <input id="metaCoachingPoint1" class="meta-input" type="text" maxlength="80" placeholder="Coaching point 1">
-              <input id="metaCoachingPoint2" class="meta-input" type="text" maxlength="80" placeholder="Coaching point 2">
-              <input id="metaCoachingPoint3" class="meta-input" type="text" maxlength="80" placeholder="Coaching point 3">
+              <input id="metaCoachingPoint1" class="meta-input" type="text" maxlength="80" placeholder="Point 1">
+              <input id="metaCoachingPoint2" class="meta-input" type="text" maxlength="80" placeholder="Point 2">
+              <input id="metaCoachingPoint3" class="meta-input" type="text" maxlength="80" placeholder="Point 3">
             </div>
           </div>
 
           <div class="meta-group">
             <label class="meta-label" for="metaDecisionCue">Decision Cue</label>
-            <input id="metaDecisionCue" class="meta-input" type="text" maxlength="96" placeholder="What should the player read or feel?">
+            <input id="metaDecisionCue" class="meta-input" type="text" maxlength="96" placeholder="What should the player read?">
           </div>
 
           <div class="meta-group">
             <label class="meta-label">Common Mistakes</label>
             <div class="meta-list">
-              <input id="metaCommonMistake1" class="meta-input" type="text" maxlength="80" placeholder="Common mistake 1">
-              <input id="metaCommonMistake2" class="meta-input" type="text" maxlength="80" placeholder="Common mistake 2">
-              <input id="metaCommonMistake3" class="meta-input" type="text" maxlength="80" placeholder="Common mistake 3">
+              <input id="metaCommonMistake1" class="meta-input" type="text" maxlength="80" placeholder="Mistake 1">
+              <input id="metaCommonMistake2" class="meta-input" type="text" maxlength="80" placeholder="Mistake 2">
+              <input id="metaCommonMistake3" class="meta-input" type="text" maxlength="80" placeholder="Mistake 3">
             </div>
           </div>
         </div>
       </section>
 
+      <!-- ── Board Files ── -->
       <section class="pal-section">
         <div class="pal-header">
-          <div class="pal-title">Tactical Annotations</div>
-          <div class="pal-copy">Add lightweight coaching notes without changing the core board flow.</div>
+          <div class="pal-title">Saves &amp; Files</div>
         </div>
-        <div class="ann-toolbar">
-          <button class="ann-tool-btn" id="t-note" onclick="setTool('note')">Note</button>
-          <button class="ann-tool-btn" id="t-arrow" onclick="setTool('arrow')">Arrow</button>
-          <button class="ann-tool-btn" id="t-zone" onclick="setTool('zone')">Zone</button>
+        <div class="file-actions">
+          <button class="c-btn file-action" onclick="saveCurrentPlay()">Save Play</button>
+          <button class="c-btn file-action" onclick="exportCurrentPlay()">Export JSON</button>
+          <button class="c-btn file-action" onclick="triggerImportPlay()">Import JSON</button>
         </div>
-        <div class="ann-config">
-          <label class="ann-config-label" for="annotationText">Default Note Text</label>
-          <input id="annotationText" class="ann-config-input" type="text" maxlength="48" placeholder="Phase cue"/>
-          <div class="ann-config-copy" id="annotationCopy">Choose an annotation tool, then click or drag on the field.</div>
+        <input type="file" id="importPlayInput" accept=".json,application/json" hidden>
+        <div class="file-shell">
+          <div class="file-shell-header">
+            <span>Saved Plays</span>
+            <button class="shell-link" onclick="refreshSavedPlayList()">Refresh</button>
+          </div>
+          <div id="savedPlayList" class="saved-play-list"></div>
         </div>
       </section>
 
-      <section class="pal-section pal-section-plays">
-        <div class="pal-header">
-          <div class="pal-title">Play Library</div>
-          <div class="pal-copy">Load a starting structure, then build from there.</div>
-        </div>
-        <div id="playList"></div>
-      </section>
     </div>
   </div>
 
@@ -277,10 +243,20 @@
       <div class="board-status-mode" id="boardModeLabel">Move</div>
       <div class="board-status-copy" id="boardStatusText">Select a tool to start building.</div>
     </div>
+    <div id="firstUseTutorial" class="first-use-tutorial" role="status" aria-live="polite">
+      <div class="first-use-kicker">Quick Start</div>
+      <div class="first-use-title">Set the picture in three moves</div>
+      <div class="first-use-steps">
+        <div class="first-use-step"><span>1</span> Add players from the left panel.</div>
+        <div class="first-use-step"><span>2</span> Place the ball, then drag items into shape.</div>
+        <div class="first-use-step"><span>3</span> Use Path, Pass, or Kick to build the action.</div>
+      </div>
+      <button class="first-use-dismiss" type="button" onclick="dismissFirstUseTutorial()">Got it</button>
+    </div>
     <div id="emptyState" class="empty-state">
       <div class="empty-state-kicker">Start Here</div>
       <div class="empty-state-title">Build your first board state</div>
-      <div class="empty-state-copy">Add players from the left, place the ball, then choose a tool to move, draw, pass, or kick.</div>
+      <div class="empty-state-copy">Add players from the panel, place the ball, then choose a tool to draw movement.</div>
     </div>
     <div id="hint">MOVE - drag any player or ball</div>
   </div>

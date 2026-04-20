@@ -148,22 +148,22 @@
       <div class="phil-zone fadeup" data-label="ATK">
         <h3 class="red">Attack Principles</h3>
         <ul>
-          <li>Play flat enough to threaten, calm enough to stay connected.</li>
-          <li>Reload faster than the fold.</li>
-          <li>See the field picture before the ball leaves the source.</li>
-          <li>Forwards and back three solve space together.</li>
-          <li>Finish pressure with clear decisions, not hopeful ones.</li>
+          <li><strong>A</strong> — Exit clean under pressure. Protect territory before building attack.</li>
+          <li><strong>B</strong> — Kick to contest. Convert pressure into field position.</li>
+          <li><strong>C</strong> — Execute starter plays (Rhino, Magic, Boss, Tips) from the set piece platform.</li>
+          <li><strong>D</strong> — Earn the width. Use Fiji, England, Wales to access the edge.</li>
+          <li>BLACK and RED direct the ball to the right forward at source — use them early.</li>
         </ul>
       </div>
 
       <div class="phil-zone fadeup" data-label="DEF">
         <h3 class="red">Defensive DNA</h3>
         <ul>
-          <li>Dominant line speed, every man, every phase.</li>
-          <li>Inside connection gives the outside line permission to hunt.</li>
-          <li>Win first contact, then reload with discipline.</li>
-          <li>Talk early. Fix edges before the ball gets there.</li>
-          <li>Turn pressure into territory, then back it up with repeat effort.</li>
+          <li><strong>Win The Race</strong> — get to the line before the ball does, every phase.</li>
+          <li>Line Speed → Punch → Dominate: the sequence is not negotiable.</li>
+          <li>Body in Eye Line: shoulders square, connected to the inside defender.</li>
+          <li>Inside CHOP holds the platform. Outside TOP converts the contest.</li>
+          <li>Spacings and communication fix edges before the ball arrives.</li>
         </ul>
       </div>
     </div>
@@ -200,9 +200,10 @@
 
         <div class="field-map-panel" id="fieldMapPanel">
           <div class="nt-map-placeholder">
-            <div class="nt-map-lane nt-map-lane-core">Core Lane</div>
-            <div class="nt-map-lane nt-map-lane-pressure">Pressure Lane</div>
-            <div class="nt-map-lane nt-map-lane-edge">Edge Lane</div>
+            <div class="nt-map-lane nt-map-lane-core">A — Clean Exit</div>
+            <div class="nt-map-lane nt-map-lane-pressure">B — Kick to Contest</div>
+            <div class="nt-map-lane nt-map-lane-edge">C — Starter Plays</div>
+            <div class="nt-map-lane nt-map-lane-edge" style="opacity:.8;">D — Earn the Width</div>
           </div>
         </div>
 
@@ -211,26 +212,13 @@
         <div class="nt-side-label">Direction Calls</div>
         <div class="terminology-grid" id="attackDirectionCalls"></div>
 
-        <button class="field-areas-label-btn" id="forwardPodsBtn" onclick="toggleForwardPodsMap()" aria-expanded="false" aria-controls="forwardPodsMapPanel" style="margin-top:16px;">
-          Forward Units <span class="field-areas-map-arrow">&#9660;</span>
-        </button>
-
-        <div id="attackPods"></div>
-
-        <div class="field-map-panel" id="forwardPodsMapPanel">
-          <div class="nt-pod-map">
-            <div class="term-chip"><div class="term-key">ALPS</div><div class="term-val">1, 2, 3 · front-five collision unit</div></div>
-            <div class="term-chip"><div class="term-key">DANUBE</div><div class="term-val">4, 5, 8 · launch and carry spine</div></div>
-            <div class="term-chip"><div class="term-key">FALCON</div><div class="term-val">6, 7 · edge-to-edge pressure unit</div></div>
-          </div>
-        </div>
       </div>
 
       <div class="attack-main">
         <div class="zone-btns" role="tablist" aria-label="Attack categories">
           <button class="zone-btn active" role="tab" aria-selected="true" onclick="setCategory('setpiece',this)">Set Piece</button>
-          <button class="zone-btn" role="tab" aria-selected="false" onclick="setCategory('phase',this)">Backs Calls</button>
-          <button class="zone-btn" role="tab" aria-selected="false" onclick="setCategory('exits',this)">Exits</button>
+          <button class="zone-btn" role="tab" aria-selected="false" onclick="setCategory('phase',this)">Phase Plays</button>
+          <button class="zone-btn" role="tab" aria-selected="false" onclick="setCategory('exits',this)">Kicking</button>
           <button class="zone-btn" role="tab" aria-selected="false" onclick="setCategory('calls',this)">Calls Glossary</button>
         </div>
         <div class="attack-content" id="attackContent"></div>
@@ -266,11 +254,11 @@
         <div class="attitude-block fadeup">
           <h4>Mindset · National Standard</h4>
           <ul>
-            <li>Dominant line speed — every man, every phase.</li>
-          <li>Workrate must show in the fold, not only at the collision.</li>
-            <li>Inside connection gives the line permission to hunt.</li>
-            <li>Shoulders square, feet alive, finish the tackle picture.</li>
-          <li>Repeat effort must survive fatigue, pressure, and broken shape.</li>
+            <li><strong>Win The Race</strong> — arrive at the line before the ball, every time.</li>
+            <li>Line Speed → Punch → Dominate: the full picture, not just the collision.</li>
+            <li>Body in Eye Line: square shoulders, connected to the inside defender.</li>
+            <li>Inside CHOP holds the frame. Outside TOP completes the contest.</li>
+            <li>Spacings and connection are responsibilities, not reactions.</li>
           </ul>
         </div>
 
@@ -450,18 +438,18 @@
         </div>
         <div class="chat-input-row">
           <label for="chatInp" class="sr-only">Ask a question about the Austria U18 playbook</label>
-          <input class="chat-inp" id="chatInp" placeholder="E.g. What does TOR mean? or What is the Back Three unit responsible for?" onkeydown="if(event.key==='Enter')sendMsg()" aria-label="Ask a question about the Austria U18 playbook">
+          <input class="chat-inp" id="chatInp" placeholder="E.g. What does BLACK mean? or What is the Back Three unit responsible for?" onkeydown="if(event.key==='Enter')sendMsg()" aria-label="Ask a question about the Austria U18 playbook">
           <button class="send-btn" id="sendBtn" onclick="sendMsg()">Send</button>
         </div>
       </div>
 
       <div class="ai-panel">
         <h4>Quick Questions</h4>
-        <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What is the difference between Core Lane and Edge Lane?</div>
-        <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">Explain the ALPS, DANUBE, and FALCON units</div>
-        <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What does the TOR call mean in attack?</div>
-        <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What is the STORM change-up in defence?</div>
-        <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">How do the lineout trigger numbers work?</div>
+        <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What do the A, B, C, and D field areas mean?</div>
+        <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What is the difference between BLACK and RED?</div>
+        <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">Explain the phase plays: Rhino, Magic, Boss, Tips</div>
+        <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What is the difference between Inside CHOP and Outside TOP?</div>
+        <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What are the lineout formation codes and how are they called?</div>
         <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What are the non-negotiables for the Back Three unit?</div>
       </div>
     </div>

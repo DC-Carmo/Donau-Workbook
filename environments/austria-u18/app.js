@@ -420,7 +420,8 @@
       <div class="term-chip"><div class="term-key">${call.key}</div><div class="term-val">${call.value}</div></div>
     `).join("");
 
-    document.getElementById("attackPods").innerHTML = (sidebar.pods || []).map((pod) => `
+    const podsEl = document.getElementById("attackPods");
+    if (podsEl) podsEl.innerHTML = (sidebar.pods || []).map((pod) => `
       <div class="term-chip" style="margin-bottom:6px;"><div class="term-key">${pod.key}</div><div class="term-val">${pod.value}</div></div>
     `).join("");
   }

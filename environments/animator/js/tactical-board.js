@@ -18,31 +18,35 @@ const F = { // Field constants
   YMIN: -10, YMAX: 110,  // including in-goals
   XMIN: 0,   XMAX: 68,
   // Display bounds (with small margin)
-  DX0: -1.5, DX1: 69.5,
-  DY0: -12,  DY1: 112,
+  DX0: -0.6, DX1: 68.6,
+  DY0: -10.8,  DY1: 110.8,
 };
-const FVW = F.DX1 - F.DX0; // 71
-const FVH = F.DY1 - F.DY0; // 124
+const FVW = F.DX1 - F.DX0;
+const FVH = F.DY1 - F.DY0;
 
 // Canvas scaling
-let cvW=0, cvH=0, sc=1, ox=0, oy=0;
+const FIELD_X_STRETCH = 1.28;
+let cvW=0, cvH=0, sc=1, sx=1, sy=1, ox=0, oy=0;
 const cv  = document.getElementById('field');
 const ctx = cv.getContext('2d');
 
-function toC(fx, fy) { return { x: ox + (fx - F.DX0) * sc, y: oy + (fy - F.DY0) * sc }; }
-function frC(cx, cy) { return { x: (cx - ox) / sc + F.DX0, y: (cy - oy) / sc + F.DY0 }; }
+function toC(fx, fy) { return { x: ox + (fx - F.DX0) * sx, y: oy + (fy - F.DY0) * sy }; }
+function frC(cx, cy) { return { x: (cx - ox) / sx + F.DX0, y: (cy - oy) / sy + F.DY0 }; }
 function d2(a, b)    { return Math.hypot(a.x - b.x, a.y - b.y); }
 
 function resize() {
   const wrap = document.getElementById('canvasWrap');
   cvW = wrap.clientWidth; cvH = wrap.clientHeight;
   cv.width = cvW; cv.height = cvH;
-  const pad = 20;
-  const scX = (cvW - pad * 2) / FVW;
-  const scY = (cvH - pad * 2) / FVH;
-  sc = Math.min(scX, scY);
-  ox = (cvW - FVW * sc) / 2;
-  oy = (cvH - FVH * sc) / 2;
+  const padX = Math.max(6, Math.min(12, cvW * 0.008));
+  const padY = Math.max(8, Math.min(14, cvH * 0.01));
+  const baseFromWidth = (cvW - padX * 2) / (FVW * FIELD_X_STRETCH);
+  const baseFromHeight = (cvH - padY * 2) / FVH;
+  sc = Math.min(baseFromWidth, baseFromHeight);
+  sx = sc * FIELD_X_STRETCH;
+  sy = sc;
+  ox = (cvW - FVW * sx) / 2;
+  oy = (cvH - FVH * sy) / 2;
   render();
 }
 
@@ -72,6 +76,8 @@ const S = {
   animSpd: 1,
   raf: null,
   lastTs: null,
+  steps: [],
+  currentStep: 0,
   nextId: 1,
   atkUsed: new Set(),   // which numbers are on field
   defUsed: new Set(),
@@ -79,12 +85,47 @@ const S = {
 const SPEEDS = [0.25, 0.5, 1, 1.5, 2, 3];
 let   spdIdx = 2;
 const SAVED_PLAYS_KEY = 'coachmato.animator.savedPlays.v1';
-const PROJECT_SCHEMA_VERSION = 3;
+const FIRST_USE_TUTORIAL_KEY = 'coachmato.animator.firstUseTutorial.v1';
+const PROJECT_SCHEMA_VERSION = 4;
 const PROJECT_TYPE = 'coachmato.animator.project';
 const PLAYBACK_TIMELINE_MODEL = 'global_progress_v1';
 const DEFAULT_PLAYBACK_DURATION = 5;
 const ANNOTATION_NOTE_DEFAULT = 'Note';
 const NOTE_FONT = '"Barlow Condensed"';
+const STEP_MIN_COUNT = 3;
+let firstUseTutorialDismissed = false;
+
+function hasSeenFirstUseTutorial() {
+  try {
+    return localStorage.getItem(FIRST_USE_TUTORIAL_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markFirstUseTutorialSeen() {
+  firstUseTutorialDismissed = true;
+  try {
+    localStorage.setItem(FIRST_USE_TUTORIAL_KEY, '1');
+  } catch {}
+}
+
+function shouldShowFirstUseTutorial() {
+  return !firstUseTutorialDismissed && !S.players.length && !S.ball && !S.annotations.length;
+}
+
+function dismissFirstUseTutorial() {
+  markFirstUseTutorialSeen();
+  updateBoardStatus();
+}
+
+function completeFirstUseTutorial() {
+  if (firstUseTutorialDismissed) return;
+  markFirstUseTutorialSeen();
+  updateBoardStatus();
+}
+
+window.dismissFirstUseTutorial = dismissFirstUseTutorial;
 
 // ─── PLAYER RADIUS (px on canvas) ─────────────────────────
 const R = () => Math.max(11, Math.min(18, sc * 1.3));
@@ -135,6 +176,151 @@ function normalizePlaybackSettings(playback = {}) {
     defaultSpeed: SPEEDS.includes(defaultSpeed) ? defaultSpeed : 1,
     timelineModel: PLAYBACK_TIMELINE_MODEL,
   };
+}
+
+function playerKey(ref) {
+  return ref?.team && Number.isFinite(Number(ref.num)) ? `${ref.team}:${Number(ref.num)}` : null;
+}
+
+function normalizeStepPlayers(players = []) {
+  if (!Array.isArray(players)) return [];
+  return players
+    .map(pl => {
+      const team = pl?.team === 'D' ? 'D' : pl?.team === 'A' ? 'A' : null;
+      const num = Number(pl?.num);
+      const x = Number(pl?.x);
+      const y = Number(pl?.y);
+      if (!team || !Number.isFinite(num) || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+      return { num, team, x, y };
+    })
+    .filter(Boolean);
+}
+
+function normalizeBallPosition(ball) {
+  if (!ball || typeof ball !== 'object') return null;
+  const x = Number(ball.x);
+  const y = Number(ball.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return { x, y };
+}
+
+function normalizeStepPath(path) {
+  if (!path || typeof path !== 'object') return null;
+  const team = path.team === 'D' ? 'D' : path.team === 'A' ? 'A' : null;
+  const num = Number(path.num);
+  const pts = Array.isArray(path.pts)
+    ? path.pts
+        .map(pt => {
+          const x = Number(pt?.x);
+          const y = Number(pt?.y);
+          return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+        })
+        .filter(Boolean)
+    : [];
+  if (!team || !Number.isFinite(num) || pts.length < 2) return null;
+  return { num, team, pts };
+}
+
+function normalizeStepPass(pass) {
+  if (!pass || typeof pass !== 'object') return null;
+  const fromNum = Number(pass.fromNum);
+  const toNum = Number(pass.toNum);
+  const fromT = pass.fromT === 'D' ? 'D' : pass.fromT === 'A' ? 'A' : null;
+  const toT = pass.toT === 'D' ? 'D' : pass.toT === 'A' ? 'A' : null;
+  const style = pass.style === 'kick' ? 'kick' : pass.style === 'pass' ? 'pass' : null;
+  if (!fromT || !toT || !Number.isFinite(fromNum) || !Number.isFinite(toNum) || !style) return null;
+  return { fromNum, fromT, toNum, toT, style };
+}
+
+function normalizeStepState(step = {}, fallbackPlayers = []) {
+  const fallback = normalizeStepPlayers(fallbackPlayers);
+  const players = normalizeStepPlayers(step.players);
+  return {
+    players: players.length ? players : fallback,
+    ball: normalizeBallPosition(step.ball),
+    ballOwner: normalizePlayerRef(step.ballOwner || step.ball?.owner),
+    paths: Array.isArray(step.paths) ? step.paths.map(normalizeStepPath).filter(Boolean) : [],
+    passes: Array.isArray(step.passes) ? step.passes.map(normalizeStepPass).filter(Boolean) : [],
+    annotations: Array.isArray(step.annotations) ? step.annotations.map(normalizeAnnotation).filter(Boolean) : [],
+  };
+}
+
+function cloneStepState(step) {
+  return normalizeStepState(cloneData(step), step?.players || []);
+}
+
+function emptyStepState() {
+  return { players: [], ball: null, ballOwner: null, paths: [], passes: [], annotations: [] };
+}
+
+function liveBoardToStepState() {
+  return normalizeStepState({
+    players: S.players.map(({ num, team, x, y }) => ({ num, team, x, y })),
+    ball: S.ball ? { ...S.ball } : null,
+    ballOwner: normalizePlayerRef(S.ballOwner),
+    paths: S.paths.map(path => {
+      const pl = S.players.find(q => q.id === path.pid);
+      return pl ? { num: pl.num, team: pl.team, pts: path.pts.map(pt => ({ ...pt })) } : null;
+    }).filter(Boolean),
+    passes: S.passes.map(pass => {
+      const from = S.players.find(q => q.id === pass.from);
+      const to = S.players.find(q => q.id === pass.to);
+      return from && to ? {
+        fromNum: from.num,
+        fromT: from.team,
+        toNum: to.num,
+        toT: to.team,
+        style: pass.style,
+      } : null;
+    }).filter(Boolean),
+    annotations: cloneData(Array.isArray(S.annotations) ? S.annotations : []),
+  });
+}
+
+function ensureSteps() {
+  if (!Array.isArray(S.steps) || !S.steps.length) {
+    S.steps = [liveBoardToStepState()];
+  }
+  S.currentStep = clamp(S.currentStep, 0, S.steps.length - 1);
+}
+
+function persistCurrentStep() {
+  ensureSteps();
+  S.steps[S.currentStep] = liveBoardToStepState();
+}
+
+function setLiveBoardFromStep(step, { keepSelection = false } = {}) {
+  const normalized = normalizeStepState(step);
+  const selected = keepSelection ? S.selected : null;
+  S.players = normalized.players.map(pl => ({ ...pl, id: S.nextId++, isBC: false }));
+  S.atkUsed = new Set(S.players.filter(pl => pl.team === 'A').map(pl => pl.num));
+  S.defUsed = new Set(S.players.filter(pl => pl.team === 'D').map(pl => pl.num));
+  S.ball = normalized.ball ? { ...normalized.ball } : null;
+  S.ballOwner = normalizePlayerRef(normalized.ballOwner);
+  S.annotations = normalized.annotations.map(item => normalizeAnnotation(item)).filter(Boolean);
+
+  S.paths = normalized.paths.map(path => {
+    const pl = S.players.find(q => q.num === path.num && q.team === path.team);
+    const col = path.team === 'A' ? '#60a5fa' : '#f87171';
+    return pl ? { pid: pl.id, pts: path.pts || [], color: col } : null;
+  }).filter(Boolean);
+
+  S.passes = normalized.passes.map(pass => {
+    const from = S.players.find(q => q.num === pass.fromNum && q.team === pass.fromT);
+    const to = S.players.find(q => q.num === pass.toNum && q.team === pass.toT);
+    return from && to ? { from: from.id, to: to.id, style: pass.style } : null;
+  }).filter(Boolean);
+
+  S.selected = keepSelection ? selected : null;
+  if (S.ball && !S.ballOwner) updateBallOwnerFromPosition();
+  else applyBallOwnershipVisualState();
+}
+
+function createCarryForwardStep(step) {
+  const next = cloneStepState(step);
+  next.paths = [];
+  next.passes = [];
+  return next;
 }
 
 function emptyPlayMetadata(title = '') {
@@ -285,6 +471,7 @@ function updateBallOwnerFromPosition() {
 }
 
 function makeProjectRecord(nameOverride, metadataOverrides = {}) {
+  persistCurrentStep();
   const prevMeta = S.projectMeta || {};
   const stamp = nowIso();
   const title = nameOverride || currentPlayTitle();
@@ -300,6 +487,8 @@ function makeProjectRecord(nameOverride, metadataOverrides = {}) {
     source: prevMeta.source || 'animator',
   };
   const playback = normalizePlaybackSettings(S.projectPlayback || {});
+  const currentStepData = cloneStepState(S.steps[S.currentStep] || liveBoardToStepState());
+  const steps = S.steps.map(step => cloneStepState(step));
 
   return {
     schemaVersion: PROJECT_SCHEMA_VERSION,
@@ -309,31 +498,38 @@ function makeProjectRecord(nameOverride, metadataOverrides = {}) {
     cat: 'Saved Board',
     metadata: meta,
     playback,
-    annotations: cloneData(Array.isArray(S.annotations) ? S.annotations : []),
-    players: S.players.map(({ num, team, x, y }) => ({ num, team, x, y })),
-    ball: S.ball ? { ...S.ball } : null,
-    ballOwner: normalizePlayerRef(S.ballOwner),
-    paths: S.paths.map(path => {
-      const pl = S.players.find(q => q.id === path.pid);
-      return pl ? { num: pl.num, team: pl.team, pts: path.pts.map(pt => ({ ...pt })) } : null;
-    }).filter(Boolean),
-    passes: S.passes.map(pass => {
-      const from = S.players.find(q => q.id === pass.from);
-      const to = S.players.find(q => q.id === pass.to);
-      return from && to ? {
-        fromNum: from.num,
-        fromT: from.team,
-        toNum: to.num,
-        toT: to.team,
-        style: pass.style,
-      } : null;
-    }).filter(Boolean),
+    currentStepIndex: S.currentStep,
+    steps,
+    annotations: cloneData(currentStepData.annotations),
+    players: cloneData(currentStepData.players),
+    ball: currentStepData.ball ? { ...currentStepData.ball } : null,
+    ballOwner: normalizePlayerRef(currentStepData.ballOwner),
+    paths: cloneData(currentStepData.paths),
+    passes: cloneData(currentStepData.passes),
   };
 }
 
 function normalizeProjectRecord(input) {
   const project = input?.project || input?.play || input;
-  if (!project || !Array.isArray(project.players)) return null;
+  if (!project) return null;
+  const hasPlayers = Array.isArray(project.players);
+  const hasSteps = Array.isArray(project.steps) && project.steps.length;
+  if (!hasPlayers && !hasSteps) return null;
+
+  const fallbackStep = normalizeStepState({
+    players: cloneData(project.players || []),
+    ball: project.ball ? cloneData(project.ball) : null,
+    ballOwner: normalizePlayerRef(project.ballOwner || project.ball?.owner),
+    paths: cloneData(project.paths || []),
+    passes: cloneData(project.passes || []),
+    annotations: Array.isArray(project.annotations) ? project.annotations : [],
+  });
+  const normalizedSteps = Array.isArray(project.steps) && project.steps.length
+    ? project.steps.map(step => normalizeStepState(step, fallbackStep.players))
+    : [fallbackStep];
+  const safeSteps = normalizedSteps.length ? normalizedSteps : [fallbackStep];
+  const currentStepIndex = clamp(Number.isFinite(project.currentStepIndex) ? Number(project.currentStepIndex) : 0, 0, safeSteps.length - 1);
+  const currentStep = safeSteps[currentStepIndex] || safeSteps[0];
 
   const normalized = {
     schemaVersion: Number.isFinite(project.schemaVersion) ? project.schemaVersion : 0,
@@ -343,12 +539,14 @@ function normalizeProjectRecord(input) {
     cat: project.cat || 'Saved Board',
     metadata: normalizeProjectMetadata(project, project.metadata),
     playback: normalizePlaybackSettings(project.playback),
-    annotations: Array.isArray(project.annotations) ? project.annotations.map(normalizeAnnotation).filter(Boolean) : [],
-    players: cloneData(project.players || []),
-    ball: project.ball ? cloneData(project.ball) : null,
-    ballOwner: normalizePlayerRef(project.ballOwner || project.ball?.owner),
-    paths: cloneData(project.paths || []),
-    passes: cloneData(project.passes || []),
+    currentStepIndex,
+    steps: safeSteps,
+    annotations: cloneData(currentStep.annotations),
+    players: cloneData(currentStep.players),
+    ball: currentStep.ball ? cloneData(currentStep.ball) : null,
+    ballOwner: normalizePlayerRef(currentStep.ballOwner),
+    paths: cloneData(currentStep.paths),
+    passes: cloneData(currentStep.passes),
   };
 
   normalized.metadata.title = normalized.name || normalized.metadata.title || '';
@@ -359,30 +557,30 @@ function normalizeProjectRecord(input) {
 
 // ─── UNDO ──────────────────────────────────────────────────
 function snapshot() {
+  persistCurrentStep();
   S.history.push(cloneData({
-    players: S.players,
-    ball: S.ball,
-    ballOwner: S.ballOwner,
-    paths: S.paths,
-    passes: S.passes,
-    annotations: S.annotations,
+    steps: S.steps,
+    currentStep: S.currentStep,
     playMetadata: S.playMetadata,
+    projectId: S.projectId,
+    projectMeta: S.projectMeta,
+    projectPlayback: S.projectPlayback,
   }));
   if (S.history.length > 30) S.history.shift();
 }
 function undo() {
   if (!S.history.length) return;
   const h = S.history.pop();
-  S.players = h.players; S.ball = h.ball;
-  S.ballOwner = normalizePlayerRef(h.ballOwner);
-  S.paths = h.paths;     S.passes = h.passes;
-  S.annotations = Array.isArray(h.annotations) ? h.annotations.map(normalizeAnnotation).filter(Boolean) : [];
+  S.steps = Array.isArray(h.steps) && h.steps.length ? h.steps.map(step => normalizeStepState(step)) : [emptyStepState()];
+  S.currentStep = clamp(Number.isFinite(h.currentStep) ? h.currentStep : 0, 0, S.steps.length - 1);
+  setLiveBoardFromStep(S.steps[S.currentStep]);
   S.playMetadata = normalizeProjectMetadata({ name: currentPlayTitle() }, h.playMetadata || {});
+  S.projectId = h.projectId || null;
+  S.projectMeta = h.projectMeta || null;
+  S.projectPlayback = normalizePlaybackSettings(h.projectPlayback || {});
   S.atkUsed = new Set(S.players.filter(p=>p.team==='A').map(p=>p.num));
   S.defUsed = new Set(S.players.filter(p=>p.team==='D').map(p=>p.num));
   S.selected = null;
-  if (S.ball && !S.ballOwner) updateBallOwnerFromPosition();
-  else applyBallOwnershipVisualState();
   updatePlayMetadataPanel();
   rebuildPalette(); refreshInteractionUI();
   render();
@@ -394,7 +592,6 @@ function undo() {
 function drawField() {
   ctx.clearRect(0, 0, cvW, cvH);
 
-  // Canvas bg
   const bgGrad = ctx.createLinearGradient(0, 0, 0, cvH);
   bgGrad.addColorStop(0, '#071018');
   bgGrad.addColorStop(1, '#0b1620');
@@ -408,7 +605,7 @@ function drawField() {
 
   ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,0.35)';
-  ctx.shadowBlur = 28;
+  ctx.shadowBlur = 18;
   ctx.fillStyle = 'rgba(0,0,0,0.12)';
   ctx.fillRect(TL.x, TL.y, FW, FH);
   ctx.restore();
@@ -427,28 +624,15 @@ function drawField() {
   ctx.fillStyle = playGrad;
   ctx.fillRect(fieldTop.x, fieldTop.y, FW, mainFieldH);
 
-  // ── Grass bands ──────────────────────────────────────────
-  const nBands = 14;
+  const nBands = 12;
   for (let i = 0; i < nBands; i++) {
     const fy0 = F.YMIN + (F.YMAX - F.YMIN) / nBands * i;
     const fy1 = F.YMIN + (F.YMAX - F.YMIN) / nBands * (i + 1);
     const p0 = toC(0, fy0), p1 = toC(68, fy1);
-    ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.032)' : 'rgba(0,0,0,0.045)';
+    ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.055)';
     ctx.fillRect(p0.x, p0.y, p1.x - p0.x, p1.y - p0.y + 1);
   }
 
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.025)';
-  ctx.lineWidth = 1;
-  for (let x = TL.x + 8; x < BR.x; x += 18) {
-    ctx.beginPath();
-    ctx.moveTo(x, TL.y);
-    ctx.lineTo(x, BR.y);
-    ctx.stroke();
-  }
-  ctx.restore();
-
-  // ── In-goal tints ────────────────────────────────────────
   const igTop = toC(0, F.YMIN), igTopEnd = toC(68, 0);
   const igGradTop = ctx.createLinearGradient(0, igTop.y, 0, igTopEnd.y);
   igGradTop.addColorStop(0, 'rgba(10,23,34,0.55)');
@@ -471,135 +655,187 @@ function drawField() {
   ctx.strokeRect(fieldTop.x, fieldTop.y, FW, mainFieldH);
   ctx.restore();
 
-  // ── Helper: horizontal line ──────────────────────────────
   function hline(fy, color, lw, dash = []) {
     const p = toC(0, fy), q = toC(68, fy);
     ctx.save();
-    ctx.strokeStyle = color; ctx.lineWidth = lw;
-    ctx.setLineDash(dash); ctx.lineCap = 'butt';
-    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    ctx.setLineDash(dash);
+    ctx.lineCap = 'butt';
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(q.x, q.y);
+    ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
   }
 
-  // Dead ball lines
-  hline(F.YMIN, 'rgba(255,255,255,0.18)', 1.2);
-  hline(F.YMAX, 'rgba(255,255,255,0.18)', 1.2);
-  // Try lines
-  hline(0,   'rgba(255,255,255,0.98)', 2.8);
-  hline(100, 'rgba(255,255,255,0.98)', 2.8);
-  // 22m lines
-  hline(22, 'rgba(255,255,255,0.72)', 1.9);
-  hline(78, 'rgba(255,255,255,0.72)', 1.9);
-  // 10m lines (dashed)
-  hline(10, 'rgba(255,255,255,0.4)', 1.5, [sc * 0.7, sc * 0.55]);
-  hline(90, 'rgba(255,255,255,0.4)', 1.5, [sc * 0.7, sc * 0.55]);
-  // Halfway
-  hline(50, 'rgba(255,255,255,0.88)', 2.2);
-
-  // Touchlines
-  function vline(fx, color, lw, fy0 = F.YMIN, fy1 = F.YMAX) {
+  function vline(fx, color, lw, fy0 = F.YMIN, fy1 = F.YMAX, dash = []) {
     const p = toC(fx, fy0), q = toC(fx, fy1);
     ctx.save();
-    ctx.strokeStyle = color; ctx.lineWidth = lw;
-    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    ctx.setLineDash(dash);
+    ctx.lineCap = 'butt';
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(q.x, q.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
     ctx.restore();
   }
-  vline(0,  'rgba(255,255,255,0.72)', 2.2);
+
+  hline(F.YMIN, 'rgba(255,255,255,0.18)', 1.2);
+  hline(F.YMAX, 'rgba(255,255,255,0.18)', 1.2);
+  hline(0, 'rgba(255,255,255,0.98)', 2.8);
+  hline(5, 'rgba(255,255,255,0.68)', 1.85);
+  hline(100, 'rgba(255,255,255,0.98)', 2.8);
+  hline(95, 'rgba(255,255,255,0.68)', 1.85);
+  hline(22, 'rgba(255,255,255,0.72)', 1.9);
+  hline(78, 'rgba(255,255,255,0.72)', 1.9);
+  hline(40, 'rgba(255,255,255,0.62)', 1.8, [sc * 1.05, sc * 0.72]);
+  hline(60, 'rgba(255,255,255,0.62)', 1.8, [sc * 1.05, sc * 0.72]);
+  hline(50, 'rgba(255,255,255,0.88)', 2.2);
+
+  vline(0, 'rgba(255,255,255,0.72)', 2.2);
   vline(68, 'rgba(255,255,255,0.72)', 2.2);
 
-  // ── Tick marks ───────────────────────────────────────────
-  function ticks(fy, color) {
-    // 5m marks at 5, 15, 53, 63 (5m and 15m from each touchline)
-    [5, 15, 53, 63].forEach(fx => {
-      const p = toC(fx, fy);
-      const d = 3.5 * sc;
-      ctx.save();
-      ctx.strokeStyle = color; ctx.lineWidth = 1.8;
-      ctx.beginPath(); ctx.moveTo(p.x, p.y - d); ctx.lineTo(p.x, p.y + d); ctx.stroke();
-      ctx.restore();
-    });
-  }
-  [0, 10, 22, 50, 78, 90, 100].forEach(fy => {
-    ticks(fy, 'rgba(255,255,255,0.42)');
-  });
-
-  // Touchline ticks at major lines
-  [5, 10, 22, 50, 78, 90, 95].forEach(fy => {
-    const tl = toC(0, fy), tr = toC(68, fy);
-    const tLen = 4 * sc;
+  function crossTick(fx, fy, size = 2.2, alpha = 0.22) {
+    const p = toC(fx, fy);
+    const dx = size * sx;
+    const dy = size * sy;
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.32)'; ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.moveTo(tl.x, tl.y); ctx.lineTo(tl.x + tLen, tl.y); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(tr.x, tr.y); ctx.lineTo(tr.x - tLen, tr.y); ctx.stroke();
+    ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+    ctx.lineWidth = alpha >= 0.3 ? 1.3 : 1;
+    ctx.beginPath();
+    ctx.moveTo(p.x - dx * 0.5, p.y);
+    ctx.lineTo(p.x + dx * 0.5, p.y);
+    ctx.moveTo(p.x, p.y - dy * 0.5);
+    ctx.lineTo(p.x, p.y + dy * 0.5);
+    ctx.stroke();
     ctx.restore();
+  }
+
+  function lineoutTick(fx, fy, reach = 1.45, alpha = 0.3) {
+    const p = toC(fx, fy);
+    const tickLen = reach * sx;
+    ctx.save();
+    ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+    ctx.lineWidth = alpha >= 0.4 ? 1.45 : 1.2;
+    ctx.beginPath();
+    ctx.moveTo(p.x - tickLen * 0.5, p.y);
+    ctx.lineTo(p.x + tickLen * 0.5, p.y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function tramlinePost(fx, fy, height = 5.8, alpha = 0.46, width = 1.75) {
+    const p = toC(fx, fy);
+    const stem = height * sy;
+    ctx.save();
+    ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'butt';
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y - stem * 0.5);
+    ctx.lineTo(p.x, p.y + stem * 0.5);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function touchlineTramMark(side, fy, strong = false) {
+    const y = toC(0, fy).y;
+    const fiveX = side === 'left' ? toC(5, fy).x : toC(63, fy).x;
+    const stem = (strong ? 5.9 : 4.9) * sy;
+    ctx.save();
+    ctx.strokeStyle = strong ? 'rgba(255,255,255,0.56)' : 'rgba(255,255,255,0.42)';
+    ctx.lineWidth = strong ? 1.9 : 1.55;
+    ctx.lineCap = 'butt';
+    ctx.beginPath();
+    ctx.moveTo(fiveX, y - stem);
+    ctx.lineTo(fiveX, y + stem);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  const tramlineRows = [8, 22, 36, 50, 64, 78, 92];
+  tramlineRows.forEach(fy => {
+    const strong = fy === 22 || fy === 50 || fy === 78;
+    touchlineTramMark('left', fy, strong);
+    touchlineTramMark('right', fy, strong);
   });
 
-  // Centre spot + circle
+  [10, 22, 36, 50, 64, 78, 90].forEach(fy => {
+    const strong = fy === 22 || fy === 50 || fy === 78;
+    tramlinePost(15, fy, strong ? 6.7 : 6.0, strong ? 0.62 : 0.5, strong ? 2.1 : 1.85);
+    tramlinePost(53, fy, strong ? 6.7 : 6.0, strong ? 0.62 : 0.5, strong ? 2.1 : 1.85);
+  });
+
+  [22, 50, 78].forEach(fy => {
+    lineoutTick(15, fy, 2.2, 0.48);
+    lineoutTick(53, fy, 2.2, 0.48);
+    crossTick(15, fy, 2.45, 0.4);
+    crossTick(53, fy, 2.45, 0.4);
+  });
+
   const hw = toC(34, 50);
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1;
-  ctx.setLineDash([sc * 0.5, sc * 0.5]);
-  ctx.beginPath(); ctx.arc(hw.x, hw.y, 10 * sc, 0, Math.PI * 2); ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.restore();
-  ctx.fillStyle = 'rgba(255,255,255,0.7)';
-  ctx.beginPath(); ctx.arc(hw.x, hw.y, 2, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.72)';
+  ctx.beginPath();
+  ctx.arc(hw.x, hw.y, 2.5, 0, Math.PI * 2);
+  ctx.fill();
 
-  // ── Field labels ─────────────────────────────────────────
-  drawFieldLabel(34, -5, 'IN-GOAL', true);
-  drawFieldLabel(34, 105, 'IN-GOAL', true);
-  drawFieldLabel(34, 50, 'HALFWAY');
-  drawFieldLabel(4.6, 22, '22');
-  drawFieldLabel(63.4, 22, '22');
-  drawFieldLabel(4.6, 78, '22');
-  drawFieldLabel(63.4, 78, '22');
-  drawFieldLabel(4.8, 10, '10');
-  drawFieldLabel(63.2, 10, '10');
-  drawFieldLabel(4.8, 90, '10');
-  drawFieldLabel(63.2, 90, '10');
-  drawFieldLabel(4.4, 0, 'TRY');
-  drawFieldLabel(63.6, 0, 'TRY');
-  drawFieldLabel(4.4, 100, 'TRY');
-  drawFieldLabel(63.6, 100, 'TRY');
+  function drawSubtleFieldText(fx, fy, text) {
+    const p = toC(fx, fy);
+    const fontSize = Math.max(10, sc * 1.05);
+    ctx.save();
+    ctx.font = `700 ${fontSize}px "Barlow Condensed"`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.fillText(text, p.x, p.y);
+    ctx.restore();
+  }
 
-  // ── Goal posts ───────────────────────────────────────────
-  drawPosts(34, 0,   'top');
+  drawSubtleFieldText(34, 50, '50');
+  drawSubtleFieldText(4.8, 22, '22');
+  drawSubtleFieldText(63.2, 22, '22');
+  drawSubtleFieldText(4.8, 78, '22');
+  drawSubtleFieldText(63.2, 78, '22');
+  drawSubtleFieldText(4.8, 10, '10');
+  drawSubtleFieldText(63.2, 10, '10');
+  drawSubtleFieldText(4.8, 90, '10');
+  drawSubtleFieldText(63.2, 90, '10');
+
+  drawPosts(34, 0, 'top');
   drawPosts(34, 100, 'bot');
 }
 
 function drawPosts(fx, fy, side) {
   const base = toC(fx, fy);
-  const halfW = 2.8 * sc;   // 5.6m between posts
-  const crossH = sc * 1.4;  // crossbar height above try line
-  const postH  = sc * 4.5;  // total post height
-  const dir    = side === 'top' ? -1 : 1; // top posts go up (toward in-goal top)
+  const halfW = (5.6 / 2) * sc;
+  const crossH = 3.4 * sc;
+  const postAboveBar = 8 * sc;
+  const dir = side === 'top' ? -1 : 1;
+  const leftX = base.x - halfW;
+  const rightX = base.x + halfW;
+  const tryLineY = base.y;
+  const crossbarY = tryLineY + dir * crossH;
+  const postTopY = crossbarY + dir * postAboveBar;
 
   ctx.save();
   ctx.strokeStyle = 'rgba(252,252,252,0.92)';
   ctx.lineWidth = Math.max(2, sc * 0.2);
   ctx.lineCap = 'round';
-  ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = 5;
+  ctx.shadowColor = 'rgba(0,0,0,0.45)';
+  ctx.shadowBlur = 5;
 
-  // Base stump
   ctx.beginPath();
-  ctx.moveTo(base.x, base.y);
-  ctx.lineTo(base.x, base.y + dir * crossH);
-  ctx.stroke();
-  // Crossbar
-  ctx.beginPath();
-  ctx.moveTo(base.x - halfW, base.y + dir * crossH);
-  ctx.lineTo(base.x + halfW, base.y + dir * crossH);
-  ctx.stroke();
-  // Left post
-  ctx.beginPath();
-  ctx.moveTo(base.x - halfW, base.y + dir * crossH);
-  ctx.lineTo(base.x - halfW, base.y + dir * postH);
-  ctx.stroke();
-  // Right post
-  ctx.beginPath();
-  ctx.moveTo(base.x + halfW, base.y + dir * crossH);
-  ctx.lineTo(base.x + halfW, base.y + dir * postH);
+  ctx.moveTo(leftX, tryLineY);
+  ctx.lineTo(leftX, postTopY);
+  ctx.moveTo(rightX, tryLineY);
+  ctx.lineTo(rightX, postTopY);
+  ctx.moveTo(leftX, crossbarY);
+  ctx.lineTo(rightX, crossbarY);
   ctx.stroke();
   ctx.restore();
 }
@@ -1050,9 +1286,9 @@ function drawZoneAnnotation(zone, selected = false, preview = false) {
   }
 }
 
-function renderAnnotations(layer) {
-  S.annotations.forEach(annotation => {
-    const selected = selectedAnnotationId() === annotation.id;
+function renderAnnotations(layer, annotations = S.annotations) {
+  annotations.forEach(annotation => {
+    const selected = annotations === S.annotations && selectedAnnotationId() === annotation.id;
     if (layer === 'zones' && annotation.type === 'zone') drawZoneAnnotation(annotation, selected);
     if (layer === 'lines' && annotation.type === 'arrow') drawArrowAnnotation(annotation, selected);
     if (layer === 'notes' && annotation.type === 'note') drawNoteAnnotation(annotation, selected);
@@ -1074,6 +1310,28 @@ function renderAnnotationDraft() {
 // ════════════════════════════════════════════════════════════
 function render() {
   drawField();
+
+  if (shouldRenderSequencePreview()) {
+    const frame = buildSequenceFrame(S.animT);
+    const playerLookup = new Map(frame.players.map(pl => [playerKey(pl), pl]));
+    renderAnnotations('zones', frame.annotations);
+    frame.passes.forEach(pass => {
+      const from = playerLookup.get(playerKey({ num: pass.fromNum, team: pass.fromT }));
+      const to = playerLookup.get(playerKey({ num: pass.toNum, team: pass.toT }));
+      if (!from || !to) return;
+      const col = pass.style === 'kick' ? '#f59e0b' : 'rgba(255,255,255,0.75)';
+      drawArc(from.x, from.y, to.x, to.y, col, 1, pass.style === 'kick');
+    });
+    frame.paths.forEach(path => {
+      if (path.pts.length < 2) return;
+      drawRunPath(path.pts, path.team === 'A' ? '#60a5fa' : '#f87171', 2.8, 1);
+    });
+    renderAnnotations('lines', frame.annotations);
+    if (frame.ball) drawBall(frame.ball.x, frame.ball.y, false);
+    frame.players.forEach(pl => drawPlayer(pl.x, pl.y, pl.num, pl.team, false, samePlayerRef(playerRef(pl), frame.ballOwner)));
+    renderAnnotations('notes', frame.annotations);
+    return;
+  }
 
   const t = S.animT;
   renderAnnotations('zones');
@@ -1166,22 +1424,22 @@ function hitAnnotation(fp) {
     const ann = S.annotations[i];
     if (ann.type === 'note') {
       const box = noteMetrics(ann);
-      const halfW = (box.width / sc) / 2;
-      const halfH = (box.height / sc) / 2;
+      const halfW = (box.width / sc) / 2 + 0.8;
+      const halfH = (box.height / sc) / 2 + 0.8;
       if (Math.abs(fp.x - ann.x) <= halfW && Math.abs(fp.y - ann.y) <= halfH) {
         return { id: ann.id, part: 'move' };
       }
     }
     if (ann.type === 'arrow') {
-      if (d2(fp, ann.start) <= 2.2) return { id: ann.id, part: 'start' };
-      if (d2(fp, ann.end) <= 2.2) return { id: ann.id, part: 'end' };
-      if (pointSegDist(fp, ann.start, ann.end) <= 1.9) return { id: ann.id, part: 'move' };
+      if (d2(fp, ann.start) <= 2.8) return { id: ann.id, part: 'start' };
+      if (d2(fp, ann.end) <= 2.8) return { id: ann.id, part: 'end' };
+      if (pointSegDist(fp, ann.start, ann.end) <= 2.4) return { id: ann.id, part: 'move' };
     }
     if (ann.type === 'zone') {
       const handle = { x: ann.x + ann.r, y: ann.y };
-      if (d2(fp, handle) <= 2.2) return { id: ann.id, part: 'radius' };
-      if (d2(fp, { x: ann.x, y: ann.y }) <= 2) return { id: ann.id, part: 'center' };
-      if (d2(fp, { x: ann.x, y: ann.y }) <= ann.r) return { id: ann.id, part: 'move' };
+      const center = { x: ann.x, y: ann.y };
+      if (d2(fp, handle) <= 2.8) return { id: ann.id, part: 'radius' };
+      if (d2(fp, center) <= ann.r + 1.1) return { id: ann.id, part: 'move' };
     }
   }
   return null;
@@ -1439,6 +1697,7 @@ cv.addEventListener('mouseup', () => {
   if (S.dragging) {
     if (S.dragging.type === 'ball' || S.dragging.type === 'player') updateBallOwnerFromPosition();
     S.dragging = null;
+    refreshInteractionUI();
     render();
   }
   if (S.drawing && S.tool === 'path') finishDraw();
@@ -1448,6 +1707,7 @@ cv.addEventListener('mouseleave', () => {
   if (S.dragging) {
     if (S.dragging.type === 'ball' || S.dragging.type === 'player') updateBallOwnerFromPosition();
     S.dragging = null;
+    refreshInteractionUI();
   }
   if (S.drawing)  finishDraw();
   if (S.annotationDraft) finishAnnotationDraft();
@@ -1493,6 +1753,7 @@ function finishAnnotationDraft() {
   snapshot();
   S.annotations.push(draft);
   S.selected = annotationSelection(draft.id);
+  completeFirstUseTutorial();
   setHint(`${MODE_LABELS[draft.type] || 'Annotation'} placed. Switch to Move to adjust it.`);
   refreshInteractionUI();
   render();
@@ -1546,6 +1807,7 @@ function addPlayerByNum(num, team) {
     isBC: false
   });
   used.add(num);
+  completeFirstUseTutorial();
   rebuildPalette(); setTool('move'); setHint(`${team === 'A' ? 'Attack' : 'Defence'} #${num} added. Drag to position.`); refreshInteractionUI(); render();
 }
 
@@ -1553,6 +1815,7 @@ function addBall() {
   if (!S.ball) snapshot();
   S.ball = { x:34, y:50 };
   updateBallOwnerFromPosition();
+  completeFirstUseTutorial();
   setTool('move'); setHint('Ball placed. Drag it to the right spot.'); refreshInteractionUI(); render();
 }
 
@@ -1583,12 +1846,250 @@ function deleteSelected() {
   render();
 }
 
+function sequenceStepCount() {
+  ensureSteps();
+  return S.steps.length;
+}
+
+function sequenceSegmentCount() {
+  return Math.max(1, sequenceStepCount() - 1);
+}
+
+function sequenceDurationSeconds() {
+  return sequenceSegmentCount() * DEFAULT_PLAYBACK_DURATION;
+}
+
+function currentStepStartProgress() {
+  const steps = sequenceStepCount();
+  if (steps <= 1) return 0;
+  const lastPlayable = Math.max(0, steps - 2);
+  return Math.min(lastPlayable, S.currentStep) / (steps - 1);
+}
+
+function stopPlayback(resetProgress = false) {
+  S.animating = false;
+  S.lastTs = null;
+  if (resetProgress) S.animT = 0;
+  setPlayBtnState();
+}
+
+function buildStepLookup(players = []) {
+  const map = new Map();
+  players.forEach(pl => {
+    const key = playerKey(pl);
+    if (key) map.set(key, pl);
+  });
+  return map;
+}
+
+function lerp(a, b, t) {
+  return a + (b - a) * t;
+}
+
+function resolveStepBall(step) {
+  const ball = normalizeBallPosition(step?.ball);
+  if (ball) return ball;
+  const owner = normalizePlayerRef(step?.ballOwner);
+  if (!owner) return null;
+  const lookup = buildStepLookup(step?.players || []);
+  const ownerPlayer = lookup.get(playerKey(owner));
+  return ownerPlayer ? { x: ownerPlayer.x, y: ownerPlayer.y } : null;
+}
+
+function buildSequenceFrame(progress) {
+  persistCurrentStep();
+  ensureSteps();
+  if (S.steps.length < 2) {
+    const only = cloneStepState(S.steps[0]);
+    return { ...only, segmentIndex: 0, localT: 0 };
+  }
+  const segments = S.steps.length - 1;
+  const scaled = clamp(progress, 0, 1) * segments;
+  const segmentIndex = Math.min(segments - 1, Math.floor(scaled));
+  const localT = Math.min(1, scaled - segmentIndex);
+  const from = cloneStepState(S.steps[segmentIndex]);
+  const to = cloneStepState(S.steps[Math.min(S.steps.length - 1, segmentIndex + 1)]);
+  const fromLookup = buildStepLookup(from.players);
+  const toLookup = buildStepLookup(to.players);
+  const allKeys = new Set([...fromLookup.keys(), ...toLookup.keys()]);
+  const players = Array.from(allKeys).map(key => {
+    const a = fromLookup.get(key) || toLookup.get(key);
+    const b = toLookup.get(key) || fromLookup.get(key);
+    return {
+      num: b.num,
+      team: b.team,
+      x: lerp(a.x, b.x, localT),
+      y: lerp(a.y, b.y, localT),
+    };
+  });
+  const fromBall = resolveStepBall(from);
+  const toBall = resolveStepBall(to);
+  let ball = null;
+  if (fromBall && toBall) {
+    ball = { x: lerp(fromBall.x, toBall.x, localT), y: lerp(fromBall.y, toBall.y, localT) };
+  } else if (toBall) {
+    ball = { ...toBall };
+  } else if (fromBall) {
+    ball = { ...fromBall };
+  }
+  return {
+    players,
+    ball,
+    ballOwner: normalizePlayerRef(localT < 0.5 ? from.ballOwner : to.ballOwner),
+    annotations: cloneData(localT < 0.5 ? from.annotations : to.annotations),
+    paths: cloneData(localT < 0.5 ? from.paths : to.paths),
+    passes: cloneData(localT < 0.5 ? from.passes : to.passes),
+    segmentIndex,
+    localT,
+  };
+}
+
+function shouldRenderSequencePreview() {
+  return sequenceStepCount() > 1 && S.animating;
+}
+
+function gotoStep(index, { snapshotBefore = false } = {}) {
+  ensureSteps();
+  const next = clamp(index, 0, S.steps.length - 1);
+  if (next === S.currentStep) return;
+  if (snapshotBefore) snapshot();
+  persistCurrentStep();
+  S.currentStep = next;
+  stopPlayback(true);
+  S.drawing = null;
+  S.passFrom = null;
+  S.annotationDraft = null;
+  setLiveBoardFromStep(S.steps[S.currentStep]);
+  setHint(`Step ${S.currentStep + 1} ready. Build the next phase from here.`);
+  rebuildPalette();
+  refreshInteractionUI();
+  updateTL();
+  render();
+}
+
+function prevStep() {
+  gotoStep(S.currentStep - 1);
+}
+
+function nextStep() {
+  gotoStep(S.currentStep + 1);
+}
+
+function addStep() {
+  snapshot();
+  persistCurrentStep();
+  const next = createCarryForwardStep(S.steps[S.currentStep] || liveBoardToStepState());
+  S.steps.splice(S.currentStep + 1, 0, next);
+  S.currentStep += 1;
+  stopPlayback(true);
+  setLiveBoardFromStep(next);
+  setHint(`Step ${S.currentStep + 1} added. Player and ball positions carried forward, ready for the next action.`);
+  rebuildPalette();
+  refreshInteractionUI();
+  updateTL();
+  render();
+}
+
+function duplicateStep() {
+  snapshot();
+  persistCurrentStep();
+  const next = cloneStepState(S.steps[S.currentStep] || liveBoardToStepState());
+  S.steps.splice(S.currentStep + 1, 0, next);
+  S.currentStep += 1;
+  stopPlayback(true);
+  setLiveBoardFromStep(next);
+  setHint(`Step ${S.currentStep + 1} duplicated. Refine the copied phase as needed.`);
+  rebuildPalette();
+  refreshInteractionUI();
+  updateTL();
+  render();
+}
+
+function deleteStep() {
+  ensureSteps();
+  if (S.steps.length === 1) {
+    snapshot();
+    S.steps = [emptyStepState()];
+    S.currentStep = 0;
+    setLiveBoardFromStep(S.steps[0]);
+    stopPlayback(true);
+    setHint('Step 1 cleared. Build the sequence again from a clean board.');
+  } else {
+    snapshot();
+    S.steps.splice(S.currentStep, 1);
+    S.currentStep = clamp(S.currentStep, 0, S.steps.length - 1);
+    stopPlayback(true);
+    setLiveBoardFromStep(S.steps[S.currentStep]);
+    setHint(`Step removed. Now viewing Step ${S.currentStep + 1}.`);
+  }
+  rebuildPalette();
+  refreshInteractionUI();
+  updateTL();
+  render();
+}
+
+function updateSequenceUI() {
+  const stepStatus = document.getElementById('stepStatus');
+  const stepStatusCopy = document.getElementById('stepStatusCopy');
+  const prevBtn = document.getElementById('seqPrevBtn');
+  const nextBtn = document.getElementById('seqNextBtn');
+  const deleteBtn = document.getElementById('seqDeleteBtn');
+  const playBtn = document.getElementById('playBtn');
+  const tlPlayBtn = document.getElementById('tlPlayBtn');
+  const rail = document.getElementById('stepRail');
+  const count = sequenceStepCount();
+  const owner = normalizePlayerRef(S.ballOwner);
+  if (stepStatus) stepStatus.textContent = `Step ${S.currentStep + 1} of ${count}`;
+  if (stepStatusCopy) {
+    const ownerText = owner ? `Ball: ${owner.team === 'A' ? 'A' : 'D'} #${owner.num}` : (S.ball ? 'Ball: Loose' : 'Ball: Off board');
+    stepStatusCopy.textContent = `${ownerText} • ${count < STEP_MIN_COUNT ? `Build toward ${STEP_MIN_COUNT}+ phases` : 'Sequence ready'}`;
+  }
+  if (prevBtn) prevBtn.disabled = S.currentStep === 0;
+  if (nextBtn) nextBtn.disabled = S.currentStep >= count - 1;
+  if (deleteBtn) deleteBtn.disabled = count <= 1 && !S.players.length && !S.ball && !S.annotations.length;
+  if (playBtn) playBtn.disabled = count < 2;
+  if (tlPlayBtn) tlPlayBtn.disabled = count < 2;
+  if (rail) {
+    rail.innerHTML = '';
+    for (let i = 0; i < count; i++) {
+      const btn = document.createElement('button');
+      btn.className = `seq-chip${i === S.currentStep ? ' active' : ''}`;
+      btn.textContent = String(i + 1);
+      btn.title = `Go to Step ${i + 1}`;
+      btn.onclick = () => gotoStep(i);
+      rail.appendChild(btn);
+    }
+  }
+}
+
 // ════════════════════════════════════════════════════════════
 //  ANIMATION
 // ════════════════════════════════════════════════════════════
 function togglePlay() {
-  if (S.animT >= 1) S.animT = 0;
-  S.animating = !S.animating;
+  persistCurrentStep();
+  if (S.animating) {
+    S.animating = false;
+    S.lastTs = null;
+    if (sequenceStepCount() > 1) {
+      S.currentStep = clamp(Math.round(S.animT * (sequenceStepCount() - 1)), 0, sequenceStepCount() - 1);
+      setLiveBoardFromStep(S.steps[S.currentStep]);
+    }
+    S.animT = 0;
+    setPlayBtnState();
+    refreshInteractionUI();
+    updateTL();
+    render();
+    return;
+  }
+  if (sequenceStepCount() < 2) {
+    stopPlayback(false);
+    setHint('Add another step to animate the sequence.');
+    refreshInteractionUI();
+    return;
+  }
+  const start = currentStepStartProgress();
+  if (S.animT >= 1 || S.animT < start) S.animT = start;
+  S.animating = true;
   const isPlay = S.animating;
   document.getElementById('playBtn').textContent   = isPlay ? '⏸ Pause' : '▶ Play';
   document.getElementById('tlPlayBtn').textContent = isPlay ? '⏸' : '▶';
@@ -1596,10 +2097,17 @@ function togglePlay() {
 }
 function animLoop(ts) {
   if (!S.animating) return;
-  const DUR = DEFAULT_PLAYBACK_DURATION;
+  const DUR = sequenceDurationSeconds();
   if (S.lastTs !== null) {
     S.animT = Math.min(1, S.animT + (ts - S.lastTs) / 1000 * S.animSpd / DUR);
-    if (S.animT >= 1) { S.animT=1; S.animating=false; setPlayBtnState(); }
+    if (S.animT >= 1) {
+      S.animT = 0;
+      S.animating = false;
+      S.currentStep = Math.max(0, sequenceStepCount() - 1);
+      setLiveBoardFromStep(S.steps[S.currentStep]);
+      setPlayBtnState();
+      refreshInteractionUI();
+    }
   }
   S.lastTs = ts;
   render(); updateTL();
@@ -1609,10 +2117,11 @@ function setPlayBtnState() {
   const lbl = S.animating ? '⏸' : '▶';
   document.getElementById('playBtn').textContent   = S.animating ? '⏸ Pause' : '▶ Play';
   document.getElementById('tlPlayBtn').textContent = lbl;
+  updateSequenceUI();
 }
 function resetAnim() {
-  S.animating=false; S.animT=0; S.lastTs=null;
-  setPlayBtnState(); render(); updateTL();
+  stopPlayback(true);
+  render(); updateTL();
 }
 function chSpd(d) {
   spdIdx = clamp(spdIdx+d, 0, SPEEDS.length-1);
@@ -1629,11 +2138,17 @@ function updateTL() {
   const pct = S.animT * 100;
   document.getElementById('trackFill').style.width = pct + '%';
   document.getElementById('trackThumb').style.left = pct + '%';
-  document.getElementById('tlTime').textContent = `${(S.animT*DEFAULT_PLAYBACK_DURATION).toFixed(1)} / ${DEFAULT_PLAYBACK_DURATION.toFixed(1)}s`;
+  const duration = sequenceDurationSeconds();
+  document.getElementById('tlTime').textContent = `${(S.animT * duration).toFixed(1)} / ${duration.toFixed(1)}s`;
 }
 function seekTrack(e) {
   const r = document.getElementById('track').getBoundingClientRect();
-  S.animT = clamp((e.clientX-r.left)/r.width, 0, 1);
+  const raw = clamp((e.clientX-r.left)/r.width, 0, 1);
+  if (!S.animating && sequenceStepCount() > 1) {
+    gotoStep(Math.round(raw * (sequenceStepCount() - 1)));
+    return;
+  }
+  S.animT = raw;
   updateTL(); render();
 }
 
@@ -1757,9 +2272,11 @@ function updateBoardStatus() {
   const mode = document.getElementById('boardModeLabel');
   const text = document.getElementById('boardStatusText');
   const empty = document.getElementById('emptyState');
+  const tutorial = document.getElementById('firstUseTutorial');
   if (mode) mode.textContent = MODE_LABELS[S.tool] || 'Board';
   if (text) text.textContent = getStatusMessage();
   if (empty) empty.classList.toggle('hidden', !!S.players.length || !!S.ball || !!S.annotations.length);
+  if (tutorial) tutorial.classList.toggle('hidden', !shouldShowFirstUseTutorial());
 }
 
 function updateAnnotationPanel() {
@@ -1844,10 +2361,12 @@ function updateSelectedNoteText(value) {
 }
 
 function refreshInteractionUI() {
+  persistCurrentStep();
   updateSelInfo();
   updatePaletteSummary();
   updateBoardStatus();
   updatePlayMetadataPanel();
+  updateSequenceUI();
 }
 
 function setTool(t) {
@@ -1891,6 +2410,7 @@ function clearAll() {
   S.drawing=null; S.passFrom=null; S.annotationDraft=null; S.selected=null;
   S.animT=0; S.animating=false;
   S.animSpd=1; spdIdx=2;
+  S.steps=[emptyStepState()]; S.currentStep=0;
   S.atkUsed=new Set(); S.defUsed=new Set();
   document.getElementById('playName').value='New Play';
   setHint('Board reset. Start by adding players from the left.');
@@ -1980,11 +2500,9 @@ function applyBoardData(play, { snapshotBefore = true } = {}) {
   if (snapshotBefore) snapshot();
 
   const p = cloneData(project);
-  S.players = p.players.map(pl => ({ ...pl, id: S.nextId++, isBC: false }));
-  S.atkUsed = new Set(S.players.filter(pl => pl.team === 'A').map(pl => pl.num));
-  S.defUsed = new Set(S.players.filter(pl => pl.team === 'D').map(pl => pl.num));
-  S.ball = p.ball || null;
-  S.ballOwner = normalizePlayerRef(p.ballOwner);
+  S.steps = Array.isArray(p.steps) && p.steps.length ? p.steps.map(step => normalizeStepState(step)) : [normalizeStepState(p)];
+  S.currentStep = clamp(Number.isFinite(p.currentStepIndex) ? p.currentStepIndex : 0, 0, S.steps.length - 1);
+  setLiveBoardFromStep(S.steps[S.currentStep]);
   S.animT = 0;
   S.animating = false;
   S.selected = null;
@@ -1995,24 +2513,8 @@ function applyBoardData(play, { snapshotBefore = true } = {}) {
   S.projectMeta = p.metadata;
   S.playMetadata = normalizeProjectMetadata({ name: p.name }, p.metadata);
   S.projectPlayback = p.playback;
-  S.annotations = Array.isArray(p.annotations) ? p.annotations : [];
   S.animSpd = S.projectPlayback?.currentSpeed || 1;
   spdIdx = Math.max(0, SPEEDS.indexOf(S.animSpd));
-
-  S.paths = (p.paths || []).map(path => {
-    const pl = S.players.find(q => q.num === path.num && q.team === path.team);
-    const col = path.team === 'A' ? '#60a5fa' : '#f87171';
-    return { pid: pl?.id, pts: path.pts || [], color: col };
-  }).filter(item => item.pid !== undefined);
-
-  S.passes = (p.passes || []).map(pass => {
-    const fp = S.players.find(q => q.num === pass.fromNum && q.team === pass.fromT);
-    const tp = S.players.find(q => q.num === pass.toNum && q.team === pass.toT);
-    return fp && tp ? { from: fp.id, to: tp.id, style: pass.style } : null;
-  }).filter(Boolean);
-
-  if (S.ball && !S.ballOwner) updateBallOwnerFromPosition();
-  else applyBallOwnershipVisualState();
   document.getElementById('playName').value = p.name || 'Untitled Play';
   syncPlayMetadataTitle();
   setPlayBtnState();
@@ -2027,6 +2529,7 @@ function applyBoardData(play, { snapshotBefore = true } = {}) {
   updateTL();
   render();
   setTool('move');
+  completeFirstUseTutorial();
   return true;
 }
 
@@ -2163,124 +2666,16 @@ function importPlayFromFile(file) {
   reader.readAsText(file);
 }
 
-// ─── Pre-built Plays ──────────────────────────────────────────
-const PLAYS = [
-  {
-    id:'launch_fly', name:'Scrum — Launch Fly', cat:'Attack · Scrum',
-    players:[
-      {num:1,team:'A',x:31,y:61},{num:2,team:'A',x:34,y:61},{num:3,team:'A',x:37,y:61},
-      {num:4,team:'A',x:32,y:63},{num:5,team:'A',x:36,y:63},{num:6,team:'A',x:28,y:64},
-      {num:7,team:'A',x:40,y:64},{num:8,team:'A',x:34,y:66},{num:9,team:'A',x:38,y:68},
-      {num:10,team:'A',x:46,y:72},{num:11,team:'A',x:8,y:68},{num:12,team:'A',x:54,y:74},
-      {num:13,team:'A',x:58,y:77},{num:14,team:'A',x:62,y:68},{num:15,team:'A',x:34,y:78},
-      {num:9,team:'D',x:40,y:69},{num:10,team:'D',x:48,y:74},
-      {num:12,team:'D',x:56,y:77},{num:13,team:'D',x:62,y:80},
-    ],
-    ball:{x:34,y:66},
-    paths:[
-      {num:8,team:'A',  pts:[{x:34,y:66},{x:34,y:62},{x:35,y:59}]},
-      {num:9,team:'A',  pts:[{x:38,y:68},{x:40,y:66},{x:44,y:64}]},
-      {num:10,team:'A', pts:[{x:46,y:72},{x:48,y:70},{x:56,y:65}]},
-      {num:12,team:'A', pts:[{x:54,y:74},{x:56,y:71},{x:62,y:66}]},
-      {num:11,team:'A', pts:[{x:8,y:68},{x:12,y:65},{x:18,y:62}]},
-      {num:15,team:'A', pts:[{x:34,y:78},{x:38,y:74},{x:46,y:70}]},
-    ],
-    passes:[{fromNum:8,fromT:'A',toNum:9,toT:'A',style:'pass'},{fromNum:9,fromT:'A',toNum:10,toT:'A',style:'pass'}],
-  },
-  {
-    id:'counter', name:'Counter Attack', cat:'Transition',
-    players:[
-      {num:15,team:'A',x:34,y:28},{num:11,team:'A',x:10,y:35},{num:14,team:'A',x:58,y:35},
-      {num:9,team:'A',x:34,y:44},{num:10,team:'A',x:26,y:52},{num:12,team:'A',x:20,y:58},
-      {num:13,team:'A',x:14,y:64},{num:8,team:'A',x:32,y:50},{num:6,team:'A',x:36,y:47},
-      {num:10,team:'D',x:26,y:60},{num:12,team:'D',x:20,y:66},{num:13,team:'D',x:14,y:72},
-      {num:9,team:'D',x:32,y:58},{num:15,team:'D',x:34,y:72},
-    ],
-    ball:{x:34,y:28},
-    paths:[
-      {num:15,team:'A',pts:[{x:34,y:28},{x:32,y:36},{x:30,y:42}]},
-      {num:11,team:'A',pts:[{x:10,y:35},{x:14,y:42},{x:20,y:48}]},
-      {num:9,team:'A', pts:[{x:34,y:44},{x:32,y:52},{x:28,y:58}]},
-      {num:10,team:'A',pts:[{x:26,y:52},{x:24,y:58},{x:20,y:64}]},
-      {num:8,team:'A', pts:[{x:32,y:50},{x:30,y:57},{x:28,y:62}]},
-    ],
-    passes:[{fromNum:15,fromT:'A',toNum:9,toT:'A',style:'pass'},{fromNum:9,fromT:'A',toNum:10,toT:'A',style:'pass'}],
-  },
-  {
-    id:'hammer_def', name:'Defence — HAMMER', cat:'Defence · Blitz',
-    players:[
-      {num:9,team:'A',x:34,y:57},{num:10,team:'A',x:26,y:63},{num:12,team:'A',x:18,y:67},
-      {num:13,team:'A',x:12,y:71},{num:11,team:'A',x:6,y:67},{num:14,team:'A',x:60,y:67},
-      {num:15,team:'A',x:52,y:60},{num:8,team:'A',x:34,y:61},
-      {num:14,team:'D',x:62,y:54},{num:13,team:'D',x:54,y:58},{num:12,team:'D',x:46,y:58},
-      {num:10,team:'D',x:38,y:58},{num:9,team:'D',x:30,y:56},{num:11,team:'D',x:18,y:58},
-      {num:7,team:'D',x:32,y:60},{num:6,team:'D',x:36,y:63},{num:8,team:'D',x:34,y:58},
-    ],
-    ball:{x:34,y:57},
-    paths:[
-      {num:14,team:'D',pts:[{x:62,y:54},{x:55,y:59}]},
-      {num:13,team:'D',pts:[{x:54,y:58},{x:47,y:63}]},
-      {num:12,team:'D',pts:[{x:46,y:58},{x:39,y:63}]},
-      {num:10,team:'D',pts:[{x:38,y:58},{x:31,y:63}]},
-      {num:9,team:'D', pts:[{x:30,y:56},{x:23,y:61}]},
-      {num:11,team:'D',pts:[{x:18,y:58},{x:11,y:63}]},
-      {num:7,team:'D', pts:[{x:32,y:60},{x:25,y:65}]},
-      {num:6,team:'D', pts:[{x:36,y:63},{x:29,y:68}]},
-    ],
-    passes:[],
-  },
-  {
-    id:'lineout_maul', name:'Lineout — Maul Drive', cat:'Attack · Set Piece',
-    players:[
-      {num:2,team:'A',x:2,y:82},{num:4,team:'A',x:2,y:86},{num:5,team:'A',x:2,y:90},
-      {num:6,team:'A',x:2,y:94},{num:1,team:'A',x:2,y:78},{num:3,team:'A',x:2,y:98},
-      {num:7,team:'A',x:2,y:102},{num:8,team:'A',x:5,y:104},{num:9,team:'A',x:10,y:96},
-      {num:10,team:'A',x:20,y:92},{num:11,team:'A',x:18,y:84},{num:12,team:'A',x:28,y:96},
-      {num:13,team:'A',x:34,y:100},{num:14,team:'A',x:50,y:92},{num:15,team:'A',x:40,y:94},
-      {num:1,team:'D',x:8,y:85},{num:2,team:'D',x:8,y:90},{num:3,team:'D',x:8,y:95},
-      {num:4,team:'D',x:8,y:99},
-    ],
-    ball:{x:2,y:82},
-    paths:[
-      {num:4,team:'A',pts:[{x:2,y:86},{x:6,y:87},{x:10,y:88}]},
-      {num:5,team:'A',pts:[{x:2,y:90},{x:6,y:91},{x:10,y:92}]},
-      {num:6,team:'A',pts:[{x:2,y:94},{x:6,y:95},{x:10,y:96}]},
-      {num:1,team:'A',pts:[{x:2,y:78},{x:6,y:80},{x:10,y:82}]},
-      {num:3,team:'A',pts:[{x:2,y:98},{x:6,y:99},{x:10,y:100}]},
-      {num:8,team:'A',pts:[{x:5,y:104},{x:8,y:102},{x:12,y:98}]},
-    ],
-    passes:[],
-  },
-];
-
-function buildPlayList() {
-  const c = document.getElementById('playList');
-  c.innerHTML = '';
-  PLAYS.forEach(play => {
-    const btn = document.createElement('button');
-    btn.className = 'play-card';
-    btn.innerHTML = `<div class="play-card-name">${play.name}</div>
-      <div class="play-card-meta">${play.cat}</div>`;
-    btn.onclick = () => loadPlay(play.id);
-    c.appendChild(btn);
-  });
-}
-
-function loadPlay(id) {
-  const play = PLAYS.find(p=>p.id===id);
-  if (!play) return;
-  applyBoardData(play);
-  setHint(`Loaded "${play.name}".`);
-  refreshInteractionUI();
-}
 
 // ─── Keyboard shortcuts ──────────────────────────────────────
 document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT') return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   const k = e.key.toLowerCase();
   const map = {v:'move',r:'path',p:'pass',k:'kick',e:'erase'};
   if (map[k])           { setTool(map[k]); return; }
   if (k===' ')          { e.preventDefault(); togglePlay(); return; }
+  if (k === 'arrowleft') { e.preventDefault(); prevStep(); return; }
+  if (k === 'arrowright') { e.preventDefault(); nextStep(); return; }
   if (k==='escape')     { S.passFrom=null;S.drawing=null;S.annotationDraft=null;S.selected=null; setHint(HINTS[S.tool] || ''); updateAnnotationPanel(); refreshInteractionUI(); render(); }
   if (k==='z'&&(e.ctrlKey||e.metaKey)) { e.preventDefault(); undo(); }
   if (k==='delete'||k==='backspace') { if(S.selected){e.preventDefault();deleteSelected();} }
@@ -2292,7 +2687,12 @@ document.getElementById('trackThumb').addEventListener('mousedown',()=>trackDrag
 document.addEventListener('mousemove',e=>{
   if(!trackDrag) return;
   const r=document.getElementById('track').getBoundingClientRect();
-  S.animT=clamp((e.clientX-r.left)/r.width,0,1);
+  const raw = clamp((e.clientX-r.left)/r.width,0,1);
+  if (!S.animating && sequenceStepCount() > 1) {
+    gotoStep(Math.round(raw * (sequenceStepCount() - 1)));
+    return;
+  }
+  S.animT = raw;
   updateTL(); render();
 });
 document.addEventListener('mouseup',()=>trackDrag=false);
@@ -2300,10 +2700,12 @@ document.addEventListener('mouseup',()=>trackDrag=false);
 // ═══════════════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════════════
-buildPlayList();
 rebuildPalette();
 refreshSavedPlayList();
 S.playMetadata = emptyPlayMetadata('New Play');
+S.steps = [emptyStepState()];
+S.currentStep = 0;
+firstUseTutorialDismissed = hasSeenFirstUseTutorial();
 updateAnnotationPanel();
 updatePlayMetadataPanel();
 document.getElementById('playName').addEventListener('input', () => {
@@ -2342,6 +2744,5 @@ document.getElementById('importPlayInput').addEventListener('change', e => {
 });
 window.addEventListener('resize', resize);
 resize();
-loadPlay('launch_fly');
 setHint('MOVE — drag any player or ball freely on the pitch');
 refreshInteractionUI();
