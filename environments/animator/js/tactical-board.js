@@ -942,7 +942,7 @@ function drawPlayer(fx, fy, num, team, selected, isBallCarrier) {
 // ─── Draw rugby ball ────────────────────────────────────────
 function drawBall(fx, fy, selected) {
   const p = toC(fx, fy);
-  const rx = Math.max(7, sc * 0.7), ry = Math.max(4.5, sc * 0.44);
+  const rx = Math.max(8.5, sc * 0.84), ry = Math.max(5.5, sc * 0.54);
   ctx.save();
   if (selected) { ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 14; }
 
@@ -1978,12 +1978,12 @@ function nextStep() {
 function addStep() {
   snapshot();
   persistCurrentStep();
-  const next = createCarryForwardStep(S.steps[S.currentStep] || liveBoardToStepState());
+  const next = cloneStepState(S.steps[S.currentStep] || liveBoardToStepState());
   S.steps.splice(S.currentStep + 1, 0, next);
   S.currentStep += 1;
   stopPlayback(true);
   setLiveBoardFromStep(next);
-  setHint(`Step ${S.currentStep + 1} added. Player and ball positions carried forward, ready for the next action.`);
+  setHint(`Step ${S.currentStep + 1} added. The previous step was duplicated so you can build the next action from it.`);
   rebuildPalette();
   refreshInteractionUI();
   updateTL();
@@ -2087,8 +2087,9 @@ function togglePlay() {
     refreshInteractionUI();
     return;
   }
-  const start = currentStepStartProgress();
-  if (S.animT >= 1 || S.animT < start) S.animT = start;
+  S.currentStep = 0;
+  S.animT = 0;
+  setLiveBoardFromStep(S.steps[0]);
   S.animating = true;
   const isPlay = S.animating;
   document.getElementById('playBtn').textContent   = isPlay ? '⏸ Pause' : '▶ Play';
@@ -2121,6 +2122,10 @@ function setPlayBtnState() {
 }
 function resetAnim() {
   stopPlayback(true);
+  ensureSteps();
+  S.currentStep = 0;
+  setLiveBoardFromStep(S.steps[0]);
+  refreshInteractionUI();
   render(); updateTL();
 }
 function chSpd(d) {
@@ -2589,7 +2594,7 @@ function refreshSavedPlayList() {
     card.innerHTML = `<div class="saved-play-main">
       <div>
         <div class="saved-play-name">${item.name}</div>
-        <div class="saved-play-meta">${savedDate}<br>${item.players?.length || 0} players · ${(item.paths||[]).length} paths · ${(item.passes||[]).length} passes</div>
+        <div class="saved-play-meta">${savedDate}<br>${item.steps?.length || 1} step${(item.steps?.length || 1) === 1 ? '' : 's'} · ${item.players?.length || 0} players · ${(item.paths||[]).length} paths · ${(item.passes||[]).length} passes</div>
       </div>
     </div>
     <div class="saved-play-actions">

@@ -27,7 +27,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:#111827; color
   --shadow:   0 18px 42px rgba(0,0,0,0.28);
   --toolH:    auto;
   --tlH:      64px;
-  --palW:     292px;
+  --palW:     clamp(240px, 20vw, 300px);
 }
 
 /* APP SHELL */
@@ -255,11 +255,19 @@ html, body { width:100%; height:100%; overflow:hidden; background:#111827; color
   font-weight:700; color:var(--accent); min-width:30px; text-align:center; }
 
 /* WORKSPACE */
-#workspace { flex:1; display:flex; overflow:hidden; min-height:0; }
+#workspace {
+  flex:1;
+  display:grid;
+  grid-template-columns:minmax(240px, var(--palW)) minmax(0, 1fr);
+  overflow:hidden;
+  min-height:0;
+  min-width:0;
+}
 
 /* PLAYER PALETTE */
 #palette {
-  width:var(--palW); flex-shrink:0;
+  width:auto;
+  min-width:0;
   background:linear-gradient(180deg, rgba(15,29,46,0.98), rgba(10,20,32,0.98));
   border-right:1px solid var(--border);
   display:flex; flex-direction:column;
@@ -726,13 +734,23 @@ html, body { width:100%; height:100%; overflow:hidden; background:#111827; color
 
 /* CANVAS AREA */
 #canvasWrap {
-  flex:1; position:relative; overflow:hidden;
+  min-width:0;
+  position:relative;
+  overflow:hidden;
   background:
     radial-gradient(circle at top, rgba(16,185,129,0.06), transparent 34%),
     #0d1117;
-  display:flex; align-items:center; justify-content:center;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
-#field { display:block; cursor:default; }
+#field {
+  display:block;
+  width:100%;
+  height:100%;
+  max-width:none;
+  cursor:default;
+}
 
 .board-status {
   position:absolute;
@@ -979,7 +997,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:#111827; color
 }
 
 @media (max-width: 900px) {
-  :root { --palW: 252px; }
+  :root { --palW: clamp(220px, 26vw, 260px); }
   .tl-label-group { display:none; }
   #timeline { gap:10px; }
 }
@@ -987,7 +1005,7 @@ html, body { width:100%; height:100%; overflow:hidden; background:#111827; color
 @media (max-width: 720px) {
   html, body { overflow:auto; }
   #app { min-height:100vh; height:auto; }
-  #workspace { flex-direction:column; }
+  #workspace { grid-template-columns:1fr; }
   #palette {
     width:100%;
     border-right:none;

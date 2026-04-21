@@ -591,7 +591,67 @@
     sendMsg();
   }
 
+  function applyBrandIdentity() {
+    document.title = "Austria Youth Rugby | Coach Mato";
+
+    document.querySelectorAll(".topbar-title").forEach((el) => {
+      el.textContent = "Austria Youth Rugby";
+    });
+
+    const subtitles = [
+      "Youth Pathway",
+      "Youth Pathway · Game Model",
+      "Youth Pathway · Attack System",
+      "Youth Pathway · Defensive System",
+      "Youth Pathway · Set Piece",
+      "Youth Pathway · Roles & Units",
+      "Youth Pathway · Analysis Hub",
+      "Youth Pathway · AI Playbook Assistant",
+    ];
+
+    document.querySelectorAll(".topbar-sub").forEach((el, index) => {
+      el.textContent = subtitles[index] || "Youth Pathway";
+    });
+
+    const hero = document.querySelector("#s1 .nt-cover-main");
+    if (hero) {
+      hero.innerHTML = `
+        <div class="nt-cover-main-inner">
+          <h1 class="hero fadeup">AUSTRIA<br><span>YOUTH</span></h1>
+          <p class="nt-cover-copy fadeup">Built for role clarity, shared language, and pathway readiness.</p>
+          <div class="nt-cover-actions fadeup">
+            <button class="coach-intro-btn" onclick="openOverlay('ovCoach')" aria-haspopup="dialog">
+              Program Introduction <span style="font-size:.65rem;opacity:.6;">&#9654;</span>
+            </button>
+            <button class="coach-intro-btn coach-intro-btn-secondary" onclick="openOverlay('ovIdentity')" aria-haspopup="dialog">
+              Program Identity <span style="font-size:.65rem;opacity:.6;">&#9654;</span>
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    const programIdentityLabel = document.querySelector('#s2 .phil-zone[data-label="ID"] h3');
+    if (programIdentityLabel) programIdentityLabel.textContent = "Program Identity";
+
+    const pathwayContext = document.querySelector("#s8 .nt-tag");
+    if (pathwayContext) pathwayContext.textContent = "Youth Pathway Context";
+
+    const chatBubble = document.querySelector("#chatMsgs .msg.ai .msg-bubble");
+    if (chatBubble) {
+      chatBubble.textContent = "I'm loaded with the Austria Youth language. Ask about launch calls, unit roles, defensive signals, or pathway preparation standards.";
+    }
+
+    const chatLabel = document.querySelector('label[for="chatInp"]');
+    if (chatLabel) chatLabel.textContent = "Ask a question about the Austria Youth playbook";
+
+    const chatInput = document.getElementById("chatInp");
+    if (chatInput) chatInput.setAttribute("aria-label", "Ask a question about the Austria Youth playbook");
+  }
+
   function init() {
+    applyBrandIdentity();
+
     document.querySelectorAll(".overlay").forEach((overlay) => {
       overlay.addEventListener("click", (event) => {
         if (event.target === overlay) {

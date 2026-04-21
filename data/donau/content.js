@@ -106,6 +106,10 @@
         },
         { name: "Turbo", type: "Call", detail: ["Pick and drive"] },
         { name: "Rails", type: "Call", detail: ["Inside ball"] },
+        { name: "Charlie's", type: "Call", detail: ["—"] },
+        { name: "ML", type: "Call", detail: ["—"] },
+        { name: "LA", type: "Call", detail: ["—"] },
+        { name: "Special", type: "Call", detail: ["—"] },
       ],
       exits: [
         {

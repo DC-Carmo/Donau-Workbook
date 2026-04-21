@@ -1,15 +1,15 @@
 .austria-u18-theme {
-  --green: #b11f30;
-  --green-dim: rgba(177, 31, 48, 0.14);
+  --green: #c32236;
+  --green-dim: rgba(195, 34, 54, 0.16);
   --navy: #111418;
   --dark: #050607;
   --panel: #0e1115;
   --card: #15191f;
-  --border: rgba(177, 31, 48, 0.22);
+  --border: rgba(195, 34, 54, 0.28);
   --text: #f2f0ed;
   --muted: rgba(184, 181, 176, 0.72);
   --accent: #8f969f;
-  --red: #b11f30;
+  --red: #c32236;
   --text-light: rgba(242, 240, 237, 0.78);
   --gold: #b79a61;
   --shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
@@ -17,7 +17,8 @@
 
 body.austria-u18-theme {
   background:
-    radial-gradient(circle at 14% 12%, rgba(177, 31, 48, 0.18), transparent 25%),
+    radial-gradient(circle at 14% 12%, rgba(195, 34, 54, 0.22), transparent 25%),
+    radial-gradient(circle at 50% 0%, rgba(195, 34, 54, 0.08), transparent 30%),
     radial-gradient(circle at 84% 14%, rgba(143, 150, 159, 0.08), transparent 22%),
     linear-gradient(150deg, #040506 0%, #0d1014 48%, #15191f 100%);
 }
@@ -79,14 +80,55 @@ body.austria-u18-theme::before {
 
 .austria-u18-theme .slide::before {
   background:
-    linear-gradient(140deg, rgba(177, 31, 48, 0.08), transparent 30%, transparent 70%, rgba(143, 150, 159, 0.05));
+    linear-gradient(140deg, rgba(195, 34, 54, 0.14), transparent 30%, transparent 70%, rgba(143, 150, 159, 0.05));
+}
+
+.austria-u18-theme .topbar {
+  background:
+    linear-gradient(90deg, rgba(195, 34, 54, 0.08), transparent 16%),
+    linear-gradient(180deg, rgba(16, 19, 24, 0.98), rgba(10, 12, 16, 0.98));
+  border-bottom-color: rgba(195, 34, 54, 0.16);
+}
+
+.austria-u18-theme .topbar-logo {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 18px 10px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(195, 34, 54, 0.18);
+  background: linear-gradient(180deg, rgba(195, 34, 54, 0.1), rgba(255, 255, 255, 0.02));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.austria-u18-theme .topbar-logo::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(195, 34, 54, 0.4), rgba(195, 34, 54, 1));
 }
 
 .austria-u18-theme .topbar-logo img.nt-topbar-logo {
-  height: 34px;
+  height: 42px;
   width: auto;
   object-fit: contain;
-  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.22));
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.18));
+  opacity: 0.95;
+}
+
+.austria-u18-theme .topbar-title {
+  font-size: 0.92rem;
+  letter-spacing: 1px;
+}
+
+.austria-u18-theme .topbar-sub {
+  letter-spacing: 2px;
+  text-transform: uppercase;
 }
 
 .austria-u18-theme .topbar-sub,
@@ -203,49 +245,56 @@ body.austria-u18-theme::before {
 }
 
 .nt-cover-main {
+  position: relative;
+  overflow: hidden;
   border-radius: 30px;
   padding: 34px;
-  border: 1px solid rgba(177, 31, 48, 0.18);
+  border: 1px solid rgba(195, 34, 54, 0.2);
   background:
-    radial-gradient(circle at top left, rgba(177, 31, 48, 0.17), transparent 28%),
+    radial-gradient(circle at top left, rgba(195, 34, 54, 0.22), transparent 28%),
+    radial-gradient(circle at 65% 42%, rgba(195, 34, 54, 0.12), transparent 24%),
     linear-gradient(180deg, rgba(17, 20, 24, 0.98), rgba(10, 12, 16, 0.98));
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
 
-.cover-badge {
-  display: inline-flex;
-  align-self: flex-start;
-  padding: 9px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(183, 154, 97, 0.22);
-  background: rgba(183, 154, 97, 0.08);
-  color: rgba(242, 240, 237, 0.72);
-  font-family: "Barlow Condensed", sans-serif;
-  font-size: 0.76rem;
-  letter-spacing: 2.2px;
-  text-transform: uppercase;
+.nt-cover-main::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(195, 34, 54, 0.1), transparent 40%);
+  pointer-events: none;
 }
 
-.nt-cover-crest {
-  width: 112px;
-  height: auto;
-  margin: 24px 0 18px;
-  filter: drop-shadow(0 18px 26px rgba(0, 0, 0, 0.22));
+.nt-cover-main-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 700px;
 }
 
 .austria-u18-theme .hero span {
   color: var(--red);
 }
 
+.austria-u18-theme .hero {
+  position: relative;
+  z-index: 1;
+  letter-spacing: 3px;
+  text-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
 .nt-cover-copy,
 .nt-units-intro p,
 .dev-copy p {
   margin: 0;
-  max-width: 700px;
+  max-width: 540px;
   color: var(--text-light);
   line-height: 1.78;
+  font-size: 0.98rem;
 }
 
 .nt-cover-actions {
@@ -265,13 +314,23 @@ body.austria-u18-theme::before {
 }
 
 .nt-side-panel {
+  position: relative;
   border-radius: 24px;
-  border: 1px solid rgba(177, 31, 48, 0.18);
+  border: 1px solid rgba(195, 34, 54, 0.18);
   background: linear-gradient(180deg, rgba(19, 22, 27, 0.96), rgba(11, 13, 17, 0.98));
   padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.nt-side-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  border-radius: 24px 24px 0 0;
+  background: linear-gradient(90deg, rgba(195, 34, 54, 0.95), rgba(183, 154, 97, 0.42));
 }
 
 .nt-side-panel-compact {
