@@ -302,6 +302,27 @@ a {
   border-color: rgba(46, 139, 87, 0.45);
 }
 
+.platform-card.austria-youth {
+  border-color: rgba(195, 34, 54, 0.28);
+  background: linear-gradient(180deg, rgba(16, 10, 12, 0.96), rgba(9, 6, 7, 0.98));
+}
+
+.platform-card.austria-youth::before {
+  background: linear-gradient(140deg, rgba(195, 34, 54, 0.1), transparent 32%, transparent 72%, rgba(183, 154, 97, 0.05));
+}
+
+.platform-card.austria-youth:hover {
+  border-color: rgba(195, 34, 54, 0.52);
+}
+
+.platform-card.austria-youth .card-point::before {
+  background: #c32236;
+}
+
+.platform-card.austria-youth .portal-link span {
+  color: #c32236;
+}
+
 .platform-card.featured {
   border-color: rgba(46, 139, 87, 0.36);
   background: linear-gradient(180deg, rgba(15, 38, 64, 0.98), rgba(8, 25, 41, 0.98));

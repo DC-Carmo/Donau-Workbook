@@ -372,19 +372,85 @@
         lineout: {
           groups: [
             {
-              title: "Primary Calls",
+              title: "Fundamentals",
               items: [
-                { name: "L · Front", sub: "80 / 70 formation", detail: "Front lift with fast transfer option back into launch picture." },
-                { name: "O · Back", sub: "80 / 70 formation", detail: "Tail option when opposition chases the front trigger." },
-                { name: "U · Counter", sub: "80 / 70 formation", detail: "Counter move to punish overcommitment to the standard picture." }
+                { name: "Throw", sub: "Core skill", detail: "Two types: To target — accurate direct delivery to the jumper. To space — throw to an area for the jumper to attack." },
+                { name: "Jump", sub: "Core skill", detail: "Three techniques: Split — legs apart for stability and power. Front foot — weight forward, drives into the lift. Back foot — weight back, used for tail and counter jumps." },
+                { name: "Lift", sub: "Core skill", detail: "Two positions: Front lift — lifter at the front of the jumper, drives upward from the hips. Back lift — lifter at the rear, supports and extends the jump." },
+                { name: "Delivery", sub: "Core skill", detail: "Three options: Off the top — clean catch and immediate transfer to 9. Down and pop/drive — controlled return to ground for maul or pop pass. Shift — ball moved sideways in the air before delivery." }
               ]
             },
             {
-              title: "Trigger Layer",
+              title: "Attacking Principles",
               items: [
-                { name: "Alpha", sub: "Front pressure", detail: "Late acceleration into the front lift." },
-                { name: "Zulu", sub: "Back pressure", detail: "Late acceleration into the tail lift." },
-                { name: "Cat", sub: "Immediate release", detail: "Direct front delivery when the picture is clean." }
+                { name: "Win the Ball", sub: "Non-negotiable", detail: "Own throw is the foundation. Every formation and call exists to secure clean possession first." },
+                { name: "SET — Same Every Time", sub: "Consistency standard", detail: "Consistency in body shape, timing, and execution. The system only works when every player repeats the same picture every time." },
+                { name: "1 New Item Per Week", sub: "Build rate", detail: "Install the system progressively. Add one new call or formation per week so the squad can own each element before the next is added." },
+                { name: "Numbers Low on Own Goal Line", sub: "Field position principle", detail: "Use fewer players in the lineout near your own line and build outward as field position improves. Reduces risk exposure in dangerous territory." },
+                { name: "Build Around the Hooker", sub: "System anchor", detail: "The hooker's accuracy and decision-making are the system's foundation. All formations and calls must account for what the hooker can execute consistently." }
+              ]
+            },
+            {
+              title: "SPARK System",
+              items: [
+                { name: "SPARK", sub: "Keyword — jumper positions", detail: "SPARK is the positional keyword. Each letter maps to a jumper position: S = J1, P = J2, A = J3, R = J4, K = J5. Calling SPARK identifies which player jumps without naming them directly." },
+                { name: "S — J1", sub: "Jumper position 1", detail: "First jumper position. Typically the front of the lineout. S is called to identify J1 as the target." },
+                { name: "P — J2", sub: "Jumper position 2 · 5-man caller", detail: "Second jumper position. P is the caller in the 5-man lineout. P is called to identify J2 as the target." },
+                { name: "A — J3", sub: "Jumper position 3", detail: "Third jumper position — usually mid-lineout. A is called to identify J3 as the target." },
+                { name: "R — J4", sub: "Jumper position 4", detail: "Fourth jumper position. R is called to identify J4 as the target." },
+                { name: "K — J5", sub: "Jumper position 5", detail: "Fifth jumper position. Typically near the tail of the lineout. K is called to identify J5 as the target." }
+              ]
+            },
+            {
+              title: "5 Man Lineout — Call 50",
+              items: [
+                { name: "Default Shape — Spread", sub: "Call: 50 · J2 is caller", detail: "Formation: FL — S — P — A — BL. Evenly spread across the lineout. J2 (P) is the caller. Pre-call attaches to option 1. This is the base shape from which Squeeze Nod and Squeeze Black are triggered." },
+                { name: "Squeeze Nod", sub: "P calls squeeze", detail: "P calls squeeze and nods to the hooker, who throws a tempo ball directly to P. Shape compresses to FL — SPA — BL. Players squeeze together to create a compact drive picture around P." },
+                { name: "Squeeze Black", sub: "Squeeze then S jumps", detail: "Squeeze is called. S takes one step forward and jumps, lifted by FL and P. Shape: FL — SP — A — BL. The squeeze draws defenders in before S attacks the front of the lineout." }
+              ]
+            },
+            {
+              title: "80/70 Formation Calls",
+              items: [
+                { name: "L — Alpha", sub: "Trigger 4 · Lifters 1, 6", detail: "Front lift. 1 and 6 lift 4 at the front of the lineout. Alpha variant: 5 arrives last and rushes forward to support or enter the maul picture." },
+                { name: "N — Dummy L", sub: "Trigger 4", detail: "Dummy front move. 1 goes past the front position and lifts 6 instead. Creates a false front picture before the actual jump lands." },
+                { name: "E — Forward Move", sub: "Trigger 4 · Lifters 1, 6, 3", detail: "Dummy L first. 5 moves forward inside 3 and 6 by one step, then 3 lifts 5. The dummy at the front pulls the defence before the real jump goes through the middle." },
+                { name: "O — Back Move", sub: "Trigger 4 · Lifters 6, 5, 3", detail: "Dummy L first. 5 goes one step forward then is lifted by 3 and 8 in the back zone. The front dummy creates the space for 5 to go back." },
+                { name: "U — Counter", sub: "Trigger 4 · Lifters 3, 8, 7", detail: "Dummy N first. 5 moves back to 8. Then 8 and 7 slide past 5 toward 3. 3 and 7 lift 8. The crossing movement makes the defence track multiple bodies before the real jump lands." },
+                { name: "T — Tail", sub: "Trigger 4 · Lifters 5, 8, 7", detail: "Dummy L first. 5 moves back to 8. 8 is lifted by 5 and 7 at the tail. Designed to attack the tail of the lineout after showing a front picture." },
+                { name: "I — No Jump", sub: "Trigger 2 · Lifter 4", detail: "No jump — direct throw to 4 without a lift. Quick option when the defence is not set or when a simple contest ball is preferred." },
+                { name: "CAT — Front", sub: "All formations · Override", detail: "Throw to the front man when space is clear. CAT is available from any formation as an override when the front of the lineout is uncontested." }
+              ]
+            },
+            {
+              title: "50 & 40 Man Formations",
+              items: [
+                { name: "L — Front Lift", sub: "50 Formation · Trigger 4 · Lifters 1, 4, 5", detail: "4 is lifted at the front by 1 and 5. Alpha applies: 5 arrives last and rushes forward. Same L structure as the 80/70 call adapted for the 5-man shape." },
+                { name: "O — Back Lift", sub: "50 Formation · Trigger 8 · Lifters 4, 5, 8", detail: "4 turns and lifts 5 with 8 in the back zone. Zulu variant: 5 arrives last and rushes back. The front trigger pulls attention before the back lift executes." },
+                { name: "U — Counter", sub: "50 Formation · Trigger 5 · Lifters 4, 8, 3", detail: "Dummy T first. 5 moves back to 8. 8 and 3 slide past 5 to 4. 4 and 3 lift 8. Crossing movement designed to beat a mirroring defence." },
+                { name: "T — Tail", sub: "50 Formation · Trigger 4 · Lifters 5, 8, 3", detail: "4 fakes forward to 1. At the same time 5 comes back to lift 8 with 3. The fake forward freezes the front defender before the ball goes to the tail." },
+                { name: "L — 40 Front", sub: "40 Formation · Trigger 4 · Lifters 1, 4, 5", detail: "Same as L above, adapted for the 4-man lineout. Alpha and Zulu variants both apply." },
+                { name: "E — Dummy O", sub: "40 Formation · Trigger 4 · Lifters 1, 5, 8", detail: "Dummy O movement shown. As 4 comes back, 5 and 8 move to support 1 at the front. Shows a back picture before attacking the front." },
+                { name: "O — 40 Back", sub: "40 Formation · Trigger 2 · Lifters 4, 5, 8", detail: "4 and 8 lift 5 at the back of the 4-man lineout. Direct back lift with minimum movement. Used when field position or time requires a simple back option." }
+              ]
+            },
+            {
+              title: "Calling Structure",
+              items: [
+                { name: "Pre-Call", sub: "On the way to the lineout", detail: "The call is made while walking to the lineout. Every player must know the shape and their role before they take their position. No adjustments once set." },
+                { name: "Trigger Activation", sub: "Front prop to hooker", detail: "The front prop passes the call to the hooker on the way to the lineout. The hooker confirms receipt. The pre-call is activated by the trigger word at the lineout." },
+                { name: "Alpha / Zulu Override", sub: "Backup option", detail: "If the standard pre-call cannot be used — opposition reads the shape, time pressure, or personnel issue — Alpha (front variant) or Zulu (back variant) is called as the override." },
+                { name: "Execution Keys", sub: "Non-negotiables", detail: "Patience with triggers — do not jump before the trigger word. Clear gaps — spacing must be correct before the throw. Effective delivery — hooker accuracy is not negotiable. Speed of lift — lifters must be under the jumper before the ball arrives." }
+              ]
+            },
+            {
+              title: "Lineout Maul Roles",
+              items: [
+                { name: "Lifters", sub: "Entry role", detail: "Leg hook to secure the jumper on landing. Survive the initial defensive drive — do not release under pressure." },
+                { name: "Wedge", sub: "Support drive", detail: "Arrive at the same time as the ball. Heads inside the ball carrier. Drive forward as a unit — not as an individual." },
+                { name: "Transfer", sub: "Ball movement", detail: "Gets momentum on the rip. Once the ball is moving, the transfer player becomes another wedge in the drive." },
+                { name: "Gun", sub: "Ball carrier", detail: "Makes the ball visible to the referee at all times. Stays patient — does not release or move until the maul momentum is established." },
+                { name: "Spare", sub: "Reads the picture", detail: "Does not attach to the nearest body. Reads where the best next job is — edge support, breakdown seal, or additional drive angle." }
               ]
             }
           ]
@@ -412,11 +478,13 @@
         maul: {
           groups: [
             {
-              title: "Core Roles",
+              title: "Maul Roles",
               items: [
-                { name: "Wedge", sub: "Entry role", detail: "Arrive square, same time, and drive under the picture." },
-                { name: "Transfer", sub: "Ball movement", detail: "Move the ball only when momentum is controlled." },
-                { name: "Spare", sub: "Picture reader", detail: "Find the next winning job, not the nearest body." }
+                { name: "Lifters", sub: "Entry role", detail: "Leg hook to secure the jumper on landing. Survive the initial defensive drive — do not release under pressure." },
+                { name: "Wedge", sub: "Support drive", detail: "Arrive at the same time as the ball. Heads inside the ball carrier. Drive forward as a unit — not as an individual." },
+                { name: "Transfer", sub: "Ball movement", detail: "Gets momentum on the rip. Once the ball is moving, the transfer player becomes another wedge in the drive." },
+                { name: "Gun", sub: "Ball carrier", detail: "Makes the ball visible to the referee at all times. Stays patient — does not release or move until the maul momentum is established." },
+                { name: "Spare", sub: "Reads the picture", detail: "Does not attach to the nearest body. Reads where the best next job is — edge support, breakdown seal, or additional drive angle." }
               ]
             },
             {
@@ -425,6 +493,14 @@
                 { name: "Height", sub: "Body shape", detail: "Win the race under the chest line and stay connected." },
                 { name: "Patience", sub: "Decision-making", detail: "Do not rush the transfer before the picture is earned." },
                 { name: "Exit", sub: "Next action", detail: "Know whether the maul is for score, pressure, or launch." }
+              ]
+            },
+            {
+              title: "Lineout Defence",
+              items: [
+                { name: "Mirror", sub: "Defence system", detail: "Match the opposition lineout shape — each defender mirrors their opposite number. Designed to limit movement and close down throwing channels." },
+                { name: "Pod", sub: "Defence system", detail: "Group defenders in pods rather than spread across the lineout. Creates contest pressure in zones rather than man-for-man. Effective against complex movement calls." },
+                { name: "Hinge", sub: "Defence system", detail: "Defenders hinge off the lineout edge to cover both the lineout contest and the defensive line. Used when the opposition is likely to exit the lineout quickly." }
               ]
             }
           ]
