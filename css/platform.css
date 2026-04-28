@@ -297,6 +297,85 @@ a {
     background 0.22s ease;
 }
 
+.platform-card.cardU18 {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(176, 22, 36, 0.55);
+  background:
+    radial-gradient(circle at 85% 85%, rgba(176, 22, 36, 0.35), transparent 40%),
+    radial-gradient(circle at 20% 0%, rgba(176, 22, 36, 0.18), transparent 30%),
+    linear-gradient(160deg, #050f18 0%, #071a26 55%, #0a1f2d 100%);
+  box-shadow:
+    inset 0 0 60px rgba(176, 22, 36, 0.12),
+    0 30px 80px rgba(0, 0, 0, 0.5);
+}
+
+.platform-card.cardU18::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("../assets/donau/images/Österreich Logo-Photoroom.png");
+  background-repeat: no-repeat;
+  background-position: right -30px bottom -10px;
+  background-size: 80%;
+  opacity: 0.25;
+  filter: grayscale(1) contrast(1.75) brightness(1.95);
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.platform-card.cardU18::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 90% 90%, rgba(176, 22, 36, 0.25), transparent 45%);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.platform-card.cardU18 > * {
+  position: relative;
+  z-index: 1;
+}
+
+.platform-card.cardU18:hover {
+  border-color: rgba(176, 22, 36, 0.42);
+  background:
+    radial-gradient(circle at 85% 85%, rgba(176, 22, 36, 0.42), transparent 40%),
+    radial-gradient(circle at 20% 0%, rgba(176, 22, 36, 0.22), transparent 30%),
+    linear-gradient(160deg, #06121c 0%, #081d2b 55%, #0b2232 100%);
+}
+
+.platform-card.cardU18 .card-label,
+.platform-card.cardU18 .environment-state {
+  color: #b01624;
+}
+
+.platform-card.cardU18 .card-title,
+.platform-card.cardU18 .portal-link {
+  color: #f5f5f5;
+}
+
+.platform-card.cardU18 .card-subtitle,
+.platform-card.cardU18 .card-body {
+  color: var(--text-light);
+}
+
+.platform-card.cardU18 .card-point::before {
+  background: #b01624;
+}
+
+.platform-card.cardU18 .portal-link span {
+  color: #b01624;
+}
+
+.platform-card.cardU18 .card-footer {
+  border-top: 1px solid rgba(176, 22, 36, 0.14);
+  padding-top: 14px;
+}
+
 .platform-card:hover {
   transform: translateY(-4px);
   border-color: rgba(46, 139, 87, 0.45);
@@ -383,6 +462,64 @@ a {
 .platform-card:hover .portal-link span,
 .platform-action:hover span {
   transform: translateX(4px);
+}
+
+.austria-youth-intro {
+  position: relative;
+  overflow: hidden;
+  min-height: 100vh;
+  background:
+    linear-gradient(
+      to right,
+      rgba(5, 10, 16, 0.98) 0%,
+      rgba(5, 10, 16, 0.92) 38%,
+      rgba(5, 10, 16, 0.7) 70%,
+      rgba(5, 10, 16, 0.55) 100%
+    );
+}
+
+.austria-youth-intro::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("../assets/donau/images/Huddle.jpg");
+  background-size: cover;
+  background-position: right center;
+  background-repeat: no-repeat;
+  filter: grayscale(1) brightness(0.45) contrast(1.2) blur(2px);
+  opacity: 0.18;
+  transform: scale(1.04);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.austria-youth-intro::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 82% 75%, rgba(176, 22, 36, 0.26), transparent 38%),
+    linear-gradient(
+      to right,
+      rgba(5, 10, 16, 0.96) 0%,
+      rgba(5, 10, 16, 0.88) 42%,
+      rgba(5, 10, 16, 0.55) 100%
+    );
+  z-index: 1;
+  pointer-events: none;
+}
+
+.austria-youth-intro > * {
+  position: relative;
+  z-index: 2;
+}
+
+.austria-youth-intro blockquote,
+.austria-youth-intro .quote,
+.austria-youth-intro .statement,
+.austria-youth-intro .ov-pull {
+  border-left: 3px solid #b01624;
+  box-shadow: -8px 0 24px rgba(176, 22, 36, 0.18);
 }
 
 .platform-action {

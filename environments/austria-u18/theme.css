@@ -366,6 +366,52 @@ body.austria-u18-theme::before {
   gap: 10px;
 }
 
+.nt-principles-grid {
+  display: none;
+}
+
+.nt-principles-groups {
+  display: none;
+}
+
+.nt-principles-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nt-principles-list li {
+  position: relative;
+  padding-left: 16px;
+  color: var(--text-light);
+  line-height: 1.55;
+  font-size: 0.84rem;
+}
+
+.nt-principles-list li::before {
+  content: "\2014";
+  position: absolute;
+  left: 0;
+  color: var(--red);
+  font-size: 0.72rem;
+}
+
+.nt-principles-list-flat {
+  margin-bottom: 18px;
+}
+
+.phil-zone[data-label="ATK"] .nt-subsection-title,
+.phil-zone[data-label="ATK"] .nt-subsection-title + ul {
+  display: none;
+}
+
+.nt-subsection-title {
+  margin-top: 4px;
+}
+
 .nt-zone-foot {
   margin-top: auto;
   padding-top: 16px;
@@ -556,6 +602,111 @@ body.austria-u18-theme::before {
   color: var(--text);
 }
 
+.austria-identity-body,
+.austria-youth-identity {
+  position: relative;
+  max-width: 1040px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+.austria-identity-body::before,
+.austria-youth-identity::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("../../assets/donau/images/Österreich Logo-Photoroom.png");
+  background-repeat: no-repeat;
+  background-position: right -40px bottom -40px;
+  background-size: 85%;
+  opacity: 0.22;
+  filter: grayscale(1) brightness(2.2) contrast(1.8);
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.austria-identity-body::after,
+.austria-youth-identity::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 84% 76%, rgba(176, 22, 36, 0.12), transparent 32%),
+    radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.08), transparent 45%),
+    linear-gradient(90deg, rgba(9, 11, 14, 0.16), rgba(9, 11, 14, 0));
+  pointer-events: none;
+  z-index: 1;
+}
+
+.austria-identity-body > *,
+.austria-youth-identity > * {
+  position: relative;
+  z-index: 2;
+}
+
+.austria-identity-prose {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: 18px;
+}
+
+.austria-identity-intro {
+  max-width: 720px;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.austria-identity-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 6px;
+}
+
+.austria-identity-card {
+  position: relative;
+  border-radius: 18px;
+  border: 1px solid rgba(176, 22, 36, 0.16);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+  padding: 18px 18px 16px;
+  box-shadow: inset 0 3px 0 rgba(176, 22, 36, 0.95);
+}
+
+.austria-identity-num {
+  font-family: "Anton", sans-serif;
+  font-size: 0.88rem;
+  letter-spacing: 1.2px;
+  color: var(--red);
+  margin-bottom: 10px;
+}
+
+.austria-identity-card h3 {
+  margin: 0 0 10px;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 1.1rem;
+  letter-spacing: 2.6px;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.austria-identity-card p {
+  margin: 0;
+  color: var(--text-light);
+  line-height: 1.65;
+  font-size: 0.9rem;
+}
+
+.austria-identity-card p + p {
+  margin-top: 8px;
+}
+
+.austria-identity-pull {
+  max-width: 760px;
+  margin-top: 2px;
+}
+
 .austria-u18-theme .module-list li::before {
   color: var(--red);
 }
@@ -574,9 +725,11 @@ body.austria-u18-theme::before {
 
 @media (max-width: 1100px) {
   .nt-cover-shell,
-  .nt-units-grid {
+  .nt-units-grid,
+  .austria-identity-grid {
     grid-template-columns: 1fr;
   }
+
 }
 
 @media (max-width: 780px) {
