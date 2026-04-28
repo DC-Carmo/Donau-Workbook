@@ -427,6 +427,77 @@ body.austria-u18-theme::before {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
 }
 
+.austria-u18-theme .field-map-panel .nt-map-placeholder {
+  display: none;
+}
+
+.austria-u18-theme .field-map-preview {
+  width: 100%;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(177, 31, 48, 0.22);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(177, 31, 48, 0.12), rgba(255, 255, 255, 0.03)),
+    rgba(12, 15, 19, 0.96);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  text-align: left;
+}
+
+.austria-u18-theme .field-map-preview:hover,
+.austria-u18-theme .field-map-preview:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(177, 31, 48, 0.42);
+  box-shadow:
+    0 14px 28px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.austria-u18-theme .field-map-preview:focus-visible {
+  outline: 2px solid rgba(177, 31, 48, 0.5);
+  outline-offset: 2px;
+}
+
+.field-map-preview-frame {
+  display: block;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(177, 31, 48, 0.24);
+  background: rgba(7, 9, 12, 0.92);
+}
+
+.field-map-preview-image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.field-map-preview-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.field-map-preview-title {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.86rem;
+  letter-spacing: 2.2px;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.field-map-preview-note {
+  font-size: 0.72rem;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--red);
+}
+
 .nt-map-lane {
   border-radius: 14px;
   padding: 16px;

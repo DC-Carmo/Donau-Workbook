@@ -53,7 +53,8 @@
       ],
       directionCalls: [
         { key: "BLACK", value: "Pass to forward off 9" },
-        { key: "RED",   value: "Pass to forward off 10" }
+        { key: "RED",   value: "Pass to forward off 10" },
+        { key: "FIJI",  value: "Snapback" }
       ],
       pods: []
     },
@@ -66,7 +67,7 @@
           type: "Lineout Formation",
           detail: [
             "Compact shape. Best used when TEMPO is on and the defence is late arriving.",
-            "Quick-ball picture — 4 (Forward) or 3 (Back) called at the throw.",
+            "Quick-ball picture ??? 4 (Forward) or 3 (Back) called at the throw.",
             "Creates immediate launch platform without contest build-up."
           ]
         },
@@ -105,6 +106,44 @@
             "Used inside the 22m for drive plays or high-pressure launch.",
             "2 & 2 pod structure can apply to entry roles."
           ]
+        },
+        {
+          name: "England",
+          type: "SET PIECE",
+          detail: [
+            "5-man lineout launch. Forwards carry same direction to fix the defence.",
+            "Then Magic: forwards become dummy runners, ball releases to backs.",
+            "Sets up the backs line late after a forward-heavy picture has been shown."
+          ]
+        },
+        {
+          name: "Wales",
+          type: "SET PIECE",
+          detail: [
+            "Two forward carries in the middle in the same pod picture.",
+            "Then play back inside off the second carry.",
+            "Forces the defence to commit before the ball reverses."
+          ]
+        },
+        {
+          name: "O²",
+          type: "Scrum Starter",
+          detail: [
+            "9 + 12 fix opposition 10 inside.",
+            "10 out the back, straightens to fix opposition 12.",
+            "11 hits seam at pace.",
+            "13 fixes opposition 13, back three hold width."
+          ]
+        },
+        {
+          name: "Launch 41",
+          type: "SET PIECE",
+          detail: [
+            "9 to 14.",
+            "12 short, attacking opposition 10.",
+            "10 out back.",
+            "Option of playing slider between 13 and 15."
+          ]
         }
       ],
       phase: [
@@ -130,7 +169,7 @@
           name: "Boss",
           type: "Phase Play",
           detail: [
-            "Pull pass from a forward to the playmaker — out the back.",
+            "Pull pass from a forward to the playmaker ??? out the back.",
             "Forward fixes the inside defenders. Playmaker arrives late with space.",
             "Effective when defence over-commits to the carry picture."
           ]
@@ -148,27 +187,9 @@
           name: "Fiji",
           type: "Phase Play",
           detail: [
-            "Change direction — snap the ball back against the grain.",
+            "Change direction ??? snap the ball back against the grain.",
             "Attack the blind side of the defence before they can reset.",
             "Requires clear communication and a sharp support runner arriving from depth."
-          ]
-        },
-        {
-          name: "England",
-          type: "Phase Play · Sequence",
-          detail: [
-            "5-man lineout launch. Forwards carry same direction to fix the defence.",
-            "Then Magic: forwards become dummy runners, ball releases to backs.",
-            "Sets up the backs line late after a forward-heavy picture has been shown."
-          ]
-        },
-        {
-          name: "Wales",
-          type: "Phase Play · Sequence",
-          detail: [
-            "Two forward carries in the middle — pod shape, same direction.",
-            "Then play back inside off the second carry.",
-            "Forces the defence to commit before the ball reverses."
           ]
         }
       ],
@@ -593,6 +614,6 @@
     },
 
     // ── AI PLAYBOOK CONTEXT ──────────────────────────────────────────────
-    playbookContext: "You are the Austria Youth Rugby playbook assistant. Use only the pathway context provided here. Keep answers concise, practical, and in plain text. Motto: Represent, Compete, Finish.\n\nAttack pitch principles: A = Clean exit (touch, minimal phases). B = Kick to contest if momentum allows. C = Starter plays, two avenues of attack, hold width. D = Vary forward attack, earn the right to go wide, play for points.\n\nDirection calls: BLACK = pass to forward off 9. RED = pass to forward off 10.\n\nPhase plays: Rhino = pick and go. Magic = forwards dummy-run, play released to backs. Boss = pull pass from forward to playmaker out the back. Tips = short pass close to contact. Fiji = change direction, snap back. England = 5-man lineout launch into Magic sequence. Wales = two forward pod carries then back inside. 2&2 = pods of 2 forwards, inside bind active, outside pre-binds on contact.\n\nKicking system: Tonic 1/2/3 = box kick system. Whiskey 1/2/3 = exit kick system. Vodka 1/2/3 = chip and regather system.\n\nLineout formations: 5 Man, 5+1, 6 Man, 6+1, Full. Throw codes: 4 = Forward, 3 = Back. TEMPO = quick throw before opposition sets. Lineout reads in order: Pre-set locations, Body shape, Are they switched on?, Can we tempo and get in and out?\n\nDefence pitch principles: A = Blitz (line speed, connected, no ruck over-commit). B = Organised line, connected, inside contest if possible. C = Guard B/C scanning, contest if possible, otherwise Back in game. D = Organised discipline, win collisions, apply kick pressure.\n\nDefensive roles: Inside CHOP = low dominant tackle inside. Outside TOP = high control tackle outside. Guard B = first defender next to ruck. Guard C = second defender next to ruck. Back in game = reload from breakdown into the defensive line.\n\nDefensive calls: Win The Race, Ready/Up, ICE, RED, Guard B, Guard C, Back in game.\n\nUnits: Back Three (15, 11, 14), Inside Backs (9, 10, 12, 13), Tight Five (1-5), Loose Forwards (6, 7, 8), Halfback Spine (9, 10, 15), Finishers (bench)."
+    playbookContext: "You are the Austria Youth Rugby playbook assistant. Use only the pathway context provided here. Keep answers concise, practical, and in plain text. Motto: Represent, Compete, Finish.\n\nAttack pitch principles: A = Clean exit (touch, minimal phases). B = Kick to contest if momentum allows. C = Starter plays, two avenues of attack, hold width. D = Vary forward attack, earn the right to go wide, play for points.\n\nDirection calls: BLACK = pass to forward off 9. RED = pass to forward off 10.\n\nPhase plays: Rhino = pick and go. Magic = forwards dummy-run, play released to backs. Boss = pull pass from forward to playmaker out the back. Tips = short pass close to contact. Fiji = change direction, snap back. 2&2 = pods of 2 forwards, inside bind active, outside pre-binds on contact.\n\nSet piece starters: England = 5-man lineout launch into Magic sequence. Wales = two forward pod carries then back inside. O? = structured starter used to launch with clarity from the set piece platform. Launch 41 = set piece starter built to create an immediate launch picture.\n\nKicking system: Tonic 1/2/3 = box kick system. Whiskey 1/2/3 = exit kick system. Vodka 1/2/3 = chip and regather system.\n\nLineout formations: 5 Man, 5+1, 6 Man, 6+1, Full. Throw codes: 4 = Forward, 3 = Back. TEMPO = quick throw before opposition sets. Lineout reads in order: Pre-set locations, Body shape, Are they switched on?, Can we tempo and get in and out?\n\nDefence pitch principles: A = Blitz (line speed, connected, no ruck over-commit). B = Organised line, connected, inside contest if possible. C = Guard B/C scanning, contest if possible, otherwise Back in game. D = Organised discipline, win collisions, apply kick pressure.\n\nDefensive roles: Inside CHOP = low dominant tackle inside. Outside TOP = high control tackle outside. Guard B = first defender next to ruck. Guard C = second defender next to ruck. Back in game = reload from breakdown into the defensive line.\n\nDefensive calls: Win The Race, Ready/Up, ICE, RED, Guard B, Guard C, Back in game.\n\nUnits: Back Three (15, 11, 14), Inside Backs (9, 10, 12, 13), Tight Five (1-5), Loose Forwards (6, 7, 8), Halfback Spine (9, 10, 15), Finishers (bench)."
   };
 })();

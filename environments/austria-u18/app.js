@@ -403,18 +403,21 @@
   function renderAttackSidebar() {
     const sidebar = data.attackSidebar || {};
 
-    document.getElementById("attackFieldAreas").innerHTML = (sidebar.fieldAreas || []).map((area) => `
-      <div class="field-area" onclick="toggleFieldArea(this)" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleFieldArea(this);}">
-        <div class="fa-header">
-          <div class="fa-name">${area.name}</div>
-          <div class="fa-short">${area.short}</div>
-          <div class="fa-arrow">&#9660;</div>
+    const fieldAreasEl = document.getElementById("attackFieldAreas");
+    if (fieldAreasEl) {
+      fieldAreasEl.innerHTML = (sidebar.fieldAreas || []).map((area) => `
+        <div class="field-area" onclick="toggleFieldArea(this)" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleFieldArea(this);}">
+          <div class="fa-header">
+            <div class="fa-name">${area.name}</div>
+            <div class="fa-short">${area.short}</div>
+            <div class="fa-arrow">&#9660;</div>
+          </div>
+          <div class="fa-body">
+            <ul>${area.points.map((point) => `<li>${point}</li>`).join("")}</ul>
+          </div>
         </div>
-        <div class="fa-body">
-          <ul>${area.points.map((point) => `<li>${point}</li>`).join("")}</ul>
-        </div>
-      </div>
-    `).join("");
+      `).join("");
+    }
 
     document.getElementById("attackDirectionCalls").innerHTML = (sidebar.directionCalls || []).map((call) => `
       <div class="term-chip"><div class="term-key">${call.key}</div><div class="term-val">${call.value}</div></div>
