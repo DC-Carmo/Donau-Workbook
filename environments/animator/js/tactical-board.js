@@ -34,7 +34,8 @@ function d2(a, b)    { return Math.hypot(a.x - b.x, a.y - b.y); }
 
 function resize() {
   const wrap = document.getElementById('canvasWrap');
-  cvW = wrap.clientWidth; cvH = wrap.clientHeight;
+  cvW = cv.clientWidth || wrap.clientWidth;
+  cvH = cv.clientHeight || wrap.clientHeight;
   cv.width = cvW; cv.height = cvH;
   const padX = Math.max(6, Math.min(12, cvW * 0.008));
   const padY = Math.max(8, Math.min(14, cvH * 0.01));
@@ -1869,6 +1870,22 @@ function addPlayerByNum(num, team) {
   rebuildPalette(); setTool('move'); setHint(`${team === 'A' ? 'Attack' : 'Defence'} #${num} added. Drag to position.`); refreshInteractionUI(); render();
 }
 
+function addNextAvailablePlayer(team) {
+  const used = team === 'A' ? S.atkUsed : S.defUsed;
+  const nextNum = Array.from({ length: 15 }, (_, idx) => idx + 1).find(num => !used.has(num));
+  if (!nextNum) {
+    setHint(`${team === 'A' ? 'Attack' : 'Defence'} numbers are already all on the board.`);
+    refreshInteractionUI();
+    render();
+    return;
+  }
+  const targetTab = team === 'A' ? 'atk' : 'def';
+  if (palTab !== targetTab) setTab(targetTab);
+  addPlayerByNum(nextNum, team);
+}
+
+window.addNextAvailablePlayer = addNextAvailablePlayer;
+
 function addBall() {
   const selectedPlayer = S.selected && S.selected !== '__ball__'
     ? S.players.find(p => p.id === S.selected)
@@ -2263,6 +2280,48 @@ function isMobileViewport() {
   return window.matchMedia('(max-width: 768px)').matches;
 }
 
+function setMobileToolsDropdownOpen(open) {
+  const dropdown = document.getElementById('mobileToolsDropdown');
+  const btn = document.getElementById('mobileToolsBtn');
+  if (!dropdown) return;
+  const isOpen = !!open && isMobileViewport();
+  dropdown.classList.toggle('is-open', isOpen);
+  dropdown.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+  if (btn) {
+    btn.classList.toggle('active', isOpen);
+    btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  }
+}
+
+function toggleMobileToolsDropdown() {
+  const dropdown = document.getElementById('mobileToolsDropdown');
+  if (!dropdown) return;
+  setMobileToolsDropdownOpen(!dropdown.classList.contains('is-open'));
+}
+
+function closeMobileToolsDropdown() {
+  setMobileToolsDropdownOpen(false);
+}
+
+window.toggleMobileToolsDropdown = toggleMobileToolsDropdown;
+window.closeMobileToolsDropdown = closeMobileToolsDropdown;
+
+function setMobileSpd(val) {
+  const idx = SPEEDS.indexOf(val);
+  if (idx < 0) return;
+  spdIdx = idx;
+  S.animSpd = SPEEDS[spdIdx];
+  S.projectPlayback = normalizePlaybackSettings({ ...(S.projectPlayback || {}), currentSpeed: S.animSpd });
+  const lbl = S.animSpd + 'x';
+  document.getElementById('spdLabel').textContent  = lbl;
+  document.getElementById('spdLabel2').textContent = lbl;
+  [1, 1.5, 2, 3].forEach(v => {
+    const chip = document.getElementById('mspd-' + v);
+    if (chip) chip.classList.toggle('active', v === S.animSpd);
+  });
+}
+window.setMobileSpd = setMobileSpd;
+
 function setMobileDrawerState(id, open) {
   const section = document.getElementById(`drawer-${id}`);
   if (!section) return;
@@ -2284,11 +2343,12 @@ function updateMobileUI() {
   const mobileBoardName = document.getElementById('mobileBoardName');
   const mobilePlayBtn = document.getElementById('mobilePlayBtn');
   const mobileSequencePlayBtn = document.getElementById('mobileSequencePlayBtn');
-  const mobileStepStatus = document.getElementById('mobileStepStatus');
-  const mobileStepCopy = document.getElementById('mobileStepCopy');
   const mobilePrevStepBtn = document.getElementById('mobilePrevStepBtn');
   const mobileNextStepBtn = document.getElementById('mobileNextStepBtn');
   const mobileAddStepBtn = document.getElementById('mobileAddStepBtn');
+  const mobileAddAttackBtn = document.getElementById('mobileAddAttackBtn');
+  const mobileAddDefenceBtn = document.getElementById('mobileAddDefenceBtn');
+  const mobileBoardSummary = document.getElementById('mobileBoardSummary');
   const count = sequenceStepCount();
   const owner = normalizePlayerRef(S.ballOwner);
   const ownerText = owner ? `Ball: ${owner.team === 'A' ? 'A' : 'D'} #${owner.num}` : (S.ball ? 'Ball: Loose' : 'Ball: Off board');
@@ -2299,14 +2359,21 @@ function updateMobileUI() {
     mobilePlayBtn.disabled = count < 2;
   }
   if (mobileSequencePlayBtn) {
-    mobileSequencePlayBtn.textContent = S.animating ? 'Pause' : 'Play';
+    mobileSequencePlayBtn.textContent = S.animating ? '⏸ Pause' : '▶ Play';
     mobileSequencePlayBtn.disabled = count < 2;
   }
-  if (mobileStepStatus) mobileStepStatus.textContent = `Step ${S.currentStep + 1} of ${count}`;
-  if (mobileStepCopy) mobileStepCopy.textContent = ownerText;
+  [1, 1.5, 2, 3].forEach(v => {
+    const chip = document.getElementById('mspd-' + v);
+    if (chip) chip.classList.toggle('active', v === S.animSpd);
+  });
+  if (mobileBoardSummary) {
+    mobileBoardSummary.textContent = `Mode: ${MODE_LABELS[S.tool] || 'Board'} · Step ${S.currentStep + 1} of ${count} · ${ownerText}`;
+  }
   if (mobilePrevStepBtn) mobilePrevStepBtn.disabled = S.currentStep === 0;
   if (mobileNextStepBtn) mobileNextStepBtn.disabled = S.currentStep >= count - 1;
   if (mobileAddStepBtn) mobileAddStepBtn.disabled = false;
+  if (mobileAddAttackBtn) mobileAddAttackBtn.disabled = S.atkUsed.size >= 15;
+  if (mobileAddDefenceBtn) mobileAddDefenceBtn.disabled = S.defUsed.size >= 15;
 
   ['move', 'path', 'pass', 'kick'].forEach(tool => {
     const btn = document.getElementById(`mq-${tool}`);
@@ -2320,6 +2387,7 @@ function updateMobileUI() {
       section.classList.remove('is-open');
     }
   });
+  if (!isMobileViewport()) closeMobileToolsDropdown();
 }
 
 function getSelectedSummary() {
@@ -2841,7 +2909,7 @@ document.addEventListener('keydown', e => {
   if (k===' ')          { e.preventDefault(); togglePlay(); return; }
   if (k === 'arrowleft') { e.preventDefault(); prevStep(); return; }
   if (k === 'arrowright') { e.preventDefault(); nextStep(); return; }
-  if (k==='escape')     { S.passFrom=null;S.drawing=null;S.annotationDraft=null;S.selected=null; setHint(HINTS[S.tool] || ''); updateAnnotationPanel(); refreshInteractionUI(); render(); }
+  if (k==='escape')     { closeMobileToolsDropdown(); S.passFrom=null;S.drawing=null;S.annotationDraft=null;S.selected=null; setHint(HINTS[S.tool] || ''); updateAnnotationPanel(); refreshInteractionUI(); render(); }
   if (k==='z'&&(e.ctrlKey||e.metaKey)) { e.preventDefault(); undo(); }
   if (k==='delete'||k==='backspace') { if(S.selected){e.preventDefault();deleteSelected();} }
 });
@@ -2913,3 +2981,12 @@ window.addEventListener('resize', resize);
 resize();
 setHint('MOVE - drag any player or ball freely on the pitch');
 refreshInteractionUI();
+
+document.addEventListener('pointerdown', e => {
+  const dropdown = document.getElementById('mobileToolsDropdown');
+  const btn = document.getElementById('mobileToolsBtn');
+  if (!dropdown || !dropdown.classList.contains('is-open')) return;
+  if (!dropdown.contains(e.target) && e.target !== btn && !btn?.contains(e.target)) {
+    closeMobileToolsDropdown();
+  }
+}, { capture: true });

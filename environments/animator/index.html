@@ -19,7 +19,6 @@
     </div>
     <div class="mobile-topbar-actions">
       <button class="mobile-icon-btn" id="mobileSaveBtn" onclick="saveCurrentPlay()">Save</button>
-      <button class="mobile-icon-btn mobile-icon-btn-play" id="mobilePlayBtn" onclick="togglePlay()">Play</button>
     </div>
   </div>
 
@@ -280,26 +279,32 @@
       <div class="board-status-mode" id="boardModeLabel">Move</div>
       <div class="board-status-copy" id="boardStatusText">Select a tool to start building.</div>
     </div>
-    <div class="mobile-sequence-bar">
-      <div class="mobile-sequence-status">
-        <div class="mobile-sequence-step" id="mobileStepStatus">Step 1 of 1</div>
-        <div class="mobile-sequence-copy" id="mobileStepCopy">Build toward 3+ phases</div>
+    <div class="mobile-board-summary" id="mobileBoardSummary">Mode: Move · Step 1 of 1 · Ball: Off board</div>
+    <div class="mobile-primary-actions" aria-label="Mobile board actions">
+      <button class="mobile-action-btn" id="mobileAddAttackBtn" onclick="addNextAvailablePlayer('A')">+ Attack</button>
+      <button class="mobile-action-btn" id="mobileAddDefenceBtn" onclick="addNextAvailablePlayer('D')">+ Defence</button>
+      <button class="mobile-action-btn mobile-action-btn-accent" id="mobileBallBtn" onclick="addBall()">&#9711; Ball</button>
+    </div>
+
+    <div class="mobile-controls" id="mobileControls">
+      <div class="mobile-ctrl-row mobile-ctrl-quick">
+        <button class="mobile-ctrl-btn mobile-ctrl-step" id="mobileAddStepBtn" onclick="addStep()">+ Step</button>
+        <button class="mobile-ctrl-btn" id="mobileUndoBtn" onclick="undo()">Undo</button>
+        <button class="mobile-ctrl-btn" id="mobileClearBtn" onclick="clearAll()">Clear</button>
       </div>
-      <div class="mobile-sequence-actions">
-        <button class="mobile-seq-btn" id="mobilePrevStepBtn" onclick="prevStep()">Prev</button>
-        <button class="mobile-seq-btn" id="mobileNextStepBtn" onclick="nextStep()">Next</button>
-        <button class="mobile-seq-btn" id="mobileAddStepBtn" onclick="addStep()">Add Step</button>
-        <button class="mobile-seq-btn mobile-seq-play" id="mobileSequencePlayBtn" onclick="togglePlay()">Play</button>
+      <div class="mobile-ctrl-row mobile-ctrl-playback">
+        <button class="mobile-ctrl-nav" id="mobilePrevStepBtn" onclick="prevStep()">&#9664;</button>
+        <button class="mobile-ctrl-play" id="mobileSequencePlayBtn" onclick="togglePlay()">&#9654; Play</button>
+        <button class="mobile-ctrl-nav" id="mobileNextStepBtn" onclick="nextStep()">&#9654;</button>
+      </div>
+      <div class="mobile-ctrl-row mobile-ctrl-speed">
+        <button class="mobile-spd-chip active" id="mspd-1" onclick="setMobileSpd(1)">1x</button>
+        <button class="mobile-spd-chip" id="mspd-1.5" onclick="setMobileSpd(1.5)">1.5x</button>
+        <button class="mobile-spd-chip" id="mspd-2" onclick="setMobileSpd(2)">2x</button>
+        <button class="mobile-spd-chip" id="mspd-3" onclick="setMobileSpd(3)">3x</button>
       </div>
     </div>
-    <div class="mobile-quickbar" aria-label="Mobile board actions">
-      <button class="mobile-quick-btn active" id="mq-move" onclick="setTool('move')"><span class="mobile-quick-icon">&#8598;</span><span class="mobile-quick-label">Move</span></button>
-      <button class="mobile-quick-btn" id="mq-path" onclick="setTool('path')"><span class="mobile-quick-icon">&#8767;</span><span class="mobile-quick-label">Path</span></button>
-      <button class="mobile-quick-btn" id="mq-pass" onclick="setTool('pass')"><span class="mobile-quick-icon">&#10548;</span><span class="mobile-quick-label">Pass</span></button>
-      <button class="mobile-quick-btn" id="mq-kick" onclick="setTool('kick')"><span class="mobile-quick-icon">K</span><span class="mobile-quick-label">Kick</span></button>
-      <button class="mobile-quick-btn" id="mq-ball" onclick="addBall()"><span class="mobile-quick-icon">&#9679;</span><span class="mobile-quick-label">Ball</span></button>
-      <button class="mobile-quick-btn" id="mq-undo" onclick="undo()"><span class="mobile-quick-icon">&#8630;</span><span class="mobile-quick-label">Undo</span></button>
-    </div>
+
     <div id="firstUseTutorial" class="first-use-tutorial" role="status" aria-live="polite">
       <div class="first-use-kicker">Quick Start</div>
       <div class="first-use-title">Set the picture in three moves</div>
@@ -318,6 +323,7 @@
     <div id="hint">MOVE - drag any player or ball</div>
   </div>
 </div>
+
 
 <div id="timeline">
   <div class="tl-label-group">

@@ -709,3 +709,39 @@
     justify-content: flex-start;
   }
 }
+
+/* ── Mobile module layout (max-width: 768px) ── */
+@media (max-width: 768px) {
+  .development-shell,
+  .module-shell {
+    grid-template-columns: 1fr;
+    background: none;
+    gap: 0;
+  }
+
+  .development-main,
+  .development-side,
+  .module-main,
+  .module-side {
+    overflow: visible;
+    height: auto;
+    padding: 14px 16px;
+    width: 100%;
+  }
+
+  .module-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .module-card {
+    width: 100%;
+    min-height: 80px;
+    transform: none !important;
+    transition: border-color 0.18s ease, background 0.18s ease;
+  }
+
+  .module-card:hover {
+    transform: none;
+  }
+}

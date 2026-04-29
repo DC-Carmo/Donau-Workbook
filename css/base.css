@@ -2294,3 +2294,190 @@ h2.section {
     align-items: center;
   }
 }
+
+/* ─────────────────────────────────────────────────────
+   MOBILE WORKSPACE UX  (max-width: 768px)
+   All rules below are mobile-only. Desktop unchanged.
+───────────────────────────────────────────────────────*/
+@media (max-width: 768px) {
+  html, body {
+    overflow-x: hidden;
+  }
+
+  /* ── Sticky topbar: always visible as you scroll ── */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    padding: 0 16px;
+    min-height: 52px;
+    backdrop-filter: blur(10px);
+  }
+
+  .topbar-right .motto { display: none; }
+
+  .slide-num {
+    font-size: 0.68rem;
+    letter-spacing: 1.5px;
+    min-width: 56px;
+  }
+
+  /* Progress bar sits flush below the sticky topbar */
+  .progress { top: 52px; }
+
+  /* ── Compact section header ── */
+  .sl-header {
+    padding: 12px 16px 10px;
+  }
+
+  h2.section {
+    font-size: 1.25rem;
+    letter-spacing: 2px;
+  }
+
+  /* ── sl-body: break out of overflow:hidden so content is reachable ── */
+  .sl-body {
+    overflow: visible;
+    flex: none;
+    height: auto;
+  }
+
+  /* Keep per-slide layouts, but in column/single-column form */
+  #s2 .sl-body { display: grid; grid-template-columns: 1fr; grid-template-rows: auto; }
+  #s3 .sl-body { display: flex; flex-direction: column; }
+  #s4 .sl-body { display: grid; grid-template-columns: 1fr; grid-template-rows: auto; }
+  #s5 .sl-body { display: grid; grid-template-columns: 1fr; grid-template-rows: auto; }
+  #s6 .sl-body { display: flex; flex-direction: column; }
+
+  /* ── Attack (s3): show main content first, sidebar after ── */
+  .attack-main {
+    order: 1;
+    overflow: visible;
+    height: auto;
+    min-height: 0;
+  }
+
+  .attack-sidebar {
+    order: 2;
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+    border-right: none;
+    border-top: 1px solid var(--border);
+    border-bottom: none;
+    padding: 14px 16px 20px;
+  }
+
+  /* Zone tabs stick below topbar so the category strip stays reachable */
+  .zone-btns {
+    position: sticky;
+    top: 52px;
+    z-index: 20;
+    background: rgba(8, 25, 41, 0.98);
+    backdrop-filter: blur(6px);
+    padding: 8px 16px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: none;
+  }
+  .zone-btns::-webkit-scrollbar { display: none; }
+
+  .zone-btn {
+    flex-shrink: 0;
+    min-height: 44px;
+    white-space: nowrap;
+    padding: 10px 14px;
+  }
+
+  .attack-content {
+    overflow: visible;
+    flex: none;
+    height: auto;
+    padding: 14px 16px;
+  }
+
+  /* ── Lineout (s4) ── */
+  .lineout-left,
+  .lineout-right {
+    overflow: visible;
+    height: auto;
+    padding: 14px 16px;
+    width: 100%;
+  }
+
+  /* ── Defence (s5) ── */
+  .def-left {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    overflow: visible;
+    height: auto;
+    padding: 14px 16px;
+    width: 100%;
+  }
+
+  .def-right {
+    overflow: visible;
+    height: auto;
+    padding: 14px 16px;
+    width: 100%;
+  }
+
+  /* Defence side tabs stick below topbar */
+  .zone-tabs {
+    position: sticky;
+    top: 52px;
+    z-index: 20;
+    background: rgba(8, 25, 41, 0.98);
+    backdrop-filter: blur(6px);
+    padding: 8px 0;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin-bottom: 12px;
+    scrollbar-width: none;
+  }
+  .zone-tabs::-webkit-scrollbar { display: none; }
+
+  .zone-tab {
+    flex-shrink: 0;
+    min-height: 44px;
+    white-space: nowrap;
+    padding: 10px 14px;
+  }
+
+  /* ── AI chat (s6) ── */
+  .chat-area {
+    height: auto;
+    overflow: visible;
+    flex: none;
+  }
+
+  .chat-msgs {
+    max-height: 260px;
+    padding: 12px 16px;
+  }
+
+  .chat-input-row { padding: 10px 16px 12px; }
+
+  .ai-panel {
+    max-height: none;
+    overflow: visible;
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    padding: 14px 16px 20px;
+  }
+
+  /* ── Touch targets: minimum 48px ── */
+  .play-list-item,
+  .lo-call {
+    min-height: 48px;
+  }
+
+  .fa-header { min-height: 48px; padding: 12px 13px; }
+
+  /* ── Team standards: consistent padding ── */
+  .phil-zone { padding: 14px 16px; }
+}

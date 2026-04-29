@@ -416,6 +416,7 @@
     cur = n;
     document.getElementById(`s${cur}`).classList.add("active");
     updateNav();
+    if (window.innerWidth <= 768) window.scrollTo({ top: 0, behavior: 'instant' });
   }
 
   function renderAttackCategory(cat, btn) {
@@ -492,6 +493,15 @@
         `,
       )
       .join("");
+
+    if (window.innerWidth <= 768) {
+      requestAnimationFrame(() => {
+        const el = document.getElementById('attackContent');
+        if (!el) return;
+        const top = el.getBoundingClientRect().top + window.scrollY - 108;
+        window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+      });
+    }
   }
 
   function renderAttackInfoBlock(label, body) {
@@ -670,6 +680,15 @@
       <div class="def-block"><h4 class="${sideData.orange.color}"><span class="sr-only">Medium Risk: </span>${sideData.orange.title}</h4><ul>${sideData.orange.points.map((point) => `<li>${point}</li>`).join("")}</ul></div>
       <div class="def-block"><h4 class="${sideData.red.color}"><span class="sr-only">High Risk: </span>${sideData.red.title}</h4><ul>${sideData.red.points.map((point) => `<li>${point}</li>`).join("")}</ul></div>
     `;
+
+    if (window.innerWidth <= 768) {
+      requestAnimationFrame(() => {
+        const el = document.getElementById('defContent');
+        if (!el) return;
+        const top = el.getBoundingClientRect().top + window.scrollY - 108;
+        window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+      });
+    }
   }
 
   function renderDevelopmentHub() {
