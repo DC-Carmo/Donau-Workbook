@@ -276,6 +276,28 @@
 }
 
 @media (max-width: 700px) {
+  .overlay-topbar {
+    height: auto;
+    min-height: 52px;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 16px;
+  }
+
+  .overlay-topbar > div:first-child {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .ov-title,
+  .ov-sub {
+    overflow-wrap: anywhere;
+  }
+
+  .overlay-close {
+    flex-shrink: 0;
+  }
+
   .overlay-body {
     padding: 20px 16px 50px;
   }

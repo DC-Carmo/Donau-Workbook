@@ -656,6 +656,32 @@
   }
 }
 
+@media (max-width: 800px) {
+  .module-grid,
+  .module-metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .module-overview {
+    flex-direction: column;
+  }
+
+  .module-overview-chip-focus {
+    min-width: 0;
+    flex-basis: 100%;
+  }
+
+  .module-status-row,
+  .module-related-link {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .module-status-row-meta {
+    justify-content: flex-start;
+  }
+}
+
 @media (max-width: 560px) {
   .development-main,
   .development-side,

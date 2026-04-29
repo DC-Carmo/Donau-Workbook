@@ -2139,6 +2139,13 @@ h2.section {
   }
 }
 
+@media (max-width: 800px) {
+  .attack-play-grid,
+  .role-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 560px) {
   #s1 .cover-left {
     padding: 30px 20px 40px;

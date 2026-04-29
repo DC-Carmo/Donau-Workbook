@@ -20,9 +20,10 @@ const F = { // Field constants
 };
 const FVW = F.DX1 - F.DX0;
 const FVH = F.DY1 - F.DY0;
+const BALL_CARRY_OFFSET = { x: 1.45, y: -1.05 };
 
 // Canvas scaling
-const FIELD_X_STRETCH = 1.28;
+const FIELD_X_STRETCH = 1.7;
 let cvW=0, cvH=0, sc=1, sx=1, sy=1, ox=0, oy=0;
 const cv  = document.getElementById('field');
 const ctx = cv.getContext('2d');
@@ -53,6 +54,7 @@ const S = {
   players: [],          // { id, num, team:'A'|'D', x, y, isBC:false }
   ball: null,           // { x, y }
   ballOwner: null,      // { num, team } for the starting ball carrier
+  ballAttached: false,  // manual carrier assignment keeps the ball attached to the owner
   paths: [],            // { pid, pts:[{x,y}], color }
   passes: [],           // { from, to, style:'pass'|'kick' }
   projectId: null,
@@ -77,6 +79,7 @@ const S = {
   nextId: 1,
   atkUsed: new Set(),   // which numbers are on field
   defUsed: new Set(),
+  ballAssignCandidate: null,
 };
 const SPEEDS = [0.25, 0.5, 1, 1.5, 2, 3];
 let   spdIdx = 2;
@@ -123,7 +126,7 @@ function completeFirstUseTutorial() {
 
 window.dismissFirstUseTutorial = dismissFirstUseTutorial;
 
-const R = () => Math.max(11, Math.min(18, sc * 1.3));
+const R = () => Math.max(15, Math.min(24, sc * 1.8));
 
 function nowIso() {
   return new Date().toISOString();
@@ -234,6 +237,7 @@ function normalizeStepState(step = {}, fallbackPlayers = []) {
     players: players.length ? players : fallback,
     ball: normalizeBallPosition(step.ball),
     ballOwner: normalizePlayerRef(step.ballOwner || step.ball?.owner),
+    ballAttached: !!step.ballAttached,
     paths: Array.isArray(step.paths) ? step.paths.map(normalizeStepPath).filter(Boolean) : [],
     passes: Array.isArray(step.passes) ? step.passes.map(normalizeStepPass).filter(Boolean) : [],
     annotations: Array.isArray(step.annotations) ? step.annotations.map(normalizeAnnotation).filter(Boolean) : [],
@@ -245,7 +249,7 @@ function cloneStepState(step) {
 }
 
 function emptyStepState() {
-  return { players: [], ball: null, ballOwner: null, paths: [], passes: [], annotations: [] };
+  return { players: [], ball: null, ballOwner: null, ballAttached: false, paths: [], passes: [], annotations: [] };
 }
 
 function liveBoardToStepState() {
@@ -253,6 +257,7 @@ function liveBoardToStepState() {
     players: S.players.map(({ num, team, x, y }) => ({ num, team, x, y })),
     ball: S.ball ? { ...S.ball } : null,
     ballOwner: normalizePlayerRef(S.ballOwner),
+    ballAttached: !!S.ballAttached,
     paths: S.paths.map(path => {
       const pl = S.players.find(q => q.id === path.pid);
       return pl ? { num: pl.num, team: pl.team, pts: path.pts.map(pt => ({ ...pt })) } : null;
@@ -292,6 +297,7 @@ function setLiveBoardFromStep(step, { keepSelection = false } = {}) {
   S.defUsed = new Set(S.players.filter(pl => pl.team === 'D').map(pl => pl.num));
   S.ball = normalized.ball ? { ...normalized.ball } : null;
   S.ballOwner = normalizePlayerRef(normalized.ballOwner);
+  S.ballAttached = !!normalized.ballAttached;
   S.annotations = normalized.annotations.map(item => normalizeAnnotation(item)).filter(Boolean);
 
   S.paths = normalized.paths.map(path => {
@@ -307,7 +313,8 @@ function setLiveBoardFromStep(step, { keepSelection = false } = {}) {
   }).filter(Boolean);
 
   S.selected = keepSelection ? selected : null;
-  if (S.ball && !S.ballOwner) updateBallOwnerFromPosition();
+  if (S.ballAttached && S.ballOwner) syncAttachedBallToOwner();
+  else if (S.ball && !S.ballOwner) updateBallOwnerFromPosition();
   else applyBallOwnershipVisualState();
 }
 
@@ -426,6 +433,61 @@ function applyBallOwnershipVisualState() {
   });
 }
 
+function attachedBallPositionForPlayer(pl) {
+  return {
+    x: clamp(pl.x + BALL_CARRY_OFFSET.x, -2, 70),
+    y: clamp(pl.y + BALL_CARRY_OFFSET.y, -11, 111),
+  };
+}
+
+function syncAttachedBallToOwner() {
+  if (!S.ballAttached || !S.ballOwner) return false;
+  const owner = findPlayerByRef(S.ballOwner);
+  if (!owner) {
+    S.ballAttached = false;
+    applyBallOwnershipVisualState();
+    return false;
+  }
+  S.ball = attachedBallPositionForPlayer(owner);
+  applyBallOwnershipVisualState();
+  return true;
+}
+
+function manualBallAssignmentTarget() {
+  if (S.selected && S.selected !== '__ball__') {
+    return S.players.find(p => p.id === S.selected) || null;
+  }
+  if (S.selected === '__ball__' && S.ballAssignCandidate) {
+    return S.players.find(p => p.id === S.ballAssignCandidate) || null;
+  }
+  return null;
+}
+
+function assignBallToPlayer(player, { snapshotBefore = false, source = 'manual' } = {}) {
+  if (!player) return false;
+  if (snapshotBefore) snapshot();
+  if (!S.ball) S.ball = { x: 34, y: 50 };
+  S.ballOwner = playerRef(player);
+  S.ballAttached = true;
+  S.ballAssignCandidate = player.id;
+  syncAttachedBallToOwner();
+  S.selected = player.id;
+  completeFirstUseTutorial();
+  const prefix = source === 'place' ? 'Ball placed with' : 'Ball given to';
+  setHint(`${prefix} ${player.team === 'A' ? 'Attack' : 'Defence'} #${player.num}.`);
+  refreshInteractionUI();
+  render();
+  return true;
+}
+
+function giveBallToSelectedPlayer() {
+  const player = manualBallAssignmentTarget();
+  if (!player) return;
+  assignBallToPlayer(player, { snapshotBefore: true, source: 'manual' });
+}
+
+window.giveBallToSelectedPlayer = giveBallToSelectedPlayer;
+
 function currentPlayTitle() {
   return document.getElementById('playName').value.trim() || 'Untitled Play';
 }
@@ -449,9 +511,11 @@ function syncPlayMetadataTitle() {
 function updateBallOwnerFromPosition() {
   if (!S.ball) {
     S.ballOwner = null;
+    S.ballAttached = false;
     applyBallOwnershipVisualState();
     return;
   }
+  if (syncAttachedBallToOwner()) return;
   let best = null;
   let bestDist = Infinity;
   S.players.forEach(pl => {
@@ -462,6 +526,7 @@ function updateBallOwnerFromPosition() {
     }
   });
   S.ballOwner = best && bestDist <= 3.5 ? playerRef(best) : null;
+  S.ballAttached = false;
   applyBallOwnershipVisualState();
 }
 
@@ -499,6 +564,7 @@ function makeProjectRecord(nameOverride, metadataOverrides = {}) {
     players: cloneData(currentStepData.players),
     ball: currentStepData.ball ? { ...currentStepData.ball } : null,
     ballOwner: normalizePlayerRef(currentStepData.ballOwner),
+    ballAttached: !!currentStepData.ballAttached,
     paths: cloneData(currentStepData.paths),
     passes: cloneData(currentStepData.passes),
   };
@@ -515,6 +581,7 @@ function normalizeProjectRecord(input) {
     players: cloneData(project.players || []),
     ball: project.ball ? cloneData(project.ball) : null,
     ballOwner: normalizePlayerRef(project.ballOwner || project.ball?.owner),
+    ballAttached: !!project.ballAttached,
     paths: cloneData(project.paths || []),
     passes: cloneData(project.passes || []),
     annotations: Array.isArray(project.annotations) ? project.annotations : [],
@@ -540,6 +607,7 @@ function normalizeProjectRecord(input) {
     players: cloneData(currentStep.players),
     ball: currentStep.ball ? cloneData(currentStep.ball) : null,
     ballOwner: normalizePlayerRef(currentStep.ballOwner),
+    ballAttached: !!currentStep.ballAttached,
     paths: cloneData(currentStep.paths),
     passes: cloneData(currentStep.passes),
   };
@@ -602,19 +670,8 @@ function drawField() {
   ctx.fillRect(TL.x, TL.y, FW, FH);
   ctx.restore();
 
-  const fieldGrad = ctx.createLinearGradient(TL.x, TL.y, BR.x, BR.y);
-  fieldGrad.addColorStop(0, '#184d28');
-  fieldGrad.addColorStop(0.45, '#1f6930');
-  fieldGrad.addColorStop(1, '#184726');
-  ctx.fillStyle = fieldGrad;
+  ctx.fillStyle = '#3C8A26';
   ctx.fillRect(TL.x, TL.y, FW, FH);
-
-  const playGrad = ctx.createLinearGradient(fieldTop.x, fieldTop.y, fieldBottom.x, fieldBottom.y);
-  playGrad.addColorStop(0, 'rgba(60,150,82,0.18)');
-  playGrad.addColorStop(0.5, 'rgba(255,255,255,0.03)');
-  playGrad.addColorStop(1, 'rgba(31,94,52,0.16)');
-  ctx.fillStyle = playGrad;
-  ctx.fillRect(fieldTop.x, fieldTop.y, FW, mainFieldH);
 
   const nBands = 12;
   for (let i = 0; i < nBands; i++) {
@@ -627,15 +684,15 @@ function drawField() {
 
   const igTop = toC(0, F.YMIN), igTopEnd = toC(68, 0);
   const igGradTop = ctx.createLinearGradient(0, igTop.y, 0, igTopEnd.y);
-  igGradTop.addColorStop(0, 'rgba(10,23,34,0.55)');
-  igGradTop.addColorStop(1, 'rgba(255,255,255,0.04)');
+  igGradTop.addColorStop(0, 'rgba(0,0,0,0.28)');
+  igGradTop.addColorStop(1, 'rgba(0,0,0,0.04)');
   ctx.fillStyle = igGradTop;
   ctx.fillRect(igTop.x, igTop.y, FW, igTopEnd.y - igTop.y);
 
   const igBot = toC(0, 100), igBotEnd = toC(68, F.YMAX);
   const igGradBot = ctx.createLinearGradient(0, igBot.y, 0, igBotEnd.y);
-  igGradBot.addColorStop(0, 'rgba(255,255,255,0.04)');
-  igGradBot.addColorStop(1, 'rgba(10,23,34,0.55)');
+  igGradBot.addColorStop(0, 'rgba(0,0,0,0.04)');
+  igGradBot.addColorStop(1, 'rgba(0,0,0,0.28)');
   ctx.fillStyle = igGradBot;
   ctx.fillRect(igBot.x, igBot.y, FW, igBotEnd.y - igBot.y);
 
@@ -882,13 +939,6 @@ function drawPlayer(fx, fy, num, team, selected, isBallCarrier) {
   ctx.fillStyle = 'rgba(7,16,24,0.45)';
   ctx.fill();
 
-  // Glow for ball carrier
-  if (isBallCarrier) {
-    ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 20;
-    ctx.beginPath(); ctx.arc(p.x, p.y, r + 5, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(251,191,36,0.3)'; ctx.lineWidth = 2;
-    ctx.stroke(); ctx.shadowBlur = 0;
-  }
   // Selection ring
   if (selected) {
     ctx.beginPath(); ctx.arc(p.x, p.y, r + 4, 0, Math.PI * 2);
@@ -913,18 +963,12 @@ function drawPlayer(fx, fy, num, team, selected, isBallCarrier) {
 
   // Number
   ctx.fillStyle = '#ffffff';
-  ctx.font = `bold ${Math.max(8, r * 0.78)}px "Barlow Condensed"`;
+  ctx.font = `800 ${Math.max(10, r * 0.94)}px "Barlow Condensed"`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'rgba(0,0,0,0.9)';
+  ctx.shadowBlur = 4;
   ctx.fillText(String(num), p.x, p.y + 0.5);
-
-  // Ball carrier tag
-  if (isBallCarrier) {
-    const bx = p.x + r * 0.65, by = p.y - r * 0.65;
-    ctx.beginPath(); ctx.arc(bx, by, r * 0.32, 0, Math.PI * 2);
-    ctx.fillStyle = '#fbbf24'; ctx.fill();
-    ctx.strokeStyle = '#92400e'; ctx.lineWidth = 1; ctx.stroke();
-  }
+  ctx.shadowBlur = 0;
 
   ctx.restore();
 }
@@ -948,6 +992,31 @@ function drawBall(fx, fy, selected) {
   [-rx*0.2, 0, rx*0.2].forEach(dx => {
     ctx.beginPath(); ctx.moveTo(p.x+dx, p.y-ry*0.35); ctx.lineTo(p.x+dx, p.y+ry*0.35); ctx.stroke();
   });
+  ctx.restore();
+}
+
+function drawBallCarrierHighlight(fx, fy) {
+  const p = toC(fx, fy);
+  const r = R();
+  ctx.save();
+  ctx.shadowColor = '#fbbf24';
+  ctx.shadowBlur = 20;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, r + 5, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(251,191,36,0.34)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  const bx = p.x + r * 0.68;
+  const by = p.y - r * 0.7;
+  ctx.beginPath();
+  ctx.arc(bx, by, r * 0.32, 0, Math.PI * 2);
+  ctx.fillStyle = '#fbbf24';
+  ctx.fill();
+  ctx.strokeStyle = '#92400e';
+  ctx.lineWidth = 1;
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -1310,8 +1379,11 @@ function render() {
       drawRunPath(path.pts, path.team === 'A' ? '#60a5fa' : '#f87171', 2.8, 1);
     });
     renderAnnotations('lines', frame.annotations);
-    if (frame.ball) drawBall(frame.ball.x, frame.ball.y, false);
     frame.players.forEach(pl => drawPlayer(pl.x, pl.y, pl.num, pl.team, false, samePlayerRef(playerRef(pl), frame.ballOwner)));
+    if (frame.ball) drawBall(frame.ball.x, frame.ball.y, false);
+    frame.players.forEach(pl => {
+      if (samePlayerRef(playerRef(pl), frame.ballOwner)) drawBallCarrierHighlight(pl.x, pl.y);
+    });
     renderAnnotations('notes', frame.annotations);
     return;
   }
@@ -1354,14 +1426,16 @@ function render() {
     }
   }
 
-  if (S.ball) {
-    drawBall(S.ball.x, S.ball.y, S.selected === '__ball__');
-  }
-
   S.players.forEach(pl => {
     const pos = animPos(pl, t);
     const sel = S.selected === pl.id;
     drawPlayer(pos.x, pos.y, pl.num, pl.team, sel, pl.isBC);
+  });
+  if (S.ball) {
+    drawBall(S.ball.x, S.ball.y, S.selected === '__ball__');
+  }
+  S.players.forEach(pl => {
+    if (pl.isBC) drawBallCarrierHighlight(pl.x, pl.y);
   });
   renderAnnotations('notes');
 }
@@ -1427,25 +1501,34 @@ function removeAnnotation(id) {
   setHint(`${MODE_LABELS[ann.type] || 'Annotation'} removed.`);
 }
 
-cv.addEventListener('mousedown', e => {
+cv.addEventListener('pointerdown', e => {
   const fp = getF(e);
 
   if (S.tool === 'move') {
     const pl = hitPlayer(fp);
+    const previousSelectedPlayer = S.selected && S.selected !== '__ball__'
+      ? S.players.find(p => p.id === S.selected)
+      : null;
     const annHit = !pl && !hitBall(fp) ? hitAnnotation(fp) : null;
     if (pl) {
       snapshot();
       S.selected = pl.id;
+      S.ballAssignCandidate = pl.id;
       S.dragging  = { type:'player', id:pl.id };
       S.dragOff   = { x:fp.x - pl.x, y:fp.y - pl.y };
+      cv.setPointerCapture(e.pointerId);
     } else if (hitBall(fp)) {
       snapshot();
       S.selected = '__ball__';
+      S.ballAssignCandidate = previousSelectedPlayer ? previousSelectedPlayer.id : null;
       S.dragging  = { type:'ball' };
       S.dragOff   = { x:fp.x - S.ball.x, y:fp.y - S.ball.y };
+      if (S.ballAttached) S.ballAttached = false;
+      cv.setPointerCapture(e.pointerId);
     } else if (annHit) {
       snapshot();
       S.selected = annotationSelection(annHit.id);
+      S.ballAssignCandidate = null;
       const ann = findAnnotationById(annHit.id);
       const dragOff = ann && (ann.type === 'note' || ann.type === 'zone') ? { x: fp.x - ann.x, y: fp.y - ann.y } : { x: 0, y: 0 };
       S.dragging = {
@@ -1456,8 +1539,10 @@ cv.addEventListener('mousedown', e => {
         dragOff,
         startSnapshot: ann ? cloneData(ann) : null,
       };
+      cv.setPointerCapture(e.pointerId);
     } else {
       S.selected = null;
+      S.ballAssignCandidate = null;
     }
     refreshInteractionUI(); render();
   }
@@ -1467,6 +1552,7 @@ cv.addEventListener('mousedown', e => {
     if (pl) {
       S.drawing = { pid:pl.id, pts:[{x:pl.x, y:pl.y}], last:{x:fp.x, y:fp.y} };
       S.selected = pl.id;
+      cv.setPointerCapture(e.pointerId);
       setHint('Draw the run path, then release to finish.');
       refreshInteractionUI();
     }
@@ -1500,6 +1586,7 @@ cv.addEventListener('mousedown', e => {
       end: { x: fp.x, y: fp.y },
       color: annotationColor('arrow'),
     });
+    cv.setPointerCapture(e.pointerId);
     setHint('Drag out the tactical arrow, then release to place it.');
     refreshInteractionUI();
   }
@@ -1513,6 +1600,7 @@ cv.addEventListener('mousedown', e => {
       r: 0.1,
       color: annotationColor('zone'),
     });
+    cv.setPointerCapture(e.pointerId);
     setHint('Drag outward to size the highlight zone.');
     refreshInteractionUI();
   }
@@ -1581,7 +1669,7 @@ cv.addEventListener('mousedown', e => {
   }
 });
 
-cv.addEventListener('mousemove', e => {
+cv.addEventListener('pointermove', e => {
   const fp = getF(e);
 
   // Drag
@@ -1594,7 +1682,12 @@ cv.addEventListener('mousemove', e => {
         pl.y = clamp(fp.y - S.dragOff.y, -11, 111);
         const path = S.paths.find(p => p.pid === pl.id);
         if (path && path.pts.length) path.pts[0] = {x:pl.x, y:pl.y};
-        if (samePlayerRef(playerRef(pl), S.ballOwner)) updateBallOwnerFromPosition();
+        if (S.ballAttached && samePlayerRef(playerRef(pl), S.ballOwner)) {
+          S.ball = attachedBallPositionForPlayer(pl);
+          applyBallOwnershipVisualState();
+        } else if (samePlayerRef(playerRef(pl), S.ballOwner)) {
+          updateBallOwnerFromPosition();
+        }
       }
     } else if (S.dragging.type === 'ball' && S.ball) {
       S.ball.x = clamp(fp.x - S.dragOff.x, -2, 70);
@@ -1667,7 +1760,7 @@ cv.addEventListener('mousemove', e => {
   else                          cv.style.cursor = pl ? 'pointer' : 'default';
 });
 
-cv.addEventListener('mouseup', () => {
+function onPointerUp() {
   if (S.dragging) {
     if (S.dragging.type === 'ball' || S.dragging.type === 'player') updateBallOwnerFromPosition();
     S.dragging = null;
@@ -1676,16 +1769,9 @@ cv.addEventListener('mouseup', () => {
   }
   if (S.drawing && S.tool === 'path') finishDraw();
   if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone')) finishAnnotationDraft();
-});
-cv.addEventListener('mouseleave', () => {
-  if (S.dragging) {
-    if (S.dragging.type === 'ball' || S.dragging.type === 'player') updateBallOwnerFromPosition();
-    S.dragging = null;
-    refreshInteractionUI();
-  }
-  if (S.drawing)  finishDraw();
-  if (S.annotationDraft) finishAnnotationDraft();
-});
+}
+cv.addEventListener('pointerup', onPointerUp);
+cv.addEventListener('pointercancel', onPointerUp);
 
 function finishDraw() {
   if (!S.drawing) return;
@@ -1783,8 +1869,17 @@ function addPlayerByNum(num, team) {
 }
 
 function addBall() {
+  const selectedPlayer = S.selected && S.selected !== '__ball__'
+    ? S.players.find(p => p.id === S.selected)
+    : null;
+  if (selectedPlayer) {
+    setTool('move');
+    assignBallToPlayer(selectedPlayer, { snapshotBefore: !S.ball, source: 'place' });
+    return;
+  }
   if (!S.ball) snapshot();
   S.ball = { x:34, y:50 };
+  S.ballAttached = false;
   updateBallOwnerFromPosition();
   completeFirstUseTutorial();
   setTool('move'); setHint('Ball placed. Drag it to the right spot.'); refreshInteractionUI(); render();
@@ -1796,10 +1891,14 @@ function removePlayer(id) {
   if (pl.team === 'A') S.atkUsed.delete(pl.num);
   else                  S.defUsed.delete(pl.num);
   S.players = S.players.filter(p => p.id !== id);
-  if (samePlayerRef(playerRef(pl), S.ballOwner)) S.ballOwner = null;
+  if (samePlayerRef(playerRef(pl), S.ballOwner)) {
+    S.ballOwner = null;
+    S.ballAttached = false;
+  }
   S.paths   = S.paths.filter(p => p.pid !== id);
   S.passes  = S.passes.filter(p => p.from!==id && p.to!==id);
   if (S.selected === id) S.selected = null;
+  if (S.ballAssignCandidate === id) S.ballAssignCandidate = null;
   applyBallOwnershipVisualState();
   setHint(`${pl.team === 'A' ? 'Attack' : 'Defence'} #${pl.num} removed. That number is available again.`);
   rebuildPalette(); refreshInteractionUI(); render();
@@ -1812,7 +1911,7 @@ function deleteSelected() {
     removeAnnotation(annId);
   }
   else if (S.selected && S.selected !== '__ball__') removePlayer(S.selected);
-  else if (S.selected === '__ball__') { snapshot(); S.ball=null; S.ballOwner=null; S.selected=null; applyBallOwnershipVisualState(); setHint('Ball removed from the board.'); }
+  else if (S.selected === '__ball__') { snapshot(); S.ball=null; S.ballOwner=null; S.ballAttached=false; S.ballAssignCandidate=null; S.selected=null; applyBallOwnershipVisualState(); setHint('Ball removed from the board.'); }
   refreshInteractionUI();
   render();
 }
@@ -1858,9 +1957,14 @@ function lerp(a, b, t) {
 }
 
 function resolveStepBall(step) {
+  const owner = normalizePlayerRef(step?.ballOwner);
+  if (step?.ballAttached && owner) {
+    const lookup = buildStepLookup(step?.players || []);
+    const ownerPlayer = lookup.get(playerKey(owner));
+    return ownerPlayer ? attachedBallPositionForPlayer(ownerPlayer) : null;
+  }
   const ball = normalizeBallPosition(step?.ball);
   if (ball) return ball;
-  const owner = normalizePlayerRef(step?.ballOwner);
   if (!owner) return null;
   const lookup = buildStepLookup(step?.players || []);
   const ownerPlayer = lookup.get(playerKey(owner));
@@ -2153,8 +2257,12 @@ MODE_LABELS.zone = 'Zone';
 function getSelectedSummary() {
   if (S.selected === '__ball__') {
     const owner = findPlayerByRef(S.ballOwner);
-    const ownerLabel = owner ? ` Currently linked to ${owner.team==='A'?'Attack':'Defence'} #${owner.num}.` : '';
-    return { title: 'Ball Selected', meta: `Drag the ball to a new spot or remove it from the board.${ownerLabel}` };
+    const candidate = manualBallAssignmentTarget();
+    const ownerLabel = owner
+      ? ` Currently linked to ${owner.team==='A'?'Attack':'Defence'} #${owner.num}${S.ballAttached ? ' as the live carrier.' : '.'}`
+      : '';
+    const candidateLabel = candidate ? ` Use "Give Ball to Selected Player" to attach it to ${candidate.team==='A'?'Attack':'Defence'} #${candidate.num}.` : '';
+    return { title: 'Ball Selected', meta: `Drag the ball to a new spot or remove it from the board.${ownerLabel}${candidateLabel}` };
   }
   const ann = selectedAnnotation();
   if (ann) {
@@ -2174,7 +2282,9 @@ function getSelectedSummary() {
       return {
         title: `${pl.team==='A'?'Attack':'Defence'} #${pl.num}`,
         meta: S.tool === 'move'
-          ? 'Selected and ready to move. Drag on the field to reposition.'
+          ? (pl.isBC
+              ? 'Selected and carrying the ball. Drag on the field to reposition while the ball stays attached.'
+              : 'Selected and ready to move. Drag on the field to reposition.')
           : `Selected for ${MODE_LABELS[S.tool] || 'interaction'}.`,
       };
     }
@@ -2207,7 +2317,12 @@ function getStatusMessage() {
   if (ann) return `${MODE_LABELS[ann.type] || 'Annotation'} selected. Use Move to adjust it or Delete to remove it.`;
   if (S.selected) {
     const pl = S.players.find(p => p.id === S.selected);
-    return pl ? `${pl.team==='A'?'Attack':'Defence'} #${pl.num} selected.` : 'Selection active.';
+    if (pl) {
+      return pl.isBC
+        ? `${pl.team==='A'?'Attack':'Defence'} #${pl.num} selected with the ball attached.`
+        : `${pl.team==='A'?'Attack':'Defence'} #${pl.num} selected.`;
+    }
+    return 'Selection active.';
   }
   return HINTS[S.tool] || 'Select a tool to begin.';
 }
@@ -2363,6 +2478,7 @@ function setHint(txt) { document.getElementById('hint').textContent = txt; }
 function clearPaths()  { snapshot(); S.paths=[]; S.passes=[]; S.drawing=null; setHint('Paths cleared. Choose the next action.'); refreshInteractionUI(); render(); }
 function clearSelection() {
   S.selected = null;
+  S.ballAssignCandidate = null;
   S.passFrom = null;
   S.drawing = null;
   S.annotationDraft = null;
@@ -2373,13 +2489,13 @@ function clearSelection() {
 }
 function clearAll() {
   snapshot();
-  S.players=[]; S.ball=null; S.ballOwner=null; S.paths=[]; S.passes=[];
+  S.players=[]; S.ball=null; S.ballOwner=null; S.ballAttached=false; S.paths=[]; S.passes=[];
   S.projectId = null;
   S.projectMeta = null;
   S.playMetadata = emptyPlayMetadata('New Play');
   S.projectPlayback = null;
   S.annotations = [];
-  S.drawing=null; S.passFrom=null; S.annotationDraft=null; S.selected=null;
+  S.drawing=null; S.passFrom=null; S.annotationDraft=null; S.selected=null; S.ballAssignCandidate=null;
   S.animT=0; S.animating=false;
   S.animSpd=1; spdIdx=2;
   S.steps=[emptyStepState()]; S.currentStep=0;
@@ -2401,6 +2517,7 @@ function updateSelInfo() {
   const meta = document.getElementById('selMeta');
   const clearBtn = document.getElementById('selClearBtn');
   const deleteBtn = document.getElementById('selDeleteBtn');
+  const giveBallBtn = document.getElementById('selGiveBallBtn');
   const editWrap = document.getElementById('selEditWrap');
   const editLabel = document.getElementById('selEditLabel');
   const noteInput = document.getElementById('selNoteInput');
@@ -2419,6 +2536,14 @@ function updateSelInfo() {
   }
   if (clearBtn) clearBtn.textContent = S.selected ? 'Clear Selection' : 'No Selection';
   if (clearBtn) clearBtn.disabled = !S.selected;
+  const giveBallTarget = manualBallAssignmentTarget();
+  if (giveBallBtn) {
+    giveBallBtn.hidden = !giveBallTarget;
+    giveBallBtn.disabled = !giveBallTarget;
+    if (giveBallTarget) {
+      giveBallBtn.textContent = `Give Ball to ${giveBallTarget.team === 'A' ? 'A' : 'D'} #${giveBallTarget.num}`;
+    }
+  }
   if (deleteBtn) {
     if (S.selected === '__ball__') deleteBtn.textContent = 'Remove Ball';
     else if (ann) deleteBtn.textContent = `Remove ${MODE_LABELS[ann.type] || 'Item'}`;
@@ -2561,7 +2686,7 @@ function refreshSavedPlayList() {
     card.innerHTML = `<div class="saved-play-main">
       <div>
         <div class="saved-play-name">${item.name}</div>
-        <div class="saved-play-meta">${savedDate}<br>${item.steps?.length || 1} step${(item.steps?.length || 1) === 1 ? ' : 's'} · ${item.players?.length || 0} players · ${(item.paths||[]).length} paths · ${(item.passes||[]).length} passes</div>
+        <div class="saved-play-meta">${savedDate}<br>${item.steps?.length || 1} step${(item.steps?.length || 1) === 1 ? '' : 's'} · ${item.players?.length || 0} players · ${(item.paths||[]).length} paths · ${(item.passes||[]).length} passes</div>
       </div>
     </div>
     <div class="saved-play-actions">
@@ -2653,11 +2778,15 @@ document.addEventListener('keydown', e => {
 });
 
 let trackDrag = false;
-document.getElementById('trackThumb').addEventListener('mousedown',()=>trackDrag=true);
-document.addEventListener('mousemove',e=>{
-  if(!trackDrag) return;
-  const r=document.getElementById('track').getBoundingClientRect();
-  const raw = clamp((e.clientX-r.left)/r.width,0,1);
+const _trackThumb = document.getElementById('trackThumb');
+_trackThumb.addEventListener('pointerdown', e => {
+  trackDrag = true;
+  _trackThumb.setPointerCapture(e.pointerId);
+});
+_trackThumb.addEventListener('pointermove', e => {
+  if (!trackDrag) return;
+  const r = document.getElementById('track').getBoundingClientRect();
+  const raw = clamp((e.clientX - r.left) / r.width, 0, 1);
   if (!S.animating && sequenceStepCount() > 1) {
     gotoStep(Math.round(raw * (sequenceStepCount() - 1)));
     return;
@@ -2665,7 +2794,8 @@ document.addEventListener('mousemove',e=>{
   S.animT = raw;
   updateTL(); render();
 });
-document.addEventListener('mouseup',()=>trackDrag=false);
+_trackThumb.addEventListener('pointerup', () => trackDrag = false);
+_trackThumb.addEventListener('pointercancel', () => trackDrag = false);
 
 //  INIT
 rebuildPalette();

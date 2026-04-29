@@ -63,71 +63,44 @@
     attackData: {
       setpiece: [
         {
-          name: "5 Man",
-          type: "Lineout Formation",
+          name: "Charlie's",
+          type: "LINEOUT / SCRUM STARTER",
           detail: [
-            "Compact shape. Best used when TEMPO is on and the defence is late arriving.",
-            "Quick-ball picture ??? 4 (Forward) or 3 (Back) called at the throw.",
-            "Creates immediate launch platform without contest build-up."
+            "Starter used from lineout or scrum platform.",
+            "Shape and timing must be clear before launch.",
+            "Run with connected support and decisive first action."
           ]
         },
         {
-          name: "5 + 1",
-          type: "Lineout Formation",
+          name: "M.L",
+          type: "LINEOUT STARTER",
           detail: [
-            "5 players in the lineout, one forward floats outside.",
-            "Floating forward can enter the maul or support a pod play.",
-            "Gives an extra option without changing the throw picture."
+            "Lineout starter used to launch with clarity.",
+            "First movement must hold the defence and create the picture.",
+            "Support lines stay early and connected through the launch."
           ]
         },
         {
-          name: "6 Man",
-          type: "Lineout Formation",
+          name: "L.A",
+          type: "LINEOUT STARTER",
           detail: [
-            "Primary attacking formation. Used mid-field and inside own 40m.",
-            "Good platform for maul entry or back-of-lineout launch.",
-            "4 or 3 delivery code determines whether the forward or back receives."
+            "Lineout starter built to launch into the next phase cleanly.",
+            "Timing off the throw must be accurate and connected.",
+            "Attack the space created by the initial movement."
           ]
         },
         {
-          name: "6 + 1",
-          type: "Lineout Formation",
+          name: "Special",
+          type: "LINEOUT / SCRUM STARTER",
           detail: [
-            "6 in the lineout with a floating forward.",
-            "Extra body for maul entry or short-side defence bind.",
-            "Used when maul threat needs to look real before the ball moves."
+            "Starter available from lineout or scrum platform.",
+            "Requires clear communication before the launch trigger.",
+            "Support must be in position to carry the next action."
           ]
         },
         {
-          name: "Full",
-          type: "Lineout Formation",
-          detail: [
-            "Full lineout. Maximum forward presence.",
-            "Used inside the 22m for drive plays or high-pressure launch.",
-            "2 & 2 pod structure can apply to entry roles."
-          ]
-        },
-        {
-          name: "England",
-          type: "SET PIECE",
-          detail: [
-            "5-man lineout launch. Forwards carry same direction to fix the defence.",
-            "Then Magic: forwards become dummy runners, ball releases to backs.",
-            "Sets up the backs line late after a forward-heavy picture has been shown."
-          ]
-        },
-        {
-          name: "Wales",
-          type: "SET PIECE",
-          detail: [
-            "Two forward carries in the middle in the same pod picture.",
-            "Then play back inside off the second carry.",
-            "Forces the defence to commit before the ball reverses."
-          ]
-        },
-        {
-          name: "O²",
-          type: "Scrum Starter",
+          name: "O³",
+          type: "SCRUM STARTER",
           detail: [
             "9 + 12 fix opposition 10 inside.",
             "10 out the back, straightens to fix opposition 12.",
@@ -137,7 +110,7 @@
         },
         {
           name: "Launch 41",
-          type: "SET PIECE",
+          type: "SCRUM STARTER",
           detail: [
             "9 to 14.",
             "12 short, attacking opposition 10.",
@@ -149,7 +122,7 @@
       phase: [
         {
           name: "Rhino",
-          type: "Phase Play",
+          type: "PHASE PLAY",
           detail: [
             "Pick and go.",
             "Forward takes the ball from the base and drives hard into contact.",
@@ -158,7 +131,7 @@
         },
         {
           name: "Magic",
-          type: "Phase Play",
+          type: "PHASE PLAY",
           detail: [
             "Forwards act as dummy runners. Play released to backs.",
             "Forwards show carry intent to fix defensive attention.",
@@ -167,7 +140,7 @@
         },
         {
           name: "Boss",
-          type: "Phase Play",
+          type: "PHASE PLAY",
           detail: [
             "Pull pass from a forward to the playmaker ??? out the back.",
             "Forward fixes the inside defenders. Playmaker arrives late with space.",
@@ -176,7 +149,7 @@
         },
         {
           name: "Tips",
-          type: "Phase Play",
+          type: "PHASE PLAY",
           detail: [
             "Short pass close to contact.",
             "Attack the shoulder of the defender just before or after contact.",
@@ -185,11 +158,38 @@
         },
         {
           name: "Fiji",
-          type: "Phase Play",
+          type: "PHASE PLAY",
           detail: [
             "Change direction ??? snap the ball back against the grain.",
             "Attack the blind side of the defence before they can reset.",
             "Requires clear communication and a sharp support runner arriving from depth."
+          ]
+        },
+        {
+          name: "England",
+          type: "PHASE PLAY",
+          detail: [
+            "5-man lineout launch. Forwards carry same direction to fix the defence.",
+            "Then Magic: forwards become dummy runners, ball releases to backs.",
+            "Sets up the backs line late after a forward-heavy picture has been shown."
+          ]
+        },
+        {
+          name: "Wales",
+          type: "PHASE PLAY",
+          detail: [
+            "Two forward carries in the middle in the same pod picture.",
+            "Then play back inside off the second carry.",
+            "Forces the defence to commit before the ball reverses."
+          ]
+        },
+        {
+          name: "Full",
+          type: "PHASE PLAY",
+          detail: [
+            "Phase play used to keep the attack connected across the line.",
+            "Support must reload early and stay square through the action.",
+            "Play with tempo and accuracy after the initial picture is shown."
           ]
         }
       ],
@@ -198,27 +198,36 @@
           name: "Tonic",
           type: "Kicking Series · Box Kick",
           detail: [
-            "Box kick system. Three variants — Tonic 1, 2, or 3.",
-            "Variant determines chase alignment and back-field cover.",
-            "Used to contest possession from the box kick position."
+            "9 controls the kick from the base of the ruck or scrum.",
+            "Kick to a contestable area (\"box\") for the wings to compete.",
+            "Chase must be early, connected, and aggressive.",
+            "1 → High + short (maximum hang time to compete)",
+            "2 → Medium depth (space between winger and fullback)",
+            "3 → Long/deep (push back three and win territory)"
           ]
         },
         {
           name: "Whiskey",
           type: "Kicking Series · Exit Kick",
           detail: [
-            "Exit kick system. Three variants — Whiskey 1, 2, or 3.",
-            "Variant determines kick type, chase line, and cover alignment.",
-            "Used to exit own territory and win field position."
+            "Used to exit our half and relieve pressure.",
+            "Priority is distance and territory, not contest.",
+            "Backfield must be organised before the kick.",
+            "1 → Find touch (stop play and reset)",
+            "2 → Long downfield (find space, force return)",
+            "3 → Maximum distance (spiral/torpedo)"
           ]
         },
         {
           name: "Vodka",
           type: "Kicking Series · Chip & Regather",
           detail: [
-            "Chip and regather system. Three variants — Vodka 1, 2, or 3.",
-            "Variant determines who chips, the target area, and regather support.",
-            "Used to attack space behind the defensive line."
+            "Used to beat fast line speed.",
+            "Attack space behind or through the line.",
+            "Support must react early to regather.",
+            "1 → Grubber (through the line)",
+            "2 → Chip (over first defender)",
+            "3 → Cross-field (to weak side winger)"
           ]
         }
       ],

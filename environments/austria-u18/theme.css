@@ -803,6 +803,12 @@ body.austria-u18-theme::before {
 
 }
 
+@media (max-width: 800px) {
+  .austria-identity-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 780px) {
   .nt-cover-shell {
     padding: 14px;
