@@ -45,6 +45,7 @@ function resize() {
   sy = sc;
   ox = (cvW - FVW * sx) / 2;
   oy = (cvH - FVH * sy) / 2;
+  updateMobileUI();
   render();
 }
 
@@ -2192,6 +2193,7 @@ function setPlayBtnState() {
   document.getElementById('playBtn').textContent   = S.animating ? 'Pause' : 'Play';
   document.getElementById('tlPlayBtn').textContent = lbl;
   updateSequenceUI();
+  updateMobileUI();
 }
 function resetAnim() {
   stopPlayback(true);
@@ -2218,6 +2220,7 @@ function updateTL() {
   document.getElementById('trackThumb').style.left = pct + '%';
   const duration = sequenceDurationSeconds();
   document.getElementById('tlTime').textContent = `${(S.animT * duration).toFixed(1)} / ${duration.toFixed(1)}s`;
+  updateMobileUI();
 }
 function seekTrack(e) {
   const r = document.getElementById('track').getBoundingClientRect();
@@ -2253,6 +2256,71 @@ HINTS.zone = 'ZONE - drag to place a highlight circle';
 MODE_LABELS.note = 'Note';
 MODE_LABELS.arrow = 'Arrow';
 MODE_LABELS.zone = 'Zone';
+
+const MOBILE_DRAWER_IDS = ['selection', 'annotations', 'notes', 'files'];
+
+function isMobileViewport() {
+  return window.matchMedia('(max-width: 768px)').matches;
+}
+
+function setMobileDrawerState(id, open) {
+  const section = document.getElementById(`drawer-${id}`);
+  if (!section) return;
+  section.classList.toggle('is-open', !!open);
+  const toggle = section.querySelector('.mobile-drawer-toggle');
+  if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function toggleMobileDrawer(id) {
+  const section = document.getElementById(`drawer-${id}`);
+  if (!section) return;
+  const willOpen = !section.classList.contains('is-open');
+  setMobileDrawerState(id, willOpen);
+}
+
+window.toggleMobileDrawer = toggleMobileDrawer;
+
+function updateMobileUI() {
+  const mobileBoardName = document.getElementById('mobileBoardName');
+  const mobilePlayBtn = document.getElementById('mobilePlayBtn');
+  const mobileSequencePlayBtn = document.getElementById('mobileSequencePlayBtn');
+  const mobileStepStatus = document.getElementById('mobileStepStatus');
+  const mobileStepCopy = document.getElementById('mobileStepCopy');
+  const mobilePrevStepBtn = document.getElementById('mobilePrevStepBtn');
+  const mobileNextStepBtn = document.getElementById('mobileNextStepBtn');
+  const mobileAddStepBtn = document.getElementById('mobileAddStepBtn');
+  const count = sequenceStepCount();
+  const owner = normalizePlayerRef(S.ballOwner);
+  const ownerText = owner ? `Ball: ${owner.team === 'A' ? 'A' : 'D'} #${owner.num}` : (S.ball ? 'Ball: Loose' : 'Ball: Off board');
+
+  if (mobileBoardName) mobileBoardName.textContent = currentPlayTitle();
+  if (mobilePlayBtn) {
+    mobilePlayBtn.textContent = S.animating ? 'Pause' : 'Play';
+    mobilePlayBtn.disabled = count < 2;
+  }
+  if (mobileSequencePlayBtn) {
+    mobileSequencePlayBtn.textContent = S.animating ? 'Pause' : 'Play';
+    mobileSequencePlayBtn.disabled = count < 2;
+  }
+  if (mobileStepStatus) mobileStepStatus.textContent = `Step ${S.currentStep + 1} of ${count}`;
+  if (mobileStepCopy) mobileStepCopy.textContent = ownerText;
+  if (mobilePrevStepBtn) mobilePrevStepBtn.disabled = S.currentStep === 0;
+  if (mobileNextStepBtn) mobileNextStepBtn.disabled = S.currentStep >= count - 1;
+  if (mobileAddStepBtn) mobileAddStepBtn.disabled = false;
+
+  ['move', 'path', 'pass', 'kick'].forEach(tool => {
+    const btn = document.getElementById(`mq-${tool}`);
+    if (btn) btn.classList.toggle('active', S.tool === tool);
+  });
+
+  MOBILE_DRAWER_IDS.forEach(id => {
+    const section = document.getElementById(`drawer-${id}`);
+    if (!section) return;
+    if (!isMobileViewport()) {
+      section.classList.remove('is-open');
+    }
+  });
+}
 
 function getSelectedSummary() {
   if (S.selected === '__ball__') {
@@ -2454,6 +2522,7 @@ function refreshInteractionUI() {
   updateBoardStatus();
   updatePlayMetadataPanel();
   updateSequenceUI();
+  updateMobileUI();
 }
 
 function setTool(t) {

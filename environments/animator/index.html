@@ -11,6 +11,18 @@
 <div id="app">
 
 <div id="topbar">
+  <div class="mobile-topbar">
+    <a class="c-btn mobile-topbar-back" href="../../index.html"><span>&#9664;</span> Portal</a>
+    <div class="mobile-topbar-center">
+      <div class="mobile-topbar-kicker">Tactical Board</div>
+      <div class="mobile-topbar-name" id="mobileBoardName">New Play</div>
+    </div>
+    <div class="mobile-topbar-actions">
+      <button class="mobile-icon-btn" id="mobileSaveBtn" onclick="saveCurrentPlay()">Save</button>
+      <button class="mobile-icon-btn mobile-icon-btn-play" id="mobilePlayBtn" onclick="togglePlay()">Play</button>
+    </div>
+  </div>
+
   <div class="tb-brand-block">
     <div class="tb-brand">
       <img class="tb-brand-logo" src="../../assets/donau/branding/RugbyUnionDonauLogo2024.svg" alt="Rugby Union Donau">
@@ -136,102 +148,126 @@
       </section>
 
       <!-- ── Selection ── -->
-      <section class="pal-section">
+      <section class="pal-section mobile-drawer" id="drawer-selection">
         <div class="pal-header">
           <div class="pal-title">Selection</div>
         </div>
-        <div class="sel-info" id="selInfo">
-          <div class="sel-info-header">Selected Item</div>
-          <div class="sel-info-name" id="selName">-</div>
-          <div class="sel-info-meta" id="selMeta">Select a player or ball to inspect it here.</div>
-          <div class="sel-edit" id="selEditWrap">
-            <label class="sel-edit-label" id="selEditLabel" for="selNoteInput">Note Text</label>
-            <input id="selNoteInput" class="sel-edit-input" type="text" maxlength="48" placeholder="Update note text"/>
-          </div>
-          <div class="sel-actions">
-            <button class="sel-btn" id="selGiveBallBtn" onclick="giveBallToSelectedPlayer()" hidden>Give Ball</button>
-            <button class="sel-btn" id="selClearBtn" onclick="clearSelection()">Clear Selection</button>
-            <button class="sel-btn danger" id="selDeleteBtn" onclick="deleteSelected()">Remove</button>
+        <button class="mobile-drawer-toggle" type="button" onclick="toggleMobileDrawer('selection')" aria-expanded="false" aria-controls="drawerBody-selection">
+          <span>Selection</span>
+          <span class="mobile-drawer-chevron">&#9662;</span>
+        </button>
+        <div class="mobile-drawer-body" id="drawerBody-selection">
+          <div class="sel-info" id="selInfo">
+            <div class="sel-info-header">Selected Item</div>
+            <div class="sel-info-name" id="selName">-</div>
+            <div class="sel-info-meta" id="selMeta">Select a player or ball to inspect it here.</div>
+            <div class="sel-edit" id="selEditWrap">
+              <label class="sel-edit-label" id="selEditLabel" for="selNoteInput">Note Text</label>
+              <input id="selNoteInput" class="sel-edit-input" type="text" maxlength="48" placeholder="Update note text"/>
+            </div>
+            <div class="sel-actions">
+              <button class="sel-btn" id="selGiveBallBtn" onclick="giveBallToSelectedPlayer()" hidden>Give Ball</button>
+              <button class="sel-btn" id="selClearBtn" onclick="clearSelection()">Clear Selection</button>
+              <button class="sel-btn danger" id="selDeleteBtn" onclick="deleteSelected()">Remove</button>
+            </div>
           </div>
         </div>
       </section>
 
       <!-- ── Annotations ── -->
-      <section class="pal-section">
+      <section class="pal-section mobile-drawer" id="drawer-annotations">
         <div class="pal-header">
           <div class="pal-title">Annotations</div>
         </div>
-        <div class="ann-toolbar">
-          <button class="ann-tool-btn" id="t-note" onclick="setTool('note')">Note</button>
-          <button class="ann-tool-btn" id="t-arrow" onclick="setTool('arrow')">Arrow</button>
-          <button class="ann-tool-btn" id="t-zone" onclick="setTool('zone')">Zone</button>
-        </div>
-        <div class="ann-config">
-          <label class="ann-config-label" for="annotationText">Note Text</label>
-          <input id="annotationText" class="ann-config-input" type="text" maxlength="48" placeholder="Phase cue"/>
-          <div class="ann-config-copy" id="annotationCopy">Choose an annotation tool, then click or drag on the field.</div>
+        <button class="mobile-drawer-toggle" type="button" onclick="toggleMobileDrawer('annotations')" aria-expanded="false" aria-controls="drawerBody-annotations">
+          <span>Annotations</span>
+          <span class="mobile-drawer-chevron">&#9662;</span>
+        </button>
+        <div class="mobile-drawer-body" id="drawerBody-annotations">
+          <div class="ann-toolbar">
+            <button class="ann-tool-btn" id="t-note" onclick="setTool('note')">Note</button>
+            <button class="ann-tool-btn" id="t-arrow" onclick="setTool('arrow')">Arrow</button>
+            <button class="ann-tool-btn" id="t-zone" onclick="setTool('zone')">Zone</button>
+          </div>
+          <div class="ann-config">
+            <label class="ann-config-label" for="annotationText">Note Text</label>
+            <input id="annotationText" class="ann-config-input" type="text" maxlength="48" placeholder="Phase cue"/>
+            <div class="ann-config-copy" id="annotationCopy">Choose an annotation tool, then click or drag on the field.</div>
+          </div>
         </div>
       </section>
 
       <!-- ── Coaching Notes ── -->
-      <section class="pal-section">
+      <section class="pal-section mobile-drawer" id="drawer-notes">
         <div class="pal-header">
           <div class="pal-title">Coaching Notes</div>
           <div class="pal-copy">Saved with the play. Purpose, cues, and common mistakes.</div>
         </div>
-        <div class="meta-shell">
-          <div class="meta-title-row">
-            <span class="meta-title-label">Title</span>
-            <strong class="meta-title-value" id="metaTitleValue">New Play</strong>
-          </div>
-
-          <div class="meta-group">
-            <label class="meta-label" for="metaPurpose">Purpose</label>
-            <textarea id="metaPurpose" class="meta-input meta-textarea" rows="2" maxlength="160" placeholder="What is this play trying to achieve?"></textarea>
-          </div>
-
-          <div class="meta-group">
-            <label class="meta-label">Coaching Points</label>
-            <div class="meta-list">
-              <input id="metaCoachingPoint1" class="meta-input" type="text" maxlength="80" placeholder="Point 1">
-              <input id="metaCoachingPoint2" class="meta-input" type="text" maxlength="80" placeholder="Point 2">
-              <input id="metaCoachingPoint3" class="meta-input" type="text" maxlength="80" placeholder="Point 3">
+        <button class="mobile-drawer-toggle" type="button" onclick="toggleMobileDrawer('notes')" aria-expanded="false" aria-controls="drawerBody-notes">
+          <span>Coaching Notes</span>
+          <span class="mobile-drawer-chevron">&#9662;</span>
+        </button>
+        <div class="mobile-drawer-body" id="drawerBody-notes">
+          <div class="meta-shell">
+            <div class="meta-title-row">
+              <span class="meta-title-label">Title</span>
+              <strong class="meta-title-value" id="metaTitleValue">New Play</strong>
             </div>
-          </div>
 
-          <div class="meta-group">
-            <label class="meta-label" for="metaDecisionCue">Decision Cue</label>
-            <input id="metaDecisionCue" class="meta-input" type="text" maxlength="96" placeholder="What should the player read?">
-          </div>
+            <div class="meta-group">
+              <label class="meta-label" for="metaPurpose">Purpose</label>
+              <textarea id="metaPurpose" class="meta-input meta-textarea" rows="2" maxlength="160" placeholder="What is this play trying to achieve?"></textarea>
+            </div>
 
-          <div class="meta-group">
-            <label class="meta-label">Common Mistakes</label>
-            <div class="meta-list">
-              <input id="metaCommonMistake1" class="meta-input" type="text" maxlength="80" placeholder="Mistake 1">
-              <input id="metaCommonMistake2" class="meta-input" type="text" maxlength="80" placeholder="Mistake 2">
-              <input id="metaCommonMistake3" class="meta-input" type="text" maxlength="80" placeholder="Mistake 3">
+            <div class="meta-group">
+              <label class="meta-label">Coaching Points</label>
+              <div class="meta-list">
+                <input id="metaCoachingPoint1" class="meta-input" type="text" maxlength="80" placeholder="Point 1">
+                <input id="metaCoachingPoint2" class="meta-input" type="text" maxlength="80" placeholder="Point 2">
+                <input id="metaCoachingPoint3" class="meta-input" type="text" maxlength="80" placeholder="Point 3">
+              </div>
+            </div>
+
+            <div class="meta-group">
+              <label class="meta-label" for="metaDecisionCue">Decision Cue</label>
+              <input id="metaDecisionCue" class="meta-input" type="text" maxlength="96" placeholder="What should the player read?">
+            </div>
+
+            <div class="meta-group">
+              <label class="meta-label">Common Mistakes</label>
+              <div class="meta-list">
+                <input id="metaCommonMistake1" class="meta-input" type="text" maxlength="80" placeholder="Mistake 1">
+                <input id="metaCommonMistake2" class="meta-input" type="text" maxlength="80" placeholder="Mistake 2">
+                <input id="metaCommonMistake3" class="meta-input" type="text" maxlength="80" placeholder="Mistake 3">
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       <!-- ── Board Files ── -->
-      <section class="pal-section">
+      <section class="pal-section mobile-drawer" id="drawer-files">
         <div class="pal-header">
           <div class="pal-title">Saves &amp; Files</div>
         </div>
-        <div class="file-actions">
-          <button class="c-btn file-action" onclick="saveCurrentPlay()">Save Play</button>
-          <button class="c-btn file-action" onclick="exportCurrentPlay()">Export JSON</button>
-          <button class="c-btn file-action" onclick="triggerImportPlay()">Import JSON</button>
-        </div>
-        <input type="file" id="importPlayInput" accept=".json,application/json" hidden>
-        <div class="file-shell">
-          <div class="file-shell-header">
-            <span>Saved Plays</span>
-            <button class="shell-link" onclick="refreshSavedPlayList()">Refresh</button>
+        <button class="mobile-drawer-toggle" type="button" onclick="toggleMobileDrawer('files')" aria-expanded="false" aria-controls="drawerBody-files">
+          <span>Saves &amp; Files</span>
+          <span class="mobile-drawer-chevron">&#9662;</span>
+        </button>
+        <div class="mobile-drawer-body" id="drawerBody-files">
+          <div class="file-actions">
+            <button class="c-btn file-action" onclick="saveCurrentPlay()">Save Play</button>
+            <button class="c-btn file-action" onclick="exportCurrentPlay()">Export JSON</button>
+            <button class="c-btn file-action" onclick="triggerImportPlay()">Import JSON</button>
           </div>
-          <div id="savedPlayList" class="saved-play-list"></div>
+          <input type="file" id="importPlayInput" accept=".json,application/json" hidden>
+          <div class="file-shell">
+            <div class="file-shell-header">
+              <span>Saved Plays</span>
+              <button class="shell-link" onclick="refreshSavedPlayList()">Refresh</button>
+            </div>
+            <div id="savedPlayList" class="saved-play-list"></div>
+          </div>
         </div>
       </section>
 
@@ -243,6 +279,26 @@
     <div id="boardStatus" class="board-status">
       <div class="board-status-mode" id="boardModeLabel">Move</div>
       <div class="board-status-copy" id="boardStatusText">Select a tool to start building.</div>
+    </div>
+    <div class="mobile-sequence-bar">
+      <div class="mobile-sequence-status">
+        <div class="mobile-sequence-step" id="mobileStepStatus">Step 1 of 1</div>
+        <div class="mobile-sequence-copy" id="mobileStepCopy">Build toward 3+ phases</div>
+      </div>
+      <div class="mobile-sequence-actions">
+        <button class="mobile-seq-btn" id="mobilePrevStepBtn" onclick="prevStep()">Prev</button>
+        <button class="mobile-seq-btn" id="mobileNextStepBtn" onclick="nextStep()">Next</button>
+        <button class="mobile-seq-btn" id="mobileAddStepBtn" onclick="addStep()">Add Step</button>
+        <button class="mobile-seq-btn mobile-seq-play" id="mobileSequencePlayBtn" onclick="togglePlay()">Play</button>
+      </div>
+    </div>
+    <div class="mobile-quickbar" aria-label="Mobile board actions">
+      <button class="mobile-quick-btn active" id="mq-move" onclick="setTool('move')"><span class="mobile-quick-icon">&#8598;</span><span class="mobile-quick-label">Move</span></button>
+      <button class="mobile-quick-btn" id="mq-path" onclick="setTool('path')"><span class="mobile-quick-icon">&#8767;</span><span class="mobile-quick-label">Path</span></button>
+      <button class="mobile-quick-btn" id="mq-pass" onclick="setTool('pass')"><span class="mobile-quick-icon">&#10548;</span><span class="mobile-quick-label">Pass</span></button>
+      <button class="mobile-quick-btn" id="mq-kick" onclick="setTool('kick')"><span class="mobile-quick-icon">K</span><span class="mobile-quick-label">Kick</span></button>
+      <button class="mobile-quick-btn" id="mq-ball" onclick="addBall()"><span class="mobile-quick-icon">&#9679;</span><span class="mobile-quick-label">Ball</span></button>
+      <button class="mobile-quick-btn" id="mq-undo" onclick="undo()"><span class="mobile-quick-icon">&#8630;</span><span class="mobile-quick-label">Undo</span></button>
     </div>
     <div id="firstUseTutorial" class="first-use-tutorial" role="status" aria-live="polite">
       <div class="first-use-kicker">Quick Start</div>
