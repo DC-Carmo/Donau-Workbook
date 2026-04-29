@@ -6,7 +6,7 @@
     attackData: {
       setpiece: [
         {
-          name: "O\u00b2",
+          name: "O\u00b3",
           type: "Scrum Starter",
           detail: [
             "9 + 12 fix Opp 10 inside",
@@ -14,7 +14,7 @@
             "11 hits seam at pace",
             "13 fixes Opp 13, back three hold width",
           ],
-          diagram: asset("images/O².png"),
+          diagram: asset("images/O\u00b3.png"),
         },
         {
           name: "C.C +",
@@ -52,6 +52,12 @@
             "Pop to 15 or straight to 11",
           ],
           diagram: asset("images/Mid Field Scrum.png"),
+        },
+        {
+          name: "Special",
+          type: "Lineout",
+          detail: [],
+          diagram: asset("images/LO  Special.png"),
         },
       ],
       phase: [
@@ -106,10 +112,10 @@
         },
         { name: "Turbo", type: "Call", detail: ["Pick and drive"] },
         { name: "Rails", type: "Call", detail: ["Inside ball"] },
-        { name: "Charlie's", type: "Call", detail: ["—"] },
-        { name: "ML", type: "Call", detail: ["—"] },
-        { name: "LA", type: "Call", detail: ["—"] },
-        { name: "Special", type: "Call", detail: ["—"] },
+        { name: "Charlie's", type: "Call", detail: ["-"] },
+        { name: "ML", type: "Call", detail: ["-"] },
+        { name: "LA", type: "Call", detail: ["-"] },
+        { name: "Special", type: "Call", detail: ["-"] },
       ],
       exits: [
         {
@@ -313,13 +319,13 @@
         shortDescription: "Progression standards from U14 to senior rugby.",
         mission: "The Donau player pathway connects every stage of development from U14 through to senior rugby. Each stage has a clear purpose and a consistent coaching structure built around technical, tactical, physical, mental, and lifestyle habits.",
         intro: "Use these sections to understand what is expected at each stage and what success looks like before moving forward.",
-        progressLabel: "STRUCTURE · 68%",
+        progressLabel: "STRUCTURE ? 68%",
         progressValue: "68%",
         progressPercent: 68,
         status: "In Build",
         tag: "Player Pathway",
         summaryTitle: "Pathway focus",
-        summaryText: "Align coaches, parents, and players around what progression means at each stage — not just age or talent alone.",
+        summaryText: "Align coaches, parents, and players around what progression means at each stage - not just age or talent alone.",
         callout: "Readiness over age. Progress through every stage.",
         highlights: ["One club language", "Readiness over age", "Visible progression"],
         metrics: [
@@ -336,7 +342,7 @@
               ratio: "70:30",
               focus: "Skills + Speed + Aerobic"
             },
-            subtitle: "Foundation Habits · Learn to Train · 70:30",
+            subtitle: "Foundation Habits ? Learn to Train ? 70:30",
             groups: [
               {
                 title: "Technical",
@@ -344,8 +350,8 @@
                   "Evasion: hand off below the armpits; swerve and dodge to avoid contact; side step off both feet; always go forward into space; change of pace",
                   "Handling: decision making around creating and preserving space; introduce switch pass and spin pass; lateral pass with both hands over 10+ metres; catching with two hands away from the chest; players should be capable of passing 10 metres; introduce lineout throw",
                   "Contact: fine tune tackling from front, side, and behind with focus on body position and timing; falling and placing the ball with long and jack knife presentations; introduce 360 presentation; pop-up pass from the ground; offload out of the tackle by pushing the ball beyond the defender; get back to feet quickly and re-join the game; build overall confidence in contact",
-                  "Maul: even split ruck/maul work; ball carrier — stability and ball presentation low and in two hands; link player — body position, tower of power, set height equal to a scrum, secure and deliver ball; additional players — join correctly through the gate and understand ball transfer; defender — join through the gate, wrap ball carrier's arms and ball, then leg drive",
-                  "Ruck: even split ruck/maul work; ball carrier — leg drive, then to ground, secure with good presentation or pass the ball; support players — join correctly through the gate, scrum body position, secure the ball or ruck over; tackler — release, regain feet, contest, and join correctly through the gate",
+                  "Maul: even split ruck/maul work; ball carrier - stability and ball presentation low and in two hands; link player - body position, tower of power, set height equal to a scrum, secure and deliver ball; additional players - join correctly through the gate and understand ball transfer; defender - join through the gate, wrap ball carrier's arms and ball, then leg drive",
+                  "Ruck: even split ruck/maul work; ball carrier - leg drive, then to ground, secure with good presentation or pass the ball; support players - join correctly through the gate, scrum body position, secure the ball or ruck over; tackler - release, regain feet, contest, and join correctly through the gate",
                   "Scrum: full 8-man scrum; all should participate subject to safety; all must be confident and competent; fully contested; scrum half can now pick and go; No. 8 pick up",
                   "Lineout: uncontested, no lifting; introduce basic game strategy from lineout",
                   "Backline attack: identify, create, and attack space; hold defenders with timing of pass or running line; use patterns like switch pass, loop pass, and miss pass",
@@ -409,16 +415,16 @@
               ratio: "50:50",
               focus: "Skill Under Pressure + Power + Decision Making"
             },
-            subtitle: "Skill Acceleration · Train to Compete · 50:50",
+            subtitle: "Skill Acceleration ? Train to Compete ? 50:50",
             groups: [
               {
                 title: "Technical",
                 points: [
                   "Evasion: avoid contact when possible; swerve; full hand off; change of pace; side step",
                   "Handling: decision making around creating and preserving space; execute skills under pressure and speed",
-                  "Contact: tackling skills under pressure; unit tackle — 2nd and 3rd player support in attack and defence; react to what is in front of you; ball carrier must make best decision before and during contact",
-                  "Maul: full maul; ball carrier — strong base and protect the ball; support players — correct body position, strong drive, secure and deliver ball; defenders — hold up ball carrier and drive",
-                  "Ruck: ball carrier — effective ball presentation; support players — protect ball carrier and secure possession; tackler — release, regain feet, and contest; create rucks to maintain continuity and increase speed of ruck; develop phase play",
+                  "Contact: tackling skills under pressure; unit tackle - 2nd and 3rd player support in attack and defence; react to what is in front of you; ball carrier must make best decision before and during contact",
+                  "Maul: full maul; ball carrier - strong base and protect the ball; support players - correct body position, strong drive, secure and deliver ball; defenders - hold up ball carrier and drive",
+                  "Ruck: ball carrier - effective ball presentation; support players - protect ball carrier and secure possession; tackler - release, regain feet, and contest; create rucks to maintain continuity and increase speed of ruck; develop phase play",
                   "Scrum: attack and defence strategy; understand channels 1, 2, and 3",
                   "Lineout: full lineout with specialist thrower; decoy work; tactical understanding of lineout; use lineout as a strategic platform",
                   "Backline attack: multiple phases under match conditions; penetration through positioning, alignment, and identifying space; angle of run and timing of pass; players understand their role within a pattern; use of decoys",
@@ -448,7 +454,7 @@
                   "Agility",
                   "Personal conditioning",
                   "Position-specific conditioning",
-                  "Strength development — approximately 12 months after growth spurt slows",
+                  "Strength development - approximately 12 months after growth spurt slows",
                   "Introduce and supervise weight training properly"
                 ]
               },
@@ -466,7 +472,7 @@
                 points: [
                   "Independent thinking",
                   "Ambition",
-                  "Life balance — coping with pressure and setbacks",
+                  "Life balance - coping with pressure and setbacks",
                   "Awareness of leadership demands and responsibilities",
                   "Acting as role models for younger players",
                   "Players start to take ownership of their development and behaviour"
@@ -481,7 +487,7 @@
               ratio: "Evolving",
               focus: "Role Clarity + Intensity + Review Habits"
             },
-            subtitle: "Competitive Readiness — content coming",
+            subtitle: "Competitive Readiness - content coming",
             points: [
               "Connect technical skill to tactical clarity and match expectations.",
               "Prepare for increased intensity, contact demands, and review habits.",
@@ -495,7 +501,7 @@
               ratio: "Performance",
               focus: "Club Language + Accountability + Continuity"
             },
-            subtitle: "Integration Standards — content coming",
+            subtitle: "Integration Standards - content coming",
             points: [
               "Players arrive understanding expectations and terminology.",
               "Staff can refine rather than reteach the basics.",
@@ -513,7 +519,7 @@
         shortDescription: "Daily habits that support training, recovery, and matchday.",
         mission: "Build simple fuel and recovery habits that improve availability, consistency, and matchday readiness across the club.",
         intro: "Nutrition inside a club environment should be realistic and repeatable. The objective is helping players make better daily decisions that improve availability and recovery.",
-        progressLabel: "RESOURCES · 52%",
+        progressLabel: "RESOURCES ? 52%",
         progressValue: "52%",
         progressPercent: 52,
         status: "Available",
@@ -565,7 +571,7 @@
         shortDescription: "Movement quality, durability, and rugby readiness.",
         mission: "Develop athletes who move well, handle load better, and stay more available for rugby across every stage of the club.",
         intro: "Strength and conditioning should improve how well players move, how consistently they can train, and how ready they are for rugby demands over time.",
-        progressLabel: "FRAMEWORK · 61%",
+        progressLabel: "FRAMEWORK ? 61%",
         progressValue: "61%",
         progressPercent: 61,
         status: "Active",
@@ -617,7 +623,7 @@
         shortDescription: "Sleep, mindset, and recovery habits that sustain performance.",
         mission: "Support players with the off-pitch habits that protect energy, consistency, and balance through a demanding rugby season.",
         intro: "Wellbeing is part of performance. Sleep, life balance, and recovery habits directly affect availability, decision-making, and the standard a player can maintain.",
-        progressLabel: "GUIDANCE · 49%",
+        progressLabel: "GUIDANCE ? 49%",
         progressValue: "49%",
         progressPercent: 49,
         status: "Available",

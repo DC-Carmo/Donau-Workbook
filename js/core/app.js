@@ -33,6 +33,23 @@
       shape: "Rhino runs right, Lion runs left, with an inside fixer and a second layer behind it.",
       commonErrors: ["Players confuse the left/right version and the launch loses shape immediately.", "The second layer sits too deep and the play becomes lateral."],
     },
+    Special: {
+      purpose: "Create a flat 9-to-10 picture from lineout and bring the second layer onto the ball off 9.",
+      trigger: "Use Special when we want 10 flat to the line and 9 to control the distribution.",
+      shape: "&bull; 9 plays flat to 10.<br>&bull; 12 run hard to the line with 10.<br>&bull; 10 out the back to 9.<br>&bull; 13 hard, tip option or<br>&bull; 15/14 front and backdoor off 9.",
+      coachingPoints: [
+        "12 must fix their 12.",
+        "This gives 9 time to scan and pick the right option.",
+        "10 must stay flat and sell the first picture.",
+        "Back three must come with speed and depth onto 9.",
+      ],
+      commonErrors: [
+        "10 drifts too early.",
+        "12 does not hold their defender.",
+        "9 receives the return pass with no scan.",
+        "Back three arrive too flat or too late.",
+      ],
+    },
     Strike: {
       purpose: "Give Donau a front-foot phase direction off fast ball.",
       trigger: "Use when ruck speed is positive and the team can attack before the defence is set.",
@@ -517,7 +534,7 @@
     const guide = attackGuides[play.name] || {};
     const detail = play.detail || [];
     const summary = detail[0] || "Keep the Donau picture clear and connected.";
-    const coachingPoints = detail.slice(0, 3).length ? detail.slice(0, 3) : [`Coach the ${play.name} timing and communication.`, `Keep the ${play.type.toLowerCase()} picture square and connected.`, "Make the supporting roles visible in training reps."];
+    const coachingPoints = guide.coachingPoints || (detail.slice(0, 3).length ? detail.slice(0, 3) : [`Coach the ${play.name} timing and communication.`, `Keep the ${play.type.toLowerCase()} picture square and connected.`, "Make the supporting roles visible in training reps."]);
 
     return {
       purpose: guide.purpose || inferAttackPurpose(play, cat, summary),

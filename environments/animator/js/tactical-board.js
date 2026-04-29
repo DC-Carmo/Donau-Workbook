@@ -1,12 +1,9 @@
-// ════════════════════════════════════════════════════════════
-//  RUGBY TACTICAL BOARD — Complete Implementation
+//  RUGBY TACTICAL BOARD - Complete Implementation
 //  Rugby Union Donau / Coach Mato Design Language
-// ════════════════════════════════════════════════════════════
 
-// ─── FIELD COORDINATE SYSTEM ───────────────────────────────
 // Full field, portrait orientation
-//   x: 0–68  (left touchline → right touchline, field width)
-//   y: –10–110 (dead ball line top → dead ball line bottom)
+//   x: 0-68  (left touchline -> right touchline, field width)
+//   y: -10-110 (dead ball line top -> dead ball line bottom)
 //   y=0:  top try line     y=100: bottom try line
 //   y=22: top 22m line     y=78:  bottom 22m line
 //   y=10: top 10m          y=90:  bottom 10m
@@ -50,7 +47,6 @@ function resize() {
   render();
 }
 
-// ─── STATE ─────────────────────────────────────────────────
 const S = {
   tool: 'move',
   tab:  'atk',          // active palette tab
@@ -127,7 +123,6 @@ function completeFirstUseTutorial() {
 
 window.dismissFirstUseTutorial = dismissFirstUseTutorial;
 
-// ─── PLAYER RADIUS (px on canvas) ─────────────────────────
 const R = () => Math.max(11, Math.min(18, sc * 1.3));
 
 function nowIso() {
@@ -555,7 +550,6 @@ function normalizeProjectRecord(input) {
   return normalized;
 }
 
-// ─── UNDO ──────────────────────────────────────────────────
 function snapshot() {
   persistCurrentStep();
   S.history.push(cloneData({
@@ -586,9 +580,7 @@ function undo() {
   render();
 }
 
-// ════════════════════════════════════════════════════════════
 //  FIELD RENDERING
-// ════════════════════════════════════════════════════════════
 function drawField() {
   ctx.clearRect(0, 0, cvW, cvH);
 
@@ -873,9 +865,7 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-// ════════════════════════════════════════════════════════════
 //  PLAYER RENDERING
-// ════════════════════════════════════════════════════════════
 function drawPlayer(fx, fy, num, team, selected, isBallCarrier) {
   const p = toC(fx, fy);
   const r = R();
@@ -939,7 +929,6 @@ function drawPlayer(fx, fy, num, team, selected, isBallCarrier) {
   ctx.restore();
 }
 
-// ─── Draw rugby ball ────────────────────────────────────────
 function drawBall(fx, fy, selected) {
   const p = toC(fx, fy);
   const rx = Math.max(8.5, sc * 0.84), ry = Math.max(5.5, sc * 0.54);
@@ -962,7 +951,6 @@ function drawBall(fx, fy, selected) {
   ctx.restore();
 }
 
-// ─── Helpers ────────────────────────────────────────────────
 function lighten(hex, amt) {
   const n = parseInt(hex.replace('#',''), 16);
   const r = Math.min(255, ((n>>16)&0xff) + amt);
@@ -971,9 +959,7 @@ function lighten(hex, amt) {
   return `rgb(${r},${g},${b})`;
 }
 
-// ════════════════════════════════════════════════════════════
 //  PATH RENDERING
-// ════════════════════════════════════════════════════════════
 function drawRunPath(pts, color, lw, progress = 1, dashed = false) {
   if (!pts || pts.length < 2) return;
   ctx.save();
@@ -1051,7 +1037,6 @@ function catmullRom(pts, t) {
   };
 }
 
-// ─── Pass/kick arc ──────────────────────────────────────────
 function drawArc(x1, y1, x2, y2, color, progress = 1, thick = false) {
   const p1 = toC(x1, y1), p2 = toC(x2, y2);
   const dist = Math.hypot(p2.x-p1.x, p2.y-p1.y);
@@ -1305,9 +1290,7 @@ function renderAnnotationDraft() {
   }
 }
 
-// ════════════════════════════════════════════════════════════
 //  MAIN RENDER
-// ════════════════════════════════════════════════════════════
 function render() {
   drawField();
 
@@ -1336,7 +1319,6 @@ function render() {
   const t = S.animT;
   renderAnnotations('zones');
 
-  // ── Completed passes ────────────────────────────────────
   S.passes.forEach(pass => {
     const fp = S.players.find(p => p.id === pass.from);
     const tp = S.players.find(p => p.id === pass.to);
@@ -1346,14 +1328,12 @@ function render() {
     drawArc(fa.x, fa.y, ta.x, ta.y, col, 1, pass.style === 'kick');
   });
 
-  // ── Run paths ────────────────────────────────────────────
   S.paths.forEach(path => {
     if (path.pts.length < 2) return;
     drawRunPath(path.pts, path.color, 2.8, t > 0 ? t : 1);
   });
   renderAnnotations('lines');
 
-  // ── Freehand draw preview ────────────────────────────────
   if (S.drawing && S.drawing.pts.length >= 2) {
     const pl  = S.players.find(p => p.id === S.drawing.pid);
     const col = pl?.team === 'A' ? 'rgba(96,165,250,0.7)' : 'rgba(248,113,113,0.7)';
@@ -1361,7 +1341,6 @@ function render() {
   }
   renderAnnotationDraft();
 
-  // ── Pass-from indicator ──────────────────────────────────
   if (S.passFrom) {
     const fp = S.players.find(p => p.id === S.passFrom);
     if (fp) {
@@ -1375,12 +1354,10 @@ function render() {
     }
   }
 
-  // ── Ball ─────────────────────────────────────────────────
   if (S.ball) {
     drawBall(S.ball.x, S.ball.y, S.selected === '__ball__');
   }
 
-  // ── Players ──────────────────────────────────────────────
   S.players.forEach(pl => {
     const pos = animPos(pl, t);
     const sel = S.selected === pl.id;
@@ -1389,16 +1366,13 @@ function render() {
   renderAnnotations('notes');
 }
 
-// ─── Catmull-Rom position at t ──────────────────────────────
 function animPos(pl, t) {
   const path = S.paths.find(p => p.pid === pl.id);
   if (!path || path.pts.length < 2 || t === 0) return { x:pl.x, y:pl.y };
   return catmullRom(path.pts, t);
 }
 
-// ════════════════════════════════════════════════════════════
 //  MOUSE HANDLING
-// ════════════════════════════════════════════════════════════
 function getF(e)  { const r=cv.getBoundingClientRect(); return frC(e.clientX-r.left, e.clientY-r.top); }
 function getPx(e) { const r=cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
 const PRT = () => (R() + 1) / sc; // player hit radius in field units
@@ -1713,7 +1687,6 @@ cv.addEventListener('mouseleave', () => {
   if (S.annotationDraft) finishAnnotationDraft();
 });
 
-// ─── Finish freehand draw ────────────────────────────────────
 function finishDraw() {
   if (!S.drawing) return;
   if (S.drawing.pts.length >= 3) {
@@ -1784,9 +1757,7 @@ function ptLineDist(p, a, b) {
 
 function clamp(v, mn, mx) { return Math.max(mn, Math.min(mx, v)); }
 
-// ════════════════════════════════════════════════════════════
 //  PLAYER MANAGEMENT
-// ════════════════════════════════════════════════════════════
 let _atkCount = 0, _defCount = 0;
 
 function addPlayerByNum(num, team) {
@@ -2062,9 +2033,7 @@ function updateSequenceUI() {
   }
 }
 
-// ════════════════════════════════════════════════════════════
 //  ANIMATION
-// ════════════════════════════════════════════════════════════
 function togglePlay() {
   persistCurrentStep();
   if (S.animating) {
@@ -2092,8 +2061,8 @@ function togglePlay() {
   setLiveBoardFromStep(S.steps[0]);
   S.animating = true;
   const isPlay = S.animating;
-  document.getElementById('playBtn').textContent   = isPlay ? '⏸ Pause' : '▶ Play';
-  document.getElementById('tlPlayBtn').textContent = isPlay ? '⏸' : '▶';
+  document.getElementById('playBtn').textContent   = isPlay ? 'Pause' : 'Play';
+  document.getElementById('tlPlayBtn').textContent = isPlay ? 'Pause' : 'Play';
   if (isPlay) { S.lastTs = null; requestAnimationFrame(animLoop); }
 }
 function animLoop(ts) {
@@ -2115,8 +2084,8 @@ function animLoop(ts) {
   if (S.animating) requestAnimationFrame(animLoop);
 }
 function setPlayBtnState() {
-  const lbl = S.animating ? '⏸' : '▶';
-  document.getElementById('playBtn').textContent   = S.animating ? '⏸ Pause' : '▶ Play';
+  const lbl = S.animating ? 'Pause' : 'Play';
+  document.getElementById('playBtn').textContent   = S.animating ? 'Pause' : 'Play';
   document.getElementById('tlPlayBtn').textContent = lbl;
   updateSequenceUI();
 }
@@ -2135,7 +2104,7 @@ function chSpd(d) {
     ...(S.projectPlayback || {}),
     currentSpeed: S.animSpd,
   });
-  const lbl = S.animSpd + '×';
+  const lbl = S.animSpd + 'x';
   document.getElementById('spdLabel').textContent  = S.animSpd + 'x';
   document.getElementById('spdLabel2').textContent = S.animSpd + 'x';
 }
@@ -2157,15 +2126,13 @@ function seekTrack(e) {
   updateTL(); render();
 }
 
-// ════════════════════════════════════════════════════════════
 //  UI
-// ════════════════════════════════════════════════════════════
 const HINTS = {
-  move:  'MOVE — drag any player or ball freely',
-  path:  'PATH — click a player and drag to draw their run',
-  pass:  'PASS — click passer, then click receiver',
-  kick:  'KICK — click kicker, then click target',
-  erase: 'ERASE — click player, ball, or path to remove',
+  move:  'MOVE - drag any player or ball freely',
+  path:  'PATH - click a player and drag to draw their run',
+  pass:  'PASS - click passer, then click receiver',
+  kick:  'KICK - click kicker, then click target',
+  erase: 'ERASE - click player, ball, or path to remove',
 };
 
 const MODE_LABELS = {
@@ -2422,8 +2389,8 @@ function clearAll() {
   document.getElementById('spdLabel').textContent = '1x';
   document.getElementById('spdLabel2').textContent = '1x';
   updateAnnotationPanel();
-  document.getElementById('spdLabel').textContent = '1Ã—';
-  document.getElementById('spdLabel2').textContent = '1Ã—';
+  document.getElementById('spdLabel').textContent = '1x';
+  document.getElementById('spdLabel2').textContent = '1x';
   document.getElementById('spdLabel').textContent = '1x';
   document.getElementById('spdLabel2').textContent = '1x';
   setPlayBtnState(); rebuildPalette(); refreshInteractionUI(); updateTL(); render();
@@ -2465,7 +2432,7 @@ function updateSelInfo() {
   }
 }
 
-// ─── Palette ─────────────────────────────────────────────────
+// Palette --------------------------------------------------
 let palTab = 'atk';
 
 function setTab(tab) {
@@ -2525,8 +2492,8 @@ function applyBoardData(play, { snapshotBefore = true } = {}) {
   setPlayBtnState();
   document.getElementById('spdLabel').textContent = S.animSpd + 'x';
   document.getElementById('spdLabel2').textContent = S.animSpd + 'x';
-  document.getElementById('spdLabel').textContent = S.animSpd + 'Ã—';
-  document.getElementById('spdLabel2').textContent = S.animSpd + 'Ã—';
+  document.getElementById('spdLabel').textContent = S.animSpd + 'x';
+  document.getElementById('spdLabel2').textContent = S.animSpd + 'x';
   document.getElementById('spdLabel').textContent = S.animSpd + 'x';
   document.getElementById('spdLabel2').textContent = S.animSpd + 'x';
   rebuildPalette();
@@ -2594,7 +2561,7 @@ function refreshSavedPlayList() {
     card.innerHTML = `<div class="saved-play-main">
       <div>
         <div class="saved-play-name">${item.name}</div>
-        <div class="saved-play-meta">${savedDate}<br>${item.steps?.length || 1} step${(item.steps?.length || 1) === 1 ? '' : 's'} · ${item.players?.length || 0} players · ${(item.paths||[]).length} paths · ${(item.passes||[]).length} passes</div>
+        <div class="saved-play-meta">${savedDate}<br>${item.steps?.length || 1} step${(item.steps?.length || 1) === 1 ? ' : 's'} · ${item.players?.length || 0} players · ${(item.paths||[]).length} paths · ${(item.passes||[]).length} passes</div>
       </div>
     </div>
     <div class="saved-play-actions">
@@ -2672,7 +2639,6 @@ function importPlayFromFile(file) {
 }
 
 
-// ─── Keyboard shortcuts ──────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   const k = e.key.toLowerCase();
@@ -2686,7 +2652,6 @@ document.addEventListener('keydown', e => {
   if (k==='delete'||k==='backspace') { if(S.selected){e.preventDefault();deleteSelected();} }
 });
 
-// ─── Track seek drag ─────────────────────────────────────────
 let trackDrag = false;
 document.getElementById('trackThumb').addEventListener('mousedown',()=>trackDrag=true);
 document.addEventListener('mousemove',e=>{
@@ -2702,9 +2667,7 @@ document.addEventListener('mousemove',e=>{
 });
 document.addEventListener('mouseup',()=>trackDrag=false);
 
-// ═══════════════════════════════════════════════════════════
 //  INIT
-// ═══════════════════════════════════════════════════════════
 rebuildPalette();
 refreshSavedPlayList();
 S.playMetadata = emptyPlayMetadata('New Play');
@@ -2749,5 +2712,5 @@ document.getElementById('importPlayInput').addEventListener('change', e => {
 });
 window.addEventListener('resize', resize);
 resize();
-setHint('MOVE — drag any player or ball freely on the pitch');
+setHint('MOVE - drag any player or ball freely on the pitch');
 refreshInteractionUI();
