@@ -794,6 +794,216 @@ body.austria-u18-theme::before {
   border-color: rgba(177, 31, 48, 0.34);
 }
 
+/* ── Defensive System (s4) — unified with Attack design system ── */
+
+/* Reduce s4 page-wide red wash */
+.austria-u18-theme #s4::before {
+  background: linear-gradient(140deg, rgba(195, 34, 54, 0.05), transparent 22%, transparent 78%, rgba(143, 150, 159, 0.03));
+}
+
+/* Layout: flex row matching Attack System */
+.austria-u18-theme #s4 .sl-body {
+  display: flex;
+  gap: 0;
+  background: transparent;
+}
+
+/* Left sidebar — mirrors attack-sidebar */
+.austria-u18-theme .def-left {
+  width: 290px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding: 18px;
+  border-right: 1px solid rgba(177, 31, 48, 0.11);
+}
+
+/* Right main — mirrors attack-main */
+.austria-u18-theme .def-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Section label above tabs in def-right — minimal, contextual */
+.austria-u18-theme .def-right > .nt-side-label {
+  flex-shrink: 0;
+  padding: 12px 20px 6px;
+  margin: 0;
+  font-size: 0.6rem;
+  letter-spacing: 3px;
+  color: rgba(184, 181, 176, 0.36);
+  border-top: none;
+}
+
+/* Tab bar — mirrors zone-btns */
+.austria-u18-theme .def-right .zone-btns {
+  padding: 0 20px 12px;
+  border-bottom: 1px solid rgba(177, 31, 48, 0.11);
+  flex-shrink: 0;
+  background: transparent;
+}
+
+/* Tab buttons — identical rhythm to zone-btn, red accent */
+.austria-u18-theme #s4 .zone-tab {
+  padding: 7px 16px;
+  border: 1px solid rgba(177, 31, 48, 0.2);
+  background: transparent;
+  color: var(--muted);
+  font-family: "Barlow Condensed", sans-serif;
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.18s;
+}
+
+.austria-u18-theme #s4 .zone-tab:hover {
+  border-color: rgba(177, 31, 48, 0.38);
+  background: rgba(177, 31, 48, 0.05);
+  color: var(--text);
+}
+
+.austria-u18-theme #s4 .zone-tab.active {
+  background: rgba(177, 31, 48, 0.14);
+  border-color: rgba(177, 31, 48, 0.48);
+  color: var(--text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* Scrum defence content area — mirrors attack-content */
+.austria-u18-theme #s4 #defContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+/* Scrum defence zone blocks — play-list-item rhythm */
+.austria-u18-theme .def-block {
+  border: 1px solid rgba(177, 31, 48, 0.15);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.02);
+  margin-bottom: 10px;
+}
+
+.austria-u18-theme .def-block:has(h4.g) {
+  border-color: rgba(68, 196, 106, 0.14);
+  border-left: 3px solid rgba(68, 196, 106, 0.44);
+}
+
+.austria-u18-theme .def-block:has(h4.o) {
+  border-color: rgba(222, 143, 46, 0.14);
+  border-left: 3px solid rgba(222, 143, 46, 0.44);
+}
+
+.austria-u18-theme .def-block:has(h4.r) {
+  border-left: 3px solid rgba(177, 31, 48, 0.58);
+}
+
+.austria-u18-theme .def-block h4 {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  line-height: 1.2;
+}
+
+.austria-u18-theme .def-block h4.g { color: rgba(68, 196, 106, 0.88); }
+.austria-u18-theme .def-block h4.o { color: rgba(222, 143, 46, 0.9); }
+.austria-u18-theme .def-block h4.r { color: var(--red); }
+
+.austria-u18-theme .def-block ul { gap: 6px; }
+
+.austria-u18-theme .def-block ul li {
+  font-size: 0.82rem;
+  color: var(--text-light);
+  line-height: 1.58;
+}
+
+.austria-u18-theme .def-block ul li::before {
+  content: "›";
+  color: rgba(150, 155, 162, 0.42);
+  font-size: 0.9rem;
+}
+
+/* Mindset block — compact reference card like attack-sidebar panels */
+.austria-u18-theme .attitude-block {
+  background: rgba(10, 12, 16, 0.65);
+  border: 1px solid rgba(177, 31, 48, 0.18);
+  border-left: 3px solid rgba(177, 31, 48, 0.62);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.austria-u18-theme .attitude-block h4 {
+  color: var(--red);
+  font-size: 0.64rem;
+  letter-spacing: 2.8px;
+  margin-bottom: 10px;
+}
+
+.austria-u18-theme .attitude-block ul li {
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.austria-u18-theme .attitude-block ul li::before {
+  content: "›";
+  color: rgba(177, 31, 48, 0.52);
+  font-size: 0.9rem;
+  top: 0;
+}
+
+/* Section dividers in def-left — same as attack-sidebar label rhythm */
+.austria-u18-theme .def-left > .nt-side-label {
+  padding-top: 12px;
+  margin-top: 2px;
+  border-top: 1px solid rgba(177, 31, 48, 0.1);
+  margin-bottom: 8px;
+}
+
+/* Line roles — single column compact cards matching sidebar width */
+.austria-u18-theme .role-grid {
+  grid-template-columns: 1fr;
+  gap: 7px;
+  margin-bottom: 14px;
+}
+
+.austria-u18-theme .role-card {
+  background: rgba(10, 12, 16, 0.65);
+  border: 1px solid rgba(177, 31, 48, 0.14);
+  border-radius: 10px;
+  padding: 11px 14px;
+}
+
+.austria-u18-theme .role-card .rc-role {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--red);
+  margin-bottom: 4px;
+}
+
+.austria-u18-theme .role-card .rc-desc {
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* Defensive calls — term-chip grid, matches Attack calls glossary */
+.austria-u18-theme .def-left .terminology-grid {
+  grid-template-columns: 1fr;
+  gap: 7px;
+}
+
 @media (max-width: 1100px) {
   .nt-cover-shell,
   .nt-units-grid,
@@ -823,5 +1033,68 @@ body.austria-u18-theme::before {
   .nt-cover-actions {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 768px) {
+  .austria-u18-theme .mobile-app-header {
+    background:
+      linear-gradient(90deg, rgba(195, 34, 54, 0.1), transparent 18%),
+      linear-gradient(180deg, rgba(16, 19, 24, 0.985), rgba(10, 12, 16, 0.985));
+    border-bottom-color: rgba(177, 31, 48, 0.18);
+  }
+
+  .austria-u18-theme .mobile-app-portal-btn,
+  .austria-u18-theme .mobile-app-menu-btn,
+  .austria-u18-theme .mobile-drawer-close {
+    border-color: rgba(177, 31, 48, 0.18);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .austria-u18-theme .mobile-app-environment,
+  .austria-u18-theme .mobile-drawer-kicker,
+  .austria-u18-theme .mobile-drawer-item-short,
+  .austria-u18-theme .mobile-bottom-nav-btn {
+    color: var(--muted);
+  }
+
+  .austria-u18-theme .mobile-app-section,
+  .austria-u18-theme .mobile-drawer-title,
+  .austria-u18-theme .mobile-drawer-item-title,
+  .austria-u18-theme .mobile-app-portal-btn,
+  .austria-u18-theme .mobile-app-menu-btn,
+  .austria-u18-theme .mobile-drawer-close {
+    color: var(--text);
+  }
+
+  .austria-u18-theme .mobile-module-drawer-sheet {
+    background:
+      radial-gradient(circle at 18% 10%, rgba(195, 34, 54, 0.14), transparent 24%),
+      linear-gradient(180deg, rgba(15, 18, 22, 0.995), rgba(9, 11, 14, 0.995));
+  }
+
+  .austria-u18-theme .mobile-drawer-item {
+    border-color: rgba(177, 31, 48, 0.14);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .austria-u18-theme .mobile-drawer-item-num {
+    color: var(--red);
+  }
+
+  .austria-u18-theme .mobile-drawer-item.active {
+    border-color: rgba(177, 31, 48, 0.48);
+    background: rgba(177, 31, 48, 0.12);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.2);
+  }
+
+  .austria-u18-theme .mobile-bottom-nav {
+    border-color: rgba(177, 31, 48, 0.18);
+    background: rgba(8, 10, 14, 0.95);
+  }
+
+  .austria-u18-theme .mobile-bottom-nav-btn.active {
+    background: rgba(177, 31, 48, 0.14);
+    color: var(--text);
   }
 }

@@ -41,20 +41,20 @@
   <div class="tb-cluster">
     <div class="tb-label">Edit Tools</div>
     <div class="tool-strip">
-      <button class="t-btn active" id="t-move" onclick="setTool('move')" title="Move (V)">
+      <button class="t-btn active" id="t-move" data-tool="move" onclick="setTool('move')" title="Move (V)">
         &#8598;<kbd>V</kbd><span class="tip">Move Players</span>
       </button>
-      <button class="t-btn" id="t-path" onclick="setTool('path')" title="Draw Run">
+      <button class="t-btn" id="t-path" data-tool="path" onclick="setTool('path')" title="Draw Run">
         &#8767;<kbd>R</kbd><span class="tip">Draw Run Path</span>
       </button>
-      <button class="t-btn" id="t-pass" onclick="setTool('pass')" title="Pass">
+      <button class="t-btn" id="t-pass" data-tool="pass" onclick="setTool('pass')" title="Pass">
         &#10548;<kbd>P</kbd><span class="tip">Draw Pass</span>
       </button>
-      <button class="t-btn" id="t-kick" onclick="setTool('kick')" title="Kick">
-        K<kbd>K</kbd><span class="tip">Draw Kick</span>
+      <button class="t-btn" id="t-zone" data-tool="zone" onclick="setTool('zone')" title="Circle Highlight">
+        &#9711;<kbd>C</kbd><span class="tip">Circle Highlight</span>
       </button>
-      <button class="t-btn" id="t-erase" onclick="setTool('erase')" title="Erase">
-        &#10005;<kbd>E</kbd><span class="tip">Erase</span>
+      <button class="t-btn" id="t-box" data-tool="box" onclick="setTool('box')" title="Box Highlight">
+        &#9633;<kbd>B</kbd><span class="tip">Box Highlight</span>
       </button>
     </div>
   </div>
@@ -179,14 +179,17 @@
           <div class="pal-title">Annotations</div>
         </div>
         <button class="mobile-drawer-toggle" type="button" onclick="toggleMobileDrawer('annotations')" aria-expanded="false" aria-controls="drawerBody-annotations">
-          <span>Annotations</span>
+          <span>Highlights &amp; Tools</span>
           <span class="mobile-drawer-chevron">&#9662;</span>
         </button>
         <div class="mobile-drawer-body" id="drawerBody-annotations">
           <div class="ann-toolbar">
-            <button class="ann-tool-btn" id="t-note" onclick="setTool('note')">Note</button>
-            <button class="ann-tool-btn" id="t-arrow" onclick="setTool('arrow')">Arrow</button>
-            <button class="ann-tool-btn" id="t-zone" onclick="setTool('zone')">Zone</button>
+            <button class="ann-tool-btn" data-tool="zone" onclick="setTool('zone')">Circle</button>
+            <button class="ann-tool-btn" data-tool="box" onclick="setTool('box')">Box</button>
+            <button class="ann-tool-btn" data-tool="arrow" onclick="setTool('arrow')">Arrow</button>
+            <button class="ann-tool-btn" data-tool="note" onclick="setTool('note')">Note</button>
+            <button class="ann-tool-btn" data-tool="kick" onclick="setTool('kick')">Kick</button>
+            <button class="ann-tool-btn" data-tool="erase" onclick="setTool('erase')">Erase</button>
           </div>
           <div class="ann-config">
             <label class="ann-config-label" for="annotationText">Note Text</label>

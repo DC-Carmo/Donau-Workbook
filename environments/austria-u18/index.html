@@ -335,15 +335,12 @@
         <div class="role-grid fadeup" id="defRoles"></div>
 
         <div class="nt-side-label">Defensive Calls</div>
-        <table class="call-table fadeup">
-          <thead><tr><th>Call</th><th>Action</th></tr></thead>
-          <tbody id="defCalls"></tbody>
-        </table>
+        <div class="terminology-grid fadeup" id="defCalls"></div>
       </div>
 
       <div class="def-right">
         <div class="nt-side-label">Scrum Defence by Side &amp; Zone</div>
-        <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;" role="tablist" aria-label="Defence field sides">
+        <div class="zone-btns" role="tablist" aria-label="Defence field sides">
           <button class="zone-tab active" role="tab" aria-selected="true" onclick="setDefSide('rhs',this)">Right Hand Side</button>
           <button class="zone-tab" role="tab" aria-selected="false" onclick="setDefSide('lhs',this)">Left Hand Side</button>
           <button class="zone-tab" role="tab" aria-selected="false" onclick="setDefSide('cfs',this)">Centre Field</button>

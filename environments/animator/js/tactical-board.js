@@ -21,6 +21,7 @@ const F = { // Field constants
 const FVW = F.DX1 - F.DX0;
 const FVH = F.DY1 - F.DY0;
 const BALL_CARRY_OFFSET = { x: 1.45, y: -1.05 };
+const MOBILE_TAP_TOGGLE_PX = 5;
 
 // Canvas scaling
 const FIELD_X_STRETCH = 1.7;
@@ -31,6 +32,17 @@ const ctx = cv.getContext('2d');
 function toC(fx, fy) { return { x: ox + (fx - F.DX0) * sx, y: oy + (fy - F.DY0) * sy }; }
 function frC(cx, cy) { return { x: (cx - ox) / sx + F.DX0, y: (cy - oy) / sy + F.DY0 }; }
 function d2(a, b)    { return Math.hypot(a.x - b.x, a.y - b.y); }
+function isInsidePitch(point) {
+  return !!point &&
+    point.x >= F.XMIN && point.x <= F.XMAX &&
+    point.y >= F.YMIN && point.y <= F.YMAX;
+}
+function clampFieldPoint(point) {
+  return {
+    x: clamp(point.x, F.XMIN, F.XMAX),
+    y: clamp(point.y, F.YMIN, F.YMAX),
+  };
+}
 
 function resize() {
   const wrap = document.getElementById('canvasWrap');
@@ -82,6 +94,7 @@ const S = {
   atkUsed: new Set(),   // which numbers are on field
   defUsed: new Set(),
   ballAssignCandidate: null,
+  pointerTap: null,
 };
 const SPEEDS = [0.25, 0.5, 1, 1.5, 2, 3];
 let   spdIdx = 2;
@@ -95,6 +108,10 @@ const ANNOTATION_NOTE_DEFAULT = 'Note';
 const NOTE_FONT = '"Barlow Condensed"';
 const STEP_MIN_COUNT = 3;
 let firstUseTutorialDismissed = false;
+
+function isMobileBoardViewport() {
+  return window.innerWidth <= 768;
+}
 
 function hasSeenFirstUseTutorial() {
   try {
@@ -128,7 +145,10 @@ function completeFirstUseTutorial() {
 
 window.dismissFirstUseTutorial = dismissFirstUseTutorial;
 
-const R = () => Math.max(15, Math.min(24, sc * 1.8));
+const R = () => {
+  const base = Math.max(15, Math.min(24, sc * 1.8));
+  return isMobileBoardViewport() ? base * 0.88 : base;
+};
 
 function nowIso() {
   return new Date().toISOString();
@@ -384,6 +404,7 @@ function defaultAnnotationText() {
 
 function annotationColor(type) {
   if (type === 'zone') return '#10b981';
+  if (type === 'box') return '#d9b46c';
   if (type === 'arrow') return '#d9b46c';
   return '#f3f4f6';
 }
@@ -424,6 +445,20 @@ function normalizeAnnotation(annotation) {
       x,
       y,
       r: Math.max(1.5, r),
+    };
+  }
+  if (annotation.type === 'box') {
+    const x = Number(annotation.x);
+    const y = Number(annotation.y);
+    const w = Number(annotation.w);
+    const h = Number(annotation.h);
+    if (![x, y, w, h].every(Number.isFinite)) return null;
+    return {
+      ...base,
+      x,
+      y,
+      w: Math.max(1.5, Math.abs(w)),
+      h: Math.max(1.5, Math.abs(h)),
     };
   }
   return null;
@@ -943,8 +978,8 @@ function drawPlayer(fx, fy, num, team, selected, isBallCarrier) {
 
   // Selection ring
   if (selected) {
-    ctx.beginPath(); ctx.arc(p.x, p.y, r + 4, 0, Math.PI * 2);
-    ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(p.x, p.y, r + (isMobileBoardViewport() ? 3 : 4), 0, Math.PI * 2);
+    ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = isMobileBoardViewport() ? 2 : 2.5;
     ctx.setLineDash([4, 3]); ctx.stroke(); ctx.setLineDash([]);
   }
   // Drop shadow
@@ -960,12 +995,12 @@ function drawPlayer(fx, fy, num, team, selected, isBallCarrier) {
 
   // Border
   ctx.strokeStyle = selected ? '#fbbf24' : border;
-  ctx.lineWidth   = selected ? 2.5 : 1.8;
+  ctx.lineWidth   = selected ? (isMobileBoardViewport() ? 2 : 2.5) : (isMobileBoardViewport() ? 1.5 : 1.8);
   ctx.stroke();
 
   // Number
   ctx.fillStyle = '#ffffff';
-  ctx.font = `800 ${Math.max(10, r * 0.94)}px "Barlow Condensed"`;
+  ctx.font = `800 ${Math.max(10, r * (isMobileBoardViewport() ? 0.98 : 0.94))}px "Barlow Condensed"`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.shadowColor = 'rgba(0,0,0,0.9)';
   ctx.shadowBlur = 4;
@@ -977,9 +1012,10 @@ function drawPlayer(fx, fy, num, team, selected, isBallCarrier) {
 
 function drawBall(fx, fy, selected) {
   const p = toC(fx, fy);
-  const rx = Math.max(8.5, sc * 0.84), ry = Math.max(5.5, sc * 0.54);
+  const rx = Math.max(isMobileBoardViewport() ? 7.6 : 8.5, sc * (isMobileBoardViewport() ? 0.76 : 0.84));
+  const ry = Math.max(isMobileBoardViewport() ? 5 : 5.5, sc * (isMobileBoardViewport() ? 0.48 : 0.54));
   ctx.save();
-  if (selected) { ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = 14; }
+  if (selected) { ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = isMobileBoardViewport() ? 10 : 14; }
 
   ctx.beginPath(); ctx.ellipse(p.x, p.y, rx, ry, 0.35, 0, Math.PI * 2);
   const g = ctx.createLinearGradient(p.x - rx, p.y, p.x + rx, p.y);
@@ -1002,11 +1038,11 @@ function drawBallCarrierHighlight(fx, fy) {
   const r = R();
   ctx.save();
   ctx.shadowColor = '#fbbf24';
-  ctx.shadowBlur = 20;
+  ctx.shadowBlur = isMobileBoardViewport() ? 12 : 20;
   ctx.beginPath();
-  ctx.arc(p.x, p.y, r + 5, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(251,191,36,0.34)';
-  ctx.lineWidth = 2;
+  ctx.arc(p.x, p.y, r + (isMobileBoardViewport() ? 4 : 5), 0, Math.PI * 2);
+  ctx.strokeStyle = isMobileBoardViewport() ? 'rgba(251,191,36,0.24)' : 'rgba(251,191,36,0.34)';
+  ctx.lineWidth = isMobileBoardViewport() ? 1.6 : 2;
   ctx.stroke();
   ctx.shadowBlur = 0;
 
@@ -1185,6 +1221,62 @@ function drawAnnotationSelectionRing(x, y, r) {
   ctx.restore();
 }
 
+function boxAnnotationBounds(box) {
+  const left = Math.min(box.x, box.x + box.w);
+  const right = Math.max(box.x, box.x + box.w);
+  const top = Math.min(box.y, box.y + box.h);
+  const bottom = Math.max(box.y, box.y + box.h);
+  return {
+    left,
+    top,
+    right,
+    bottom,
+    width: Math.max(1.5, right - left),
+    height: Math.max(1.5, bottom - top),
+  };
+}
+
+function boxAnnotationCorners(box) {
+  const bounds = boxAnnotationBounds(box);
+  return {
+    nw: { x: bounds.left, y: bounds.top },
+    ne: { x: bounds.right, y: bounds.top },
+    sw: { x: bounds.left, y: bounds.bottom },
+    se: { x: bounds.right, y: bounds.bottom },
+  };
+}
+
+function setBoxFromBounds(box, left, top, right, bottom) {
+  box.x = Math.min(left, right);
+  box.y = Math.min(top, bottom);
+  box.w = Math.max(1.5, Math.abs(right - left));
+  box.h = Math.max(1.5, Math.abs(bottom - top));
+}
+
+function clampZoneAnnotation(zone) {
+  zone.r = Math.max(1.5, zone.r);
+  const maxRadius = Math.max(
+    1.5,
+    Math.min(zone.x - F.XMIN, F.XMAX - zone.x, zone.y - F.YMIN, F.YMAX - zone.y)
+  );
+  zone.r = Math.min(zone.r, maxRadius);
+  zone.x = clamp(zone.x, F.XMIN + zone.r, F.XMAX - zone.r);
+  zone.y = clamp(zone.y, F.YMIN + zone.r, F.YMAX - zone.r);
+  return zone;
+}
+
+function clampBoxAnnotation(box) {
+  const width = Math.max(1.5, Math.abs(box.w));
+  const height = Math.max(1.5, Math.abs(box.h));
+  const x = clamp(box.x, F.XMIN, F.XMAX - width);
+  const y = clamp(box.y, F.YMIN, F.YMAX - height);
+  box.x = x;
+  box.y = y;
+  box.w = Math.min(width, F.XMAX - x);
+  box.h = Math.min(height, F.YMAX - y);
+  return box;
+}
+
 function drawNoteAnnotation(note, selected = false) {
   const p = toC(note.x, note.y);
   const box = noteMetrics(note);
@@ -1342,10 +1434,53 @@ function drawZoneAnnotation(zone, selected = false, preview = false) {
   }
 }
 
+function drawBoxAnnotation(box, selected = false, preview = false) {
+  const bounds = boxAnnotationBounds(box);
+  const topLeft = toC(bounds.left, bounds.top);
+  const bottomRight = toC(bounds.right, bounds.bottom);
+  const width = bottomRight.x - topLeft.x;
+  const height = bottomRight.y - topLeft.y;
+
+  ctx.save();
+  ctx.fillStyle = preview ? 'rgba(217,180,108,0.09)' : 'rgba(217,180,108,0.13)';
+  ctx.strokeStyle = selected ? '#fbbf24' : (box.color || annotationColor('box'));
+  ctx.lineWidth = selected ? 2.4 : 2;
+  roundRect(ctx, topLeft.x, topLeft.y, width, height, 14);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  if (selected) {
+    const corners = boxAnnotationCorners(box);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(251,191,36,0.24)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 5]);
+    roundRect(ctx, topLeft.x - 4, topLeft.y - 4, width + 8, height + 8, 16);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    Object.values(corners).forEach(corner => {
+      const handle = toC(corner.x, corner.y);
+      ctx.save();
+      ctx.fillStyle = '#fbbf24';
+      ctx.strokeStyle = '#0b1420';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(handle.x, handle.y, 6.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+}
+
 function renderAnnotations(layer, annotations = S.annotations) {
   annotations.forEach(annotation => {
     const selected = annotations === S.annotations && selectedAnnotationId() === annotation.id;
     if (layer === 'zones' && annotation.type === 'zone') drawZoneAnnotation(annotation, selected);
+    if (layer === 'zones' && annotation.type === 'box') drawBoxAnnotation(annotation, selected);
     if (layer === 'lines' && annotation.type === 'arrow') drawArrowAnnotation(annotation, selected);
     if (layer === 'notes' && annotation.type === 'note') drawNoteAnnotation(annotation, selected);
   });
@@ -1358,6 +1493,9 @@ function renderAnnotationDraft() {
   }
   if (S.annotationDraft.type === 'zone' && Number.isFinite(S.annotationDraft.r)) {
     drawZoneAnnotation(S.annotationDraft, false, true);
+  }
+  if (S.annotationDraft.type === 'box' && Number.isFinite(S.annotationDraft.w) && Number.isFinite(S.annotationDraft.h)) {
+    drawBoxAnnotation(S.annotationDraft, false, true);
   }
 }
 
@@ -1491,6 +1629,20 @@ function hitAnnotation(fp) {
       if (d2(fp, handle) <= 2.8) return { id: ann.id, part: 'radius' };
       if (d2(fp, center) <= ann.r + 1.1) return { id: ann.id, part: 'move' };
     }
+    if (ann.type === 'box') {
+      const bounds = boxAnnotationBounds(ann);
+      const corners = boxAnnotationCorners(ann);
+      if (d2(fp, corners.nw) <= 2.8) return { id: ann.id, part: 'nw' };
+      if (d2(fp, corners.ne) <= 2.8) return { id: ann.id, part: 'ne' };
+      if (d2(fp, corners.sw) <= 2.8) return { id: ann.id, part: 'sw' };
+      if (d2(fp, corners.se) <= 2.8) return { id: ann.id, part: 'se' };
+      if (
+        fp.x >= bounds.left - 0.8 && fp.x <= bounds.right + 0.8 &&
+        fp.y >= bounds.top - 0.8 && fp.y <= bounds.bottom + 0.8
+      ) {
+        return { id: ann.id, part: 'move' };
+      }
+    }
   }
   return null;
 }
@@ -1503,36 +1655,71 @@ function removeAnnotation(id) {
   setHint(`${MODE_LABELS[ann.type] || 'Annotation'} removed.`);
 }
 
+function beginPointerTap(pointerId, payload, point) {
+  S.pointerTap = {
+    pointerId,
+    payload,
+    startClientX: point.clientX,
+    startClientY: point.clientY,
+    moved: false,
+  };
+}
+
+function updatePointerTapMovement(point) {
+  if (!S.pointerTap) return;
+  const dx = point.clientX - S.pointerTap.startClientX;
+  const dy = point.clientY - S.pointerTap.startClientY;
+  if (Math.hypot(dx, dy) > MOBILE_TAP_TOGGLE_PX) {
+    S.pointerTap.moved = true;
+  }
+}
+
+function consumePointerTap(pointerId) {
+  if (!S.pointerTap || S.pointerTap.pointerId !== pointerId) return null;
+  const tap = S.pointerTap;
+  S.pointerTap = null;
+  return tap;
+}
+
 cv.addEventListener('pointerdown', e => {
   const fp = getF(e);
+  const clampedFieldPoint = clampFieldPoint(fp);
 
   if (S.tool === 'move') {
     const pl = hitPlayer(fp);
+    const ballHit = !pl && hitBall(fp);
     const previousSelectedPlayer = S.selected && S.selected !== '__ball__'
       ? S.players.find(p => p.id === S.selected)
       : null;
-    const annHit = !pl && !hitBall(fp) ? hitAnnotation(fp) : null;
+    const annHit = !pl && !ballHit ? hitAnnotation(fp) : null;
     if (pl) {
+      const wasSelected = S.selected === pl.id;
       snapshot();
       S.selected = pl.id;
       S.ballAssignCandidate = pl.id;
       S.dragging  = { type:'player', id:pl.id };
       S.dragOff   = { x:fp.x - pl.x, y:fp.y - pl.y };
+      beginPointerTap(e.pointerId, { type:'player', id:pl.id, wasSelected }, e);
       cv.setPointerCapture(e.pointerId);
-    } else if (hitBall(fp)) {
+    } else if (ballHit) {
+      const wasSelected = S.selected === '__ball__';
       snapshot();
       S.selected = '__ball__';
       S.ballAssignCandidate = previousSelectedPlayer ? previousSelectedPlayer.id : null;
       S.dragging  = { type:'ball' };
       S.dragOff   = { x:fp.x - S.ball.x, y:fp.y - S.ball.y };
       if (S.ballAttached) S.ballAttached = false;
+      beginPointerTap(e.pointerId, { type:'ball', wasSelected }, e);
       cv.setPointerCapture(e.pointerId);
     } else if (annHit) {
+      const wasSelected = selectedAnnotationId() === annHit.id;
       snapshot();
       S.selected = annotationSelection(annHit.id);
       S.ballAssignCandidate = null;
       const ann = findAnnotationById(annHit.id);
-      const dragOff = ann && (ann.type === 'note' || ann.type === 'zone') ? { x: fp.x - ann.x, y: fp.y - ann.y } : { x: 0, y: 0 };
+      const dragOff = ann && (ann.type === 'note' || ann.type === 'zone' || ann.type === 'box')
+        ? { x: fp.x - ann.x, y: fp.y - ann.y }
+        : { x: 0, y: 0 };
       S.dragging = {
         type:'annotation',
         id:annHit.id,
@@ -1541,10 +1728,12 @@ cv.addEventListener('pointerdown', e => {
         dragOff,
         startSnapshot: ann ? cloneData(ann) : null,
       };
+      beginPointerTap(e.pointerId, { type:'annotation', id:annHit.id, wasSelected }, e);
       cv.setPointerCapture(e.pointerId);
     } else {
       S.selected = null;
       S.ballAssignCandidate = null;
+      S.pointerTap = null;
     }
     refreshInteractionUI(); render();
   }
@@ -1594,16 +1783,44 @@ cv.addEventListener('pointerdown', e => {
   }
 
   else if (S.tool === 'zone') {
+    if (!isInsidePitch(fp)) {
+      setHint('Start the circle highlight inside the pitch.');
+      refreshInteractionUI();
+      render();
+      return;
+    }
     S.annotationDraft = normalizeAnnotation({
       id: mkAnnotationId(),
       type: 'zone',
-      x: fp.x,
-      y: fp.y,
+      x: clampedFieldPoint.x,
+      y: clampedFieldPoint.y,
       r: 0.1,
       color: annotationColor('zone'),
     });
     cv.setPointerCapture(e.pointerId);
     setHint('Drag outward to size the highlight zone.');
+    refreshInteractionUI();
+  }
+
+  else if (S.tool === 'box') {
+    if (!isInsidePitch(fp)) {
+      setHint('Start the box highlight inside the pitch.');
+      refreshInteractionUI();
+      render();
+      return;
+    }
+    S.annotationDraft = normalizeAnnotation({
+      id: mkAnnotationId(),
+      type: 'box',
+      x: clampedFieldPoint.x,
+      y: clampedFieldPoint.y,
+      w: 1.5,
+      h: 1.5,
+      color: annotationColor('box'),
+    });
+    S.annotationDraft.anchor = { x: clampedFieldPoint.x, y: clampedFieldPoint.y };
+    cv.setPointerCapture(e.pointerId);
+    setHint('Drag outward to size the box highlight.');
     refreshInteractionUI();
   }
 
@@ -1673,6 +1890,8 @@ cv.addEventListener('pointerdown', e => {
 
 cv.addEventListener('pointermove', e => {
   const fp = getF(e);
+  const fieldPoint = clampFieldPoint(fp);
+  updatePointerTapMovement(e);
 
   // Drag
   if (S.dragging) {
@@ -1715,18 +1934,37 @@ cv.addEventListener('pointermove', e => {
           }
         } else if (ann.type === 'zone') {
           if (S.dragging.part === 'radius') {
-            ann.r = Math.max(1.5, d2(fp, { x: ann.x, y: ann.y }));
+            ann.r = Math.max(1.5, d2(fieldPoint, { x: ann.x, y: ann.y }));
           } else if (S.dragging.part === 'center') {
             const base = S.dragging.startSnapshot || ann;
-            const angle = Math.atan2(fp.y - base.y, fp.x - base.x);
-            ann.r = Math.max(1.5, d2(fp, { x: base.x, y: base.y }));
+            const angle = Math.atan2(fieldPoint.y - base.y, fieldPoint.x - base.x);
+            ann.r = Math.max(1.5, d2(fieldPoint, { x: base.x, y: base.y }));
             ann.x = base.x;
             ann.y = base.y;
             S.dragging.lastAngle = angle;
           } else {
-            ann.x = fp.x - (S.dragging.dragOff?.x || 0);
-            ann.y = fp.y - (S.dragging.dragOff?.y || 0);
+            ann.x = fieldPoint.x - (S.dragging.dragOff?.x || 0);
+            ann.y = fieldPoint.y - (S.dragging.dragOff?.y || 0);
           }
+          clampZoneAnnotation(ann);
+        } else if (ann.type === 'box') {
+          if (S.dragging.part === 'move') {
+            ann.x = fieldPoint.x - (S.dragging.dragOff?.x || 0);
+            ann.y = fieldPoint.y - (S.dragging.dragOff?.y || 0);
+          } else {
+            const base = S.dragging.startSnapshot || ann;
+            const baseBounds = boxAnnotationBounds(base);
+            let left = baseBounds.left;
+            let right = baseBounds.right;
+            let top = baseBounds.top;
+            let bottom = baseBounds.bottom;
+            if (S.dragging.part === 'nw' || S.dragging.part === 'sw') left = fieldPoint.x;
+            if (S.dragging.part === 'ne' || S.dragging.part === 'se') right = fieldPoint.x;
+            if (S.dragging.part === 'nw' || S.dragging.part === 'ne') top = fieldPoint.y;
+            if (S.dragging.part === 'sw' || S.dragging.part === 'se') bottom = fieldPoint.y;
+            setBoxFromBounds(ann, left, top, right, bottom);
+          }
+          clampBoxAnnotation(ann);
         }
       }
     }
@@ -1743,12 +1981,18 @@ cv.addEventListener('pointermove', e => {
     return;
   }
 
-  if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone')) {
+  if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box')) {
     if (S.annotationDraft.type === 'arrow') {
       S.annotationDraft.end = { x: fp.x, y: fp.y };
     }
     if (S.annotationDraft.type === 'zone') {
-      S.annotationDraft.r = Math.max(1.5, d2(fp, { x: S.annotationDraft.x, y: S.annotationDraft.y }));
+      S.annotationDraft.r = Math.max(1.5, d2(fieldPoint, { x: S.annotationDraft.x, y: S.annotationDraft.y }));
+      clampZoneAnnotation(S.annotationDraft);
+    }
+    if (S.annotationDraft.type === 'box') {
+      const start = S.annotationDraft.anchor || { x: S.annotationDraft.x, y: S.annotationDraft.y };
+      setBoxFromBounds(S.annotationDraft, start.x, start.y, fieldPoint.x, fieldPoint.y);
+      clampBoxAnnotation(S.annotationDraft);
     }
     render();
     return;
@@ -1762,7 +2006,26 @@ cv.addEventListener('pointermove', e => {
   else                          cv.style.cursor = pl ? 'pointer' : 'default';
 });
 
-function onPointerUp() {
+function onPointerUp(e) {
+  const tap = consumePointerTap(e?.pointerId);
+  if (tap && !tap.moved && S.tool === 'move') {
+    if (tap.payload.type === 'player' && tap.payload.wasSelected && S.selected === tap.payload.id) {
+      clearSelection();
+      render();
+      return;
+    }
+    if (tap.payload.type === 'ball' && tap.payload.wasSelected && S.selected === '__ball__') {
+      clearSelection();
+      render();
+      return;
+    }
+    if (tap.payload.type === 'annotation' && tap.payload.wasSelected && selectedAnnotationId() === tap.payload.id) {
+      clearSelection();
+      render();
+      return;
+    }
+  }
+
   if (S.dragging) {
     if (S.dragging.type === 'ball' || S.dragging.type === 'player') updateBallOwnerFromPosition();
     S.dragging = null;
@@ -1770,7 +2033,7 @@ function onPointerUp() {
     render();
   }
   if (S.drawing && S.tool === 'path') finishDraw();
-  if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone')) finishAnnotationDraft();
+  if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box')) finishAnnotationDraft();
 }
 cv.addEventListener('pointerup', onPointerUp);
 cv.addEventListener('pointercancel', onPointerUp);
@@ -1793,6 +2056,9 @@ function finishDraw() {
 
 function finishAnnotationDraft() {
   if (!S.annotationDraft) return;
+  if (S.annotationDraft.type === 'zone') clampZoneAnnotation(S.annotationDraft);
+  if (S.annotationDraft.type === 'box') clampBoxAnnotation(S.annotationDraft);
+  const rawDraft = cloneData(S.annotationDraft);
   const draft = normalizeAnnotation(S.annotationDraft);
   S.annotationDraft = null;
   if (!draft) {
@@ -1805,8 +2071,14 @@ function finishAnnotationDraft() {
     render();
     return;
   }
-  if (draft.type === 'zone' && draft.r < 1.5) {
+  if (draft.type === 'zone' && Number(rawDraft.r) < 1.5) {
     setHint('Zone cancelled. Drag outward to create a highlight.');
+    refreshInteractionUI();
+    render();
+    return;
+  }
+  if (draft.type === 'box' && (Math.abs(Number(rawDraft.w)) < 1.5 || Math.abs(Number(rawDraft.h)) < 1.5)) {
+    setHint('Box cancelled. Drag farther to create a highlight.');
     refreshInteractionUI();
     render();
     return;
@@ -1867,7 +2139,37 @@ function addPlayerByNum(num, team) {
   });
   used.add(num);
   completeFirstUseTutorial();
-  rebuildPalette(); setTool('move'); setHint(`${team === 'A' ? 'Attack' : 'Defence'} #${num} added. Drag to position.`); refreshInteractionUI(); render();
+  rebuildPalette();
+  setTool('move');
+  S.selected = S.players[S.players.length - 1].id;
+  S.ballAssignCandidate = S.selected;
+  setHint(`${team === 'A' ? 'Attack' : 'Defence'} #${num} added. Drag to position.`);
+  refreshInteractionUI();
+  render();
+}
+
+function togglePalettePlayer(num, team) {
+  const existing = S.players.find((player) => player.num === num && player.team === team) || null;
+
+  if (existing) {
+    if (S.selected === existing.id) {
+      clearSelection();
+      setHint(`${team === 'A' ? 'Attack' : 'Defence'} #${num} deselected.`);
+      refreshInteractionUI();
+      render();
+      return;
+    }
+
+    setTool('move');
+    S.selected = existing.id;
+    S.ballAssignCandidate = existing.id;
+    setHint(`${team === 'A' ? 'Attack' : 'Defence'} #${num} selected.`);
+    refreshInteractionUI();
+    render();
+    return;
+  }
+
+  addPlayerByNum(num, team);
 }
 
 function addNextAvailablePlayer(team) {
@@ -1928,7 +2230,10 @@ function deleteSelected() {
     snapshot();
     removeAnnotation(annId);
   }
-  else if (S.selected && S.selected !== '__ball__') removePlayer(S.selected);
+  else if (S.selected && S.selected !== '__ball__') {
+    snapshot();
+    removePlayer(S.selected);
+  }
   else if (S.selected === '__ball__') { snapshot(); S.ball=null; S.ballOwner=null; S.ballAttached=false; S.ballAssignCandidate=null; S.selected=null; applyBallOwnershipVisualState(); setHint('Ball removed from the board.'); }
   refreshInteractionUI();
   render();
@@ -2257,6 +2562,7 @@ const HINTS = {
   pass:  'PASS - click passer, then click receiver',
   kick:  'KICK - click kicker, then click target',
   erase: 'ERASE - click player, ball, or path to remove',
+  box:   'BOX - drag on the pitch to highlight a channel or area',
 };
 
 const MODE_LABELS = {
@@ -2265,14 +2571,15 @@ const MODE_LABELS = {
   pass: 'Pass',
   kick: 'Kick',
   erase: 'Erase',
+  box: 'Box Highlight',
 };
 
 HINTS.note = 'NOTE - click the pitch to place a text note';
 HINTS.arrow = 'ARROW - drag to draw a tactical arrow';
-HINTS.zone = 'ZONE - drag to place a highlight circle';
+HINTS.zone = 'CIRCLE - drag to place a highlight circle';
 MODE_LABELS.note = 'Note';
 MODE_LABELS.arrow = 'Arrow';
-MODE_LABELS.zone = 'Zone';
+MODE_LABELS.zone = 'Circle Highlight';
 
 const MOBILE_DRAWER_IDS = ['selection', 'annotations', 'notes', 'files'];
 
@@ -2375,7 +2682,7 @@ function updateMobileUI() {
   if (mobileAddAttackBtn) mobileAddAttackBtn.disabled = S.atkUsed.size >= 15;
   if (mobileAddDefenceBtn) mobileAddDefenceBtn.disabled = S.defUsed.size >= 15;
 
-  ['move', 'path', 'pass', 'kick'].forEach(tool => {
+  ['move', 'path', 'pass', 'kick', 'zone', 'box', 'erase', 'note', 'arrow'].forEach(tool => {
     const btn = document.getElementById(`mq-${tool}`);
     if (btn) btn.classList.toggle('active', S.tool === tool);
   });
@@ -2409,7 +2716,10 @@ function getSelectedSummary() {
       return { title: 'Free Arrow', meta: 'Drag the line or either endpoint in Move to refine the arrow.' };
     }
     if (ann.type === 'zone') {
-      return { title: 'Zone Highlight', meta: 'Drag the circle to move it or drag the outer handle to resize it.' };
+      return { title: 'Circle Highlight', meta: 'Drag the circle to move it or drag the outer handle to resize it.' };
+    }
+    if (ann.type === 'box') {
+      return { title: 'Box Highlight', meta: 'Drag inside the box to move it or drag any corner handle to resize it.' };
     }
   }
   if (S.selected) {
@@ -2511,9 +2821,15 @@ function updateAnnotationPanel() {
   } else if (S.tool === 'arrow') {
     copy.textContent = 'Drag on the field to draw a free tactical arrow.';
   } else if (S.tool === 'zone') {
-    copy.textContent = 'Drag on the field to size a highlight circle.';
+    copy.textContent = 'Drag on the field to size a circle highlight for space, support, or defensive gaps.';
+  } else if (S.tool === 'box') {
+    copy.textContent = 'Drag on the field to size a box highlight for channels, pressure areas, or field zones.';
+  } else if (S.tool === 'kick') {
+    copy.textContent = 'Secondary tool: click the kicker, then the target.';
+  } else if (S.tool === 'erase') {
+    copy.textContent = 'Secondary tool: remove players, the ball, paths, passes, or highlights.';
   } else {
-    copy.textContent = 'Choose an annotation tool, then click or drag on the field.';
+    copy.textContent = 'Choose a highlight or secondary tool, then click or drag on the field.';
   }
 }
 
@@ -2596,14 +2912,10 @@ function refreshInteractionUI() {
 function setTool(t) {
   S.tool = t;
   if (t !== 'path')          S.drawing = null;
-  if (t !== 'arrow' && t !== 'zone') S.annotationDraft = null;
+  if (t !== 'arrow' && t !== 'zone' && t !== 'box') S.annotationDraft = null;
   if (t !== 'pass' && t !== 'kick') { S.passFrom=null; S.selected=null; }
-  document.querySelectorAll('.t-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.ann-tool-btn').forEach(b => b.classList.remove('active'));
-  const el = document.getElementById('t-' + t);
-  if (el) el.classList.add('active');
-  const annEl = document.getElementById('t-' + t);
-  if (annEl && annEl.classList.contains('ann-tool-btn')) annEl.classList.add('active');
+  document.querySelectorAll('[data-tool]').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll(`[data-tool="${t}"]`).forEach(b => b.classList.add('active'));
   cv.style.cursor = t === 'move' ? 'default' : 'crosshair';
   setHint(HINTS[t] || '');
   updateAnnotationPanel();
@@ -2616,6 +2928,8 @@ function clearPaths()  { snapshot(); S.paths=[]; S.passes=[]; S.drawing=null; se
 function clearSelection() {
   S.selected = null;
   S.ballAssignCandidate = null;
+  S.pointerTap = null;
+  S.dragging = null;
   S.passFrom = null;
   S.drawing = null;
   S.annotationDraft = null;
@@ -2623,6 +2937,44 @@ function clearSelection() {
   updateAnnotationPanel();
   refreshInteractionUI();
   render();
+}
+
+function cancelActiveBoardInteraction() {
+  closeMobileToolsDropdown();
+  if (S.annotationDraft) {
+    S.annotationDraft = null;
+    S.dragging = null;
+    S.pointerTap = null;
+    setHint(`${MODE_LABELS[S.tool] || 'Tool'} cancelled.`);
+    updateAnnotationPanel();
+    refreshInteractionUI();
+    render();
+    return true;
+  }
+  if (S.drawing) {
+    S.drawing = null;
+    S.dragging = null;
+    S.pointerTap = null;
+    setHint('Run path cancelled.');
+    refreshInteractionUI();
+    render();
+    return true;
+  }
+  if (S.passFrom) {
+    S.passFrom = null;
+    S.selected = null;
+    S.pointerTap = null;
+    setHint(`${MODE_LABELS[S.tool] || 'Tool'} cancelled.`);
+    refreshInteractionUI();
+    render();
+    return true;
+  }
+  if (S.selected) {
+    clearSelection();
+    return true;
+  }
+  closeMobileToolsDropdown();
+  return false;
 }
 function clearAll() {
   snapshot();
@@ -2686,7 +3038,7 @@ function updateSelInfo() {
     else if (ann) deleteBtn.textContent = `Remove ${MODE_LABELS[ann.type] || 'Item'}`;
     else if (S.selected) {
       const pl = S.players.find(p => p.id === S.selected);
-      deleteBtn.textContent = pl ? `Remove ${pl.team==='A'?'Attack':'Defence'} #${pl.num}` : 'Remove Player';
+      deleteBtn.textContent = pl ? 'Remove from Field' : 'Remove Player';
     } else {
       deleteBtn.textContent = 'Remove Player';
     }
@@ -2712,13 +3064,16 @@ function rebuildPalette() {
   const team = palTab === 'atk' ? 'A' : 'D';
   const used  = palTab === 'atk' ? S.atkUsed : S.defUsed;
   for (let n=1; n<=15; n++) {
+    const existing = S.players.find((player) => player.num === n && player.team === team) || null;
+    const isSelected = !!existing && S.selected === existing.id;
     const btn = document.createElement('button');
-    btn.className = `pal-btn ${palTab}${used.has(n)?' on':''}`;
+    btn.className = `pal-btn ${palTab}${used.has(n)?' on':''}${isSelected ? ' active' : ''}`;
     btn.textContent = n;
     btn.title = used.has(n)
-      ? `${team==='A'?'Attack':'Defence'} #${n} is already on the board`
+      ? `${isSelected ? 'Deselect' : 'Select'} ${team==='A'?'Attack':'Defence'} #${n}`
       : `Add ${team==='A'?'Attack':'Defence'} #${n}`;
-    if (!used.has(n)) btn.onclick = () => addPlayerByNum(n, team);
+    btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+    btn.onclick = () => togglePalettePlayer(n, team);
     grid.appendChild(btn);
   }
   updatePaletteSummary();
@@ -2904,14 +3259,19 @@ function importPlayFromFile(file) {
 document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   const k = e.key.toLowerCase();
-  const map = {v:'move',r:'path',p:'pass',k:'kick',e:'erase'};
+  const map = {v:'move',r:'path',p:'pass',k:'kick',e:'erase',c:'zone',b:'box'};
   if (map[k])           { setTool(map[k]); return; }
   if (k===' ')          { e.preventDefault(); togglePlay(); return; }
   if (k === 'arrowleft') { e.preventDefault(); prevStep(); return; }
   if (k === 'arrowright') { e.preventDefault(); nextStep(); return; }
-  if (k==='escape')     { closeMobileToolsDropdown(); S.passFrom=null;S.drawing=null;S.annotationDraft=null;S.selected=null; setHint(HINTS[S.tool] || ''); updateAnnotationPanel(); refreshInteractionUI(); render(); }
+  if (k==='escape')     { e.preventDefault(); cancelActiveBoardInteraction(); return; }
   if (k==='z'&&(e.ctrlKey||e.metaKey)) { e.preventDefault(); undo(); }
-  if (k==='delete'||k==='backspace') { if(S.selected){e.preventDefault();deleteSelected();} }
+  if (k==='delete'||k==='backspace') {
+    if (S.selected || selectedAnnotationId()) {
+      e.preventDefault();
+      deleteSelected();
+    }
+  }
 });
 
 let trackDrag = false;

@@ -120,6 +120,13 @@
 
   let cur = 1;
   const total = document.querySelectorAll(".slide").length;
+  const MOBILE_BREAKPOINT = 768;
+  const MOBILE_ENVIRONMENT_LABEL = "Donau";
+  let mobileWorkspaceMenuOpen = false;
+
+  function isMobileViewport() {
+    return window.innerWidth <= MOBILE_BREAKPOINT;
+  }
 
   function openFieldLightbox(src, alt) {
     const lb = document.getElementById("fieldLightbox");
@@ -342,6 +349,168 @@
     });
   }
 
+  function buildMobileAppChrome() {
+    if (document.querySelector(".mobile-app-header")) {
+      return;
+    }
+
+    const drawerItems = workspaceSections
+      .map(
+        (section) => `
+          <button class="mobile-drawer-item" type="button" data-slide="${section.slide}">
+            <span class="mobile-drawer-item-num">${String(section.slide).padStart(2, "0")}</span>
+            <span class="mobile-drawer-item-copy">
+              <span class="mobile-drawer-item-short">${section.shortLabel}</span>
+              <span class="mobile-drawer-item-title">${section.title}</span>
+            </span>
+          </button>
+        `,
+      )
+      .join("");
+
+    const header = document.createElement("div");
+    header.className = "mobile-app-header";
+    header.innerHTML = `
+      <a class="mobile-app-portal-btn" href="../../index.html" aria-label="Back to portal">&#9664;</a>
+      <div class="mobile-app-meta">
+        <span class="mobile-app-environment">${MOBILE_ENVIRONMENT_LABEL}</span>
+        <span class="mobile-app-section">Intro</span>
+      </div>
+      <button class="mobile-app-menu-btn" type="button" aria-expanded="false" aria-controls="mobileModuleDrawer" aria-label="Open module menu">Menu</button>
+    `;
+
+    const drawer = document.createElement("div");
+    drawer.className = "mobile-module-drawer";
+    drawer.id = "mobileModuleDrawer";
+    drawer.setAttribute("aria-hidden", "true");
+    drawer.innerHTML = `
+      <div class="mobile-module-drawer-backdrop" data-close-drawer="true"></div>
+      <div class="mobile-module-drawer-sheet" role="dialog" aria-modal="true" aria-label="Module navigation">
+        <div class="mobile-drawer-head">
+          <div>
+            <div class="mobile-drawer-kicker">Donau</div>
+            <div class="mobile-drawer-title">Modules</div>
+          </div>
+          <button class="mobile-drawer-close" type="button" aria-label="Close module menu">&times;</button>
+        </div>
+        <div class="mobile-drawer-list">${drawerItems}</div>
+      </div>
+    `;
+
+    const bottomNav = document.createElement("div");
+    bottomNav.className = "mobile-bottom-nav";
+    bottomNav.innerHTML = `
+      <button class="mobile-bottom-nav-btn" type="button" data-mobile-nav="home">Home</button>
+      <button class="mobile-bottom-nav-btn mobile-bottom-modules" type="button" data-mobile-nav="modules" aria-expanded="false">Modules</button>
+      <a class="mobile-bottom-nav-btn" data-mobile-nav="board" href="../../environments/animator/index.html">Tactical Board</a>
+      <button class="mobile-bottom-nav-btn" type="button" data-mobile-nav="playbook">Playbook</button>
+    `;
+
+    document.body.appendChild(header);
+    document.body.appendChild(drawer);
+    document.body.appendChild(bottomNav);
+
+    header.querySelector(".mobile-app-menu-btn").addEventListener("click", () => toggleMobileWorkspaceMenu());
+    drawer.querySelector(".mobile-drawer-close").addEventListener("click", () => setMobileWorkspaceMenu(false));
+    drawer.querySelector(".mobile-module-drawer-backdrop").addEventListener("click", () => setMobileWorkspaceMenu(false));
+    drawer.querySelectorAll(".mobile-drawer-item").forEach((item) => {
+      item.addEventListener("click", () => goTo(Number(item.dataset.slide)));
+    });
+
+    bottomNav.querySelector('[data-mobile-nav="home"]').addEventListener("click", () => goTo(1));
+    bottomNav.querySelector('[data-mobile-nav="modules"]').addEventListener("click", () => toggleMobileWorkspaceMenu());
+    bottomNav.querySelector('[data-mobile-nav="playbook"]').addEventListener("click", () => goTo(6));
+  }
+
+  function buildMobileWorkspaceBar() {
+    document.querySelectorAll(".slide").forEach((slide) => {
+      if (slide.querySelector(".mobile-workspace-bar")) {
+        return;
+      }
+
+      const bar = document.createElement("div");
+      bar.className = "mobile-workspace-bar";
+      bar.innerHTML = `
+        <button class="mobile-workspace-toggle" type="button" aria-expanded="false" aria-label="Open section menu">
+          <span class="mobile-workspace-toggle-label">Menu</span>
+        </button>
+        <div class="mobile-workspace-meta">
+          <span class="mobile-workspace-environment">${MOBILE_ENVIRONMENT_LABEL}</span>
+          <span class="mobile-workspace-section">Performance / Intro</span>
+        </div>
+      `;
+
+      const toggle = bar.querySelector(".mobile-workspace-toggle");
+      toggle.addEventListener("click", () => toggleMobileWorkspaceMenu());
+      slide.querySelector(".topbar").insertAdjacentElement("afterend", bar);
+    });
+  }
+
+  function syncMobileWorkspaceOffset() {
+    if (!isMobileViewport()) {
+      document.body.classList.remove("mobile-workspace-menu-open");
+      document.documentElement.style.removeProperty("--mobile-workspace-offset");
+      return;
+    }
+
+    const appHeader = document.querySelector(".mobile-app-header");
+    const offset = appHeader?.offsetHeight || 56;
+    document.documentElement.style.setProperty("--mobile-workspace-offset", `${offset}px`);
+  }
+
+  function setMobileWorkspaceMenu(open) {
+    mobileWorkspaceMenuOpen = Boolean(open) && isMobileViewport();
+    document.body.classList.toggle("mobile-workspace-menu-open", mobileWorkspaceMenuOpen);
+    const drawer = document.getElementById("mobileModuleDrawer");
+    if (drawer) {
+      drawer.setAttribute("aria-hidden", mobileWorkspaceMenuOpen ? "false" : "true");
+    }
+
+    document.querySelectorAll(".mobile-workspace-toggle, .mobile-app-menu-btn, .mobile-bottom-modules").forEach((toggle) => {
+      toggle.setAttribute("aria-expanded", mobileWorkspaceMenuOpen ? "true" : "false");
+      toggle.setAttribute("aria-label", mobileWorkspaceMenuOpen ? "Close section menu" : "Open section menu");
+      const label = toggle.querySelector(".mobile-workspace-toggle-label");
+      if (label) {
+        label.textContent = mobileWorkspaceMenuOpen ? "Close" : "Menu";
+      }
+      if (toggle.classList.contains("mobile-app-menu-btn")) {
+        toggle.textContent = mobileWorkspaceMenuOpen ? "Close" : "Menu";
+      }
+      if (toggle.classList.contains("mobile-bottom-modules")) {
+        toggle.textContent = mobileWorkspaceMenuOpen ? "Close" : "Modules";
+      }
+    });
+  }
+
+  function toggleMobileWorkspaceMenu(force) {
+    const nextState = typeof force === "boolean" ? force : !mobileWorkspaceMenuOpen;
+    setMobileWorkspaceMenu(nextState);
+  }
+
+  function getMobileScrollTarget(slide) {
+    return (
+      slide.querySelector(".attack-main") ||
+      slide.querySelector(".module-main") ||
+      slide.querySelector(".chat-area") ||
+      slide.querySelector(".lineout-left") ||
+      slide.querySelector(".def-left") ||
+      slide.querySelector(".sl-header") ||
+      slide
+    );
+  }
+
+  function scrollActiveSlideIntoView(behavior = "smooth") {
+    if (!isMobileViewport()) {
+      return;
+    }
+
+    const slide = document.getElementById(`s${cur}`);
+    const target = getMobileScrollTarget(slide);
+    const offset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--mobile-workspace-offset")) || 0;
+    const top = target.getBoundingClientRect().top + window.scrollY - offset - 8;
+    window.scrollTo({ top: Math.max(0, top), behavior });
+  }
+
   function updateWorkspaceMap() {
     const currentSection = workspaceSections.find((section) => section.slide === cur);
 
@@ -361,6 +530,45 @@
         value.textContent = `${currentSection.group} / ${currentSection.title}`;
       }
     });
+
+    document.querySelectorAll(".mobile-workspace-meta").forEach((meta) => {
+      const environment = meta.querySelector(".mobile-workspace-environment");
+      const section = meta.querySelector(".mobile-workspace-section");
+      if (environment && currentSection) {
+        environment.textContent = `${MOBILE_ENVIRONMENT_LABEL} / ${currentSection.group}`;
+      }
+      if (section && currentSection) {
+        section.textContent = currentSection.title;
+      }
+    });
+
+    document.querySelectorAll(".mobile-app-meta").forEach((meta) => {
+      const environment = meta.querySelector(".mobile-app-environment");
+      const section = meta.querySelector(".mobile-app-section");
+      if (environment) {
+        environment.textContent = MOBILE_ENVIRONMENT_LABEL;
+      }
+      if (section && currentSection) {
+        section.textContent = currentSection.title;
+      }
+    });
+
+    document.querySelectorAll(".mobile-drawer-item").forEach((item) => {
+      const isActive = Number(item.dataset.slide) === cur;
+      item.classList.toggle("active", isActive);
+      item.setAttribute("aria-current", isActive ? "page" : "false");
+    });
+
+    document.querySelectorAll(".mobile-bottom-nav-btn").forEach((item) => {
+      const navType = item.dataset.mobileNav;
+      const isActive =
+        (navType === "home" && cur === 1) ||
+        (navType === "playbook" && cur === 6) ||
+        (navType === "modules" && cur >= 2 && cur <= total);
+      item.classList.toggle("active", isActive && navType !== "board");
+    });
+
+    syncMobileWorkspaceOffset();
   }
 
   function syncSlideNumbers() {
@@ -412,11 +620,18 @@
       return;
     }
 
+    setMobileWorkspaceMenu(false);
     document.getElementById(`s${cur}`).classList.remove("active");
     cur = n;
     document.getElementById(`s${cur}`).classList.add("active");
     updateNav();
-    if (window.innerWidth <= 768) window.scrollTo({ top: 0, behavior: 'instant' });
+
+    if (isMobileViewport()) {
+      requestAnimationFrame(() => {
+        syncMobileWorkspaceOffset();
+        requestAnimationFrame(() => scrollActiveSlideIntoView());
+      });
+    }
   }
 
   function renderAttackCategory(cat, btn) {
@@ -1022,6 +1237,15 @@
     });
 
     document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && mobileWorkspaceMenuOpen) {
+        setMobileWorkspaceMenu(false);
+        return;
+      }
+
+      if (mobileWorkspaceMenuOpen) {
+        return;
+      }
+
       if (event.key === "ArrowRight" || event.key === "ArrowDown") {
         changeSlide(1);
       } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
@@ -1047,11 +1271,43 @@
       sx = null;
     });
 
+    document.addEventListener("click", (event) => {
+      if (!mobileWorkspaceMenuOpen || !isMobileViewport()) {
+        return;
+      }
+
+      const activeSlide = document.getElementById(`s${cur}`);
+      const map = activeSlide?.querySelector(".workspace-map");
+      const bar = activeSlide?.querySelector(".mobile-workspace-bar");
+      const appHeader = document.querySelector(".mobile-app-header");
+      const drawer = document.querySelector(".mobile-module-drawer-sheet");
+      const bottomNav = document.querySelector(".mobile-bottom-nav");
+      if (
+        map?.contains(event.target) ||
+        bar?.contains(event.target) ||
+        appHeader?.contains(event.target) ||
+        drawer?.contains(event.target) ||
+        bottomNav?.contains(event.target)
+      ) {
+        return;
+      }
+
+      setMobileWorkspaceMenu(false);
+    });
+
+    window.addEventListener("resize", () => {
+      if (!isMobileViewport()) {
+        setMobileWorkspaceMenu(false);
+      }
+      syncMobileWorkspaceOffset();
+    });
+
     buildDots();
     buildTopbarLogos();
     buildWorkspaceMap();
     buildPortalReturnLinks();
     buildWorkspaceShellStatus();
+    buildMobileAppChrome();
     syncSlideNumbers();
     updateNav();
     buildLoCalls();

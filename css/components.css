@@ -717,12 +717,14 @@
     grid-template-columns: 1fr;
     background: none;
     gap: 0;
+    width: 100%;
   }
 
   .development-main,
   .development-side,
   .module-main,
   .module-side {
+    box-sizing: border-box;
     overflow: visible;
     height: auto;
     padding: 14px 16px;
@@ -732,16 +734,28 @@
   .module-grid {
     grid-template-columns: 1fr;
     gap: 10px;
+    width: 100%;
   }
 
   .module-card {
+    box-sizing: border-box;
     width: 100%;
-    min-height: 80px;
+    min-height: 96px;
     transform: none !important;
     transition: border-color 0.18s ease, background 0.18s ease;
   }
 
   .module-card:hover {
     transform: none;
+  }
+
+  .module-status-row,
+  .module-related-link,
+  .module-sidebar-item,
+  .module-panel,
+  .module-summary,
+  .module-overview {
+    box-sizing: border-box;
+    width: 100%;
   }
 }
