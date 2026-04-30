@@ -3,189 +3,385 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Coach Mato Platform</title>
+  <title>RDA Playbook | Rugby Development Academy</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/platform.css">
+  <link rel="stylesheet" href="css/homepage-rda.css">
 </head>
-<body class="platform-page">
-  <header class="platform-topbar">
-    <div class="platform-brand">
-      <div class="platform-brand-mark">
-        <img src="assets/donau/branding/rugby-logo.png" alt="Coach Mato platform mark">
-      </div>
-      <div class="platform-brand-copy">
-        <div class="platform-kicker">Performance Platform</div>
-        <div class="platform-kicker">coachmato.com foundation</div>
-      </div>
-    </div>
-    <div class="platform-status">
-      <strong>Platform live:</strong>
-      Donau is the primary environment, and the tactical board is now integrated as a dedicated workspace.
-    </div>
+<body class="platform-page homepage-rda">
+  <header class="platform-topbar homepage-topbar">
+    <a class="homepage-brand homepage-brand-secondary" href="index.html" aria-label="RDA home">
+      <img class="homepage-brand-icon-image" src="assets/donau/images/LogoRDA3.png" alt="" aria-hidden="true">
+      <span class="homepage-brand-copy">
+        <span class="homepage-brand-wordmark">RDA</span>
+      </span>
+    </a>
+    <nav class="homepage-nav" aria-label="Primary">
+      <a href="#product">Product</a>
+      <a href="#environments">Environments</a>
+      <a href="#about">About</a>
+      <a href="#contact">Contact</a>
+    </nav>
   </header>
 
   <main class="platform-shell">
-    <section class="hero-grid">
-      <article class="hero-panel">
-        <div class="portal-badge">High performance coaching environments</div>
-        <h1 class="platform-name">Coach Mato <span>Platform</span></h1>
+    <section class="homepage-hero">
+      <article class="homepage-hero-copy">
+        <div class="portal-badge">Premium Rugby Coaching Platform</div>
+        <h1 class="platform-name">RDA</h1>
+        <div class="platform-kicker">Rugby Development Academy</div>
         <p class="platform-lead">
-          A single platform for team game models, program standards, and coach development.
-          Donau Rugby is fully operational today, while the next environments are prepared with the same design language and scalable structure.
+          The coaching platform built for rugby environments that want to develop, perform, and succeed.
         </p>
-
-        <div class="hero-metrics">
-          <div class="hero-metric">
-            <div class="metric-value">04</div>
-            <div class="metric-label">Environment lanes prepared for club, national, school, and education use.</div>
-          </div>
-          <div class="hero-metric">
-            <div class="metric-value">01</div>
-            <div class="metric-label">Fully working environment already active with modular CSS, JS, and data.</div>
-          </div>
-          <div class="hero-metric">
-            <div class="metric-value">100%</div>
-            <div class="metric-label">Donau playbook preserved without redesigning the environment itself.</div>
-          </div>
+        <div class="homepage-actions">
+          <a class="platform-action homepage-primary-action" href="#product">
+            Explore the Platform
+            <span>&#9654;</span>
+          </a>
+          <a class="platform-action homepage-secondary-action" href="#request-access" data-open-request-modal>
+            Request Access / Book Demo
+            <span>&#9654;</span>
+          </a>
         </div>
-
-        <a class="platform-action" href="environments/donau/index.html">
-          Enter Donau Environment
-          <span>&#9654;</span>
-        </a>
+        <div class="homepage-status-line">RDA brand &middot; Tactical Board product &middot; Environments built for coaching performance.</div>
       </article>
 
-      <aside class="hero-side">
-        <section class="platform-feature">
-          <h2 class="feature-title">Platform Direction</h2>
-          <p class="feature-copy">
-            Build once, then scale by environment. Shared interaction patterns, shared brand system, and environment-specific rugby content.
-          </p>
-        </section>
-        <section class="platform-feature">
-          <h2 class="feature-title">Current Standard</h2>
-          <p class="feature-copy">
-            The Donau environment remains the benchmark for layout, navigation, overlays, diagrams, and the coaching-document experience.
-          </p>
-        </section>
-        <section class="platform-feature">
-          <h2 class="feature-title">Next Expansion</h2>
-          <p class="feature-copy">
-            Austria Youth, VIS Rugby, and Coach Education now have dedicated environment paths ready for content build-out.
-          </p>
-        </section>
+      <aside class="homepage-hero-mark">
+        <div class="homepage-mark-panel" aria-hidden="true">
+          <img class="homepage-hero-watermark" src="assets/donau/images/LogoRDA3.png" alt="">
+        </div>
       </aside>
     </section>
 
-    <section class="portal-section">
+    <section class="homepage-toolspotlight" id="product">
       <div class="section-heading">
         <div>
-          <div class="platform-kicker">Environments</div>
-          <h2 class="section-title">Choose Your Workspace</h2>
+          <div class="platform-kicker">Core Product</div>
+          <h2 class="section-title">Tactical Board</h2>
         </div>
         <p class="section-copy">
-          The portal now acts as the parent layer of the platform. Each environment can grow independently while keeping a shared product feel.
+          The main RDA tool for building, presenting, and communicating tactical detail across environments.
         </p>
       </div>
 
-      <div class="card-grid">
-        <a class="platform-card featured" href="environments/donau/index.html">
-          <div class="card-label">Environment 01</div>
+      <div class="homepage-toolspotlight-layout">
+        <article class="homepage-toolspotlight-main">
+          <div class="card-label">Core Product</div>
+          <h3>Design rugby scenarios with a platform-first workflow.</h3>
+          <p>The main RDA tool for building, presenting, and communicating tactical rugby systems.</p>
+          <div class="homepage-toolspotlight-actions">
+            <a class="platform-action homepage-primary-action" href="#request-access" data-open-request-modal>
+              Request Access
+              <span>&#9654;</span>
+            </a>
+          </div>
+        </article>
+        <article class="homepage-toolspotlight-side" id="about">
+          <div class="platform-kicker">Platform Position</div>
+          <p>RDA Playbook is the wider platform layer. Tactical Board is the core product inside it, while environments and coaching structures sit underneath the RDA brand.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="portal-section homepage-environments" id="environments">
+      <div class="section-heading">
+        <div>
+          <div class="platform-kicker">Environments</div>
+          <h2 class="section-title">Where RDA Is Used</h2>
+        </div>
+        <p class="section-copy">
+          RDA is structured to support club, pathway, education, and school rugby environments through one scalable coaching platform.
+        </p>
+      </div>
+
+      <div class="homepage-environment-grid">
+        <a class="platform-card homepage-environment-card homepage-environment-card-featured" href="environments/donau/index.html">
+          <div class="card-label">Club Environment</div>
           <h3 class="card-title">Donau Rugby</h3>
-          <p class="card-subtitle">Live playbook environment for standards, attack system, lineout, defence, and AI-assisted playbook access.</p>
-          <div class="card-body">
-            <div class="card-point">Fully working Donau game plan preserved from Phase 1.</div>
-            <div class="card-point">Modular CSS, JS, and data structure already in place.</div>
-            <div class="card-point">Best current reference for the platform visual language.</div>
-          </div>
+          <p class="card-subtitle">An active environment using RDA for game model access, calls, and coaching delivery.</p>
           <div class="card-footer">
-            <div class="environment-state">Active environment</div>
-            <div class="portal-link">Open workspace <span>&#9654;</span></div>
+            <div class="environment-state">Active</div>
+            <div class="portal-link">View example <span>&#9654;</span></div>
           </div>
         </a>
 
-        <a class="platform-card cardU18" href="environments/austria-u18/index.html">
-          <div class="card-label">Environment 02</div>
-          <h3 class="card-title">AUSTRIA YOUTH</h3>
-          <p class="card-subtitle">National-team environment prepared for future campaign standards, program language, and age-grade structure.</p>
-          <div class="card-body">
-            <div class="card-point">Dedicated environment path created.</div>
-            <div class="card-point">Premium placeholder page ready for future content.</div>
-            <div class="card-point">Shared platform shell already aligned.</div>
-          </div>
+        <a class="platform-card homepage-environment-card homepage-environment-card-youth" href="environments/austria-u18/index.html">
+          <div class="card-label">Pathway Environment</div>
+          <h3 class="card-title">Austria Youth</h3>
+          <p class="card-subtitle">A pathway environment built for shared standards, national development language, and future rollout.</p>
           <div class="card-footer">
-            <div class="environment-state">Coming soon</div>
-            <div class="portal-link">View placeholder <span>&#9654;</span></div>
+            <div class="environment-state">Coming Soon</div>
+            <div class="portal-link">View example <span>&#9654;</span></div>
           </div>
         </a>
 
-        <a class="platform-card" href="environments/vis/index.html">
-          <div class="card-label">Environment 03</div>
-          <h3 class="card-title">VIS Rugby</h3>
-          <p class="card-subtitle">School-performance environment prepared for program principles, player development lanes, and team identity.</p>
-          <div class="card-body">
-            <div class="card-point">Placeholder environment created at its final path.</div>
-            <div class="card-point">Shared platform styling preserved for consistency.</div>
-            <div class="card-point">Ready to evolve without impacting Donau.</div>
-          </div>
-          <div class="card-footer">
-            <div class="environment-state">Coming soon</div>
-            <div class="portal-link">View placeholder <span>&#9654;</span></div>
-          </div>
-        </a>
-
-        <a class="platform-card" href="environments/coach-education/index.html">
-          <div class="card-label">Environment 04</div>
+        <a class="platform-card homepage-environment-card homepage-environment-card-coach" href="environments/coach-education/index.html">
+          <div class="card-label">Education Layer</div>
           <h3 class="card-title">Coach Education</h3>
-          <p class="card-subtitle">Professional learning environment for methodology, course modules, and shared coaching resources.</p>
-          <div class="card-body">
-            <div class="card-point">Structured as an environment, not a disconnected page.</div>
-            <div class="card-point">Ready for resources, modules, and curriculum build-out.</div>
-            <div class="card-point">Designed to sit alongside team environments cleanly.</div>
-          </div>
+          <p class="card-subtitle">A future environment for methodology, learning modules, and shared coaching resources.</p>
           <div class="card-footer">
-            <div class="environment-state">Coming soon</div>
-            <div class="portal-link">View placeholder <span>&#9654;</span></div>
+            <div class="environment-state">Coming Soon</div>
+            <div class="portal-link">View example <span>&#9654;</span></div>
+          </div>
+        </a>
+
+        <a class="platform-card homepage-environment-card homepage-environment-card-quiet" href="environments/vis/index.html">
+          <div class="card-label">School Environment</div>
+          <h3 class="card-title">VIS Rugby</h3>
+          <p class="card-subtitle">A school rugby environment designed for future player development and team identity work.</p>
+          <div class="card-footer">
+            <div class="environment-state">Coming Soon</div>
+            <div class="portal-link">View example <span>&#9654;</span></div>
           </div>
         </a>
       </div>
     </section>
 
-    <section class="portal-section">
+    <section class="homepage-toolspotlight" id="contact">
       <div class="section-heading">
         <div>
-          <div class="platform-kicker">Tools</div>
-          <h2 class="section-title">Build And Animate</h2>
+          <div class="platform-kicker">Bring RDA In</div>
+          <h2 class="section-title">Bring RDA Into Your Environment</h2>
         </div>
         <p class="section-copy">
-          Platform tools sit alongside the environments, but keep their own focused workspace when coaches need to build and animate tactical detail.
+          Work with RDA to build your coaching structure, game model, and tactical system.
         </p>
       </div>
 
-      <div class="card-grid">
-        <a class="platform-card featured" href="environments/animator/index.html">
-          <div class="card-label">Workspace Tool</div>
-          <h3 class="card-title">Tactical Board</h3>
-          <p class="card-subtitle">Full-field rugby animator for player placement, run lines, pass and kick paths, and timeline-based play animation.</p>
-          <div class="card-body">
-            <div class="card-point">Integrated into the platform at its own environment-style route.</div>
-            <div class="card-point">Current board logic preserved while the platform structure becomes cleaner.</div>
-            <div class="card-point">Ready for later UX polish, save/load, and Donau-linked play workflows.</div>
+      <div class="homepage-toolspotlight-layout">
+        <article class="homepage-toolspotlight-main">
+          <div class="card-label">Get Started</div>
+          <h3>Build a scalable rugby coaching system.</h3>
+          <p>RDA combines product tools, environment structure, and coaching frameworks into one platform that can support clubs, pathways, and education programs.</p>
+          <div class="homepage-toolspotlight-actions">
+            <a class="platform-action homepage-primary-action" href="#request-access" data-open-request-modal>
+              Request Access
+              <span>&#9654;</span>
+            </a>
           </div>
-          <div class="card-footer">
-            <div class="environment-state">Live workspace</div>
-            <div class="portal-link">Open tactical board <span>&#9654;</span></div>
-          </div>
-        </a>
+        </article>
+        <article class="homepage-toolspotlight-side">
+          <div class="platform-kicker">Contact</div>
+          <p>Email: contact@rda.example</p>
+        </article>
       </div>
     </section>
   </main>
 
   <footer class="platform-footer">
-    <div>coachmato.com is now structured as a platform root with environment-level entry points and tool workspaces.</div>
-    <div>Donau remains intact, and the tactical board now has its own clean route inside the platform.</div>
+    <div class="homepage-brand homepage-brand-primary" aria-label="RDA footer brand">
+      <img class="homepage-brand-icon-image" src="assets/donau/images/LogoRDA3.png" alt="" aria-hidden="true">
+      <span class="homepage-brand-copy">
+        <span class="homepage-brand-wordmark">RDA</span>
+        <span class="homepage-brand-subtitle">Rugby Development Academy</span>
+      </span>
+    </div>
+    <div>Develop. Perform. Succeed.</div>
+    <div>contact@rda.example</div>
   </footer>
+
+  <div class="request-modal" id="requestModal" hidden>
+    <div class="request-modal-overlay" data-close-request-modal></div>
+    <div class="request-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="requestModalTitle">
+      <button class="request-modal-close" type="button" aria-label="Close" data-close-request-modal>&times;</button>
+
+      <div class="request-modal-step" id="requestStepOne">
+        <div class="platform-kicker">Step 1</div>
+        <h2 class="request-modal-title" id="requestModalTitle">Request Access</h2>
+        <p class="request-modal-copy">Share your contact details and we’ll set up the right RDA conversation.</p>
+        <form class="request-form" id="requestStepOneForm">
+          <label class="request-field">
+            <span>Name</span>
+            <input id="requestName" name="name" type="text" autocomplete="name" required>
+          </label>
+          <label class="request-field">
+            <span>Email</span>
+            <input id="requestEmail" name="email" type="email" autocomplete="email" required>
+          </label>
+          <label class="request-field">
+            <span>Role</span>
+            <select id="requestRole" name="role">
+              <option value="Coach">Coach</option>
+              <option value="Club">Club</option>
+              <option value="School">School</option>
+              <option value="Union">Union</option>
+            </select>
+          </label>
+          <div class="request-form-actions">
+            <button class="platform-action homepage-primary-action request-submit" id="requestContinueBtn" type="submit" disabled>
+              Continue
+              <span>&#9654;</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div class="request-modal-step" id="requestStepTwo" hidden>
+        <div class="platform-kicker">Step 2</div>
+        <h2 class="request-modal-title">Your Context</h2>
+        <p class="request-modal-copy">Help us understand the environment you want RDA to support.</p>
+        <form class="request-form" id="requestStepTwoForm">
+          <label class="request-field">
+            <span>Environment Type</span>
+            <select id="requestEnvironment" name="environment_type">
+              <option value="Club">Club</option>
+              <option value="School">School</option>
+              <option value="National">National</option>
+            </select>
+          </label>
+          <label class="request-field">
+            <span>Message</span>
+            <textarea id="requestMessage" name="message" rows="4" placeholder="Tell us about your coaching structure, goals, or timeline."></textarea>
+          </label>
+          <div class="request-form-actions">
+            <button class="platform-action homepage-secondary-action request-submit" type="button" id="requestBackBtn">
+              Back
+            </button>
+            <button class="platform-action homepage-primary-action request-submit" type="submit" id="requestSubmitBtn">
+              Submit Request
+              <span>&#9654;</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div class="request-modal-step" id="requestSuccess" hidden>
+        <div class="platform-kicker">Success</div>
+        <h2 class="request-modal-title">Request received</h2>
+        <p class="request-modal-copy">We’ll get back to you soon with access to RDA.</p>
+        <div class="request-form-actions">
+          <button class="platform-action homepage-primary-action request-submit" type="button" id="requestCloseSuccessBtn">
+            Close
+            <span>&#9654;</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const modal = document.getElementById("requestModal");
+      const openButtons = document.querySelectorAll("[data-open-request-modal]");
+      const closeButtons = document.querySelectorAll("[data-close-request-modal]");
+      const stepOne = document.getElementById("requestStepOne");
+      const stepTwo = document.getElementById("requestStepTwo");
+      const successStep = document.getElementById("requestSuccess");
+      const stepOneForm = document.getElementById("requestStepOneForm");
+      const stepTwoForm = document.getElementById("requestStepTwoForm");
+      const continueBtn = document.getElementById("requestContinueBtn");
+      const submitBtn = document.getElementById("requestSubmitBtn");
+      const backBtn = document.getElementById("requestBackBtn");
+      const closeSuccessBtn = document.getElementById("requestCloseSuccessBtn");
+      const nameInput = document.getElementById("requestName");
+      const emailInput = document.getElementById("requestEmail");
+      const roleInput = document.getElementById("requestRole");
+      const environmentInput = document.getElementById("requestEnvironment");
+      const messageInput = document.getElementById("requestMessage");
+      let activeTrigger = null;
+
+      function showStep(step) {
+        stepOne.hidden = step !== "one";
+        stepTwo.hidden = step !== "two";
+        successStep.hidden = step !== "success";
+      }
+
+      function resetModal() {
+        stepOneForm.reset();
+        stepTwoForm.reset();
+        continueBtn.disabled = true;
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = 'Submit Request <span>&#9654;</span>';
+        showStep("one");
+      }
+
+      function openModal(trigger) {
+        activeTrigger = trigger || null;
+        resetModal();
+        modal.hidden = false;
+        document.body.classList.add("request-modal-open");
+        nameInput.focus();
+      }
+
+      function closeModal() {
+        modal.hidden = true;
+        document.body.classList.remove("request-modal-open");
+        if (activeTrigger) {
+          activeTrigger.focus();
+        }
+      }
+
+      function validateStepOne() {
+        continueBtn.disabled = !(nameInput.value.trim() && emailInput.value.trim());
+      }
+
+      openButtons.forEach((button) => {
+        button.addEventListener("click", (event) => {
+          event.preventDefault();
+          openModal(button);
+        });
+      });
+
+      closeButtons.forEach((button) => {
+        button.addEventListener("click", closeModal);
+      });
+
+      modal.addEventListener("click", (event) => {
+        if (event.target === modal) {
+          closeModal();
+        }
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !modal.hidden) {
+          closeModal();
+        }
+      });
+
+      [nameInput, emailInput].forEach((input) => {
+        input.addEventListener("input", validateStepOne);
+      });
+
+      stepOneForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        validateStepOne();
+        if (!continueBtn.disabled) {
+          showStep("two");
+          environmentInput.focus();
+        }
+      });
+
+      backBtn.addEventListener("click", () => {
+        showStep("one");
+        nameInput.focus();
+      });
+
+      stepTwoForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Submitting...";
+
+        const payload = {
+          name: nameInput.value.trim(),
+          email: emailInput.value.trim(),
+          role: roleInput.value,
+          environmentType: environmentInput.value,
+          message: messageInput.value.trim()
+        };
+
+        window.setTimeout(() => {
+          console.log("RDA access request", payload);
+          showStep("success");
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = 'Submit Request <span>&#9654;</span>';
+          closeSuccessBtn.focus();
+        }, 500);
+      });
+
+      closeSuccessBtn.addEventListener("click", closeModal);
+    })();
+  </script>
 </body>
 </html>

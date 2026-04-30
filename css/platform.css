@@ -98,6 +98,59 @@ a {
   gap: 4px;
 }
 
+.platform-brand-flat {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.platform-brand-ball {
+  width: 28px;
+  height: 20px;
+  border: 2px solid var(--gold);
+  border-radius: 50%;
+  display: inline-block;
+  position: relative;
+  transform: rotate(-24deg);
+  flex: 0 0 auto;
+}
+
+.platform-brand-ball::before,
+.platform-brand-ball::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 68%;
+  border-top: 2px solid var(--gold);
+}
+
+.platform-brand-ball::before {
+  top: 4px;
+}
+
+.platform-brand-ball::after {
+  bottom: 4px;
+}
+
+.platform-brand-wordmark {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 1.24rem;
+  font-weight: 800;
+  letter-spacing: 2.4px;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.platform-brand-subline {
+  font-size: 0.68rem;
+  letter-spacing: 1.7px;
+  line-height: 1.2;
+  text-transform: uppercase;
+  color: var(--text-light);
+}
+
 .platform-kicker,
 .portal-badge,
 .environment-state,

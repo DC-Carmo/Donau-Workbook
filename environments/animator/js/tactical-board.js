@@ -1,5 +1,5 @@
 //  RUGBY TACTICAL BOARD - Complete Implementation
-//  Rugby Union Donau / Coach Mato Design Language
+//  RDA Tactical Board product styling
 
 // Full field, portrait orientation
 //   x: 0-68  (left touchline -> right touchline, field width)

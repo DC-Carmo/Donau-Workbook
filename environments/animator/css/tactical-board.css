@@ -5,17 +5,17 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
 
 /* CSS VARIABLES */
 :root {
-  --bg:       #0b1420;
-  --surface:  #122131;
-  --elevated: #182a3f;
-  --elevated2:#1d3148;
-  --border:   rgba(116, 153, 184, 0.22);
-  --border2:  rgba(116, 153, 184, 0.12);
-  --text:     #f3f4f6;
-  --muted:    #7f92a5;
-  --muted2:   #a9b6c4;
-  --accent:   #10b981;
-  --accent2:  #059669;
+  --bg:       #09121b;
+  --surface:  #0f1b28;
+  --elevated: #142333;
+  --elevated2:#1a2a3a;
+  --border:   rgba(194, 207, 198, 0.16);
+  --border2:  rgba(194, 207, 198, 0.08);
+  --text:     #f3f1e8;
+  --muted:    #8797a6;
+  --muted2:   #bcc7cf;
+  --accent:   #6ca88b;
+  --accent2:  #d8b14d;
   --atk:      #2563eb;
   --atkBrd:   #93c5fd;
   --atkPath:  #60a5fa;
@@ -23,7 +23,7 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
   --defBrd:   #fca5a5;
   --defPath:  #f87171;
   --sel:      #fbbf24;
-  --gold:     #d9b46c;
+  --gold:     #d8b14d;
   --shadow:   0 18px 42px rgba(0,0,0,0.28);
   --toolH:    auto;
   --tlH:      64px;
@@ -32,13 +32,14 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
 
 /* APP SHELL */
 #app { display:flex; flex-direction:column; min-height:100vh; height:100vh; min-height:100dvh; height:100dvh; background:
-  radial-gradient(circle at top left, rgba(16,185,129,0.08), transparent 24%),
-  linear-gradient(180deg, #09121d 0%, #0b1420 100%);
+  radial-gradient(circle at top left, rgba(108,168,139,0.08), transparent 24%),
+  radial-gradient(circle at top right, rgba(216,177,77,0.05), transparent 18%),
+  linear-gradient(180deg, #081119 0%, #0b1620 54%, #102019 100%);
 }
 
 /* TOPBAR */
 #topbar {
-  background:rgba(10, 19, 30, 0.96);
+  background:rgba(8, 18, 27, 0.96);
   border-bottom:1px solid var(--border);
   display:flex;
   align-items:flex-end;
@@ -58,14 +59,29 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
 .tb-brand-block { min-width:220px; }
 .tb-brand { display:flex; align-items:center; gap:10px; flex-shrink:0; }
 .tb-sequence { min-width:290px; }
-.tb-brand-logo {
-  width:28px;
-  height:28px;
-  object-fit:contain;
-  flex-shrink:0;
+.tb-brand-icon {
+  width: 28px;
+  height: 20px;
+  border: 2px solid var(--gold);
+  border-radius: 50%;
+  display: inline-block;
+  position: relative;
+  transform: rotate(-24deg);
+  flex: 0 0 auto;
 }
+.tb-brand-icon::before,
+.tb-brand-icon::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 68%;
+  border-top: 2px solid var(--gold);
+}
+.tb-brand-icon::before { top: 4px; }
+.tb-brand-icon::after { bottom: 4px; }
 .tb-brand-name { font-family:'Barlow Condensed',sans-serif; font-weight:800;
-  font-size:.84rem; letter-spacing:3.4px; color:var(--accent); text-transform:uppercase; }
+  font-size:.88rem; letter-spacing:3.2px; color:var(--text); text-transform:uppercase; }
 .tb-brand-sub  { font-size:.6rem; letter-spacing:1.8px; color:var(--muted); text-transform:uppercase; margin-top:1px; }
 .tb-label {
   font-family:'Barlow Condensed',sans-serif;
@@ -83,7 +99,6 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
   text-decoration:none;
 }
 .tb-portal:hover { color:#fff; border-color:var(--accent); }
-
 /* Play name input */
 #playName {
   background:rgba(255,255,255,0.04); border:1px solid var(--border);
@@ -110,10 +125,9 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
 .tb-actions,
 .ctrl-grp {
   display:flex; align-items:center; gap:6px;
-  background:linear-gradient(180deg, rgba(24,42,63,0.88), rgba(15,29,46,0.94));
+  background:rgba(255,255,255,0.02);
   border:1px solid var(--border);
   border-radius:12px; padding:5px;
-  box-shadow:var(--shadow);
 }
 .tb-actions,
 .ctrl-grp { padding:5px 6px; }
@@ -129,10 +143,9 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
   display:flex;
   align-items:center;
   gap:6px;
-  background:linear-gradient(180deg, rgba(24,42,63,0.88), rgba(15,29,46,0.94));
+  background:rgba(255,255,255,0.02);
   border:1px solid var(--border);
   border-radius:12px;
-  box-shadow:var(--shadow);
 }
 .seq-nav {
   padding:5px 6px;
@@ -211,9 +224,9 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
   transition:all .15s;
 }
 .seq-chip.active {
-  border-color:rgba(16,185,129,0.6);
-  background:linear-gradient(180deg, rgba(16,185,129,0.28), rgba(5,150,105,0.22));
-  color:#fff;
+  border-color:rgba(108,168,139,0.5);
+  background:rgba(108,168,139,0.12);
+  color:var(--accent);
 }
 .seq-rail {
   flex-wrap:wrap;
@@ -225,7 +238,7 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
   transition:all .15s; position:relative;
 }
 .t-btn:hover { background:rgba(255,255,255,0.07); color:var(--text); }
-.t-btn.active { background:linear-gradient(180deg, var(--accent), var(--accent2)); color:#fff; box-shadow:0 6px 16px rgba(16,185,129,0.28); }
+.t-btn.active { background:rgba(108,168,139,0.14); border:1px solid rgba(108,168,139,0.38); color:var(--accent); box-shadow:none; }
 .t-btn .tip {
   position:absolute; bottom:-36px; left:50%; transform:translateX(-50%);
   background:#02060c; color:#fff; font-size:.62rem; letter-spacing:1px;
@@ -250,8 +263,10 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
   transition:all .15s; white-space:nowrap;
 }
 .c-btn:hover { border-color:var(--muted2); color:#fff; background:rgba(255,255,255,0.06); }
-.c-btn.play  { background:linear-gradient(180deg, var(--accent2), var(--accent)); border-color:rgba(16,185,129,0.8); color:#fff; }
-.c-btn.play:hover { background:linear-gradient(180deg, var(--accent), #20c997); }
+.c-btn.play,
+.c-btn.primary { background:var(--gold); border-color:var(--gold); color:#09121b; font-weight:800; }
+.c-btn.play:hover,
+.c-btn.primary:hover { background:#e8c35f; border-color:#e8c35f; color:#06090d; }
 .c-btn.danger { border-color:rgba(239,68,68,0.35); color:rgba(248,113,113,0.82); }
 .c-btn.danger:hover { border-color:#ef4444; color:#ef4444; background:rgba(239,68,68,.08); }
 
@@ -705,10 +720,9 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
   background:rgba(255,255,255,0.06);
 }
 .ann-tool-btn.active {
-  color:#fff;
-  border-color:rgba(16,185,129,0.9);
-  background:linear-gradient(180deg, rgba(16,185,129,0.22), rgba(5,150,105,0.28));
-  box-shadow:0 8px 18px rgba(16,185,129,0.16);
+  color:var(--accent);
+  border-color:rgba(108,168,139,0.5);
+  background:rgba(108,168,139,0.1);
 }
 .ann-config {
   display:flex;
@@ -973,8 +987,8 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
   display:flex; align-items:center; justify-content:center; transition:all .15s;
 }
 .tl-btn:hover { border-color:var(--accent); color:var(--accent); }
-.tl-btn.tl-play { background:linear-gradient(180deg, var(--accent2), var(--accent)); border-color:rgba(16,185,129,0.8); color:#fff; }
-.tl-btn.tl-play:hover { background:linear-gradient(180deg, var(--accent), #20c997); }
+.tl-btn.tl-play { background:var(--gold); border-color:var(--gold); color:#09121b; }
+.tl-btn.tl-play:hover { background:#e8c35f; border-color:#e8c35f; }
 
 #track {
   flex:1; height:8px; background:rgba(255,255,255,0.08); border-radius:999px;
@@ -982,7 +996,7 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
 }
 #trackFill {
   height:100%; border-radius:999px;
-  background:linear-gradient(90deg,var(--accent2),var(--accent));
+  background:var(--accent);
   width:0%; transition:width .03s;
 }
 #trackThumb {
@@ -990,7 +1004,7 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
   transform:translate(-50%,-50%);
   width:16px; height:16px; border-radius:50%;
   background:var(--accent); border:2px solid var(--bg); cursor:grab;
-  transition:transform .1s; box-shadow:0 0 8px rgba(16,185,129,0.5);
+  transition:transform .1s;
 }
 #trackThumb:active { cursor:grabbing; transform:translate(-50%,-50%) scale(1.2); }
 #tlTime { font-family:'Barlow Condensed',sans-serif; font-size:.8rem;
