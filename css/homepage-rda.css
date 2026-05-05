@@ -57,7 +57,7 @@
 .homepage-brand-icon-image {
   display: block;
   width: auto;
-  height: 30px;
+  height: 32px;
   flex: 0 0 auto;
   filter:
     saturate(0.86)
@@ -283,7 +283,7 @@
   width: min(720px, 60vw);
   max-width: none;
   transform: translateY(-50%) rotate(-6deg) scale(1.06);
-  opacity: 0.035;
+  opacity: 0.045;
   mix-blend-mode: soft-light;
   filter:
     grayscale(1)
@@ -690,7 +690,7 @@
   }
 
   .homepage-brand-icon-image {
-    height: 26px;
+    height: 28px;
   }
 
   .request-modal-dialog {

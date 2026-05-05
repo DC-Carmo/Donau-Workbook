@@ -108,6 +108,15 @@ const ANNOTATION_NOTE_DEFAULT = 'Note';
 const NOTE_FONT = '"Barlow Condensed"';
 const STEP_MIN_COUNT = 3;
 let firstUseTutorialDismissed = false;
+const BOARD_BALL_ASSET_SRC = '../../assets/donau/images/rugby_ball_fire_scalable_bottom_right_fixed.svg';
+const boardBallAsset = new Image();
+let boardBallAssetReady = false;
+
+boardBallAsset.addEventListener('load', () => {
+  boardBallAssetReady = true;
+  render();
+});
+boardBallAsset.src = BOARD_BALL_ASSET_SRC;
 
 function isMobileBoardViewport() {
   return window.innerWidth <= 768;
@@ -1016,6 +1025,26 @@ function drawBall(fx, fy, selected) {
   const ry = Math.max(isMobileBoardViewport() ? 5 : 5.5, sc * (isMobileBoardViewport() ? 0.48 : 0.54));
   ctx.save();
   if (selected) { ctx.shadowColor = '#fbbf24'; ctx.shadowBlur = isMobileBoardViewport() ? 10 : 14; }
+
+  if (boardBallAssetReady) {
+    const w = rx * 3.25;
+    const h = ry * 3.45;
+    ctx.shadowColor = selected ? '#fbbf24' : 'rgba(4,10,8,0.42)';
+    ctx.shadowBlur = selected ? (isMobileBoardViewport() ? 10 : 14) : (isMobileBoardViewport() ? 5 : 8);
+    ctx.drawImage(boardBallAsset, p.x - w * 0.52, p.y - h * 0.5, w, h);
+
+    if (selected) {
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = 'rgba(251,191,36,0.9)';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, rx + 2, ry + 2, 0.22, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+    return;
+  }
 
   ctx.beginPath(); ctx.ellipse(p.x, p.y, rx, ry, 0.35, 0, Math.PI * 2);
   const g = ctx.createLinearGradient(p.x - rx, p.y, p.x + rx, p.y);

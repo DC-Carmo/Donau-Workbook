@@ -60,26 +60,23 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
 .tb-brand { display:flex; align-items:center; gap:10px; flex-shrink:0; }
 .tb-sequence { min-width:290px; }
 .tb-brand-icon {
-  width: 28px;
-  height: 20px;
-  border: 2px solid var(--gold);
-  border-radius: 50%;
+  width: 34px;
+  height: 24px;
   display: inline-block;
   position: relative;
-  transform: rotate(-24deg);
+  background:
+    url("../../assets/donau/images/rugby_ball_fire_scalable_bottom_right_fixed.svg")
+    center / contain no-repeat;
+  filter:
+    saturate(0.9)
+    brightness(0.98)
+    drop-shadow(0 6px 12px rgba(0,0,0,0.2));
   flex: 0 0 auto;
 }
 .tb-brand-icon::before,
 .tb-brand-icon::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 68%;
-  border-top: 2px solid var(--gold);
+  display: none;
 }
-.tb-brand-icon::before { top: 4px; }
-.tb-brand-icon::after { bottom: 4px; }
 .tb-brand-name { font-family:'Barlow Condensed',sans-serif; font-weight:800;
   font-size:.88rem; letter-spacing:3.2px; color:var(--text); text-transform:uppercase; }
 .tb-brand-sub  { font-size:.6rem; letter-spacing:1.8px; color:var(--muted); text-transform:uppercase; margin-top:1px; }
