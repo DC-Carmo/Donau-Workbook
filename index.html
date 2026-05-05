@@ -72,6 +72,10 @@
           <h3>Design rugby scenarios with a platform-first workflow.</h3>
           <p>The main RDA tool for building, presenting, and communicating tactical rugby systems.</p>
           <div class="homepage-toolspotlight-actions">
+            <button class="platform-action homepage-primary-action" type="button" data-open-board-access>
+              Enter Tactical Board
+              <span>&#9654;</span>
+            </button>
             <a class="platform-action homepage-primary-action" href="#request-access" data-open-request-modal>
               Request Access
               <span>&#9654;</span>
@@ -261,10 +265,12 @@
     </div>
   </div>
 
+  <script src="js/shared/tactical-board-access.js"></script>
   <script>
     (() => {
       const modal = document.getElementById("requestModal");
       const openButtons = document.querySelectorAll("[data-open-request-modal]");
+      const boardAccessButtons = document.querySelectorAll("[data-open-board-access]");
       const closeButtons = document.querySelectorAll("[data-close-request-modal]");
       const stepOne = document.getElementById("requestStepOne");
       const stepTwo = document.getElementById("requestStepTwo");
@@ -305,6 +311,10 @@
         nameInput.focus();
       }
 
+      window.RDAOpenRequestModal = (trigger) => {
+        openModal(trigger || activeTrigger);
+      };
+
       function closeModal() {
         modal.hidden = true;
         document.body.classList.remove("request-modal-open");
@@ -321,6 +331,16 @@
         button.addEventListener("click", (event) => {
           event.preventDefault();
           openModal(button);
+        });
+      });
+
+      boardAccessButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          window.RDATacticalBoardAccess?.requestAccess({
+            onRequestAccess: () => openModal(button),
+            targetUrl: "environments/animator/index.html",
+            trigger: button,
+          });
         });
       });
 

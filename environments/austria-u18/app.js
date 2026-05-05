@@ -267,7 +267,7 @@
     bottomNav.innerHTML = `
       <button class="mobile-bottom-nav-btn" type="button" data-mobile-nav="home">Home</button>
       <button class="mobile-bottom-nav-btn mobile-bottom-modules" type="button" data-mobile-nav="modules" aria-expanded="false">Modules</button>
-      <a class="mobile-bottom-nav-btn" data-mobile-nav="board" href="../../environments/animator/index.html">Tactical Board</a>
+      <button class="mobile-bottom-nav-btn" type="button" data-mobile-nav="board">Tactical Board</button>
       <button class="mobile-bottom-nav-btn" type="button" data-mobile-nav="playbook">Playbook</button>
     `;
 
@@ -284,6 +284,12 @@
 
     bottomNav.querySelector('[data-mobile-nav="home"]').addEventListener("click", () => goTo(1));
     bottomNav.querySelector('[data-mobile-nav="modules"]').addEventListener("click", () => toggleMobileWorkspaceMenu());
+    bottomNav.querySelector('[data-mobile-nav="board"]').addEventListener("click", (event) => {
+      window.RDATacticalBoardAccess?.requestAccess({
+        targetUrl: "../../environments/animator/index.html",
+        trigger: event.currentTarget,
+      });
+    });
     bottomNav.querySelector('[data-mobile-nav="playbook"]').addEventListener("click", () => goTo(8));
   }
 

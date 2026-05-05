@@ -575,6 +575,24 @@
   margin-top: 8px;
 }
 
+.tactical-access-request {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--rda-gold);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: rgba(227, 178, 60, 0.45);
+  text-underline-offset: 3px;
+}
+
+.tactical-access-error {
+  margin: -4px 0 0;
+  color: #ef8f7f;
+  font-size: 0.94rem;
+}
+
 .request-submit {
   cursor: pointer;
 }
