@@ -2,11 +2,11 @@
   window.AUSTRIA_U18_DATA = {
     workspaceSections: [
       { slide: 1, group: "Program Core", shortLabel: "Cover",     title: "Program Cover" },
-      { slide: 2, group: "Program Core", shortLabel: "Model",     title: "Game Model" },
+      { slide: 2, group: "Program Core", shortLabel: "Plan",      title: "Game Plan" },
       { slide: 3, group: "Program Core", shortLabel: "Attack",    title: "Attack System" },
       { slide: 4, group: "Program Core", shortLabel: "Defence",   title: "Defensive System" },
       { slide: 5, group: "Program Core", shortLabel: "Set Piece", title: "Set Piece" },
-      { slide: 6, group: "Campaign Layer", shortLabel: "Units",     title: "Roles & Units" },
+      { slide: 6, group: "Campaign Layer", shortLabel: "Squad",     title: "Final 23 Squad" },
       { slide: 7, group: "Campaign Layer", shortLabel: "Analysis",  title: "Analysis Hub" },
       { slide: 8, group: "Campaign Layer", shortLabel: "Assistant", title: "AI Playbook Assistant" }
     ],

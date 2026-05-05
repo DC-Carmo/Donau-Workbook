@@ -266,9 +266,9 @@
     bottomNav.className = "mobile-bottom-nav";
     bottomNav.innerHTML = `
       <button class="mobile-bottom-nav-btn" type="button" data-mobile-nav="home">Home</button>
+      <button class="mobile-bottom-nav-btn" type="button" data-mobile-nav="gameplan">Game Plan</button>
+      <button class="mobile-bottom-nav-btn" type="button" data-mobile-nav="squad">Final 23</button>
       <button class="mobile-bottom-nav-btn mobile-bottom-modules" type="button" data-mobile-nav="modules" aria-expanded="false">Modules</button>
-      <button class="mobile-bottom-nav-btn" type="button" data-mobile-nav="board">Tactical Board</button>
-      <button class="mobile-bottom-nav-btn" type="button" data-mobile-nav="playbook">Playbook</button>
     `;
 
     document.body.appendChild(header);
@@ -283,14 +283,9 @@
     });
 
     bottomNav.querySelector('[data-mobile-nav="home"]').addEventListener("click", () => goTo(1));
+    bottomNav.querySelector('[data-mobile-nav="gameplan"]').addEventListener("click", () => goTo(2));
+    bottomNav.querySelector('[data-mobile-nav="squad"]').addEventListener("click", () => goTo(6));
     bottomNav.querySelector('[data-mobile-nav="modules"]').addEventListener("click", () => toggleMobileWorkspaceMenu());
-    bottomNav.querySelector('[data-mobile-nav="board"]').addEventListener("click", (event) => {
-      window.RDATacticalBoardAccess?.requestAccess({
-        targetUrl: "../../environments/animator/index.html",
-        trigger: event.currentTarget,
-      });
-    });
-    bottomNav.querySelector('[data-mobile-nav="playbook"]').addEventListener("click", () => goTo(8));
   }
 
   function syncMobileWorkspaceOffset() {
@@ -395,9 +390,10 @@
       const navType = item.dataset.mobileNav;
       const isActive =
         (navType === "home" && cur === 1) ||
-        (navType === "playbook" && cur === 8) ||
-        (navType === "modules" && cur >= 2 && cur <= total);
-      item.classList.toggle("active", isActive && navType !== "board");
+        (navType === "gameplan" && cur === 2) ||
+        (navType === "squad" && cur === 6) ||
+        (navType === "modules" && cur >= 3 && cur <= total && cur !== 6);
+      item.classList.toggle("active", isActive);
     });
 
     syncMobileWorkspaceOffset();

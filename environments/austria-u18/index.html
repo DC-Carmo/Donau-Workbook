@@ -1,6 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="../../js/shared/austria-youth-access.js"></script>
+  <script>
+    window.RDAAustriaYouthAccess?.protectPage({
+      redirectUrl: "../../index.html#environments"
+    });
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Austria Youth Rugby | Coach Mato</title>
@@ -93,7 +99,7 @@
         <img src="./assets/oesterreich-logo.png" class="nt-topbar-logo" alt="Rugby Austria logo">
         <div>
           <div class="topbar-title">Austria Youth Rugby</div>
-          <div class="topbar-sub">National Program · Game Model</div>
+          <div class="topbar-sub">National Program · Game Plan</div>
         </div>
       </div>
       <div class="topbar-right">
@@ -103,7 +109,7 @@
     </div>
 
     <div class="sl-header fadeup">
-      <h2 class="section">Game Model</h2>
+      <h2 class="section">Game Plan</h2>
       <div class="tag nt-tag">Selection Standard</div>
     </div>
     <p class="nt-section-intro fadeup">
@@ -406,7 +412,7 @@
         <img src="./assets/oesterreich-logo.png" class="nt-topbar-logo" alt="Rugby Austria logo">
         <div>
           <div class="topbar-title">Austria Youth Rugby</div>
-          <div class="topbar-sub">Campaign Layer · Roles &amp; Units</div>
+          <div class="topbar-sub">Campaign Layer · Final 23 Squad</div>
         </div>
       </div>
       <div class="topbar-right">
@@ -416,15 +422,15 @@
     </div>
 
     <div class="sl-header fadeup">
-      <h2 class="section">Roles &amp; Units</h2>
+      <h2 class="section">Final 23 Squad</h2>
       <div class="tag nt-tag">Phase 2 Layer</div>
     </div>
 
     <div class="sl-body nt-units-shell">
       <div class="nt-units-intro fadeup">
         <p>
-          National-team players must understand more than their own jersey number. Every unit needs a shared picture in attack,
-          defence, and set piece so the squad can connect quickly with limited campaign time.
+          The Final 23 layer gives players a clear picture of how units connect inside the match-day squad.
+          Every role still has to understand attack, defence, and set piece detail so the team can connect quickly with limited campaign time.
         </p>
       </div>
       <div class="nt-units-grid fadeup" id="unitsGrid"></div>
@@ -600,10 +606,7 @@
   </div>
 
   <script src="../../js/shared/ui-helpers.js"></script>
-  <script src="../../js/shared/tactical-board-access.js"></script>
   <script src="../../data/austria-u18/content.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
-
-
