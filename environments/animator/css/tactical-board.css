@@ -57,7 +57,27 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
   gap:8px;
 }
 .tb-brand-block { min-width:220px; }
-.tb-brand { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.tb-brand {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-shrink:0;
+  width:max-content;
+  color:inherit;
+  text-decoration:none;
+}
+.tb-brand:hover .tb-brand-icon,
+.tb-brand:focus-visible .tb-brand-icon {
+  filter:
+    saturate(0.96)
+    brightness(1.02)
+    drop-shadow(0 8px 14px rgba(216,177,77,0.18));
+}
+.tb-brand:focus-visible {
+  outline: 2px solid rgba(108,168,139,0.48);
+  outline-offset: 6px;
+  border-radius: 10px;
+}
 .tb-sequence { min-width:290px; }
 .tb-brand-icon {
   width: 34px;
