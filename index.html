@@ -18,7 +18,16 @@
         <img class="hp-nav-logo" src="assets/donau/images/rugby_ball_fire_scalable_bottom_right_fixed.svg" alt="" aria-hidden="true">
         <span class="hp-nav-wordmark">RDA</span>
       </a>
+      <button class="hp-nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNavOverlay">☰</button>
       <nav class="hp-nav-links" aria-label="Primary">
+        <a href="#product">Product</a>
+        <a href="#environments">Environments</a>
+        <a href="#contact">Contact</a>
+      </nav>
+    </div>
+    <div class="hp-mobile-menu" id="mobileNavOverlay" hidden>
+      <button class="hp-mobile-menu-close" type="button" aria-label="Close menu">✕</button>
+      <nav class="hp-mobile-menu-links" aria-label="Mobile Primary">
         <a href="#product">Product</a>
         <a href="#environments">Environments</a>
         <a href="#contact">Contact</a>
@@ -30,7 +39,7 @@
 
     <!-- HERO -->
     <section class="hp-hero" id="hero">
-      <div class="hp-hero-watermark" aria-hidden="true">RDA</div>
+      <img class="hp-hero-watermark" src="assets/donau/images/rugby_ball_fire_scalable_bottom_right_fixed.svg" alt="" aria-hidden="true">
       <div class="hp-hero-gold-line" aria-hidden="true"></div>
       <div class="hp-hero-content">
         <h1 class="hp-hero-headline">RDA</h1>
@@ -72,7 +81,7 @@
           </div>
           <h2 class="hp-section-title">Tactical Board</h2>
           <p class="hp-section-body">Build and present multi-phase plays. Place players, draw runs and passes, sequence the action, and play it back in real time.</p>
-          <a class="hp-btn hp-btn-primary" href="environments/animator/index.html">Open Tactical Board</a>
+          <a class="hp-btn hp-btn-outline" href="environments/animator/index.html">Open Tactical Board</a>
         </div>
         <div class="hp-tb-features">
           <div class="hp-tb-feature">
@@ -256,6 +265,10 @@
   <script>
     (() => {
       const modal = document.getElementById("requestModal");
+      const navToggle = document.querySelector(".hp-nav-toggle");
+      const mobileMenu = document.getElementById("mobileNavOverlay");
+      const mobileMenuClose = document.querySelector(".hp-mobile-menu-close");
+      const mobileMenuLinks = document.querySelectorAll(".hp-mobile-menu-links a");
       const openButtons = document.querySelectorAll("[data-open-request-modal]");
       const austriaAccessButtons = document.querySelectorAll("[data-open-austria-access]");
       const boardAccessButtons = document.querySelectorAll("[data-open-board-access]");
@@ -275,6 +288,16 @@
       const environmentInput = document.getElementById("requestEnvironment");
       const messageInput = document.getElementById("requestMessage");
       let activeTrigger = null;
+
+      function setMobileMenu(open) {
+        if (!mobileMenu || !navToggle) {
+          return;
+        }
+
+        mobileMenu.hidden = !open;
+        navToggle.setAttribute("aria-expanded", open ? "true" : "false");
+        document.body.classList.toggle("hp-mobile-menu-open", open);
+      }
 
       function showStep(step) {
         stepOne.hidden = step !== "one";
@@ -345,6 +368,20 @@
         button.addEventListener("click", closeModal);
       });
 
+      navToggle?.addEventListener("click", () => {
+        setMobileMenu(mobileMenu?.hidden === true);
+      });
+
+      mobileMenuClose?.addEventListener("click", () => {
+        setMobileMenu(false);
+      });
+
+      mobileMenuLinks.forEach((link) => {
+        link.addEventListener("click", () => {
+          setMobileMenu(false);
+        });
+      });
+
       modal.addEventListener("click", (event) => {
         if (event.target === modal) {
           closeModal();
@@ -352,6 +389,10 @@
       });
 
       document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && mobileMenu && !mobileMenu.hidden) {
+          setMobileMenu(false);
+        }
+
         if (event.key === "Escape" && !modal.hidden) {
           closeModal();
         }
