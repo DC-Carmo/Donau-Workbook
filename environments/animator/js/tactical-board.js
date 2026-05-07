@@ -285,12 +285,20 @@ function normalizeStepPath(path) {
 
 function normalizeStepPass(pass) {
   if (!pass || typeof pass !== 'object') return null;
-  const fromNum = Number(pass.fromNum);
-  const toNum = Number(pass.toNum);
-  const fromT = pass.fromT === 'D' ? 'D' : pass.fromT === 'A' ? 'A' : null;
-  const toT = pass.toT === 'D' ? 'D' : pass.toT === 'A' ? 'A' : null;
   const style = pass.style === 'kick' ? 'kick' : pass.style === 'pass' ? 'pass' : null;
-  if (!fromT || !toT || !Number.isFinite(fromNum) || !Number.isFinite(toNum) || !style) return null;
+  if (!style) return null;
+  const fromNum = Number(pass.fromNum);
+  const fromT = pass.fromT === 'D' ? 'D' : pass.fromT === 'A' ? 'A' : null;
+  if (!fromT || !Number.isFinite(fromNum)) return null;
+  // Field-target kick: no receiver, has coordinate target
+  if (style === 'kick' && pass.toNum === undefined && pass.targetX !== undefined) {
+    const targetX = Number(pass.targetX), targetY = Number(pass.targetY);
+    if (!Number.isFinite(targetX) || !Number.isFinite(targetY)) return null;
+    return { fromNum, fromT, targetX, targetY, style: 'kick' };
+  }
+  const toNum = Number(pass.toNum);
+  const toT = pass.toT === 'D' ? 'D' : pass.toT === 'A' ? 'A' : null;
+  if (!toT || !Number.isFinite(toNum)) return null;
   return { fromNum, fromT, toNum, toT, style };
 }
 
@@ -328,14 +336,12 @@ function liveBoardToStepState() {
     }).filter(Boolean),
     passes: S.passes.map(pass => {
       const from = S.players.find(q => q.id === pass.from);
+      if (!from) return null;
+      if (pass.style === 'kick' && pass.to === null && pass.targetX !== undefined) {
+        return { fromNum: from.num, fromT: from.team, targetX: pass.targetX, targetY: pass.targetY, style: 'kick' };
+      }
       const to = S.players.find(q => q.id === pass.to);
-      return from && to ? {
-        fromNum: from.num,
-        fromT: from.team,
-        toNum: to.num,
-        toT: to.team,
-        style: pass.style,
-      } : null;
+      return to ? { fromNum: from.num, fromT: from.team, toNum: to.num, toT: to.team, style: pass.style } : null;
     }).filter(Boolean),
     annotations: cloneData(Array.isArray(S.annotations) ? S.annotations : []),
   });
@@ -372,8 +378,12 @@ function setLiveBoardFromStep(step, { keepSelection = false } = {}) {
 
   S.passes = normalized.passes.map(pass => {
     const from = S.players.find(q => q.num === pass.fromNum && q.team === pass.fromT);
+    if (!from) return null;
+    if (pass.style === 'kick' && pass.targetX !== undefined) {
+      return { from: from.id, to: null, targetX: pass.targetX, targetY: pass.targetY, style: 'kick' };
+    }
     const to = S.players.find(q => q.num === pass.toNum && q.team === pass.toT);
-    return from && to ? { from: from.id, to: to.id, style: pass.style } : null;
+    return to ? { from: from.id, to: to.id, style: pass.style } : null;
   }).filter(Boolean);
 
   S.selected = keepSelection ? selected : null;
@@ -1257,6 +1267,28 @@ function catmullRom(pts, t) {
   };
 }
 
+function drawKickToTarget(x1, y1, x2, y2, progress = 1) {
+  drawArc(x1, y1, x2, y2, '#f59e0b', progress, true);
+  if (progress > 0.5) {
+    const tp = toC(x2, y2);
+    const alpha = Math.min(1, (progress - 0.5) * 2) * 0.82;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.arc(tp.x, tp.y, 8 * Math.min(1, sc / 8), 0, Math.PI * 2);
+    ctx.stroke();
+    const cross = 5 * Math.min(1, sc / 8);
+    ctx.beginPath();
+    ctx.moveTo(tp.x - cross, tp.y - cross); ctx.lineTo(tp.x + cross, tp.y + cross);
+    ctx.moveTo(tp.x + cross, tp.y - cross); ctx.lineTo(tp.x - cross, tp.y + cross);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+}
+
 function drawArc(x1, y1, x2, y2, color, progress = 1, thick = false) {
   const p1 = toC(x1, y1), p2 = toC(x2, y2);
   const dist = Math.hypot(p2.x-p1.x, p2.y-p1.y);
@@ -1622,8 +1654,13 @@ function render() {
     renderAnnotations('zones', frame.annotations);
     frame.passes.forEach(pass => {
       const from = playerLookup.get(playerKey({ num: pass.fromNum, team: pass.fromT }));
+      if (!from) return;
+      if (pass.style === 'kick' && pass.targetX !== undefined) {
+        drawKickToTarget(from.x, from.y, pass.targetX, pass.targetY, 1);
+        return;
+      }
       const to = playerLookup.get(playerKey({ num: pass.toNum, team: pass.toT }));
-      if (!from || !to) return;
+      if (!to) return;
       const col = pass.style === 'kick' ? '#f59e0b' : 'rgba(255,255,255,0.75)';
       drawArc(from.x, from.y, to.x, to.y, col, 1, pass.style === 'kick');
     });
@@ -1646,9 +1683,15 @@ function render() {
 
   S.passes.forEach(pass => {
     const fp = S.players.find(p => p.id === pass.from);
+    if (!fp) return;
+    const fa = animPos(fp, t);
+    if (pass.style === 'kick' && pass.to === null && pass.targetX !== undefined) {
+      drawKickToTarget(fa.x, fa.y, pass.targetX, pass.targetY, 1);
+      return;
+    }
     const tp = S.players.find(p => p.id === pass.to);
-    if (!fp || !tp) return;
-    const fa = animPos(fp, t), ta = animPos(tp, t);
+    if (!tp) return;
+    const ta = animPos(tp, t);
     const col = pass.style === 'kick' ? '#f59e0b' : 'rgba(255,255,255,0.75)';
     drawArc(fa.x, fa.y, ta.x, ta.y, col, 1, pass.style === 'kick');
   });
@@ -1896,6 +1939,18 @@ cv.addEventListener('pointerdown', e => {
   }
 
   else if (S.tool === 'zone') {
+    const annHit = hitAnnotation(fp);
+    if (annHit) {
+      snapshot();
+      S.selected = annotationSelection(annHit.id);
+      S.ballAssignCandidate = null;
+      const ann = findAnnotationById(annHit.id);
+      const dragOff = ann ? { x: fp.x - ann.x, y: fp.y - ann.y } : { x: 0, y: 0 };
+      S.dragging = { type:'annotation', id:annHit.id, part:annHit.part, anchor:{x:fp.x,y:fp.y}, dragOff, startSnapshot: ann ? cloneData(ann) : null };
+      beginPointerTap(e.pointerId, { type:'annotation', id:annHit.id, wasSelected: selectedAnnotationId() === annHit.id }, e);
+      cv.setPointerCapture(e.pointerId);
+      refreshInteractionUI(); render(); return;
+    }
     if (!isInsidePitch(fp)) {
       setHint('Start the circle highlight inside the pitch.');
       refreshInteractionUI();
@@ -1916,6 +1971,18 @@ cv.addEventListener('pointerdown', e => {
   }
 
   else if (S.tool === 'box') {
+    const annHit = hitAnnotation(fp);
+    if (annHit) {
+      snapshot();
+      S.selected = annotationSelection(annHit.id);
+      S.ballAssignCandidate = null;
+      const ann = findAnnotationById(annHit.id);
+      const dragOff = ann ? { x: fp.x - ann.x, y: fp.y - ann.y } : { x: 0, y: 0 };
+      S.dragging = { type:'annotation', id:annHit.id, part:annHit.part, anchor:{x:fp.x,y:fp.y}, dragOff, startSnapshot: ann ? cloneData(ann) : null };
+      beginPointerTap(e.pointerId, { type:'annotation', id:annHit.id, wasSelected: selectedAnnotationId() === annHit.id }, e);
+      cv.setPointerCapture(e.pointerId);
+      refreshInteractionUI(); render(); return;
+    }
     if (!isInsidePitch(fp)) {
       setHint('Start the box highlight inside the pitch.');
       refreshInteractionUI();
@@ -1942,20 +2009,31 @@ cv.addEventListener('pointerdown', e => {
     if (pl) {
       if (!S.passFrom) {
         S.passFrom = pl.id; S.selected = pl.id;
-        setHint(`${S.tool === 'kick' ? 'Kick' : 'Pass'} armed from #${pl.num}. Choose the target.`);
+        const hint = S.tool === 'kick'
+          ? `Kick armed from #${pl.num}. Tap a player or anywhere on the pitch.`
+          : `Pass armed from #${pl.num}. Choose the target.`;
+        setHint(hint);
         refreshInteractionUI();
       } else if (pl.id !== S.passFrom) {
         snapshot();
         const dup = S.passes.find(p => p.from === S.passFrom && p.to === pl.id);
         if (!dup) S.passes.push({ from:S.passFrom, to:pl.id, style:S.tool });
         S.passFrom = null; S.selected = null;
-        setHint(S.tool === 'pass' ? 'Pass complete. Choose the next action.' : 'Kick complete. Choose the next action.');
+        setHint(S.tool === 'pass' ? 'Pass added. Choose the next action.' : 'Kick to player added. Choose the next action.');
         refreshInteractionUI();
       } else {
         S.passFrom = null; S.selected = null;
         setHint(HINTS[S.tool] || '');
         refreshInteractionUI();
       }
+      render();
+    } else if (S.tool === 'kick' && S.passFrom && isInsidePitch(fp)) {
+      // Kick to field target
+      snapshot();
+      S.passes.push({ from: S.passFrom, to: null, targetX: clampedFieldPoint.x, targetY: clampedFieldPoint.y, style: 'kick' });
+      S.passFrom = null; S.selected = null;
+      setHint('Kick to field drawn. Choose the next action.');
+      refreshInteractionUI();
       render();
     }
   }
@@ -2200,7 +2278,7 @@ function finishAnnotationDraft() {
   S.annotations.push(draft);
   S.selected = annotationSelection(draft.id);
   completeFirstUseTutorial();
-  setHint(`${MODE_LABELS[draft.type] || 'Annotation'} placed. Switch to Move to adjust it.`);
+  setHint(`${MODE_LABELS[draft.type] || 'Annotation'} placed — selected. Press Delete to remove, or click it again to reposition.`);
   refreshInteractionUI();
   render();
 }
@@ -2670,7 +2748,7 @@ const HINTS = {
   move:  'MOVE - drag any player or ball freely',
   path:  'PATH - click a player and drag to draw their run',
   pass:  'PASS - click passer, then click receiver',
-  kick:  'KICK - click kicker, then click target',
+  kick:  'KICK - click kicker, then click a player or any field target',
   erase: 'ERASE - click player, ball, or path to remove',
   box:   'BOX - drag on the pitch to highlight a channel or area',
 };
@@ -3056,7 +3134,7 @@ const TOOL_GUIDE_CONTENT = {
   move:  { icon: '↖', desc: 'Drag players and the ball to reposition. Tap to select.' },
   path:  { icon: '⟶', desc: 'Tap a player to start a run path, then drag to draw the route.' },
   pass:  { icon: '⤳', desc: 'Tap the passer, then tap the receiver to draw a pass line.' },
-  kick:  { icon: '↑', desc: 'Tap the kicker first, then tap the destination target.' },
+  kick:  { icon: '↑', desc: 'Tap the kicker, then tap a receiver or any empty field spot.' },
   zone:  { icon: '○', desc: 'Drag on the field to draw a circle highlight area.' },
   box:   { icon: '□', desc: 'Drag on the field to draw a box zone or channel.' },
   arrow: { icon: '↗', desc: 'Drag on the field to draw a free tactical arrow.' },

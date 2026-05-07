@@ -1957,6 +1957,28 @@ html, body {
   padding-inline: 10px;
 }
 
+/* Step button — primary gold action */
+#mobileAddStepBtn {
+  background: rgba(183, 154, 97, 0.14);
+  border-color: rgba(227, 178, 60, 0.42);
+  color: #E3B23C;
+  font-weight: 700;
+}
+#mobileAddStepBtn:hover,
+#mobileAddStepBtn:focus-visible {
+  background: rgba(227, 178, 60, 0.22);
+  border-color: rgba(227, 178, 60, 0.72);
+  color: #f0c84a;
+  box-shadow: 0 6px 16px rgba(227,178,60,0.18);
+}
+
+/* Move tool — neutral when active, not gold */
+.board-pill.tool-btn[data-tool="move"].active {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
 #toolbarModeInline {
   margin-left: auto;
   padding-left: 8px;
