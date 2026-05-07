@@ -165,83 +165,125 @@ body.homepage-rda {
 
 .hp-hero {
   position: relative;
-  min-height: 100vh;
+  width: 100%;
+  height: 100vh;
+  background:
+    radial-gradient(ellipse 60% 60% at 75% 30%, rgba(30,70,45,0.5) 0%, transparent 70%),
+    #0D1F17;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 120px 48px 80px;
-  background: var(--hp-dark);
+  justify-content: flex-end;
+  padding: 0 0 80px 64px;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
-/* diagonal stripe texture */
-.hp-hero::before {
-  content: "";
+/* gold accent line on left edge */
+.hp-hero-gold-line {
   position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    -55deg,
-    transparent,
-    transparent 60px,
-    rgba(255,255,255,0.018) 60px,
-    rgba(255,255,255,0.018) 61px
-  );
+  left: 0;
+  top: 15%;
+  height: 70%;
+  width: 2px;
+  background: linear-gradient(to bottom, transparent, #E3B23C 20%, #E3B23C 80%, transparent);
   pointer-events: none;
 }
 
-/* top-right gold glow */
-.hp-hero-glow {
-  position: absolute;
-  top: -200px;
-  right: -200px;
-  width: 800px;
-  height: 800px;
-  background: radial-gradient(ellipse, rgba(227,178,60,0.07) 0%, transparent 65%);
-  pointer-events: none;
-}
-
-.hp-hero-inner {
+.hp-hero-content {
   position: relative;
   z-index: 1;
-  max-width: 1200px;
-  margin: 0 auto;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
 }
 
 .hp-hero-headline {
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 160px !important;
-  line-height: 0.85;
+  font-family: "Bebas Neue", "Arial Black", sans-serif;
+  font-size: 220px;
+  line-height: 0.82;
+  letter-spacing: -2px;
   color: #FFFFFF;
-  margin: 0 0 8px;
-  letter-spacing: 0.02em;
+  display: block;
+  margin: 0;
+  padding: 0;
 }
 
 .hp-hero-tagline {
-  font-family: "Bebas Neue", sans-serif;
-  font-size: 52px !important;
-  color: var(--hp-gold);
+  font-family: "Bebas Neue", "Arial Black", sans-serif;
+  font-size: 28px;
+  letter-spacing: 0.2em;
+  color: #E3B23C;
+  text-transform: uppercase;
+  margin-top: 8px;
+  margin-bottom: 32px;
   line-height: 1;
-  margin: 0;
 }
 
 .hp-hero-body {
-  font-size: 17px;
-  color: var(--hp-muted);
-  max-width: 500px;
-  margin-top: 28px;
-  margin-bottom: 44px;
+  font-size: 15px;
+  color: rgba(165,167,170,0.8);
+  max-width: 420px;
   line-height: 1.7;
+  margin: 0 0 40px;
 }
 
 .hp-hero-actions {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   flex-wrap: wrap;
+}
+
+.hp-hero-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  background: #E3B23C;
+  color: #0D1F17;
+  padding: 13px 28px;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 3px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.hp-hero-btn-primary:hover { background: #F0C44E; }
+
+.hp-hero-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  background: transparent;
+  color: #FFFFFF;
+  padding: 13px 28px;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 3px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.hp-hero-btn-secondary:hover { border-color: rgba(255,255,255,0.45); }
+
+/* vertical label — right edge */
+.hp-hero-label {
+  position: absolute;
+  right: 48px;
+  bottom: 80px;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.2);
+  z-index: 1;
 }
 
 
@@ -745,15 +787,24 @@ body.homepage-rda {
   }
 
   .hp-hero {
-    padding: 80px 24px 60px;
+    padding: 0 0 60px 28px;
   }
 
   .hp-hero-headline {
-    font-size: 18vw !important;
+    font-size: 26vw;
+    letter-spacing: -1px;
   }
 
   .hp-hero-tagline {
-    font-size: 7vw !important;
+    font-size: 5vw;
+  }
+
+  .hp-hero-body {
+    max-width: 90%;
+  }
+
+  .hp-hero-label {
+    display: none;
   }
 
   .hp-stats {
@@ -816,11 +867,8 @@ body.homepage-rda {
     flex-direction: column;
   }
 
-  .hp-btn {
-    justify-content: center;
-  }
-
   .hp-env-card {
     padding: 28px 20px;
   }
 }
+
