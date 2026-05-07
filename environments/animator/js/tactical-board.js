@@ -2517,8 +2517,7 @@ function togglePlay() {
   setLiveBoardFromStep(S.steps[0]);
   S.animating = true;
   const isPlay = S.animating;
-  document.getElementById('playBtn').textContent   = isPlay ? 'Pause' : 'Play';
-  document.getElementById('tlPlayBtn').textContent = isPlay ? 'Pause' : 'Play';
+  syncPlayButtons();
   if (isPlay) { S.lastTs = null; requestAnimationFrame(animLoop); }
 }
 function animLoop(ts) {
@@ -2540,9 +2539,7 @@ function animLoop(ts) {
   if (S.animating) requestAnimationFrame(animLoop);
 }
 function setPlayBtnState() {
-  const lbl = S.animating ? 'Pause' : 'Play';
-  document.getElementById('playBtn').textContent   = S.animating ? 'Pause' : 'Play';
-  document.getElementById('tlPlayBtn').textContent = lbl;
+  syncPlayButtons();
   updateSequenceUI();
   updateMobileUI();
 }
@@ -2658,6 +2655,35 @@ function setMobileSpd(val) {
 }
 window.setMobileSpd = setMobileSpd;
 
+function isCompactViewport() {
+  return window.matchMedia('(max-width: 768px)').matches;
+}
+
+function syncResponsiveToolbarLabels() {
+  const compact = isCompactViewport();
+  document.querySelectorAll('[data-label-desktop]').forEach((btn) => {
+    const desktopLabel = btn.getAttribute('data-label-desktop') || '';
+    const mobileLabel = btn.getAttribute('data-label-mobile') || desktopLabel;
+    btn.innerHTML = compact ? mobileLabel : desktopLabel;
+  });
+}
+
+function syncPlayButtons() {
+  const compact = isCompactViewport();
+  const count = sequenceStepCount();
+  const label = S.animating ? (compact ? '||' : 'PAUSE') : (compact ? '\u25b6' : 'PLAY');
+  const playBtn = document.getElementById('playBtn');
+  const tlPlayBtn = document.getElementById('tlPlayBtn');
+  if (playBtn) {
+    playBtn.textContent = label;
+    playBtn.disabled = count < 2;
+  }
+  if (tlPlayBtn) {
+    tlPlayBtn.textContent = S.animating ? 'Pause' : 'Play';
+    tlPlayBtn.disabled = count < 2;
+  }
+}
+
 function setMobileDrawerState(id, open) {
   const section = document.getElementById(`drawer-${id}`);
   if (!section) return;
@@ -2689,6 +2715,8 @@ function updateMobileUI() {
   const owner = normalizePlayerRef(S.ballOwner);
   const ownerText = owner ? `Ball: ${owner.team === 'A' ? 'A' : 'D'} #${owner.num}` : (S.ball ? 'Ball: Loose' : 'Ball: Off board');
 
+  syncResponsiveToolbarLabels();
+  syncPlayButtons();
   if (mobileBoardName) mobileBoardName.textContent = currentPlayTitle();
   if (mobilePlayBtn) {
     mobilePlayBtn.textContent = S.animating ? 'Pause' : 'Play';
@@ -2828,6 +2856,12 @@ function updatePaletteSummary() {
     }
   }
   if (palCopy) palCopy.textContent = `${activeLabel} numbers ready to place. Used numbers stay dimmed until removed.`;
+  const addAtkBtn = document.getElementById('mobileAddAttackBtn');
+  const addDefBtn = document.getElementById('mobileAddDefenceBtn');
+  const ballBtn = document.getElementById('mobileBallBtn');
+  if (addAtkBtn) addAtkBtn.disabled = atkCount >= 15;
+  if (addDefBtn) addDefBtn.disabled = defCount >= 15;
+  if (ballBtn) ballBtn.classList.toggle('active', !!S.ball);
 }
 
 function updateBoardStatus() {
@@ -2835,8 +2869,14 @@ function updateBoardStatus() {
   const text = document.getElementById('boardStatusText');
   const empty = document.getElementById('emptyState');
   const tutorial = document.getElementById('firstUseTutorial');
+  const toolbarMode = document.getElementById('toolbarModeInline');
+  const count = sequenceStepCount();
+  const owner = normalizePlayerRef(S.ballOwner);
+  const ownerText = owner ? `Ball: ${owner.team === 'A' ? 'A' : 'D'} #${owner.num}` : (S.ball ? 'Ball: Loose' : 'Ball: Off board');
+  const summary = `Mode: ${MODE_LABELS[S.tool] || 'Board'} · Step ${S.currentStep + 1} of ${count} · ${ownerText}`;
   if (mode) mode.textContent = MODE_LABELS[S.tool] || 'Board';
-  if (text) text.textContent = getStatusMessage();
+  if (text) text.textContent = summary;
+  if (toolbarMode) toolbarMode.textContent = `Mode: ${MODE_LABELS[S.tool] || 'Board'}`;
   if (empty) empty.classList.toggle('hidden', !!S.players.length || !!S.ball || !!S.annotations.length);
   if (tutorial) tutorial.classList.toggle('hidden', !shouldShowFirstUseTutorial());
 }
@@ -3081,7 +3121,8 @@ let palTab = 'atk';
 function setTab(tab) {
   palTab = tab;
   document.querySelectorAll('.pal-tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('tab-'+tab).classList.add('active');
+  const tabBtn = document.getElementById('tab-'+tab);
+  if (tabBtn) tabBtn.classList.add('active');
   updateAnnotationPanel();
   rebuildPalette();
   refreshInteractionUI();
@@ -3089,22 +3130,31 @@ function setTab(tab) {
 
 function rebuildPalette() {
   const grid = document.getElementById('palGrid');
-  grid.innerHTML = '';
-  const team = palTab === 'atk' ? 'A' : 'D';
-  const used  = palTab === 'atk' ? S.atkUsed : S.defUsed;
-  for (let n=1; n<=15; n++) {
-    const existing = S.players.find((player) => player.num === n && player.team === team) || null;
-    const isSelected = !!existing && S.selected === existing.id;
-    const btn = document.createElement('button');
-    btn.className = `pal-btn ${palTab}${used.has(n)?' on':''}${isSelected ? ' active' : ''}`;
-    btn.textContent = n;
-    btn.title = used.has(n)
-      ? `${isSelected ? 'Deselect' : 'Select'} ${team==='A'?'Attack':'Defence'} #${n}`
-      : `Add ${team==='A'?'Attack':'Defence'} #${n}`;
-    btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
-    btn.onclick = () => togglePalettePlayer(n, team);
-    grid.appendChild(btn);
-  }
+  const attackRow = document.getElementById('attackPlayerRow');
+  const defenceRow = document.getElementById('defencePlayerRow');
+  if (grid) grid.innerHTML = '';
+  if (attackRow) attackRow.innerHTML = '';
+  if (defenceRow) defenceRow.innerHTML = '';
+
+  [
+    { key: 'atk', team: 'A', used: S.atkUsed, target: attackRow },
+    { key: 'def', team: 'D', used: S.defUsed, target: defenceRow },
+  ].forEach(({ key, team, used, target }) => {
+    if (!target) return;
+    for (let n = 1; n <= 15; n++) {
+      const existing = S.players.find((player) => player.num === n && player.team === team) || null;
+      const isSelected = !!existing && S.selected === existing.id;
+      const btn = document.createElement('button');
+      btn.className = `player-token ${key}${used.has(n) ? ' on' : ''}${isSelected ? ' active' : ''}`;
+      btn.textContent = n;
+      btn.title = used.has(n)
+        ? `${isSelected ? 'Deselect' : 'Select'} ${team==='A'?'Attack':'Defence'} #${n}`
+        : `Add ${team==='A'?'Attack':'Defence'} #${n}`;
+      btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+      btn.onclick = () => togglePalettePlayer(n, team);
+      target.appendChild(btn);
+    }
+  });
   updatePaletteSummary();
 }
 
