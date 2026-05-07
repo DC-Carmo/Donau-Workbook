@@ -178,6 +178,22 @@ body.homepage-rda {
   box-sizing: border-box;
 }
 
+.hp-hero-watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 480px;
+  line-height: 1;
+  color: rgba(255,255,255,0.025);
+  letter-spacing: -8px;
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+  z-index: 0;
+}
+
 /* gold accent line on left edge */
 .hp-hero-gold-line {
   position: absolute;
@@ -196,9 +212,9 @@ body.homepage-rda {
 
 .hp-hero-headline {
   font-family: "Bebas Neue", "Arial Black", sans-serif;
-  font-size: 220px;
-  line-height: 0.82;
-  letter-spacing: -2px;
+  font-size: 260px;
+  line-height: 0.8;
+  letter-spacing: -4px;
   color: #FFFFFF;
   display: block;
   margin: 0;
@@ -273,16 +289,15 @@ body.homepage-rda {
 /* vertical label — right edge */
 .hp-hero-label {
   position: absolute;
-  right: 48px;
+  right: 40px;
   bottom: 80px;
   writing-mode: vertical-rl;
-  text-orientation: mixed;
-  font-family: "Barlow Condensed", sans-serif;
+  font-family: "Inter", sans-serif;
   font-size: 10px;
   font-weight: 500;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.25em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.18);
   z-index: 1;
 }
 
@@ -290,7 +305,7 @@ body.homepage-rda {
 /* ── STATS BAR ── */
 
 .hp-stats {
-  background: var(--hp-mid);
+  background: #0a1a12;
   padding: 0 48px;
   border-top: 1px solid var(--hp-line);
   border-bottom: 1px solid var(--hp-line);
@@ -307,7 +322,7 @@ body.homepage-rda {
 
 .hp-stat {
   padding: 52px 48px;
-  background: var(--hp-mid);
+  background: #0a1a12;
 }
 
 .hp-stat-value {
@@ -336,6 +351,7 @@ body.homepage-rda {
 
 .hp-section-dark { background: var(--hp-dark); }
 .hp-section-mid  { background: var(--hp-mid); }
+.hp-section-environments { padding-bottom: 80px; }
 
 .hp-section-inner {
   max-width: 1200px;
@@ -425,7 +441,15 @@ body.homepage-rda {
 
 .hp-env-card {
   background: var(--hp-dark);
+  min-height: 280px;
   padding: 36px 32px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.hp-env-card > :last-child {
+  margin-top: auto;
 }
 
 .hp-env-card-status {
@@ -509,8 +533,14 @@ body.homepage-rda {
 
 /* ── CONTACT ── */
 
+.hp-contact-direct {
+  margin-top: 16px;
+  font-size: 13px;
+  color: rgba(165,167,170,0.6);
+}
+
 .hp-contact-email {
-  margin-top: 28px;
+  margin-top: 18px;
   font-family: "Barlow Condensed", sans-serif;
   font-size: 0.82rem;
   letter-spacing: 2px;
@@ -522,7 +552,7 @@ body.homepage-rda {
 /* ── FOOTER ── */
 
 .hp-footer {
-  background: var(--hp-mid);
+  background: #091510;
   border-top: 1px solid var(--hp-line);
   padding: 48px;
 }
@@ -795,6 +825,10 @@ body.homepage-rda {
     letter-spacing: -1px;
   }
 
+  .hp-hero-watermark {
+    font-size: 46vw;
+  }
+
   .hp-hero-tagline {
     font-size: 5vw;
   }
@@ -868,7 +902,7 @@ body.homepage-rda {
   }
 
   .hp-env-card {
+    min-height: 280px;
     padding: 28px 20px;
   }
 }
-
