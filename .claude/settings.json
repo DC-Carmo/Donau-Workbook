@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/Diego/.claude/projects/c--Users-Diego-Desktop-Rugby-Game-Plan-Coach-Mato-Rugby-GamePlan/memory/**)",
+      "Bash(start \"\" \"c:\\\\Users\\\\Diego\\\\Desktop\\\\Rugby\\\\Game Plan Coach Mato\\\\Rugby-GamePlan\\\\index.html\")",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\Diego\\.claude\\projects\\c--Users-Diego-Desktop-Rugby-Game-Plan-Coach-Mato-Rugby-GamePlan\\memory"
+    ]
+  }
+}

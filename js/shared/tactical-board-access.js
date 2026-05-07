@@ -4,6 +4,10 @@
   const STYLE_ID = "rda-tactical-access-styles";
   let modalState = null;
 
+  function isDevUnlockEnabled() {
+    return window.RDADevelopmentAccess?.isEnabled?.() === true;
+  }
+
   function ensureStyles() {
     if (document.getElementById(STYLE_ID)) {
       return;
@@ -160,6 +164,10 @@
   }
 
   function hasAccess() {
+    if (isDevUnlockEnabled()) {
+      return true;
+    }
+
     if (!storageAvailable()) {
       return false;
     }
