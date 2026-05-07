@@ -554,12 +554,93 @@
       btn.setAttribute("aria-selected", "true");
     }
 
+    const container = document.getElementById("setPieceContent");
+
+    if (tab === "overview") {
+      container.innerHTML = `
+        <div class="sp-tab-overview">
+          <p class="sp-tab-overview-copy">Set piece is one contest area. Austria should leave every set piece with launch quality, territorial gain, or direct scoreboard pressure.</p>
+          <div class="sp-tab-overview-grid">
+            <div class="sp-tab-overview-block">
+              <div class="sp-tab-overview-kicker">Lineout</div>
+              <p>Two structured systems — Tempo (campaign primary) and Spark (reference). Every caller must know the full call sheet and signal library.</p>
+            </div>
+            <div class="sp-tab-overview-block">
+              <div class="sp-tab-overview-kicker">Scrum</div>
+              <p>Dominant platform standard. Austria owns 100% of own-scrum ball. Technique and connection are non-negotiable before platform structure is added.</p>
+            </div>
+            <div class="sp-tab-overview-block">
+              <div class="sp-tab-overview-kicker">Maul</div>
+              <p>Maul sequences are embedded inside the lineout systems. Full detail lives inside Tempo and Spark.</p>
+            </div>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    if (tab === "lineout") {
+      container.innerHTML = `
+        <div class="lo-systems-grid">
+          <div class="lo-system-card lo-system-primary">
+            <div class="lo-system-header">
+              <div class="lo-system-badges">
+                <span class="lo-system-badge lo-system-badge-primary">Campaign System</span>
+                <span class="lo-system-badge lo-system-badge-active">Primary · This Game</span>
+              </div>
+              <div class="lo-system-name">TEMPO</div>
+              <div class="lo-system-subtitle">Full-system lineout with structured call architecture</div>
+            </div>
+            <div class="lo-system-desc">
+              <p>Complete lineout language covering front, middle, and back of the line. Includes maul sequences, signal protocols, and the campaign call sheet.</p>
+            </div>
+            <div class="lo-system-meta">
+              <span class="lo-system-meta-chip">Throw Zones</span>
+              <span class="lo-system-meta-chip">Maul Sequences</span>
+              <span class="lo-system-meta-chip">Signal Library</span>
+            </div>
+            <button class="lo-system-btn lo-system-btn-primary" onclick="openLineoutSystem('tempo')">Open System &#9654;</button>
+          </div>
+          <div class="lo-system-card lo-system-secondary">
+            <div class="lo-system-header">
+              <div class="lo-system-badges">
+                <span class="lo-system-badge lo-system-badge-secondary">Reference System</span>
+              </div>
+              <div class="lo-system-name">SPARK</div>
+              <div class="lo-system-subtitle">Secondary lineout framework for opponent variation</div>
+            </div>
+            <div class="lo-system-desc">
+              <p>Alternative lineout system used as a reference for different opponent reads and environments. Complements the Tempo call sheet.</p>
+            </div>
+            <div class="lo-system-meta">
+              <span class="lo-system-meta-chip">Call Variants</span>
+              <span class="lo-system-meta-chip">Throw Patterns</span>
+            </div>
+            <button class="lo-system-btn lo-system-btn-secondary" onclick="openLineoutSystem('spark')">Open System &#9654;</button>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    if (tab === "maul") {
+      container.innerHTML = `
+        <div class="sp-maul-overview">
+          <div class="sp-maul-title">Maul Framework</div>
+          <p class="sp-maul-copy">Maul sequences and tactical detail are embedded directly inside the Tempo and Spark lineout systems. Open either system from the Lineout tab to access the full maul call sheet, entry sequences, and drive protocols.</p>
+          <div class="sp-maul-pointer">
+            <button class="sp-maul-link" onclick="setSetPieceTab('lineout', document.getElementById('s5LineoutBtn'))">Go to Lineout Systems &#8594;</button>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
     const tabData = data.setPiece?.tabs?.[tab];
     if (!tabData) {
       return;
     }
 
-    const container = document.getElementById("setPieceContent");
     container.innerHTML = tabData.groups.map((group) => `
       <section class="nt-setpiece-group">
         <div class="nt-setpiece-head">
@@ -577,6 +658,47 @@
         </div>
       </section>
     `).join("");
+  }
+
+  const LINEOUT_SYSTEM_PATHS = {
+    tempo: "../../assets/donau/images/TEMPO_Lineout_System_Austria_Youth.html",
+    spark: "../../assets/donau/images/Spark-lineout_manual.html",
+  };
+
+  const LINEOUT_SYSTEM_TITLES = {
+    tempo: "TEMPO — Lineout System",
+    spark: "SPARK — Lineout System",
+  };
+
+  function lineoutSystemEsc(event) {
+    if (event.key === "Escape") closeLineoutSystem();
+  }
+
+  function openLineoutSystem(system) {
+    const overlay = document.getElementById("lineoutSystemOverlay");
+    const frame = document.getElementById("lineoutSystemFrame");
+    const titleEl = document.getElementById("lsoTitle");
+    if (!overlay || !frame) return;
+    frame.src = LINEOUT_SYSTEM_PATHS[system] || "";
+    if (titleEl) titleEl.textContent = LINEOUT_SYSTEM_TITLES[system] || "Lineout System";
+    overlay.classList.add("open");
+    overlay.removeAttribute("aria-hidden");
+    document.body.classList.add("overlay-active");
+    document.addEventListener("keydown", lineoutSystemEsc);
+    overlay.querySelector(".lso-close")?.focus();
+  }
+
+  function closeLineoutSystem() {
+    const overlay = document.getElementById("lineoutSystemOverlay");
+    const frame = document.getElementById("lineoutSystemFrame");
+    if (!overlay) return;
+    overlay.classList.remove("open");
+    overlay.setAttribute("aria-hidden", "true");
+    if (!document.querySelector(".overlay.open")) {
+      document.body.classList.remove("overlay-active");
+    }
+    if (frame) setTimeout(() => { frame.src = ""; }, 220);
+    document.removeEventListener("keydown", lineoutSystemEsc);
   }
 
   function renderAttackSidebar() {
@@ -916,16 +1038,18 @@
     renderAnalysisHub();
     setCategory("setpiece", document.querySelector("#s3 .zone-btn.active"));
     setDefSide("rhs", document.querySelector("#s4 .zone-tab.active"));
-    setSetPieceTab("lineout", document.querySelector("#s5 .zone-btn.active"));
+    setSetPieceTab("overview", document.querySelector("#s5 .zone-btn.active"));
     updateNav();
   }
 
   window.askQ = askQ;
   window.changeSlide = changeSlide;
   window.closeFieldLightbox = closeFieldLightbox;
+  window.closeLineoutSystem = closeLineoutSystem;
   window.closeOverlay = closeOverlay;
   window.goTo = goTo;
   window.openFieldLightbox = openFieldLightbox;
+  window.openLineoutSystem = openLineoutSystem;
   window.openOverlay = openOverlay;
   window.sendMsg = sendMsg;
   window.setCategory = setCategory;

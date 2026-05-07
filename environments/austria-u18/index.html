@@ -383,7 +383,8 @@
     <div class="sl-body">
       <div class="lineout-left">
         <div class="zone-btns" role="tablist" aria-label="Set piece tabs">
-          <button class="zone-btn active" role="tab" aria-selected="true" onclick="setSetPieceTab('lineout',this)">Lineout</button>
+          <button class="zone-btn active" role="tab" aria-selected="true" onclick="setSetPieceTab('overview',this)">Overview</button>
+          <button class="zone-btn" id="s5LineoutBtn" role="tab" aria-selected="false" onclick="setSetPieceTab('lineout',this)">Lineout</button>
           <button class="zone-btn" role="tab" aria-selected="false" onclick="setSetPieceTab('scrum',this)">Scrum</button>
           <button class="zone-btn" role="tab" aria-selected="false" onclick="setSetPieceTab('maul',this)">Maul</button>
         </div>
@@ -591,6 +592,14 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <div id="lineoutSystemOverlay" class="lineout-system-overlay" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Lineout System">
+    <div class="lso-topbar">
+      <div class="lso-title" id="lsoTitle">Lineout System</div>
+      <button class="lso-close" onclick="closeLineoutSystem()" aria-label="Close">&times;</button>
+    </div>
+    <iframe id="lineoutSystemFrame" class="lso-frame" src="" title="Lineout System"></iframe>
   </div>
 
   <nav class="nav" aria-label="Slide navigation">
