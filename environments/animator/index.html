@@ -53,8 +53,17 @@
           <span class="sp-ctx-step" id="spStepBadge">1 / 1</span>
         </div>
 
-        <div class="sp-ctx-guide-row">
-          <p class="sp-ctx-guide-text" id="spGuideText">Drag players and the ball to reposition. Tap to select.</p>
+        <p class="sp-guide-text" id="spGuideText">Drag players and the ball to reposition. Tap to select.</p>
+
+        <div class="sp-kick-ctx" id="spKickCtx" hidden>
+          <div class="sp-kick-step" id="spKickStep1">
+            <span class="sp-kick-num">1</span>
+            <span class="sp-kick-label">Tap the kicker to arm the kick</span>
+          </div>
+          <div class="sp-kick-step" id="spKickStep2">
+            <span class="sp-kick-num">2</span>
+            <span class="sp-kick-label">Tap a receiver or open field spot</span>
+          </div>
         </div>
 
         <div class="sp-empty-state" id="spEmptyState">
@@ -74,6 +83,17 @@
             <span class="sp-sel-name" id="selName">—</span>
           </div>
           <div class="sp-sel-meta" id="selMeta"></div>
+          <div class="sp-color-picker" id="spColorPicker" hidden>
+            <span class="sp-field-label">Color</span>
+            <div class="sp-color-swatches">
+              <button class="sp-color-swatch" data-color="#ffffff" style="--sw:#ffffff" onclick="setAnnotationColor('#ffffff')" aria-label="White"></button>
+              <button class="sp-color-swatch" data-color="#e3b23c" style="--sw:#e3b23c" onclick="setAnnotationColor('#e3b23c')" aria-label="Gold"></button>
+              <button class="sp-color-swatch" data-color="#10b981" style="--sw:#10b981" onclick="setAnnotationColor('#10b981')" aria-label="Green"></button>
+              <button class="sp-color-swatch" data-color="#ef4444" style="--sw:#ef4444" onclick="setAnnotationColor('#ef4444')" aria-label="Red"></button>
+              <button class="sp-color-swatch" data-color="#3b82f6" style="--sw:#3b82f6" onclick="setAnnotationColor('#3b82f6')" aria-label="Blue"></button>
+              <button class="sp-color-swatch" data-color="#f97316" style="--sw:#f97316" onclick="setAnnotationColor('#f97316')" aria-label="Orange"></button>
+            </div>
+          </div>
           <div id="selEditWrap" class="sel-edit sp-sel-edit">
             <label id="selEditLabel" class="sp-field-label" for="selNoteInput">Note Text</label>
             <input id="selNoteInput" class="sp-field-input" type="text" maxlength="48" placeholder="Update note text">
@@ -87,34 +107,65 @@
 
       </div>
 
-      <!-- BOTTOM: Coaching notes (persistent) -->
-      <div class="sp-notes-zone">
-        <div class="sp-notes-zone-hdr">
-          <span class="sp-notes-zone-label">Coaching Notes</span>
+      <!-- BOTTOM: Coaching Notes accordion -->
+      <div class="sp-notes-panel">
+        <div class="sp-notes-panel-hdr">
+          <span class="sp-notes-panel-label">Coaching Notes</span>
           <span class="sp-notes-play-name" id="metaTitleValue"></span>
         </div>
-        <div class="sp-notes-zone-body">
-          <div class="sp-field-group">
-            <label class="sp-field-label" for="metaPurpose">Phase Purpose</label>
-            <textarea id="metaPurpose" class="sp-field-input sp-field-textarea" rows="2" maxlength="160" placeholder="What is this play trying to achieve?"></textarea>
-          </div>
-          <div class="sp-field-group">
-            <label class="sp-field-label" for="metaDecisionCue">Decision Cue</label>
-            <input id="metaDecisionCue" class="sp-field-input" type="text" maxlength="96" placeholder="What should the player read?">
-          </div>
-          <div class="sp-field-group">
-            <label class="sp-field-label">Coaching Points</label>
-            <input id="metaCoachingPoint1" class="sp-field-input" type="text" maxlength="80" placeholder="Point 1">
-            <input id="metaCoachingPoint2" class="sp-field-input" type="text" maxlength="80" placeholder="Point 2">
-            <input id="metaCoachingPoint3" class="sp-field-input" type="text" maxlength="80" placeholder="Point 3">
-          </div>
-          <div class="sp-field-group">
-            <label class="sp-field-label">Common Mistakes</label>
-            <input id="metaCommonMistake1" class="sp-field-input" type="text" maxlength="80" placeholder="Mistake 1">
-            <input id="metaCommonMistake2" class="sp-field-input" type="text" maxlength="80" placeholder="Mistake 2">
-            <input id="metaCommonMistake3" class="sp-field-input" type="text" maxlength="80" placeholder="Mistake 3">
+
+        <div class="sp-acc-section" id="accPurpose">
+          <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accPurpose')" aria-expanded="false">
+            <span>Phase Purpose</span>
+            <span class="sp-acc-chevron" aria-hidden="true">›</span>
+          </button>
+          <div class="sp-acc-body">
+            <div class="sp-acc-body-inner">
+              <textarea id="metaPurpose" class="sp-field-input sp-field-textarea" rows="2" maxlength="160" placeholder="What is this play trying to achieve?"></textarea>
+            </div>
           </div>
         </div>
+
+        <div class="sp-acc-section" id="accDecision">
+          <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accDecision')" aria-expanded="false">
+            <span>Decision Cue</span>
+            <span class="sp-acc-chevron" aria-hidden="true">›</span>
+          </button>
+          <div class="sp-acc-body">
+            <div class="sp-acc-body-inner">
+              <input id="metaDecisionCue" class="sp-field-input" type="text" maxlength="96" placeholder="What should the player read?">
+            </div>
+          </div>
+        </div>
+
+        <div class="sp-acc-section" id="accCoaching">
+          <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accCoaching')" aria-expanded="false">
+            <span>Coaching Points</span>
+            <span class="sp-acc-chevron" aria-hidden="true">›</span>
+          </button>
+          <div class="sp-acc-body">
+            <div class="sp-acc-body-inner">
+              <input id="metaCoachingPoint1" class="sp-field-input" type="text" maxlength="80" placeholder="Point 1">
+              <input id="metaCoachingPoint2" class="sp-field-input" type="text" maxlength="80" placeholder="Point 2">
+              <input id="metaCoachingPoint3" class="sp-field-input" type="text" maxlength="80" placeholder="Point 3">
+            </div>
+          </div>
+        </div>
+
+        <div class="sp-acc-section" id="accMistakes">
+          <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accMistakes')" aria-expanded="false">
+            <span>Common Mistakes</span>
+            <span class="sp-acc-chevron" aria-hidden="true">›</span>
+          </button>
+          <div class="sp-acc-body">
+            <div class="sp-acc-body-inner">
+              <input id="metaCommonMistake1" class="sp-field-input" type="text" maxlength="80" placeholder="Mistake 1">
+              <input id="metaCommonMistake2" class="sp-field-input" type="text" maxlength="80" placeholder="Mistake 2">
+              <input id="metaCommonMistake3" class="sp-field-input" type="text" maxlength="80" placeholder="Mistake 3">
+            </div>
+          </div>
+        </div>
+
       </div>
 
     </div>

@@ -1748,7 +1748,7 @@ html, body {
   min-height: 0;
   min-width: 0;
   display: grid;
-  grid-template-columns: 272px 1fr;
+  grid-template-columns: 220px 1fr;
   grid-template-rows: 1fr auto;
   overflow: hidden;
 }
@@ -2209,10 +2209,10 @@ html, body {
    ═══════════════════════════════════════════ */
 
 #smartPanel {
-  width: 272px;
+  width: 220px;
   display: flex;
   flex-direction: column;
-  background: #0b1319;
+  background: #0c1521;
   border-right: 1px solid rgba(255,255,255,0.07);
   overflow: hidden;
   user-select: text;
@@ -2287,16 +2287,65 @@ html, body {
   padding: 2px 8px;
 }
 
-/* Tool guide text */
-.sp-ctx-guide-row {
-  padding: 9px 12px 8px;
+/* Guide text (inline paragraph) */
+.sp-guide-text {
+  padding: 8px 12px;
+  font-size: 0.74rem;
+  line-height: 1.55;
+  color: rgba(255,255,255,0.44);
+  margin: 0;
   border-bottom: 1px solid rgba(255,255,255,0.05);
 }
-.sp-ctx-guide-text {
-  font-size: 0.77rem;
-  line-height: 1.55;
-  color: rgba(255,255,255,0.48);
-  margin: 0;
+
+/* Kick two-step context */
+.sp-kick-ctx {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.sp-kick-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.02);
+  opacity: 0.45;
+  transition: opacity 0.15s, background 0.15s, border-color 0.15s;
+}
+.sp-kick-step.active {
+  opacity: 1;
+  background: rgba(245,158,11,0.08);
+  border-color: rgba(245,158,11,0.28);
+}
+.sp-kick-num {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.5);
+}
+.sp-kick-step.active .sp-kick-num {
+  border-color: rgba(245,158,11,0.5);
+  color: #f59e0b;
+}
+.sp-kick-label {
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: rgba(255,255,255,0.5);
+}
+.sp-kick-step.active .sp-kick-label {
+  color: rgba(255,255,255,0.82);
 }
 
 /* Empty state */
@@ -2316,11 +2365,11 @@ html, body {
   line-height: 1;
 }
 .sp-empty-text {
-  font-size: 0.75rem;
+  font-size: 0.73rem;
   line-height: 1.6;
   color: rgba(255,255,255,0.28);
   margin: 0;
-  max-width: 180px;
+  max-width: 160px;
 }
 
 /* Context cards */
@@ -2399,6 +2448,35 @@ html, body {
   gap: 6px;
 }
 
+/* Shape color picker */
+.sp-color-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.sp-color-swatches {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.sp-color-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: var(--sw, #ffffff);
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+  flex-shrink: 0;
+}
+.sp-color-swatch:hover {
+  transform: scale(1.18);
+}
+.sp-color-swatch.active {
+  border-color: rgba(255,255,255,0.72);
+  transform: scale(1.12);
+}
+
 /* Annotation copy */
 .sp-ann-copy {
   font-size: 0.72rem;
@@ -2450,33 +2528,27 @@ html, body {
   color: #f87171;
 }
 
-/* ── Notes zone (BOTTOM) ── */
-.sp-notes-zone {
+/* ── Coaching Notes accordion panel (BOTTOM) ── */
+.sp-notes-panel {
   flex-shrink: 0;
-  max-height: 54%;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.08) transparent;
   border-top: 1px solid rgba(255,255,255,0.09);
-  background: rgba(0,0,0,0.15);
 }
-.sp-notes-zone::-webkit-scrollbar { width: 3px; }
-.sp-notes-zone::-webkit-scrollbar-track { background: transparent; }
-.sp-notes-zone::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 999px; }
+.sp-notes-panel::-webkit-scrollbar { width: 3px; }
+.sp-notes-panel::-webkit-scrollbar-track { background: transparent; }
+.sp-notes-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 999px; }
 
-.sp-notes-zone-hdr {
-  position: sticky;
-  top: 0;
+.sp-notes-panel-hdr {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
   padding: 7px 12px 6px;
-  background: #0d1620;
   border-bottom: 1px solid rgba(255,255,255,0.07);
-  z-index: 1;
 }
-.sp-notes-zone-label {
+.sp-notes-panel-label {
   font-family: 'Barlow Condensed', sans-serif;
   font-size: 0.6rem;
   font-weight: 700;
@@ -2495,13 +2567,61 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 130px;
+  max-width: 110px;
 }
-.sp-notes-zone-body {
-  padding: 9px 12px 14px;
+
+/* Accordion sections */
+.sp-acc-section {
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.sp-acc-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(255,255,255,0.52);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: left;
+  transition: color 0.15s, background 0.15s;
+}
+.sp-acc-trigger:hover {
+  color: rgba(255,255,255,0.82);
+  background: rgba(255,255,255,0.03);
+}
+.sp-acc-section.sp-acc-open .sp-acc-trigger {
+  color: rgba(255,255,255,0.82);
+}
+.sp-acc-chevron {
+  flex-shrink: 0;
+  font-size: 0.9rem;
+  line-height: 1;
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-block;
+}
+.sp-acc-section.sp-acc-open .sp-acc-chevron {
+  transform: rotate(90deg);
+}
+.sp-acc-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.sp-acc-section.sp-acc-open .sp-acc-body {
+  max-height: 300px;
+}
+.sp-acc-body-inner {
+  padding: 2px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 6px;
 }
 
 /* Shared field elements */
@@ -2529,6 +2649,7 @@ html, body {
   font-size: 0.77rem;
   line-height: 1.4;
   outline: none;
+  box-sizing: border-box;
   transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
   -webkit-user-select: text;
   user-select: text;
@@ -2606,17 +2727,14 @@ html, body {
     border-color: rgba(183,154,97,0.6);
     background: rgba(11,19,25,0.96);
   }
-  .sp-notes-zone {
-    max-height: none;
-  }
 }
 
 /* Medium desktops */
 @media (min-width: 769px) and (max-width: 1080px) {
   #workspace {
-    grid-template-columns: 240px 1fr;
+    grid-template-columns: 200px 1fr;
   }
   #smartPanel {
-    width: 240px;
+    width: 200px;
   }
 }

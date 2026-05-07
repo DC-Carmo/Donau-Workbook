@@ -1441,7 +1441,7 @@ function drawNoteAnnotation(note, selected = false) {
     ctx.shadowColor = 'rgba(251,191,36,0.22)';
     ctx.shadowBlur = 18;
   }
-  ctx.strokeStyle = selected ? '#fbbf24' : 'rgba(217,180,108,0.68)';
+  ctx.strokeStyle = selected ? '#fbbf24' : (note.color || 'rgba(217,180,108,0.68)');
   ctx.lineWidth = selected ? 2 : 1.2;
   roundRect(ctx, p.x - width / 2, p.y - height / 2, width, height, 12);
   ctx.stroke();
@@ -3150,17 +3150,28 @@ function updateSmartPanel() {
   const stepBadge = document.getElementById('spStepBadge');
   const annSection  = document.getElementById('spAnnSection');
   const emptyState  = document.getElementById('spEmptyState');
+  const kickCtx   = document.getElementById('spKickCtx');
+  const kickStep1 = document.getElementById('spKickStep1');
+  const kickStep2 = document.getElementById('spKickStep2');
 
   if (modeEl) modeEl.textContent = MODE_LABELS[S.tool] || 'Move';
-  if (guideText) guideText.textContent = guide.desc;
   if (guideIcon) guideIcon.textContent = guide.icon;
   if (stepBadge) {
     const count = sequenceStepCount();
     stepBadge.textContent = `${S.currentStep + 1} / ${count}`;
   }
+
+  const isKick = S.tool === 'kick';
+  if (guideText) {
+    guideText.textContent = guide.desc;
+    guideText.hidden = isKick;
+  }
+  if (kickCtx) kickCtx.hidden = !isKick;
+  if (kickStep1) kickStep1.classList.toggle('active', isKick && !S.passFrom);
+  if (kickStep2) kickStep2.classList.toggle('active', isKick && !!S.passFrom);
+
   const isAnnotationTool = S.tool === 'note' || S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box';
   if (annSection) annSection.hidden = !isAnnotationTool;
-  // Empty state: show only in move mode with nothing selected
   if (emptyState) emptyState.hidden = !(S.tool === 'move' && !S.selected);
 }
 
@@ -3190,6 +3201,27 @@ function closeMobileDrawer() {
 }
 window.toggleMobileDrawer = toggleMobileDrawer;
 window.closeMobileDrawer  = closeMobileDrawer;
+
+function toggleAccordion(id) {
+  const section = document.getElementById(id);
+  if (!section) return;
+  const isOpen = section.classList.contains('sp-acc-open');
+  section.classList.toggle('sp-acc-open', !isOpen);
+  const trigger = section.querySelector('.sp-acc-trigger');
+  if (trigger) trigger.setAttribute('aria-expanded', !isOpen ? 'true' : 'false');
+  try { localStorage.setItem('sp-acc-' + id, isOpen ? '0' : '1'); } catch(e) {}
+}
+window.toggleAccordion = toggleAccordion;
+
+function setAnnotationColor(color) {
+  const ann = selectedAnnotation();
+  if (!ann) return;
+  snapshot();
+  ann.color = color;
+  refreshInteractionUI();
+  render();
+}
+window.setAnnotationColor = setAnnotationColor;
 
 function refreshInteractionUI() {
   persistCurrentStep();
@@ -3324,6 +3356,16 @@ function updateSelInfo() {
     giveBallBtn.disabled = !giveBallTarget;
     if (giveBallTarget) {
       giveBallBtn.textContent = `Give Ball to ${giveBallTarget.team === 'A' ? 'A' : 'D'} #${giveBallTarget.num}`;
+    }
+  }
+  const colorPicker = document.getElementById('spColorPicker');
+  if (colorPicker) {
+    colorPicker.hidden = !ann;
+    if (ann) {
+      const currentColor = ann.color || annotationColor(ann.type);
+      colorPicker.querySelectorAll('.sp-color-swatch').forEach(sw => {
+        sw.classList.toggle('active', sw.dataset.color === currentColor);
+      });
     }
   }
   if (deleteBtn) {
@@ -3644,6 +3686,21 @@ window.addEventListener('resize', resize);
 resize();
 setHint('MOVE - drag any player or ball freely on the pitch');
 refreshInteractionUI();
+
+(function initAccordions() {
+  ['accPurpose', 'accDecision', 'accCoaching', 'accMistakes'].forEach(function(id) {
+    try {
+      if (localStorage.getItem('sp-acc-' + id) === '1') {
+        var section = document.getElementById(id);
+        if (section) {
+          section.classList.add('sp-acc-open');
+          var trigger = section.querySelector('.sp-acc-trigger');
+          if (trigger) trigger.setAttribute('aria-expanded', 'true');
+        }
+      }
+    } catch(e) {}
+  });
+})();
 
 document.addEventListener('pointerdown', e => {
   const dropdown = document.getElementById('mobileToolsDropdown');
