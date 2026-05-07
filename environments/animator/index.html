@@ -41,34 +41,39 @@
   <div id="workspace">
 
     <div id="smartPanel" aria-label="Smart Coach Panel">
-      <div class="sp-header">
-        <span class="sp-ball-icon" aria-hidden="true"></span>
-        <div class="sp-header-info">
-          <div class="sp-header-kicker">Active Tool</div>
-          <div class="sp-header-mode" id="spModeLabel">Move</div>
-        </div>
-        <div class="sp-step-badge" id="spStepBadge">1 / 1</div>
-      </div>
 
-      <div class="sp-body">
+      <!-- TOP: Contextual guidance zone -->
+      <div class="sp-ctx-zone">
 
-        <div class="sp-card sp-tool-guide">
-          <div class="sp-tool-guide-icon" id="spGuideIcon" aria-hidden="true">↖</div>
-          <p class="sp-tool-guide-text" id="spGuideText">Drag players and the ball to reposition. Tap to select.</p>
-        </div>
-
-        <div class="sp-card sp-ann-card" id="spAnnSection" hidden>
-          <label class="sp-field-label" for="annotationText">Note Text</label>
-          <input id="annotationText" class="sp-field-input" type="text" maxlength="48" placeholder="Phase cue">
-          <p class="sp-ann-copy" id="annotationCopy">Choose an annotation tool, then click or drag on the field.</p>
-        </div>
-
-        <div id="selInfo" class="sel-info sp-card sp-sel-card">
-          <div class="sp-sel-top">
-            <span class="sp-sel-label">Selected</span>
-            <div class="sp-sel-name" id="selName">-</div>
+        <div class="sp-ctx-hdr">
+          <div class="sp-ctx-hdr-left">
+            <span class="sp-ctx-icon" id="spGuideIcon" aria-hidden="true">↖</span>
+            <span class="sp-ctx-mode" id="spModeLabel">Move</span>
           </div>
-          <div class="sp-sel-meta" id="selMeta">Select a player or ball to inspect it here.</div>
+          <span class="sp-ctx-step" id="spStepBadge">1 / 1</span>
+        </div>
+
+        <div class="sp-ctx-guide-row">
+          <p class="sp-ctx-guide-text" id="spGuideText">Drag players and the ball to reposition. Tap to select.</p>
+        </div>
+
+        <div class="sp-empty-state" id="spEmptyState">
+          <div class="sp-empty-icon" aria-hidden="true">◎</div>
+          <p class="sp-empty-text">Select a player or tool to view coaching context</p>
+        </div>
+
+        <div class="sp-ctx-card" id="spAnnSection" hidden>
+          <label class="sp-field-label" for="annotationText">Annotation Text</label>
+          <input id="annotationText" class="sp-field-input" type="text" maxlength="48" placeholder="Phase cue">
+          <p class="sp-ann-copy" id="annotationCopy">Click or drag on the field to place.</p>
+        </div>
+
+        <div id="selInfo" class="sel-info sp-ctx-card sp-sel-card">
+          <div class="sp-sel-chip">
+            <span class="sp-sel-label">Selected</span>
+            <span class="sp-sel-name" id="selName">—</span>
+          </div>
+          <div class="sp-sel-meta" id="selMeta"></div>
           <div id="selEditWrap" class="sel-edit sp-sel-edit">
             <label id="selEditLabel" class="sp-field-label" for="selNoteInput">Note Text</label>
             <input id="selNoteInput" class="sp-field-input" type="text" maxlength="48" placeholder="Update note text">
@@ -80,42 +85,42 @@
           </div>
         </div>
 
-        <div class="sp-notes-section">
-          <button class="sp-notes-toggle" id="spNotesToggle" onclick="toggleSmartPanelNotes()" aria-expanded="true">
-            <span>Coaching Notes</span>
-            <span class="sp-notes-chevron" id="spNotesChevron">▴</span>
-          </button>
-          <div class="sp-notes-body" id="spNotesBody">
-            <div class="sp-play-title" id="metaTitleValue"></div>
+      </div>
 
-            <div class="sp-field-group">
-              <label class="sp-field-label" for="metaPurpose">Phase Purpose</label>
-              <textarea id="metaPurpose" class="sp-field-input sp-field-textarea" rows="2" maxlength="160" placeholder="What is this play trying to achieve?"></textarea>
-            </div>
-
-            <div class="sp-field-group">
-              <label class="sp-field-label" for="metaDecisionCue">Decision Cue</label>
-              <input id="metaDecisionCue" class="sp-field-input" type="text" maxlength="96" placeholder="What should the player read?">
-            </div>
-
-            <div class="sp-field-group">
-              <label class="sp-field-label">Coaching Points</label>
-              <input id="metaCoachingPoint1" class="sp-field-input" type="text" maxlength="80" placeholder="Point 1">
-              <input id="metaCoachingPoint2" class="sp-field-input" type="text" maxlength="80" placeholder="Point 2">
-              <input id="metaCoachingPoint3" class="sp-field-input" type="text" maxlength="80" placeholder="Point 3">
-            </div>
-
-            <div class="sp-field-group">
-              <label class="sp-field-label">Common Mistakes</label>
-              <input id="metaCommonMistake1" class="sp-field-input" type="text" maxlength="80" placeholder="Mistake 1">
-              <input id="metaCommonMistake2" class="sp-field-input" type="text" maxlength="80" placeholder="Mistake 2">
-              <input id="metaCommonMistake3" class="sp-field-input" type="text" maxlength="80" placeholder="Mistake 3">
-            </div>
+      <!-- BOTTOM: Coaching notes (persistent) -->
+      <div class="sp-notes-zone">
+        <div class="sp-notes-zone-hdr">
+          <span class="sp-notes-zone-label">Coaching Notes</span>
+          <span class="sp-notes-play-name" id="metaTitleValue"></span>
+        </div>
+        <div class="sp-notes-zone-body">
+          <div class="sp-field-group">
+            <label class="sp-field-label" for="metaPurpose">Phase Purpose</label>
+            <textarea id="metaPurpose" class="sp-field-input sp-field-textarea" rows="2" maxlength="160" placeholder="What is this play trying to achieve?"></textarea>
+          </div>
+          <div class="sp-field-group">
+            <label class="sp-field-label" for="metaDecisionCue">Decision Cue</label>
+            <input id="metaDecisionCue" class="sp-field-input" type="text" maxlength="96" placeholder="What should the player read?">
+          </div>
+          <div class="sp-field-group">
+            <label class="sp-field-label">Coaching Points</label>
+            <input id="metaCoachingPoint1" class="sp-field-input" type="text" maxlength="80" placeholder="Point 1">
+            <input id="metaCoachingPoint2" class="sp-field-input" type="text" maxlength="80" placeholder="Point 2">
+            <input id="metaCoachingPoint3" class="sp-field-input" type="text" maxlength="80" placeholder="Point 3">
+          </div>
+          <div class="sp-field-group">
+            <label class="sp-field-label">Common Mistakes</label>
+            <input id="metaCommonMistake1" class="sp-field-input" type="text" maxlength="80" placeholder="Mistake 1">
+            <input id="metaCommonMistake2" class="sp-field-input" type="text" maxlength="80" placeholder="Mistake 2">
+            <input id="metaCommonMistake3" class="sp-field-input" type="text" maxlength="80" placeholder="Mistake 3">
           </div>
         </div>
-
       </div>
+
     </div>
+
+    <button id="spMobileToggle" class="sp-mobile-toggle" onclick="toggleMobileDrawer()" aria-label="Open coaching panel" aria-expanded="false">✎</button>
+    <div id="spMobileBackdrop" class="sp-mobile-backdrop" onclick="closeMobileDrawer()"></div>
 
     <div id="canvasWrap">
       <canvas id="field"></canvas>

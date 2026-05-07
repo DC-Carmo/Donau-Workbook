@@ -3066,11 +3066,12 @@ const TOOL_GUIDE_CONTENT = {
 
 function updateSmartPanel() {
   const guide = TOOL_GUIDE_CONTENT[S.tool] || TOOL_GUIDE_CONTENT.move;
-  const modeEl = document.getElementById('spModeLabel');
+  const modeEl    = document.getElementById('spModeLabel');
   const guideText = document.getElementById('spGuideText');
   const guideIcon = document.getElementById('spGuideIcon');
   const stepBadge = document.getElementById('spStepBadge');
-  const annSection = document.getElementById('spAnnSection');
+  const annSection  = document.getElementById('spAnnSection');
+  const emptyState  = document.getElementById('spEmptyState');
 
   if (modeEl) modeEl.textContent = MODE_LABELS[S.tool] || 'Move';
   if (guideText) guideText.textContent = guide.desc;
@@ -3079,23 +3080,38 @@ function updateSmartPanel() {
     const count = sequenceStepCount();
     stepBadge.textContent = `${S.currentStep + 1} / ${count}`;
   }
-  if (annSection) {
-    const showAnn = S.tool === 'note' || S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box';
-    annSection.hidden = !showAnn;
-  }
+  const isAnnotationTool = S.tool === 'note' || S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box';
+  if (annSection) annSection.hidden = !isAnnotationTool;
+  // Empty state: show only in move mode with nothing selected
+  if (emptyState) emptyState.hidden = !(S.tool === 'move' && !S.selected);
 }
 
 function toggleSmartPanelNotes() {
-  const body = document.getElementById('spNotesBody');
-  const chevron = document.getElementById('spNotesChevron');
-  const toggle = document.getElementById('spNotesToggle');
-  if (!body) return;
-  const isOpen = !body.hidden;
-  body.hidden = isOpen;
-  if (chevron) chevron.textContent = isOpen ? '▾' : '▴';
-  if (toggle) toggle.setAttribute('aria-expanded', String(!isOpen));
+  // Notes zone is always visible in v2 — kept for backwards compatibility
 }
 window.toggleSmartPanelNotes = toggleSmartPanelNotes;
+
+function toggleMobileDrawer() {
+  const panel    = document.getElementById('smartPanel');
+  const backdrop = document.getElementById('spMobileBackdrop');
+  const toggle   = document.getElementById('spMobileToggle');
+  if (!panel) return;
+  const isOpen = panel.classList.contains('sp-drawer-open');
+  if (isOpen) { closeMobileDrawer(); return; }
+  panel.classList.add('sp-drawer-open');
+  if (backdrop) backdrop.classList.add('open');
+  if (toggle) toggle.setAttribute('aria-expanded', 'true');
+}
+function closeMobileDrawer() {
+  const panel    = document.getElementById('smartPanel');
+  const backdrop = document.getElementById('spMobileBackdrop');
+  const toggle   = document.getElementById('spMobileToggle');
+  if (panel) panel.classList.remove('sp-drawer-open');
+  if (backdrop) backdrop.classList.remove('open');
+  if (toggle) toggle.setAttribute('aria-expanded', 'false');
+}
+window.toggleMobileDrawer = toggleMobileDrawer;
+window.closeMobileDrawer  = closeMobileDrawer;
 
 function refreshInteractionUI() {
   persistCurrentStep();
