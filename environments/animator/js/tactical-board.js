@@ -118,6 +118,39 @@ boardBallAsset.addEventListener('load', () => {
 });
 boardBallAsset.src = BOARD_BALL_ASSET_SRC;
 
+// ── Pitch texture configuration ──────────────────────────────────────────
+const PITCH_CONFIG = {
+  textureStrength: 0.09, // grass noise opacity (0–1); lower = subtler
+  stripeCount:     12,   // mow stripes across field width
+};
+
+let _grassTile = null; // cached noise tile — built once, reused every frame
+
+function getGrassTile() {
+  if (_grassTile) return _grassTile;
+  const SIZE = 256;
+  const oc = document.createElement('canvas');
+  oc.width = SIZE; oc.height = SIZE;
+  const oc2 = oc.getContext('2d');
+  const img = oc2.createImageData(SIZE, SIZE);
+  const d = img.data;
+  // Deterministic xorshift-32 so the pattern is always the same
+  let s = 0xabcdef01;
+  const rnd = () => {
+    s ^= s << 13; s ^= s >> 17; s ^= s << 5;
+    return (s >>> 0) / 0x100000000;
+  };
+  for (let i = 0; i < SIZE * SIZE; i++) {
+    const v = Math.floor(rnd() * 210 + 22); // 22–232, avoid pure black/white
+    const idx = i * 4;
+    d[idx] = d[idx + 1] = d[idx + 2] = v;
+    d[idx + 3] = 255; // opacity handled by globalAlpha when drawing
+  }
+  oc2.putImageData(img, 0, 0);
+  _grassTile = oc;
+  return oc;
+}
+
 function isMobileBoardViewport() {
   return window.innerWidth <= 768;
 }
@@ -716,16 +749,57 @@ function drawField() {
   ctx.fillRect(TL.x, TL.y, FW, FH);
   ctx.restore();
 
-  ctx.fillStyle = '#3C8A26';
+  // Base grass — radial gradient: centre slightly brighter, edges deeper
+  const grassBase = ctx.createRadialGradient(
+    TL.x + FW * 0.5, TL.y + FH * 0.5, FH * 0.04,
+    TL.x + FW * 0.5, TL.y + FH * 0.5, FH * 0.78
+  );
+  grassBase.addColorStop(0,   '#3E9428');
+  grassBase.addColorStop(0.45, '#3A8F24');
+  grassBase.addColorStop(1,   '#2C7818');
+  ctx.fillStyle = grassBase;
   ctx.fillRect(TL.x, TL.y, FW, FH);
 
-  const nBands = 12;
-  for (let i = 0; i < nBands; i++) {
-    const fy0 = F.YMIN + (F.YMAX - F.YMIN) / nBands * i;
-    const fy1 = F.YMIN + (F.YMAX - F.YMIN) / nBands * (i + 1);
-    const p0 = toC(0, fy0), p1 = toC(68, fy1);
-    ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.055)';
-    ctx.fillRect(p0.x, p0.y, p1.x - p0.x, p1.y - p0.y + 1);
+  // Vertical mow stripes — field-length bands (soft feathered edges)
+  const nStripes = PITCH_CONFIG.stripeCount;
+  const bandW = FW / nStripes;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(TL.x, TL.y, FW, FH);
+  ctx.clip();
+  for (let si = 0; si < nStripes; si++) {
+    const bx = TL.x + si * bandW;
+    const sg = ctx.createLinearGradient(bx, 0, bx + bandW, 0);
+    if (si % 2 === 0) {
+      sg.addColorStop(0,    'rgba(255,255,255,0.0)');
+      sg.addColorStop(0.26, 'rgba(255,255,255,0.042)');
+      sg.addColorStop(0.74, 'rgba(255,255,255,0.042)');
+      sg.addColorStop(1,    'rgba(255,255,255,0.0)');
+    } else {
+      sg.addColorStop(0,    'rgba(0,0,0,0.0)');
+      sg.addColorStop(0.26, 'rgba(0,0,0,0.052)');
+      sg.addColorStop(0.74, 'rgba(0,0,0,0.052)');
+      sg.addColorStop(1,    'rgba(0,0,0,0.0)');
+    }
+    ctx.fillStyle = sg;
+    ctx.fillRect(bx, TL.y, bandW, FH);
+  }
+  ctx.restore();
+
+  // Grass noise texture — cached tile drawn at low opacity for fine grain
+  const tile = getGrassTile();
+  if (tile) {
+    const pat = ctx.createPattern(tile, 'repeat');
+    if (pat) {
+      ctx.save();
+      ctx.globalAlpha = PITCH_CONFIG.textureStrength;
+      ctx.beginPath();
+      ctx.rect(TL.x, TL.y, FW, FH);
+      ctx.clip();
+      ctx.fillStyle = pat;
+      ctx.fillRect(TL.x, TL.y, FW, FH);
+      ctx.restore();
+    }
   }
 
   const igTop = toC(0, F.YMIN), igTopEnd = toC(68, 0);
@@ -741,6 +815,16 @@ function drawField() {
   igGradBot.addColorStop(1, 'rgba(0,0,0,0.28)');
   ctx.fillStyle = igGradBot;
   ctx.fillRect(igBot.x, igBot.y, FW, igBotEnd.y - igBot.y);
+
+  // Subtle vignette — edges slightly deeper, centre stays open
+  const vig = ctx.createRadialGradient(
+    TL.x + FW * 0.5, TL.y + FH * 0.5, Math.min(FW, FH) * 0.28,
+    TL.x + FW * 0.5, TL.y + FH * 0.5, Math.max(FW, FH) * 0.74
+  );
+  vig.addColorStop(0, 'rgba(0,0,0,0)');
+  vig.addColorStop(1, 'rgba(0,0,0,0.16)');
+  ctx.fillStyle = vig;
+  ctx.fillRect(TL.x, TL.y, FW, FH);
 
   ctx.save();
   ctx.strokeStyle = 'rgba(255,255,255,0.14)';
