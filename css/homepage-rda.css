@@ -182,9 +182,9 @@ body.homepage-rda {
   background: repeating-linear-gradient(
     -55deg,
     transparent,
-    transparent 40px,
-    rgba(255,255,255,0.012) 40px,
-    rgba(255,255,255,0.012) 80px
+    transparent 60px,
+    rgba(255,255,255,0.018) 60px,
+    rgba(255,255,255,0.018) 61px
   );
   pointer-events: none;
 }
@@ -206,29 +206,33 @@ body.homepage-rda {
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
 }
 
 .hp-hero-headline {
   font-family: "Bebas Neue", sans-serif;
-  font-size: clamp(100px, 18vw, 200px);
+  font-size: 160px !important;
   line-height: 0.85;
   color: #FFFFFF;
   margin: 0 0 8px;
-  letter-spacing: 2px;
+  letter-spacing: 0.02em;
 }
 
 .hp-hero-tagline {
   font-family: "Bebas Neue", sans-serif;
-  font-size: clamp(36px, 5vw, 64px);
+  font-size: 52px !important;
   color: var(--hp-gold);
   line-height: 1;
   margin: 0;
 }
 
 .hp-hero-body {
-  font-size: 16px;
+  font-size: 17px;
   color: var(--hp-muted);
-  max-width: 480px;
+  max-width: 500px;
   margin-top: 28px;
   margin-bottom: 44px;
   line-height: 1.7;
@@ -745,7 +749,11 @@ body.homepage-rda {
   }
 
   .hp-hero-headline {
-    font-size: clamp(80px, 22vw, 140px);
+    font-size: 18vw !important;
+  }
+
+  .hp-hero-tagline {
+    font-size: 7vw !important;
   }
 
   .hp-stats {
