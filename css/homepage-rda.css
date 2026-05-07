@@ -532,6 +532,10 @@ body.hp-mobile-menu-open {
   justify-content: space-between;
 }
 
+.hp-env-card-austria {
+  border-top: 2px solid rgba(227,178,60,0.4);
+}
+
 .hp-env-card > :last-child {
   margin-top: auto;
 }
@@ -612,6 +616,14 @@ body.hp-mobile-menu-open {
   letter-spacing: 2px;
   text-transform: uppercase;
   color: rgba(255,255,255,0.22);
+}
+
+.hp-env-badge {
+  margin-top: 8px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(227,178,60,0.5);
 }
 
 
