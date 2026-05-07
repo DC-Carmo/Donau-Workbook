@@ -2968,6 +2968,51 @@ function updateSelectedNoteText(value) {
   render();
 }
 
+const TOOL_GUIDE_CONTENT = {
+  move:  { icon: '↖', desc: 'Drag players and the ball to reposition. Tap to select.' },
+  path:  { icon: '⟶', desc: 'Tap a player to start a run path, then drag to draw the route.' },
+  pass:  { icon: '⤳', desc: 'Tap the passer, then tap the receiver to draw a pass line.' },
+  kick:  { icon: '↑', desc: 'Tap the kicker first, then tap the destination target.' },
+  zone:  { icon: '○', desc: 'Drag on the field to draw a circle highlight area.' },
+  box:   { icon: '□', desc: 'Drag on the field to draw a box zone or channel.' },
+  arrow: { icon: '↗', desc: 'Drag on the field to draw a free tactical arrow.' },
+  note:  { icon: '✎', desc: 'Tap on the field to place a coaching cue card.' },
+  erase: { icon: '✕', desc: 'Tap any player, ball, path, or annotation to remove it.' },
+};
+
+function updateSmartPanel() {
+  const guide = TOOL_GUIDE_CONTENT[S.tool] || TOOL_GUIDE_CONTENT.move;
+  const modeEl = document.getElementById('spModeLabel');
+  const guideText = document.getElementById('spGuideText');
+  const guideIcon = document.getElementById('spGuideIcon');
+  const stepBadge = document.getElementById('spStepBadge');
+  const annSection = document.getElementById('spAnnSection');
+
+  if (modeEl) modeEl.textContent = MODE_LABELS[S.tool] || 'Move';
+  if (guideText) guideText.textContent = guide.desc;
+  if (guideIcon) guideIcon.textContent = guide.icon;
+  if (stepBadge) {
+    const count = sequenceStepCount();
+    stepBadge.textContent = `${S.currentStep + 1} / ${count}`;
+  }
+  if (annSection) {
+    const showAnn = S.tool === 'note' || S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box';
+    annSection.hidden = !showAnn;
+  }
+}
+
+function toggleSmartPanelNotes() {
+  const body = document.getElementById('spNotesBody');
+  const chevron = document.getElementById('spNotesChevron');
+  const toggle = document.getElementById('spNotesToggle');
+  if (!body) return;
+  const isOpen = !body.hidden;
+  body.hidden = isOpen;
+  if (chevron) chevron.textContent = isOpen ? '▾' : '▴';
+  if (toggle) toggle.setAttribute('aria-expanded', String(!isOpen));
+}
+window.toggleSmartPanelNotes = toggleSmartPanelNotes;
+
 function refreshInteractionUI() {
   persistCurrentStep();
   updateSelInfo();
@@ -2976,6 +3021,7 @@ function refreshInteractionUI() {
   updatePlayMetadataPanel();
   updateSequenceUI();
   updateMobileUI();
+  updateSmartPanel();
 }
 
 function setTool(t) {
