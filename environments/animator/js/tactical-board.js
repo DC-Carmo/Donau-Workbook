@@ -3228,6 +3228,11 @@ function updateSmartPanel() {
   const hasSelection = !!S.selected || !!selectedAnnotationId();
   const showDefault = !hasSelection && !isKick;
 
+  // Auto-expand the rail when user needs contextual controls
+  if (hasSelection || isKick || isAnnotationTool) {
+    expandRail();
+  }
+
   if (annSection) annSection.hidden = !isAnnotationTool;
   if (defaultState) defaultState.hidden = !showDefault;
   if (emptyState) emptyState.hidden = true;
@@ -3266,6 +3271,57 @@ function closeMobileDrawer() {
 }
 window.toggleMobileDrawer = toggleMobileDrawer;
 window.closeMobileDrawer  = closeMobileDrawer;
+
+/* ── Floating rail toggle ── */
+function toggleRail() {
+  const panel  = document.getElementById('smartPanel');
+  const toggle = document.getElementById('railToggle');
+  if (!panel) return;
+  const expanded = panel.classList.toggle('sp-expanded');
+  if (toggle) toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+}
+window.toggleRail = toggleRail;
+
+function expandRail() {
+  const panel  = document.getElementById('smartPanel');
+  const toggle = document.getElementById('railToggle');
+  if (!panel || panel.classList.contains('sp-expanded')) return;
+  panel.classList.add('sp-expanded');
+  if (toggle) toggle.setAttribute('aria-expanded', 'true');
+}
+
+function collapseRail() {
+  const panel  = document.getElementById('smartPanel');
+  const toggle = document.getElementById('railToggle');
+  if (!panel) return;
+  panel.classList.remove('sp-expanded');
+  if (toggle) toggle.setAttribute('aria-expanded', 'false');
+}
+
+/* ── Coaching drawer ── */
+function toggleCoachingDrawer() {
+  const drawer = document.getElementById('coachingDrawer');
+  const btn    = document.getElementById('coachModeBtn');
+  if (!drawer) return;
+  const open = drawer.classList.toggle('cd-open');
+  if (btn) {
+    btn.classList.toggle('coach-active', open);
+    btn.setAttribute('aria-pressed', open ? 'true' : 'false');
+  }
+}
+window.toggleCoachingDrawer = toggleCoachingDrawer;
+
+function closeCoachingDrawer() {
+  const drawer = document.getElementById('coachingDrawer');
+  const btn    = document.getElementById('coachModeBtn');
+  if (!drawer) return;
+  drawer.classList.remove('cd-open');
+  if (btn) {
+    btn.classList.remove('coach-active');
+    btn.setAttribute('aria-pressed', 'false');
+  }
+}
+window.closeCoachingDrawer = closeCoachingDrawer;
 
 function toggleAccordion(id) {
   const section = document.getElementById(id);

@@ -341,17 +341,10 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
   min-height:0;
   min-width:0;
   display:grid;
-  grid-template-columns:220px minmax(0, 1fr);
+  grid-template-columns:1fr;
   grid-template-rows:1fr auto;
   overflow:hidden;
-}
-
-#smartPanel {
-  grid-column: 1;
-  grid-row: 1 / 3;
-  min-height: 0;
-  background: linear-gradient(180deg, rgba(9,18,29,0.98), rgba(10,16,26,0.99));
-  border-right: 1px solid rgba(255,255,255,0.06);
+  position:relative;
 }
 
 /* PLAYER PALETTE */
@@ -1551,7 +1544,7 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
 @media (max-width: 900px) and (orientation: landscape) {
   #workspace {
     display:grid;
-    grid-template-columns:minmax(0, 1.45fr) minmax(260px, 0.9fr);
+    grid-template-columns:1fr;
     align-items:start;
     gap:0;
   }
@@ -1757,25 +1750,20 @@ html, body {
   min-height: 0;
   min-width: 0;
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 1fr;
   grid-template-rows: 1fr auto;
   overflow: hidden;
-}
-
-#smartPanel {
-  grid-column: 1;
-  grid-row: 1 / 3;
-  min-height: 0;
+  position: relative;
 }
 
 #canvasWrap {
-  grid-column: 2;
+  grid-column: 1;
   grid-row: 1;
   min-height: 0;
 }
 
 #bottomPanel {
-  grid-column: 2;
+  grid-column: 1;
   grid-row: 2;
 }
 
@@ -2218,14 +2206,28 @@ html, body {
    ═══════════════════════════════════════════ */
 
 #smartPanel {
-  width: 220px;
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  bottom: 10px;
+  z-index: 20;
+  width: 80px;
   display: flex;
   flex-direction: column;
-  background: #0c1521;
-  border-right: 1px solid rgba(255,255,255,0.07);
+  background: rgba(8, 17, 27, 0.90);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
   overflow: hidden;
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 28px rgba(0,0,0,0.45), inset 0 0 0 0.5px rgba(255,255,255,0.04);
   user-select: text;
   -webkit-user-select: text;
+}
+
+#smartPanel.sp-expanded {
+  width: 220px;
 }
 
 /* ── Context zone (TOP) ── */
@@ -2773,12 +2775,171 @@ html, body {
   }
 }
 
-/* Medium desktops */
+/* Medium desktops — rail stays same width */
 @media (min-width: 769px) and (max-width: 1080px) {
-  #workspace {
-    grid-template-columns: 200px 1fr;
-  }
-  #smartPanel {
+  #smartPanel.sp-expanded {
     width: 200px;
   }
+}
+
+/* ═══════════════════════════════════════════
+   FLOATING RAIL — TOGGLE BUTTON
+   ═══════════════════════════════════════════ */
+
+.sp-rail-toggle {
+  flex-shrink: 0;
+  width: 100%;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.28);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.sp-rail-toggle:hover {
+  color: rgba(255,255,255,0.70);
+  background: rgba(255,255,255,0.04);
+}
+.sp-rail-toggle-icon {
+  display: inline-block;
+  font-size: 1.1rem;
+  line-height: 1;
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+#smartPanel.sp-expanded .sp-rail-toggle-icon {
+  transform: rotate(180deg);
+}
+
+/* ═══════════════════════════════════════════
+   FLOATING RAIL — COLLAPSED STATE
+   ═══════════════════════════════════════════ */
+
+#smartPanel:not(.sp-expanded) .sp-ctx-mode,
+#smartPanel:not(.sp-expanded) .sp-guide-text,
+#smartPanel:not(.sp-expanded) .sp-default-state,
+#smartPanel:not(.sp-expanded) .sp-kick-ctx,
+#smartPanel:not(.sp-expanded) .sp-ctx-card,
+#smartPanel:not(.sp-expanded) .sp-sel-meta,
+#smartPanel:not(.sp-expanded) .sp-sel-actions,
+#smartPanel:not(.sp-expanded) .sp-sel-chip,
+#smartPanel:not(.sp-expanded) .sp-color-picker,
+#smartPanel:not(.sp-expanded) .sp-shape-actions,
+#smartPanel:not(.sp-expanded) .sel-edit {
+  display: none !important;
+}
+
+#smartPanel:not(.sp-expanded) .sp-ctx-hdr {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 6px;
+}
+#smartPanel:not(.sp-expanded) .sp-ctx-hdr-left {
+  justify-content: center;
+}
+#smartPanel:not(.sp-expanded) .sp-ctx-step {
+  font-size: 0.54rem;
+  padding: 2px 6px;
+}
+
+/* ═══════════════════════════════════════════
+   COACHING DRAWER — slides up from canvas
+   ═══════════════════════════════════════════ */
+
+#coachingDrawer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 25;
+  background: rgba(7, 15, 24, 0.96);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid rgba(255,255,255,0.10);
+  transform: translateY(100%);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  max-height: 300px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.08) transparent;
+}
+#coachingDrawer::-webkit-scrollbar { width: 3px; }
+#coachingDrawer::-webkit-scrollbar-track { background: transparent; }
+#coachingDrawer::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 999px; }
+
+#coachingDrawer.cd-open {
+  transform: translateY(0);
+}
+
+.coaching-drawer-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px 9px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  position: sticky;
+  top: 0;
+  background: rgba(7, 15, 24, 0.98);
+  z-index: 1;
+}
+.coaching-drawer-hdr-inner {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.coaching-drawer-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.36);
+}
+.coaching-drawer-play-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(255,255,255,0.36);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 240px;
+}
+.coaching-drawer-close {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.32);
+  cursor: pointer;
+  font-size: 0.88rem;
+  padding: 4px 7px;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+  line-height: 1;
+}
+.coaching-drawer-close:hover {
+  color: rgba(255,255,255,0.72);
+  background: rgba(255,255,255,0.06);
+}
+.coaching-drawer-body {
+  padding: 0;
+}
+
+/* ═══════════════════════════════════════════
+   TOPBAR — COACH MODE BUTTON
+   ═══════════════════════════════════════════ */
+
+.tb-mode-btn {
+  color: var(--muted2);
+  border-color: rgba(255,255,255,0.10);
+}
+.tb-mode-btn.coach-active {
+  color: var(--gold);
+  border-color: rgba(216,177,77,0.40);
+  background: rgba(216,177,77,0.08);
 }

@@ -35,12 +35,17 @@
       <button class="c-btn" id="mobileSaveBtn" onclick="saveCurrentPlay()">Save</button>
       <button class="c-btn desktop-only" onclick="exportCurrentPlay()">Export</button>
       <button class="c-btn desktop-only" onclick="triggerImportPlay()">Import</button>
+      <button class="c-btn tb-mode-btn desktop-only" id="coachModeBtn" type="button" onclick="toggleCoachingDrawer()" aria-pressed="false">Coach</button>
     </div>
   </div>
 
   <div id="workspace">
 
-    <div id="smartPanel" aria-label="Smart Coach Panel">
+    <div id="smartPanel" aria-label="Tool Rail">
+
+      <button id="railToggle" class="sp-rail-toggle" type="button" onclick="toggleRail()" aria-label="Expand tool panel" aria-expanded="false">
+        <span class="sp-rail-toggle-icon" aria-hidden="true">›</span>
+      </button>
 
       <!-- TOP: Contextual guidance zone -->
       <div class="sp-ctx-zone">
@@ -118,67 +123,6 @@
 
       </div>
 
-      <!-- BOTTOM: Coaching Notes accordion -->
-      <div class="sp-notes-panel">
-        <div class="sp-notes-panel-hdr">
-          <span class="sp-notes-panel-label">Coaching Notes</span>
-          <span class="sp-notes-play-name" id="metaTitleValue"></span>
-        </div>
-
-        <div class="sp-acc-section" id="accPurpose">
-          <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accPurpose')" aria-expanded="false">
-            <span>Phase Purpose</span>
-            <span class="sp-acc-chevron" aria-hidden="true">›</span>
-          </button>
-          <div class="sp-acc-body">
-            <div class="sp-acc-body-inner">
-              <textarea id="metaPurpose" class="sp-field-input sp-field-textarea" rows="2" maxlength="160" placeholder="What is this play trying to achieve?"></textarea>
-            </div>
-          </div>
-        </div>
-
-        <div class="sp-acc-section" id="accDecision">
-          <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accDecision')" aria-expanded="false">
-            <span>Decision Cue</span>
-            <span class="sp-acc-chevron" aria-hidden="true">›</span>
-          </button>
-          <div class="sp-acc-body">
-            <div class="sp-acc-body-inner">
-              <input id="metaDecisionCue" class="sp-field-input" type="text" maxlength="96" placeholder="What should the player read?">
-            </div>
-          </div>
-        </div>
-
-        <div class="sp-acc-section" id="accCoaching">
-          <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accCoaching')" aria-expanded="false">
-            <span>Coaching Points</span>
-            <span class="sp-acc-chevron" aria-hidden="true">›</span>
-          </button>
-          <div class="sp-acc-body">
-            <div class="sp-acc-body-inner">
-              <input id="metaCoachingPoint1" class="sp-field-input" type="text" maxlength="80" placeholder="Point 1">
-              <input id="metaCoachingPoint2" class="sp-field-input" type="text" maxlength="80" placeholder="Point 2">
-              <input id="metaCoachingPoint3" class="sp-field-input" type="text" maxlength="80" placeholder="Point 3">
-            </div>
-          </div>
-        </div>
-
-        <div class="sp-acc-section" id="accMistakes">
-          <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accMistakes')" aria-expanded="false">
-            <span>Common Mistakes</span>
-            <span class="sp-acc-chevron" aria-hidden="true">›</span>
-          </button>
-          <div class="sp-acc-body">
-            <div class="sp-acc-body-inner">
-              <input id="metaCommonMistake1" class="sp-field-input" type="text" maxlength="80" placeholder="Mistake 1">
-              <input id="metaCommonMistake2" class="sp-field-input" type="text" maxlength="80" placeholder="Mistake 2">
-              <input id="metaCommonMistake3" class="sp-field-input" type="text" maxlength="80" placeholder="Mistake 3">
-            </div>
-          </div>
-        </div>
-
-      </div>
-
     </div>
 
     <button id="spMobileToggle" class="sp-mobile-toggle" onclick="toggleMobileDrawer()" aria-label="Open coaching panel" aria-expanded="false">✎</button>
@@ -216,6 +160,73 @@
       </div>
 
       <div id="hint">MOVE - drag any player or ball</div>
+
+      <!-- COACHING DRAWER — slides up from canvas bottom -->
+      <div id="coachingDrawer" class="coaching-drawer" aria-label="Coaching Notes">
+        <div class="coaching-drawer-hdr">
+          <div class="coaching-drawer-hdr-inner">
+            <span class="coaching-drawer-label">Coaching Notes</span>
+            <span class="coaching-drawer-play-name" id="metaTitleValue"></span>
+          </div>
+          <button class="coaching-drawer-close" type="button" onclick="closeCoachingDrawer()" aria-label="Close coaching notes">✕</button>
+        </div>
+        <div class="coaching-drawer-body">
+
+          <div class="sp-acc-section" id="accPurpose">
+            <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accPurpose')" aria-expanded="false">
+              <span>Phase Purpose</span>
+              <span class="sp-acc-chevron" aria-hidden="true">›</span>
+            </button>
+            <div class="sp-acc-body">
+              <div class="sp-acc-body-inner">
+                <textarea id="metaPurpose" class="sp-field-input sp-field-textarea" rows="2" maxlength="160" placeholder="What is this play trying to achieve?"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="sp-acc-section" id="accDecision">
+            <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accDecision')" aria-expanded="false">
+              <span>Decision Cue</span>
+              <span class="sp-acc-chevron" aria-hidden="true">›</span>
+            </button>
+            <div class="sp-acc-body">
+              <div class="sp-acc-body-inner">
+                <input id="metaDecisionCue" class="sp-field-input" type="text" maxlength="96" placeholder="What should the player read?">
+              </div>
+            </div>
+          </div>
+
+          <div class="sp-acc-section" id="accCoaching">
+            <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accCoaching')" aria-expanded="false">
+              <span>Coaching Points</span>
+              <span class="sp-acc-chevron" aria-hidden="true">›</span>
+            </button>
+            <div class="sp-acc-body">
+              <div class="sp-acc-body-inner">
+                <input id="metaCoachingPoint1" class="sp-field-input" type="text" maxlength="80" placeholder="Point 1">
+                <input id="metaCoachingPoint2" class="sp-field-input" type="text" maxlength="80" placeholder="Point 2">
+                <input id="metaCoachingPoint3" class="sp-field-input" type="text" maxlength="80" placeholder="Point 3">
+              </div>
+            </div>
+          </div>
+
+          <div class="sp-acc-section" id="accMistakes">
+            <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accMistakes')" aria-expanded="false">
+              <span>Common Mistakes</span>
+              <span class="sp-acc-chevron" aria-hidden="true">›</span>
+            </button>
+            <div class="sp-acc-body">
+              <div class="sp-acc-body-inner">
+                <input id="metaCommonMistake1" class="sp-field-input" type="text" maxlength="80" placeholder="Mistake 1">
+                <input id="metaCommonMistake2" class="sp-field-input" type="text" maxlength="80" placeholder="Mistake 2">
+                <input id="metaCommonMistake3" class="sp-field-input" type="text" maxlength="80" placeholder="Mistake 3">
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
     </div>
 
     <div id="bottomPanel">
