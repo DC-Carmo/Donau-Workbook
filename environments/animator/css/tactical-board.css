@@ -1750,20 +1750,19 @@ html, body {
   min-height: 0;
   min-width: 0;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 220px minmax(0, 1fr);
   grid-template-rows: 1fr auto;
   overflow: hidden;
-  position: relative;
 }
 
 #canvasWrap {
-  grid-column: 1;
+  grid-column: 2;
   grid-row: 1;
   min-height: 0;
 }
 
 #bottomPanel {
-  grid-column: 1;
+  grid-column: 2;
   grid-row: 2;
 }
 
@@ -1772,7 +1771,7 @@ html, body {
   flex: 1;
   min-height: 0;
   width: 100%;
-  padding: 10px 12px 0;
+  padding: 8px 10px 0;
   overflow: hidden;
   border: none;
   gap: 0;
@@ -2206,20 +2205,15 @@ html, body {
    ═══════════════════════════════════════════ */
 
 #smartPanel {
-  position: absolute;
-  left: 12px;
-  top: 12px;
-  z-index: 20;
-  width: 192px;
+  grid-column: 1;
+  grid-row: 1 / 3;
+  min-height: 0;
+  width: 220px;
   display: flex;
   flex-direction: column;
-  background: rgba(8, 17, 27, 0.88);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px;
+  background: #0c1521;
+  border-right: 1px solid rgba(255,255,255,0.07);
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.40), inset 0 0 0 0.5px rgba(255,255,255,0.04);
   user-select: text;
   -webkit-user-select: text;
 }
@@ -2769,6 +2763,9 @@ html, body {
 
 /* Medium desktops */
 @media (min-width: 769px) and (max-width: 1080px) {
+  #workspace {
+    grid-template-columns: 180px minmax(0, 1fr);
+  }
   #smartPanel {
     width: 180px;
   }
@@ -2778,9 +2775,8 @@ html, body {
    CONTEXT HUD — always visible, no toggle
    ═══════════════════════════════════════════ */
 
-/* guide text and default state are always hidden — board status bar covers it */
-.sp-guide-text,
-.sp-default-state {
+/* guide text hidden — board status bar on canvas covers it */
+.sp-guide-text {
   display: none !important;
 }
 
