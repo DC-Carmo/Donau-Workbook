@@ -1772,7 +1772,7 @@ html, body {
   flex: 1;
   min-height: 0;
   width: 100%;
-  padding: 10px 12px 0 216px;
+  padding: 10px 12px 0;
   overflow: hidden;
   border: none;
   gap: 0;
@@ -2771,9 +2771,6 @@ html, body {
 @media (min-width: 769px) and (max-width: 1080px) {
   #smartPanel {
     width: 180px;
-  }
-  #canvasWrap {
-    padding-left: 204px;
   }
 }
 
