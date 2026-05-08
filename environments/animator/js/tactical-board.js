@@ -56,7 +56,7 @@ function resize() {
   sc = Math.min(baseFromWidth, baseFromHeight);
   sx = sc * FIELD_X_STRETCH;
   sy = sc;
-  ox = (cvW - FVW * sx) / 2;
+  ox = padX;
   oy = (cvH - FVH * sy) / 2;
   updateMobileUI();
   render();
