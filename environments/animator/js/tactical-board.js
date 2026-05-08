@@ -3228,10 +3228,6 @@ function updateSmartPanel() {
   const hasSelection = !!S.selected || !!selectedAnnotationId();
   const showDefault = !hasSelection && !isKick;
 
-  // Auto-expand the rail when user needs contextual controls
-  if (hasSelection || isKick || isAnnotationTool) {
-    expandRail();
-  }
 
   if (annSection) annSection.hidden = !isAnnotationTool;
   if (defaultState) defaultState.hidden = !showDefault;
@@ -3271,32 +3267,6 @@ function closeMobileDrawer() {
 }
 window.toggleMobileDrawer = toggleMobileDrawer;
 window.closeMobileDrawer  = closeMobileDrawer;
-
-/* ── Floating rail toggle ── */
-function toggleRail() {
-  const panel  = document.getElementById('smartPanel');
-  const toggle = document.getElementById('railToggle');
-  if (!panel) return;
-  const expanded = panel.classList.toggle('sp-expanded');
-  if (toggle) toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-}
-window.toggleRail = toggleRail;
-
-function expandRail() {
-  const panel  = document.getElementById('smartPanel');
-  const toggle = document.getElementById('railToggle');
-  if (!panel || panel.classList.contains('sp-expanded')) return;
-  panel.classList.add('sp-expanded');
-  if (toggle) toggle.setAttribute('aria-expanded', 'true');
-}
-
-function collapseRail() {
-  const panel  = document.getElementById('smartPanel');
-  const toggle = document.getElementById('railToggle');
-  if (!panel) return;
-  panel.classList.remove('sp-expanded');
-  if (toggle) toggle.setAttribute('aria-expanded', 'false');
-}
 
 /* ── Coaching drawer ── */
 function toggleCoachingDrawer() {

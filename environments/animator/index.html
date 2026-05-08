@@ -41,13 +41,9 @@
 
   <div id="workspace">
 
-    <div id="smartPanel" aria-label="Tool Rail">
+    <div id="smartPanel" aria-label="Context Panel">
 
-      <button id="railToggle" class="sp-rail-toggle" type="button" onclick="toggleRail()" aria-label="Expand tool panel" aria-expanded="false">
-        <span class="sp-rail-toggle-icon" aria-hidden="true">›</span>
-      </button>
-
-      <!-- TOP: Contextual guidance zone -->
+      <!-- Contextual guidance zone -->
       <div class="sp-ctx-zone">
 
         <div class="sp-ctx-hdr">
@@ -58,16 +54,9 @@
           <span class="sp-ctx-step" id="spStepBadge">1 / 1</span>
         </div>
 
-        <p class="sp-guide-text" id="spGuideText">Drag players and the ball to reposition. Tap to select.</p>
-
-        <div class="sp-default-state" id="spDefaultState">
-          <div class="sp-default-copy">Premium coaching starts with clarity. Keep the pitch central, choose a tool, and let the board guide the phase.</div>
-          <div class="sp-default-tips">
-            <div class="sp-default-tip"><strong>Mode:</strong> <span id="spDefaultMode">Move</span></div>
-            <div class="sp-default-tip"><strong>Tip:</strong> Add a step to capture phase progression and sequence your attack.</div>
-            <div class="sp-default-tip"><strong>Action:</strong> Tap a player to reposition, or use RUN / PASS / KICK to build the next move.</div>
-          </div>
-        </div>
+        <p class="sp-guide-text" id="spGuideText" hidden>Drag players and the ball to reposition. Tap to select.</p>
+        <div id="spDefaultState" hidden></div>
+        <span id="spDefaultMode" hidden></span>
 
         <div class="sp-kick-ctx" id="spKickCtx" hidden>
           <div class="sp-kick-step" id="spKickStep1">
