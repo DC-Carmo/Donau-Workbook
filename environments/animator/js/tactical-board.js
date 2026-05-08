@@ -467,6 +467,7 @@ function normalizeAnnotation(annotation) {
     id: annotation.id || mkAnnotationId(),
     type: annotation.type,
     color: annotation.color || annotationColor(annotation.type),
+    opacity: Number(annotation.opacity) || 1,
   };
   if (annotation.type === 'note') {
     const x = Number(annotation.x), y = Number(annotation.y);
@@ -1427,8 +1428,10 @@ function drawNoteAnnotation(note, selected = false) {
   const box = noteMetrics(note);
   const width = box.width;
   const height = box.height;
+  const opacity = Number(note.opacity) || 1;
 
   ctx.save();
+  ctx.globalAlpha = opacity;
   ctx.shadowColor = 'rgba(0,0,0,0.28)';
   ctx.shadowBlur = 16;
   ctx.fillStyle = 'rgba(3,8,14,0.82)';
@@ -1467,12 +1470,14 @@ function drawNoteAnnotation(note, selected = false) {
 
 function drawArrowAnnotation(arrow, selected = false, preview = false) {
   const color = preview ? 'rgba(217,180,108,0.72)' : (arrow.color || annotationColor('arrow'));
+  const opacity = preview ? 1 : (Number(arrow.opacity) || 1);
   const start = toC(arrow.start.x, arrow.start.y);
   const end = toC(arrow.end.x, arrow.end.y);
   const ang = Math.atan2(end.y - start.y, end.x - start.x);
   const head = Math.max(9, sc * 1.6);
 
   ctx.save();
+  ctx.globalAlpha = opacity;
   ctx.strokeStyle = 'rgba(7,16,24,0.46)';
   ctx.lineWidth = 5.2;
   ctx.lineCap = 'round';
@@ -1533,7 +1538,9 @@ function drawArrowAnnotation(arrow, selected = false, preview = false) {
 function drawZoneAnnotation(zone, selected = false, preview = false) {
   const p = toC(zone.x, zone.y);
   const radius = Math.max(zone.r * sc, sc * 1.5);
+  const opacity = preview ? 1 : (Number(zone.opacity) || 1);
   ctx.save();
+  ctx.globalAlpha = opacity;
   ctx.fillStyle = preview ? 'rgba(16,185,129,0.1)' : 'rgba(16,185,129,0.14)';
   ctx.strokeStyle = selected ? '#fbbf24' : (zone.color || annotationColor('zone'));
   ctx.lineWidth = selected ? 2.4 : 2;
@@ -1580,6 +1587,7 @@ function drawZoneAnnotation(zone, selected = false, preview = false) {
 }
 
 function drawBoxAnnotation(box, selected = false, preview = false) {
+  const opacity = preview ? 1 : (Number(box.opacity) || 1);
   const bounds = boxAnnotationBounds(box);
   const topLeft = toC(bounds.left, bounds.top);
   const bottomRight = toC(bounds.right, bounds.bottom);
@@ -1587,6 +1595,7 @@ function drawBoxAnnotation(box, selected = false, preview = false) {
   const height = bottomRight.y - topLeft.y;
 
   ctx.save();
+  ctx.globalAlpha = opacity;
   ctx.fillStyle = preview ? 'rgba(217,180,108,0.09)' : 'rgba(217,180,108,0.13)';
   ctx.strokeStyle = selected ? '#fbbf24' : (box.color || annotationColor('box'));
   ctx.lineWidth = selected ? 2.4 : 2;
@@ -2430,6 +2439,48 @@ function deleteSelected() {
   render();
 }
 
+function duplicateSelected() {
+  const ann = selectedAnnotation();
+  if (!ann) return;
+  snapshot();
+  const copy = cloneData(ann);
+  copy.id = mkAnnotationId();
+  if (copy.type === 'note') {
+    copy.x = clamp(copy.x + 2, F.XMIN, F.XMAX);
+    copy.y = clamp(copy.y + 2, F.YMIN, F.YMAX);
+  } else if (copy.type === 'arrow') {
+    copy.start = { ...copy.start };
+    copy.end = { ...copy.end };
+    copy.start.x = clamp(copy.start.x + 2, F.XMIN, F.XMAX);
+    copy.start.y = clamp(copy.start.y + 2, F.YMIN, F.YMAX);
+    copy.end.x = clamp(copy.end.x + 2, F.XMIN, F.XMAX);
+    copy.end.y = clamp(copy.end.y + 2, F.YMIN, F.YMAX);
+  } else if (copy.type === 'zone') {
+    copy.x = clamp(copy.x + 2, F.XMIN + copy.r, F.XMAX - copy.r);
+    copy.y = clamp(copy.y + 2, F.YMIN + copy.r, F.YMAX - copy.r);
+  } else if (copy.type === 'box') {
+    copy.x = clamp(copy.x + 2, F.XMIN, F.XMAX - Math.abs(copy.w));
+    copy.y = clamp(copy.y + 2, F.YMIN, F.YMAX - Math.abs(copy.h));
+  }
+  S.annotations.push(copy);
+  S.selected = annotationSelection(copy.id);
+  refreshInteractionUI();
+  render();
+}
+window.duplicateSelected = duplicateSelected;
+
+function setSelectedAnnotationOpacity(value) {
+  const ann = selectedAnnotation();
+  if (!ann) return;
+  const opacity = Number(value);
+  if (!Number.isFinite(opacity)) return;
+  snapshot();
+  ann.opacity = clamp(opacity, 0.2, 1);
+  refreshInteractionUI();
+  render();
+}
+window.setSelectedAnnotationOpacity = setSelectedAnnotationOpacity;
+
 function sequenceStepCount() {
   ensureSteps();
   return S.steps.length;
@@ -3155,6 +3206,8 @@ function updateSmartPanel() {
   const kickStep2 = document.getElementById('spKickStep2');
 
   if (modeEl) modeEl.textContent = MODE_LABELS[S.tool] || 'Move';
+  const defaultMode = document.getElementById('spDefaultMode');
+  if (defaultMode) defaultMode.textContent = MODE_LABELS[S.tool] || 'Move';
   if (guideIcon) guideIcon.textContent = guide.icon;
   if (stepBadge) {
     const count = sequenceStepCount();
@@ -3171,8 +3224,20 @@ function updateSmartPanel() {
   if (kickStep2) kickStep2.classList.toggle('active', isKick && !!S.passFrom);
 
   const isAnnotationTool = S.tool === 'note' || S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box';
+  const defaultState = document.getElementById('spDefaultState');
+  const hasSelection = !!S.selected || !!selectedAnnotationId();
+  const showDefault = !hasSelection && !isKick;
+
   if (annSection) annSection.hidden = !isAnnotationTool;
-  if (emptyState) emptyState.hidden = !(S.tool === 'move' && !S.selected);
+  if (defaultState) defaultState.hidden = !showDefault;
+  if (emptyState) emptyState.hidden = true;
+
+  if (guideText && !isKick) {
+    guideText.textContent = guide.desc;
+  }
+  if (isKick && guideText) {
+    guideText.textContent = 'Select your kicker, then choose a target or landing zone.';
+  }
 }
 
 function toggleSmartPanelNotes() {
@@ -3366,6 +3431,14 @@ function updateSelInfo() {
       colorPicker.querySelectorAll('.sp-color-swatch').forEach(sw => {
         sw.classList.toggle('active', sw.dataset.color === currentColor);
       });
+    }
+  }
+  const shapeActions = document.getElementById('spShapeActions');
+  const shapeOpacity = document.getElementById('shapeOpacity');
+  if (shapeActions) {
+    shapeActions.hidden = !ann;
+    if (ann && shapeOpacity) {
+      shapeOpacity.value = String(Number(ann.opacity) || 1);
     }
   }
   if (deleteBtn) {

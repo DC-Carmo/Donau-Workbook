@@ -338,11 +338,20 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
 /* WORKSPACE */
 #workspace {
   flex:1;
-  display:grid;
-  grid-template-columns:minmax(240px, var(--palW)) minmax(0, 1fr);
-  overflow:hidden;
   min-height:0;
   min-width:0;
+  display:grid;
+  grid-template-columns:220px minmax(0, 1fr);
+  grid-template-rows:1fr auto;
+  overflow:hidden;
+}
+
+#smartPanel {
+  grid-column: 1;
+  grid-row: 1 / 3;
+  min-height: 0;
+  background: linear-gradient(180deg, rgba(9,18,29,0.98), rgba(10,16,26,0.99));
+  border-right: 1px solid rgba(255,255,255,0.06);
 }
 
 /* PLAYER PALETTE */
@@ -2350,16 +2359,51 @@ html, body {
 
 /* Empty state */
 .sp-empty-state {
-  flex: 1;
+  display: none !important;
+}
+.sp-default-state {
+  padding: 14px 14px 16px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 22px 16px;
-  text-align: center;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
-.sp-empty-icon {
+.sp-default-copy {
+  font-size: 0.78rem;
+  line-height: 1.7;
+  color: rgba(255,255,255,0.6);
+}
+.sp-default-tips {
+  display: grid;
+  gap: 10px;
+}
+.sp-default-tip {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 0.74rem;
+  line-height: 1.6;
+  color: rgba(255,255,255,0.46);
+}
+.sp-default-tip strong {
+  color: rgba(255,255,255,0.88);
+  min-width: 62px;
+  display: inline-block;
+}
+.sp-shape-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sp-shape-actions .sp-field-input[type="range"] {
+  width: 100%;
+  padding: 0;
+}
+.sp-color-picker,
+.sp-shape-actions,
+.sp-ctx-card {
+  background: rgba(255,255,255,0.015);
+}
   font-size: 1.5rem;
   color: rgba(255,255,255,0.15);
   line-height: 1;

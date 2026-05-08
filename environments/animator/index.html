@@ -55,6 +55,15 @@
 
         <p class="sp-guide-text" id="spGuideText">Drag players and the ball to reposition. Tap to select.</p>
 
+        <div class="sp-default-state" id="spDefaultState">
+          <div class="sp-default-copy">Premium coaching starts with clarity. Keep the pitch central, choose a tool, and let the board guide the phase.</div>
+          <div class="sp-default-tips">
+            <div class="sp-default-tip"><strong>Mode:</strong> <span id="spDefaultMode">Move</span></div>
+            <div class="sp-default-tip"><strong>Tip:</strong> Add a step to capture phase progression and sequence your attack.</div>
+            <div class="sp-default-tip"><strong>Action:</strong> Tap a player to reposition, or use RUN / PASS / KICK to build the next move.</div>
+          </div>
+        </div>
+
         <div class="sp-kick-ctx" id="spKickCtx" hidden>
           <div class="sp-kick-step" id="spKickStep1">
             <span class="sp-kick-num">1</span>
@@ -64,11 +73,6 @@
             <span class="sp-kick-num">2</span>
             <span class="sp-kick-label">Tap a receiver or open field spot</span>
           </div>
-        </div>
-
-        <div class="sp-empty-state" id="spEmptyState">
-          <div class="sp-empty-icon" aria-hidden="true">◎</div>
-          <p class="sp-empty-text">Select a player or tool to view coaching context</p>
         </div>
 
         <div class="sp-ctx-card" id="spAnnSection" hidden>
@@ -92,6 +96,13 @@
               <button class="sp-color-swatch" data-color="#ef4444" style="--sw:#ef4444" onclick="setAnnotationColor('#ef4444')" aria-label="Red"></button>
               <button class="sp-color-swatch" data-color="#3b82f6" style="--sw:#3b82f6" onclick="setAnnotationColor('#3b82f6')" aria-label="Blue"></button>
               <button class="sp-color-swatch" data-color="#f97316" style="--sw:#f97316" onclick="setAnnotationColor('#f97316')" aria-label="Orange"></button>
+            </div>
+          </div>
+          <div class="sp-shape-actions" id="spShapeActions" hidden>
+            <button class="sp-btn" id="duplicateSelectedBtn" type="button" onclick="duplicateSelected()">Duplicate</button>
+            <div class="sp-field-group">
+              <label class="sp-field-label" for="shapeOpacity">Transparency</label>
+              <input id="shapeOpacity" class="sp-field-input" type="range" min="0.2" max="1" step="0.05" value="1" oninput="setSelectedAnnotationOpacity(this.value)">
             </div>
           </div>
           <div id="selEditWrap" class="sel-edit sp-sel-edit">
