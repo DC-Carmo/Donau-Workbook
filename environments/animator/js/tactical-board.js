@@ -448,6 +448,21 @@ function selectedAnnotation() {
   return id ? findAnnotationById(id) : null;
 }
 
+function passSelection(index) {
+  return `pass:${index}`;
+}
+
+function selectedPassIndex() {
+  if (typeof S.selected !== 'string' || !S.selected.startsWith('pass:')) return null;
+  const idx = Number(S.selected.slice(5));
+  return Number.isInteger(idx) ? idx : null;
+}
+
+function selectedPass() {
+  const idx = selectedPassIndex();
+  return idx !== null && idx >= 0 && idx < S.passes.length ? S.passes[idx] : null;
+}
+
 function defaultAnnotationText() {
   const input = document.getElementById('annotationText');
   const txt = input?.value?.trim();
@@ -1535,6 +1550,34 @@ function drawArrowAnnotation(arrow, selected = false, preview = false) {
   }
 }
 
+function drawPassHighlight(start, end) {
+  const s = toC(start.x, start.y);
+  const e = toC(end.x, end.y);
+  ctx.save();
+  ctx.strokeStyle = 'rgba(251,191,36,0.44)';
+  ctx.lineWidth = 6;
+  ctx.lineCap = 'round';
+  ctx.setLineDash([10, 6]);
+  ctx.beginPath();
+  ctx.moveTo(s.x, s.y);
+  ctx.lineTo(e.x, e.y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  [s, e].forEach(pt => {
+    ctx.save();
+    ctx.fillStyle = '#fbbf24';
+    ctx.strokeStyle = '#0b1420';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, 5.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  });
+}
+
 function drawZoneAnnotation(zone, selected = false, preview = false) {
   const p = toC(zone.x, zone.y);
   const radius = Math.max(zone.r * sc, sc * 1.5);
@@ -1690,17 +1733,20 @@ function render() {
   const t = S.animT;
   renderAnnotations('zones');
 
-  S.passes.forEach(pass => {
+  S.passes.forEach((pass, index) => {
     const fp = S.players.find(p => p.id === pass.from);
     if (!fp) return;
     const fa = animPos(fp, t);
+    const selected = selectedPassIndex() === index;
     if (pass.style === 'kick' && pass.to === null && pass.targetX !== undefined) {
+      if (selected) drawPassHighlight(fa, { x: pass.targetX, y: pass.targetY });
       drawKickToTarget(fa.x, fa.y, pass.targetX, pass.targetY, 1);
       return;
     }
     const tp = S.players.find(p => p.id === pass.to);
     if (!tp) return;
     const ta = animPos(tp, t);
+    if (selected) drawPassHighlight(fa, ta);
     const col = pass.style === 'kick' ? '#f59e0b' : 'rgba(255,255,255,0.75)';
     drawArc(fa.x, fa.y, ta.x, ta.y, col, 1, pass.style === 'kick');
   });
@@ -1770,6 +1816,27 @@ function pointSegDist(p, a, b) {
   const t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy);
   const tc = clamp(t, 0, 1);
   return d2(p, { x: a.x + tc * dx, y: a.y + tc * dy });
+}
+
+function hitPass(fp) {
+  for (let i = S.passes.length - 1; i >= 0; i--) {
+    const pass = S.passes[i];
+    const from = S.players.find(p => p.id === pass.from);
+    if (!from) continue;
+    const start = { x: from.x, y: from.y };
+    const isKickTarget = pass.style === 'kick' && pass.to === null && Number.isFinite(pass.targetX) && Number.isFinite(pass.targetY);
+    const end = isKickTarget
+      ? { x: pass.targetX, y: pass.targetY }
+      : (() => {
+          const to = S.players.find(p => p.id === pass.to);
+          return to ? { x: to.x, y: to.y } : null;
+        })();
+    if (!end) continue;
+    if (d2(fp, start) <= 2.8) return { index: i, part: 'from' };
+    if (isKickTarget && d2(fp, end) <= 2.8) return { index: i, part: 'target' };
+    if (pointSegDist(fp, start, end) <= 2.4) return { index: i, part: 'move' };
+  }
+  return null;
 }
 
 function hitAnnotation(fp) {
@@ -1896,9 +1963,26 @@ cv.addEventListener('pointerdown', e => {
       beginPointerTap(e.pointerId, { type:'annotation', id:annHit.id, wasSelected }, e);
       cv.setPointerCapture(e.pointerId);
     } else {
-      S.selected = null;
-      S.ballAssignCandidate = null;
-      S.pointerTap = null;
+      const passHit = hitPass(fp);
+      if (passHit) {
+        const wasSelected = selectedPassIndex() === passHit.index;
+        snapshot();
+        S.selected = passSelection(passHit.index);
+        S.ballAssignCandidate = null;
+        S.dragging = {
+          type:'pass',
+          index: passHit.index,
+          part: passHit.part,
+          anchor: { x: fp.x, y: fp.y },
+          startSnapshot: cloneData(S.passes[passHit.index]),
+        };
+        beginPointerTap(e.pointerId, { type:'pass', index: passHit.index, wasSelected }, e);
+        cv.setPointerCapture(e.pointerId);
+      } else {
+        S.selected = null;
+        S.ballAssignCandidate = null;
+        S.pointerTap = null;
+      }
     }
     refreshInteractionUI(); render();
   }
@@ -2064,6 +2148,14 @@ cv.addEventListener('pointerdown', e => {
         render();
         return;
       }
+      const passHit = hitPass(fp);
+      if (passHit) {
+        snapshot();
+        removePass(passHit.index);
+        refreshInteractionUI();
+        render();
+        return;
+      }
       // Erase nearest path segment
       let removed = false;
       S.paths = S.paths.filter(path => {
@@ -2167,6 +2259,12 @@ cv.addEventListener('pointermove', e => {
           clampBoxAnnotation(ann);
         }
       }
+    } else if (S.dragging.type === 'pass') {
+      const pass = S.passes[S.dragging.index];
+      if (pass && pass.style === 'kick' && pass.to === null && S.dragging.part === 'target') {
+        pass.targetX = clamp(fp.x, F.XMIN, F.XMAX);
+        pass.targetY = clamp(fp.y, F.YMIN, F.YMAX);
+      }
     }
     render(); return;
   }
@@ -2220,6 +2318,11 @@ function onPointerUp(e) {
       return;
     }
     if (tap.payload.type === 'annotation' && tap.payload.wasSelected && selectedAnnotationId() === tap.payload.id) {
+      clearSelection();
+      render();
+      return;
+    }
+    if (tap.payload.type === 'pass' && tap.payload.wasSelected && selectedPassIndex() === tap.payload.index) {
       clearSelection();
       render();
       return;
@@ -2424,11 +2527,29 @@ function removePlayer(id) {
   rebuildPalette(); refreshInteractionUI(); render();
 }
 
+function removePass(index) {
+  if (index === null || index < 0 || index >= S.passes.length) return;
+  const selectedIndex = selectedPassIndex();
+  S.passes.splice(index, 1);
+  if (selectedIndex !== null) {
+    if (selectedIndex === index) {
+      S.selected = null;
+    } else if (selectedIndex > index) {
+      S.selected = passSelection(selectedIndex - 1);
+    }
+  }
+}
+
 function deleteSelected() {
   const annId = selectedAnnotationId();
+  const passIndex = selectedPassIndex();
   if (annId) {
     snapshot();
     removeAnnotation(annId);
+  }
+  else if (passIndex !== null) {
+    snapshot();
+    removePass(passIndex);
   }
   else if (S.selected && S.selected !== '__ball__') {
     snapshot();
@@ -2992,6 +3113,17 @@ function getSelectedSummary() {
       return { title: 'Box Highlight', meta: 'Drag inside the box to move it or drag any corner handle to resize it.' };
     }
   }
+  const pass = selectedPass();
+  if (pass) {
+    const from = S.players.find(p => p.id === pass.from);
+    const to = pass.to ? S.players.find(p => p.id === pass.to) : null;
+    const title = pass.style === 'kick' ? 'Kick Selected' : 'Pass Selected';
+    const targetLabel = pass.to === null ? 'field target' : `${to ? `${to.team==='A'?'A':'D'} #${to.num}` : 'receiver'}`;
+    const meta = pass.style === 'kick'
+      ? `Kick from ${from ? `${from.team==='A'?'A':'D'} #${from.num}` : 'player'} selected. Drag the target dot in Move mode to reposition it.`
+      : `Pass from ${from ? `${from.team==='A'?'A':'D'} #${from.num}` : 'player'} to ${targetLabel} selected. Move the players to change the angle.`;
+    return { title, meta };
+  }
   if (S.selected) {
     const pl = S.players.find(p => p.id === S.selected);
     if (pl) {
@@ -3031,6 +3163,8 @@ function getStatusMessage() {
   if (S.selected === '__ball__') return 'Ball selected. Move it, or switch tools to build around it.';
   const ann = selectedAnnotation();
   if (ann) return `${MODE_LABELS[ann.type] || 'Annotation'} selected. Use Move to adjust it or Delete to remove it.`;
+  const pass = selectedPass();
+  if (pass) return `${pass.style === 'kick' ? 'Kick' : 'Pass'} selected. Use Move to reposition the players or Delete to remove it.`;
   if (S.selected) {
     const pl = S.players.find(p => p.id === S.selected);
     if (pl) {
@@ -3441,9 +3575,11 @@ function updateSelInfo() {
       shapeOpacity.value = String(Number(ann.opacity) || 1);
     }
   }
+  const pass = selectedPass();
   if (deleteBtn) {
     if (S.selected === '__ball__') deleteBtn.textContent = 'Remove Ball';
     else if (ann) deleteBtn.textContent = `Remove ${MODE_LABELS[ann.type] || 'Item'}`;
+    else if (pass) deleteBtn.textContent = 'Remove Pass';
     else if (S.selected) {
       const pl = S.players.find(p => p.id === S.selected);
       deleteBtn.textContent = pl ? 'Remove from Field' : 'Remove Player';
