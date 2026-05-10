@@ -64,7 +64,6 @@ function resize() {
 
 const S = {
   tool: 'move',
-  tab:  'atk',          // active palette tab
   players: [],          // { id, num, team:'A'|'D', x, y, isBC:false }
   ball: null,           // { x, y }
   ballOwner: null,      // { num, team } for the starting ball carrier
@@ -2523,7 +2522,6 @@ function ptLineDist(p, a, b) {
 function clamp(v, mn, mx) { return Math.max(mn, Math.min(mx, v)); }
 
 //  PLAYER MANAGEMENT
-let _atkCount = 0, _defCount = 0;
 
 function addPlayerByNum(num, team) {
   const used = team === 'A' ? S.atkUsed : S.defUsed;
@@ -2994,8 +2992,7 @@ function chSpd(d) {
     currentSpeed: S.animSpd,
   });
   const lbl = S.animSpd + 'x';
-  document.getElementById('spdLabel').textContent  = S.animSpd + 'x';
-  document.getElementById('spdLabel2').textContent = S.animSpd + 'x';
+  document.getElementById('spdLabel').textContent = S.animSpd + 'x';
 }
 function updateTL() {
   const pct = S.animT * 100;
@@ -3029,7 +3026,6 @@ const HINTS = {
 const MODE_LABELS = {
   move:  'Move',
   run:   'Run',
-  path:  'Run',
   pass:  'Pass',
   kick:  'Kick',
   erase: 'Erase',
@@ -3082,8 +3078,7 @@ function setMobileSpd(val) {
   S.animSpd = SPEEDS[spdIdx];
   S.projectPlayback = normalizePlaybackSettings({ ...(S.projectPlayback || {}), currentSpeed: S.animSpd });
   const lbl = S.animSpd + 'x';
-  document.getElementById('spdLabel').textContent  = lbl;
-  document.getElementById('spdLabel2').textContent = lbl;
+  document.getElementById('spdLabel').textContent = lbl;
   [1, 1.5, 2, 3].forEach(v => {
     const chip = document.getElementById('mspd-' + v);
     if (chip) chip.classList.toggle('active', v === S.animSpd);
@@ -3654,12 +3649,7 @@ function clearAll() {
   document.getElementById('playName').value='New Play';
   setHint('Board reset. Start by adding players from the left.');
   document.getElementById('spdLabel').textContent = '1x';
-  document.getElementById('spdLabel2').textContent = '1x';
   updateAnnotationPanel();
-  document.getElementById('spdLabel').textContent = '1x';
-  document.getElementById('spdLabel2').textContent = '1x';
-  document.getElementById('spdLabel').textContent = '1x';
-  document.getElementById('spdLabel2').textContent = '1x';
   setPlayBtnState(); rebuildPalette(); refreshInteractionUI(); updateTL(); render();
 }
 
@@ -3806,11 +3796,6 @@ function applyBoardData(play, { snapshotBefore = true } = {}) {
   syncPlayMetadataTitle();
   setPlayBtnState();
   document.getElementById('spdLabel').textContent = S.animSpd + 'x';
-  document.getElementById('spdLabel2').textContent = S.animSpd + 'x';
-  document.getElementById('spdLabel').textContent = S.animSpd + 'x';
-  document.getElementById('spdLabel2').textContent = S.animSpd + 'x';
-  document.getElementById('spdLabel').textContent = S.animSpd + 'x';
-  document.getElementById('spdLabel2').textContent = S.animSpd + 'x';
   rebuildPalette();
   refreshInteractionUI();
   updateTL();
