@@ -69,7 +69,7 @@
             "Shape and timing must be clear before launch.",
             "Run with connected support and decisive first action."
           ],
-          diagram: "assets/donau/images/charlies-nt.png"
+          diagram: "../../assets/donau/images/charlies-nt.png"
         },
         {
           name: "M.L",
@@ -97,7 +97,7 @@
             "Requires clear communication before the launch trigger.",
             "Support must be in position to carry the next action."
           ],
-          diagram: "assets/donau/images/special-nt.png"
+          diagram: "../../assets/donau/images/special-nt.png"
         },
         {
           name: "O³",
@@ -118,7 +118,7 @@
             "10 out back.",
             "Option of playing slider between 13 and 15."
           ],
-          diagram: "assets/donau/images/launch-41-nt.png"
+          diagram: "../../assets/donau/images/launch-41-nt.png"
         }
       ],
       phase: [

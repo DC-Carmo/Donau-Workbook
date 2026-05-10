@@ -902,8 +902,8 @@ function drawField() {
   hline(78, T2_C, T2_W);
 
   // ── 11. Tier 3: 10m dashed lines ─────────────────────────────────────────
-  hline(10, T3_C, T3_W, D_10M);
-  hline(90, T3_C, T3_W, D_10M);
+  hline(40, T3_C, T3_W, D_10M);
+  hline(60, T3_C, T3_W, D_10M);
 
   // ── 12. Tier 4: 5m lines from touchline (inside field, goal line to goal line) ──
   vline(5,  T4_C, T4_W, 0, 100, D_5M);
@@ -911,7 +911,7 @@ function drawField() {
 
   // ── 13. Lineout guides at 15m from touch ─────────────────────────────────
   // Short perpendicular ticks at all major yard lines — broadcast standard
-  const TICK_ROWS = [0, 10, 22, 50, 78, 90, 100];
+  const TICK_ROWS = [0, 22, 40, 50, 60, 78, 100];
   const tickHalf = Math.max(3.5, sx * 1.5); // half-width in canvas px
 
   TICK_ROWS.forEach(fy => {
@@ -964,10 +964,10 @@ function drawField() {
   fieldLabel(63.4, 79.2, '22', 0.30);
 
   // 10m labels
-  fieldLabel(4.6, 8.8, '10', 0.22);
-  fieldLabel(63.4, 8.8, '10', 0.22);
-  fieldLabel(4.6, 91.2, '10', 0.22);
-  fieldLabel(63.4, 91.2, '10', 0.22);
+  fieldLabel(4.6, 38.8, '10', 0.22);
+  fieldLabel(63.4, 38.8, '10', 0.22);
+  fieldLabel(4.6, 61.2, '10', 0.22);
+  fieldLabel(63.4, 61.2, '10', 0.22);
 
   // ── 16. Goal posts ────────────────────────────────────────────────────────
   drawPosts(34, 0, 'top');
