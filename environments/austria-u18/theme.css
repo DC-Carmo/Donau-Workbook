@@ -794,6 +794,48 @@ body.austria-u18-theme::before {
   border-color: rgba(177, 31, 48, 0.34);
 }
 
+/* Play diagrams for set piece calls */
+.austria-u18-theme .play-detail-with-diagram .play-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.austria-u18-theme .play-diagram-card {
+  border: 1px solid rgba(177, 31, 48, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.austria-u18-theme .play-diagram-image {
+  max-width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+/* Mobile: stack vertically */
+@media (max-width: 768px) {
+  .austria-u18-theme .play-detail-with-diagram .play-detail-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .austria-u18-theme .play-diagram-card {
+    min-height: 150px;
+  }
+  
+  .austria-u18-theme .play-diagram-image {
+    max-height: 200px;
+  }
+}
+
 /* ── Defensive System (s4) — unified with Attack design system ── */
 
 /* Reduce s4 page-wide red wash */

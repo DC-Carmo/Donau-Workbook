@@ -68,7 +68,8 @@
             "Starter used from lineout or scrum platform.",
             "Shape and timing must be clear before launch.",
             "Run with connected support and decisive first action."
-          ]
+          ],
+          diagram: "assets/donau/images/Charlie's-NT.png"
         },
         {
           name: "M.L",
@@ -95,7 +96,8 @@
             "Starter available from lineout or scrum platform.",
             "Requires clear communication before the launch trigger.",
             "Support must be in position to carry the next action."
-          ]
+          ],
+          diagram: "assets/donau/images/Special-NT.png"
         },
         {
           name: "O³",
@@ -115,7 +117,8 @@
             "12 short, attacking opposition 10.",
             "10 out back.",
             "Option of playing slider between 13 and 15."
-          ]
+          ],
+          diagram: "assets/donau/images/Launch 41-NT.png"
         }
       ],
       phase: [

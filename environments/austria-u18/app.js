@@ -510,11 +510,23 @@
             <div class="play-type">${play.type}</div>
           </div>
         </div>
-        <div class="play-detail">
-          <section class="attack-info-block attack-info-list">
-            <div class="attack-info-label">Coaching Points</div>
-            <ul>${(play.detail || []).map((point) => `<li>${point}</li>`).join("")}</ul>
-          </section>
+        <div class="play-detail${play.diagram ? ' play-detail-with-diagram' : ''}">
+          ${play.diagram ? `
+            <div class="play-detail-grid">
+              <section class="attack-info-block attack-info-list">
+                <div class="attack-info-label">Coaching Points</div>
+                <ul>${(play.detail || []).map((point) => `<li>${point}</li>`).join("")}</ul>
+              </section>
+              <div class="play-diagram-card">
+                <img src="${play.diagram}" alt="${play.name} diagram" class="play-diagram-image">
+              </div>
+            </div>
+          ` : `
+            <section class="attack-info-block attack-info-list">
+              <div class="attack-info-label">Coaching Points</div>
+              <ul>${(play.detail || []).map((point) => `<li>${point}</li>`).join("")}</ul>
+            </section>
+          `}
         </div>
       </article>
     `).join("");
