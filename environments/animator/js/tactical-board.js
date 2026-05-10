@@ -909,6 +909,11 @@ function drawField() {
   vline(5,  T4_C, T4_W, 0, 100, D_5M);
   vline(63, T4_C, T4_W, 0, 100, D_5M);
 
+  // 15m lineout guide — dashed vertical, goal line to goal line
+  const T4_15M = 'rgba(255,255,255,0.36)';
+  vline(15, T4_15M, T4_W, 0, 100, D_5M);
+  vline(53, T4_15M, T4_W, 0, 100, D_5M);
+
   // ── 13. Lineout guides at 15m from touch ─────────────────────────────────
   // Short perpendicular ticks at all major yard lines — broadcast standard
   const TICK_ROWS = [0, 22, 40, 50, 60, 78, 100];
