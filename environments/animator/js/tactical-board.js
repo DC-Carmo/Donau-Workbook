@@ -876,15 +876,15 @@ function drawField() {
     ctx.restore();
   }
 
-  // Dash sizes: fixed pixel segments that scale naturally with field scale
-  const D_10M  = [Math.max(6, sc * 1.4), Math.max(4, sc * 0.72)]; // 10m dashes
-  const D_5M   = [Math.max(4, sc * 0.72), Math.max(3, sc * 0.55)]; // 5m dashes
+  // Dash sizes — fixed pixel values for crisp broadcast-quality rendering
+  const D_10M = [8, 6];   // tight professional dashes for 10m lines
+  const D_5M  = [5, 5];   // subtle technical dashes for 5m guides
 
   // Line weight tiers
-  const T1_C = 'rgba(255,255,255,0.96)', T1_W = Math.max(1.8, sc * 0.18);  // boundary + halfway
-  const T2_C = 'rgba(255,255,255,0.85)', T2_W = Math.max(1.5, sc * 0.155); // 22m
-  const T3_C = 'rgba(255,255,255,0.60)', T3_W = Math.max(1.1, sc * 0.115); // 10m dashed
-  const T4_C = 'rgba(255,255,255,0.38)', T4_W = Math.max(0.9, sc * 0.092); // 5m / technical
+  const T1_C = 'rgba(255,255,255,0.97)', T1_W = Math.max(2.0, sc * 0.20);  // boundary + halfway
+  const T2_C = 'rgba(255,255,255,0.88)', T2_W = Math.max(1.6, sc * 0.16);  // 22m
+  const T3_C = 'rgba(255,255,255,0.75)', T3_W = Math.max(1.3, sc * 0.13);  // 10m dashed
+  const T4_C = 'rgba(255,255,255,0.44)', T4_W = Math.max(1.0, sc * 0.10);  // 5m / technical
 
   // ── 9. Tier 1: Boundary, goal lines, halfway ──────────────────────────────
   hline(F.YMIN, T1_C, T1_W);   // top dead-ball
@@ -989,8 +989,8 @@ function drawPosts(fx, fy, side) {
   const baseW       = Math.max(1.8, sc * 0.17); // base stem width
 
   const tryLineY  = base.y;
-  const crossbarY = tryLineY + dir * crossDist;
-  const postTopY  = crossbarY + dir * postLen;
+  const crossbarY = tryLineY + dir * crossDist;   // crossbar sits in the in-goal area
+  const postTopY  = crossbarY - dir * postLen;    // uprights extend INTO the playing field
   const leftX     = base.x - halfW;
   const rightX    = base.x + halfW;
 
@@ -1002,14 +1002,11 @@ function drawPosts(fx, fy, side) {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.beginPath();
-  // Base stems (goal line to crossbar)
-  ctx.moveTo(leftX + 1, tryLineY + dir);  ctx.lineTo(leftX + 1, crossbarY + dir);
-  ctx.moveTo(rightX + 1, tryLineY + dir); ctx.lineTo(rightX + 1, crossbarY + dir);
-  // Crossbar
+  // Crossbar (in in-goal)
   ctx.moveTo(leftX + 1, crossbarY + dir); ctx.lineTo(rightX + 1, crossbarY + dir);
-  // Uprights
-  ctx.moveTo(leftX + 1, crossbarY);  ctx.lineTo(leftX + 1, postTopY);
-  ctx.moveTo(rightX + 1, crossbarY); ctx.lineTo(rightX + 1, postTopY);
+  // Uprights — from crossbar into field
+  ctx.moveTo(leftX + 1, crossbarY + dir);  ctx.lineTo(leftX + 1, postTopY + dir);
+  ctx.moveTo(rightX + 1, crossbarY + dir); ctx.lineTo(rightX + 1, postTopY + dir);
   ctx.stroke();
 
   // Main post — base stems thicker for grounding
