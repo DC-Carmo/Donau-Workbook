@@ -27,6 +27,19 @@ const MOBILE_TAP_TOGGLE_PX = 5;
 const FIELD_X_STRETCH = 1.7;
 let cvW=0, cvH=0, sc=1, sx=1, sy=1, ox=0, oy=0;
 const cv  = document.getElementById('field');
+
+function normEvent(e) {
+  const src = e.touches && e.touches.length > 0         ? e.touches[0]
+            : e.changedTouches && e.changedTouches.length > 0 ? e.changedTouches[0]
+            : null;
+  if (src) {
+    e.preventDefault();
+    return { clientX: src.clientX, clientY: src.clientY,
+             pointerId: src.identifier, button: 0,
+             buttons: e.touches && e.touches.length > 0 ? 1 : 0 };
+  }
+  return e;
+}
 const ctx = cv.getContext('2d');
 
 function toC(fx, fy) { return { x: ox + (fx - F.DX0) * sx, y: oy + (fy - F.DY0) * sy }; }
@@ -2074,7 +2087,7 @@ function consumePointerTap(pointerId) {
   return tap;
 }
 
-cv.addEventListener('pointerdown', e => {
+function handlePointerDown(e) {
   const fp = getF(e);
   const clampedFieldPoint = clampFieldPoint(fp);
 
@@ -2093,7 +2106,7 @@ cv.addEventListener('pointerdown', e => {
       S.dragging  = { type:'player', id:pl.id };
       S.dragOff   = { x:fp.x - pl.x, y:fp.y - pl.y };
       beginPointerTap(e.pointerId, { type:'player', id:pl.id, wasSelected }, e);
-      cv.setPointerCapture(e.pointerId);
+      try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     } else if (ballHit) {
       const wasSelected = S.selected === '__ball__';
       snapshot();
@@ -2103,7 +2116,7 @@ cv.addEventListener('pointerdown', e => {
       S.dragOff   = { x:fp.x - S.ball.x, y:fp.y - S.ball.y };
       if (S.ballAttached) S.ballAttached = false;
       beginPointerTap(e.pointerId, { type:'ball', wasSelected }, e);
-      cv.setPointerCapture(e.pointerId);
+      try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     } else if (annHit) {
       const wasSelected = selectedAnnotationId() === annHit.id;
       snapshot();
@@ -2122,7 +2135,7 @@ cv.addEventListener('pointerdown', e => {
         startSnapshot: ann ? cloneData(ann) : null,
       };
       beginPointerTap(e.pointerId, { type:'annotation', id:annHit.id, wasSelected }, e);
-      cv.setPointerCapture(e.pointerId);
+      try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     } else {
       const kickIdx = hitKickPath(fp);
       const passIdx = hitPassLine(fp);
@@ -2161,7 +2174,7 @@ cv.addEventListener('pointerdown', e => {
     if (pl) {
       S.drawing = { pid:pl.id, pts:[{x:pl.x, y:pl.y}], last:{x:fp.x, y:fp.y} };
       S.selected = pl.id;
-      cv.setPointerCapture(e.pointerId);
+      try { cv.setPointerCapture(e.pointerId); } catch(_) {}
       setHint('Draw the run path, then release to finish.');
       refreshInteractionUI();
     } else {
@@ -2197,7 +2210,7 @@ cv.addEventListener('pointerdown', e => {
       end: { x: fp.x, y: fp.y },
       color: annotationColor('arrow'),
     });
-    cv.setPointerCapture(e.pointerId);
+    try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     setHint('Drag out the tactical arrow, then release to place it.');
     refreshInteractionUI();
   }
@@ -2217,7 +2230,7 @@ cv.addEventListener('pointerdown', e => {
       r: 0.1,
       color: annotationColor('zone'),
     });
-    cv.setPointerCapture(e.pointerId);
+    try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     setHint('Drag outward to size the highlight zone.');
     refreshInteractionUI();
   }
@@ -2239,7 +2252,7 @@ cv.addEventListener('pointerdown', e => {
       color: annotationColor('box'),
     });
     S.annotationDraft.anchor = { x: clampedFieldPoint.x, y: clampedFieldPoint.y };
-    cv.setPointerCapture(e.pointerId);
+    try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     setHint('Drag outward to size the box highlight.');
     refreshInteractionUI();
   }
@@ -2326,9 +2339,10 @@ cv.addEventListener('pointerdown', e => {
     refreshInteractionUI();
     render();
   }
-});
+}
+cv.addEventListener('pointerdown', handlePointerDown);
 
-cv.addEventListener('pointermove', e => {
+function handlePointerMove(e) {
   const fp = getF(e);
   const fieldPoint = clampFieldPoint(fp);
   updatePointerTapMovement(e);
@@ -2450,7 +2464,8 @@ cv.addEventListener('pointermove', e => {
   } else {
     cv.style.cursor = pl ? 'pointer' : 'default';
   }
-});
+}
+cv.addEventListener('pointermove', handlePointerMove);
 
 function onPointerUp(e) {
   const tap = consumePointerTap(e?.pointerId);
@@ -2483,6 +2498,10 @@ function onPointerUp(e) {
 }
 cv.addEventListener('pointerup', onPointerUp);
 cv.addEventListener('pointercancel', onPointerUp);
+cv.addEventListener('touchstart',  e => handlePointerDown(normEvent(e)), { passive: false });
+cv.addEventListener('touchmove',   e => handlePointerMove(normEvent(e)), { passive: false });
+cv.addEventListener('touchend',    e => onPointerUp(normEvent(e)),       { passive: false });
+cv.addEventListener('touchcancel', e => onPointerUp(normEvent(e)),       { passive: false });
 
 function finishDraw() {
   if (!S.drawing) return;
@@ -4017,6 +4036,21 @@ _trackThumb.addEventListener('pointermove', e => {
 });
 _trackThumb.addEventListener('pointerup', () => trackDrag = false);
 _trackThumb.addEventListener('pointercancel', () => trackDrag = false);
+_trackThumb.addEventListener('touchstart', e => { e.preventDefault(); trackDrag = true; }, { passive: false });
+_trackThumb.addEventListener('touchmove', e => {
+  if (!trackDrag) return;
+  const ne = normEvent(e);
+  const r = document.getElementById('track').getBoundingClientRect();
+  const raw = clamp((ne.clientX - r.left) / r.width, 0, 1);
+  if (!S.animating && sequenceStepCount() > 1) {
+    gotoStep(Math.round(raw * (sequenceStepCount() - 1)));
+    return;
+  }
+  S.animT = raw;
+  updateTL(); render();
+}, { passive: false });
+_trackThumb.addEventListener('touchend',    () => trackDrag = false, { passive: false });
+_trackThumb.addEventListener('touchcancel', () => trackDrag = false, { passive: false });
 
 //  INIT
 rebuildPalette();
