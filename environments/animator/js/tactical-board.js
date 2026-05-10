@@ -96,6 +96,7 @@ const S = {
   ballAssignCandidate: null,
   pointerTap: null,
   selectedPassIdx: null,
+  selectedPathPid: null,
 };
 const SPEEDS = [0.25, 0.5, 1, 1.5, 2, 3];
 let   spdIdx = 2;
@@ -1192,12 +1193,25 @@ function lighten(hex, amt) {
 }
 
 //  PATH RENDERING
-function drawRunPath(pts, color, lw, progress = 1, dashed = false) {
+function drawRunPath(pts, color, lw, progress = 1, dashed = false, selected = false) {
   if (!pts || pts.length < 2) return;
   ctx.save();
 
   const STEPS = Math.max(40, pts.length * 12);
   const drawSteps = Math.floor(progress * STEPS);
+
+  if (selected) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.30)';
+    ctx.lineWidth = lw + 10;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    for (let i = 0; i <= drawSteps; i++) {
+      const pos = catmullRom(pts, i / STEPS);
+      const p = toC(pos.x, pos.y);
+      i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+  }
 
   ctx.strokeStyle = 'rgba(7,16,24,0.45)';
   ctx.lineWidth   = lw + 3.6;
@@ -1295,6 +1309,38 @@ function hitKickPath(fp) {
       if (!toPl) continue;
       p2 = toC(toPl.x, toPl.y);
     } else continue;
+    if (distPointToSegmentPx(cp, p1, p2) <= HIT_DIST) return i;
+  }
+  return -1;
+}
+
+function hitRunPath(fp) {
+  const HIT_DIST = 16;
+  const cp = toC(fp.x, fp.y);
+  for (let i = S.paths.length - 1; i >= 0; i--) {
+    const path = S.paths[i];
+    if (!path.pts || path.pts.length < 2) continue;
+    const STEPS = Math.max(20, path.pts.length * 8);
+    for (let s = 0; s < STEPS - 1; s++) {
+      const a = toC(catmullRom(path.pts, s / STEPS).x, catmullRom(path.pts, s / STEPS).y);
+      const b = toC(catmullRom(path.pts, (s + 1) / STEPS).x, catmullRom(path.pts, (s + 1) / STEPS).y);
+      if (distPointToSegmentPx(cp, a, b) <= HIT_DIST) return path.pid;
+    }
+  }
+  return null;
+}
+
+function hitPassLine(fp) {
+  const HIT_DIST = 14;
+  const cp = toC(fp.x, fp.y);
+  for (let i = S.passes.length - 1; i >= 0; i--) {
+    const pass = S.passes[i];
+    if (pass.style !== 'pass') continue;
+    const fromPl = S.players.find(p => p.id === pass.from);
+    const toPl = S.players.find(p => p.id === pass.to);
+    if (!fromPl || !toPl) continue;
+    const p1 = toC(fromPl.x, fromPl.y);
+    const p2 = toC(toPl.x, toPl.y);
     if (distPointToSegmentPx(cp, p1, p2) <= HIT_DIST) return i;
   }
   return -1;
@@ -1781,7 +1827,8 @@ function render() {
 
   S.paths.forEach(path => {
     if (path.pts.length < 2) return;
-    drawRunPath(path.pts, path.color, 2.8, t > 0 ? t : 1);
+    const isSelected = S.selectedPathPid === path.pid;
+    drawRunPath(path.pts, path.color, 2.8, t > 0 ? t : 1, false, isSelected);
   });
   renderAnnotations('lines');
 
@@ -1971,13 +2018,29 @@ cv.addEventListener('pointerdown', e => {
       cv.setPointerCapture(e.pointerId);
     } else {
       const kickIdx = hitKickPath(fp);
+      const passIdx = hitPassLine(fp);
+      const runPid  = hitRunPath(fp);
       if (kickIdx !== -1) {
         S.selectedPassIdx = kickIdx;
+        S.selectedPathPid = null;
+        S.selected = null;
+        S.ballAssignCandidate = null;
+        S.pointerTap = null;
+      } else if (passIdx !== -1) {
+        S.selectedPassIdx = passIdx;
+        S.selectedPathPid = null;
+        S.selected = null;
+        S.ballAssignCandidate = null;
+        S.pointerTap = null;
+      } else if (runPid !== null) {
+        S.selectedPathPid = runPid;
+        S.selectedPassIdx = null;
         S.selected = null;
         S.ballAssignCandidate = null;
         S.pointerTap = null;
       } else {
         S.selectedPassIdx = null;
+        S.selectedPathPid = null;
         S.selected = null;
         S.ballAssignCandidate = null;
         S.pointerTap = null;
@@ -1986,7 +2049,7 @@ cv.addEventListener('pointerdown', e => {
     refreshInteractionUI(); render();
   }
 
-  else if (S.tool === 'path') {
+  else if (S.tool === 'run') {
     const pl = hitPlayer(fp);
     if (pl) {
       S.drawing = { pid:pl.id, pts:[{x:pl.x, y:pl.y}], last:{x:fp.x, y:fp.y} };
@@ -1994,6 +2057,8 @@ cv.addEventListener('pointerdown', e => {
       cv.setPointerCapture(e.pointerId);
       setHint('Draw the run path, then release to finish.');
       refreshInteractionUI();
+    } else {
+      setHint('Click a player first to start their run path.');
     }
   }
 
@@ -2255,7 +2320,7 @@ cv.addEventListener('pointermove', e => {
   }
 
   // Freehand draw
-  if (S.drawing && S.tool === 'path') {
+  if (S.drawing && S.tool === 'run') {
     if (d2(fp, S.drawing.last) > 1.2) {
       S.drawing.pts.push({x:fp.x, y:fp.y});
       S.drawing.last = {x:fp.x, y:fp.y};
@@ -2285,7 +2350,7 @@ cv.addEventListener('pointermove', e => {
   const pl = hitPlayer(fp), bl = hitBall(fp), ann = hitAnnotation(fp);
   if      (S.tool === 'move')  cv.style.cursor = (pl||bl||ann) ? 'grab' : 'default';
   else if (S.tool === 'erase') cv.style.cursor = 'crosshair';
-  else if (S.tool === 'path')  cv.style.cursor = pl ? 'crosshair' : 'default';
+  else if (S.tool === 'run')   cv.style.cursor = pl ? 'crosshair' : 'default';
   else                          cv.style.cursor = pl ? 'pointer' : 'default';
 });
 
@@ -2315,7 +2380,7 @@ function onPointerUp(e) {
     refreshInteractionUI();
     render();
   }
-  if (S.drawing && S.tool === 'path') finishDraw();
+  if (S.drawing && S.tool === 'run') finishDraw();
   if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box')) finishAnnotationDraft();
 }
 cv.addEventListener('pointerup', onPointerUp);
@@ -2508,11 +2573,20 @@ function removePlayer(id) {
 }
 
 function deleteSelected() {
+  if (S.selectedPathPid !== null) {
+    snapshot();
+    S.paths = S.paths.filter(p => p.pid !== S.selectedPathPid);
+    S.selectedPathPid = null;
+    setHint('Run path removed.');
+    refreshInteractionUI(); render();
+    return;
+  }
   if (S.selectedPassIdx !== null && S.selectedPassIdx < S.passes.length) {
     snapshot();
+    const style = S.passes[S.selectedPassIdx]?.style;
     S.passes.splice(S.selectedPassIdx, 1);
     S.selectedPassIdx = null;
-    setHint('Kick path removed.');
+    setHint(style === 'kick' ? 'Kick path removed.' : 'Pass line removed.');
     refreshInteractionUI(); render();
     return;
   }
@@ -2887,29 +2961,30 @@ function seekTrack(e) {
 
 //  UI
 const HINTS = {
-  move:  'MOVE - drag any player or ball freely',
-  path:  'PATH - click a player and drag to draw their run',
-  pass:  'PASS - click passer, then click receiver',
-  kick:  'KICK - click kicker, then click a player or any field target',
-  erase: 'ERASE - click player, ball, or path to remove',
-  box:   'BOX - drag on the pitch to highlight a channel or area',
+  move:  'MOVE – drag players, ball, paths or notes to reposition. Click a path to select it.',
+  run:   'RUN – click a player, then drag to draw their movement path.',
+  pass:  'PASS – click the passer, then click the receiver.',
+  kick:  'KICK – click the kicker, then click a player or any field target.',
+  erase: 'ERASE – click any player, ball, path or annotation to remove it.',
+  box:   'BOX – drag on the pitch to highlight a channel or area.',
 };
 
 const MODE_LABELS = {
-  move: 'Move',
-  path: 'Run Path',
-  pass: 'Pass',
-  kick: 'Kick',
+  move:  'Move',
+  run:   'Run',
+  path:  'Run',
+  pass:  'Pass',
+  kick:  'Kick',
   erase: 'Erase',
-  box: 'Box Highlight',
+  box:   'Box Highlight',
 };
 
-HINTS.note = 'NOTE - click the pitch to place a text note';
-HINTS.arrow = 'ARROW - drag to draw a tactical arrow';
-HINTS.zone = 'CIRCLE - drag to place a highlight circle';
-MODE_LABELS.note = 'Note';
+HINTS.note  = 'NOTE – click the pitch to place a coaching cue card.';
+HINTS.arrow = 'ARROW – drag to draw a coaching annotation arrow. Does not animate players.';
+HINTS.zone  = 'CIRCLE – drag to place a highlight circle.';
+MODE_LABELS.note  = 'Note';
 MODE_LABELS.arrow = 'Arrow';
-MODE_LABELS.zone = 'Circle Highlight';
+MODE_LABELS.zone  = 'Circle Highlight';
 
 const MOBILE_DRAWER_IDS = ['selection', 'annotations', 'notes', 'files'];
 
@@ -3043,7 +3118,7 @@ function updateMobileUI() {
   if (mobileAddAttackBtn) mobileAddAttackBtn.disabled = S.atkUsed.size >= 15;
   if (mobileAddDefenceBtn) mobileAddDefenceBtn.disabled = S.defUsed.size >= 15;
 
-  ['move', 'path', 'pass', 'kick', 'zone', 'box', 'erase', 'note', 'arrow'].forEach(tool => {
+  ['move', 'run', 'pass', 'kick', 'zone', 'box', 'erase', 'note', 'arrow'].forEach(tool => {
     const btn = document.getElementById(`mq-${tool}`);
     if (btn) btn.classList.toggle('active', S.tool === tool);
   });
@@ -3096,10 +3171,21 @@ function getSelectedSummary() {
       };
     }
   }
+  if (S.selectedPathPid !== null) {
+    const path = S.paths.find(p => p.pid === S.selectedPathPid);
+    const pl = path ? S.players.find(q => q.id === path.pid) : null;
+    const label = pl ? `${pl.team === 'A' ? 'Attack' : 'Defence'} #${pl.num}` : 'player';
+    return { title: 'Run Path', meta: `Run path for ${label}. Press Delete to remove it.` };
+  }
   if (S.selectedPassIdx !== null) {
     const pass = S.passes[S.selectedPassIdx];
     const fromPl = pass ? S.players.find(p => p.id === pass.from) : null;
     const fromLabel = fromPl ? `from ${fromPl.team === 'A' ? 'Attack' : 'Defence'} #${fromPl.num}` : '';
+    if (pass?.style === 'pass') {
+      const toPl = pass.to ? S.players.find(p => p.id === pass.to) : null;
+      const toLabel = toPl ? ` to ${toPl.team === 'A' ? 'Attack' : 'Defence'} #${toPl.num}` : '';
+      return { title: 'Pass Line', meta: `Pass line${fromLabel ? ' ' + fromLabel : ''}${toLabel}. Press Delete to remove it.` };
+    }
     return { title: 'Kick Path', meta: `Kick path${fromLabel ? ' ' + fromLabel : ''}. Press Delete to remove it.` };
   }
   return { title: '-', meta: 'Select a player or ball to inspect it here.' };
@@ -3279,19 +3365,20 @@ function updateSelectedNoteText(value) {
 }
 
 const TOOL_GUIDE_CONTENT = {
-  move:  { icon: '↖', desc: 'Drag players and the ball to reposition. Tap to select.' },
-  path:  { icon: '⟶', desc: 'Tap a player to start a run path, then drag to draw the route.' },
+  move:  { icon: '↖', desc: 'Move objects. Drag players, ball, paths or notes to reposition. Click a run path, pass or kick to select it.' },
+  run:   { icon: '⟶', desc: 'Create player movement. Click a player, draw the run path, then play the step.' },
+  path:  { icon: '⟶', desc: 'Create player movement. Click a player, draw the run path, then play the step.' },
   pass:  { icon: '⤳', desc: 'Tap the passer, then tap the receiver to draw a pass line.' },
   kick:  { icon: '↑', desc: 'Tap the kicker, then tap a receiver or any empty field spot.' },
   zone:  { icon: '○', desc: 'Drag on the field to draw a circle highlight area.' },
   box:   { icon: '□', desc: 'Drag on the field to draw a box zone or channel.' },
-  arrow: { icon: '↗', desc: 'Drag on the field to draw a free tactical arrow.' },
+  arrow: { icon: '↗', desc: 'Add visual annotation. Arrows explain intent but do not animate players.' },
   note:  { icon: '✎', desc: 'Tap on the field to place a coaching cue card.' },
   erase: { icon: '✕', desc: 'Tap any player, ball, path, or annotation to remove it.' },
 };
 
 function updateSmartPanel() {
-  const guide = TOOL_GUIDE_CONTENT[S.tool] || TOOL_GUIDE_CONTENT.move;
+  const guide = TOOL_GUIDE_CONTENT[S.tool] || TOOL_GUIDE_CONTENT.run || TOOL_GUIDE_CONTENT.move;
   const modeEl    = document.getElementById('spModeLabel');
   const guideText = document.getElementById('spGuideText');
   const guideIcon = document.getElementById('spGuideIcon');
@@ -3302,9 +3389,10 @@ function updateSmartPanel() {
   const kickStep1 = document.getElementById('spKickStep1');
   const kickStep2 = document.getElementById('spKickStep2');
 
-  if (modeEl) modeEl.textContent = MODE_LABELS[S.tool] || 'Move';
+  const toolLabel = MODE_LABELS[S.tool] || 'Move';
+  if (modeEl) modeEl.textContent = toolLabel;
   const defaultMode = document.getElementById('spDefaultMode');
-  if (defaultMode) defaultMode.textContent = MODE_LABELS[S.tool] || 'Move';
+  if (defaultMode) defaultMode.textContent = toolLabel;
   if (guideIcon) guideIcon.textContent = guide.icon;
   if (stepBadge) {
     const count = sequenceStepCount();
@@ -3424,9 +3512,11 @@ function refreshInteractionUI() {
 
 function setTool(t) {
   S.tool = t;
-  if (t !== 'path')          S.drawing = null;
+  if (t !== 'run')           S.drawing = null;
   if (t !== 'arrow' && t !== 'zone' && t !== 'box') S.annotationDraft = null;
   if (t !== 'pass' && t !== 'kick') { S.passFrom=null; S.selected=null; }
+  S.selectedPathPid = null;
+  S.selectedPassIdx = null;
   document.querySelectorAll('[data-tool]').forEach(b => b.classList.remove('active'));
   document.querySelectorAll(`[data-tool="${t}"]`).forEach(b => b.classList.add('active'));
   cv.style.cursor = t === 'move' ? 'default' : 'crosshair';
@@ -3441,6 +3531,7 @@ function clearPaths()  { snapshot(); S.paths=[]; S.passes=[]; S.drawing=null; se
 function clearSelection() {
   S.selected = null;
   S.selectedPassIdx = null;
+  S.selectedPathPid = null;
   S.ballAssignCandidate = null;
   S.pointerTap = null;
   S.dragging = null;
@@ -3483,7 +3574,7 @@ function cancelActiveBoardInteraction() {
     render();
     return true;
   }
-  if (S.selected || S.selectedPassIdx !== null) {
+  if (S.selected || S.selectedPassIdx !== null || S.selectedPathPid !== null) {
     clearSelection();
     return true;
   }
@@ -3498,7 +3589,7 @@ function clearAll() {
   S.playMetadata = emptyPlayMetadata('New Play');
   S.projectPlayback = null;
   S.annotations = [];
-  S.drawing=null; S.passFrom=null; S.annotationDraft=null; S.selected=null; S.ballAssignCandidate=null;
+  S.drawing=null; S.passFrom=null; S.annotationDraft=null; S.selected=null; S.ballAssignCandidate=null; S.selectedPathPid=null; S.selectedPassIdx=null;
   S.animT=0; S.animating=false;
   S.animSpd=1; spdIdx=2;
   S.steps=[emptyStepState()]; S.currentStep=0;
@@ -3529,7 +3620,7 @@ function updateSelInfo() {
   document.getElementById('selName').textContent = summary.title;
   if (meta) meta.textContent = summary.meta;
   box.classList.toggle('visible', summary.title !== '-');
-  box.classList.toggle('annotation-selected', !!ann && S.selectedPassIdx === null);
+  box.classList.toggle('annotation-selected', !!ann && S.selectedPassIdx === null && S.selectedPathPid === null);
   if (editWrap) editWrap.classList.toggle('visible', ann?.type === 'note');
   if (editLabel) editLabel.textContent = ann?.type === 'note' ? 'Note Text' : 'Details';
   if (noteInput) {
@@ -3563,8 +3654,13 @@ function updateSelInfo() {
       shapeOpacity.value = String(Number(ann.opacity) || 1);
     }
   }
+  const hasAnySelection = !!S.selected || S.selectedPassIdx !== null || S.selectedPathPid !== null;
   if (deleteBtn) {
-    if (S.selectedPassIdx !== null) deleteBtn.textContent = 'Remove Kick';
+    if (S.selectedPathPid !== null) deleteBtn.textContent = 'Remove Run Path';
+    else if (S.selectedPassIdx !== null) {
+      const pass = S.passes[S.selectedPassIdx];
+      deleteBtn.textContent = pass?.style === 'pass' ? 'Remove Pass' : 'Remove Kick';
+    }
     else if (S.selected === '__ball__') deleteBtn.textContent = 'Remove Ball';
     else if (ann) deleteBtn.textContent = `Remove ${MODE_LABELS[ann.type] || 'Item'}`;
     else if (S.selected) {
@@ -3573,11 +3669,11 @@ function updateSelInfo() {
     } else {
       deleteBtn.textContent = 'Remove Player';
     }
-    deleteBtn.disabled = !S.selected && S.selectedPassIdx === null;
+    deleteBtn.disabled = !hasAnySelection;
   }
   if (clearBtn) {
-    clearBtn.textContent = (S.selected || S.selectedPassIdx !== null) ? 'Clear Selection' : 'No Selection';
-    clearBtn.disabled = !S.selected && S.selectedPassIdx === null;
+    clearBtn.textContent = hasAnySelection ? 'Clear Selection' : 'No Selection';
+    clearBtn.disabled = !hasAnySelection;
   }
 }
 
@@ -3804,7 +3900,7 @@ function importPlayFromFile(file) {
 document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   const k = e.key.toLowerCase();
-  const map = {v:'move',r:'path',p:'pass',k:'kick',e:'erase',c:'zone',b:'box'};
+  const map = {v:'move',r:'run',p:'pass',k:'kick',e:'erase',c:'zone',b:'box'};
   if (map[k])           { setTool(map[k]); return; }
   if (k===' ')          { e.preventDefault(); togglePlay(); return; }
   if (k === 'arrowleft') { e.preventDefault(); prevStep(); return; }
@@ -3812,7 +3908,7 @@ document.addEventListener('keydown', e => {
   if (k==='escape')     { e.preventDefault(); cancelActiveBoardInteraction(); return; }
   if (k==='z'&&(e.ctrlKey||e.metaKey)) { e.preventDefault(); undo(); }
   if (k==='delete'||k==='backspace') {
-    if (S.selected || selectedAnnotationId() || S.selectedPassIdx !== null) {
+    if (S.selected || selectedAnnotationId() || S.selectedPassIdx !== null || S.selectedPathPid !== null) {
       e.preventDefault();
       deleteSelected();
     }
