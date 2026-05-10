@@ -905,48 +905,45 @@ function drawField() {
   hline(40, T3_C, T3_W, D_10M);
   hline(60, T3_C, T3_W, D_10M);
 
-  // ── 12. 15m hash marks — short isolated ticks, evenly spaced every 5m ──────
-  // Authentic rugby broadcast: tiny bold strokes, never connected, never a rail
+  // ── 12. 5m and 15m: dashed vertical lines + T-junction caps ─────────────
+  // Authentic rugby: subtle dashed verticals with bold T-caps at each solid line
   {
-    const MAJOR = new Set([0, 22, 40, 50, 60, 78, 100]);
-    const H_ROWS = [0,5,10,15,20,22,25,30,35,40,45,50,55,60,65,70,75,78,80,85,90,95,100];
-    const hashHalf = Math.max(4, sc * 0.42);  // ~4–5 px each side — short tick
-    const hashLW   = Math.max(1.5, sc * 0.15);
-    H_ROWS.forEach(fy => {
-      const alpha = MAJOR.has(fy) ? 0.52 : 0.34;
-      const pL = toC(15, fy), pR = toC(53, fy);
-      const px_L = Math.round(pL.x) + 0.5, px_R = Math.round(pR.x) + 0.5;
-      const py   = Math.round(pL.y);
+    const V_DASH = [6, 5]; // dash, gap in canvas px
+    const vLW15  = Math.max(1.2, sc * 0.12);
+    const vLW5   = Math.max(1.0, sc * 0.10);
+    const tHalf  = Math.max(6, sc * 0.60);   // T-cap arm length each side in px
+    const tLW    = Math.max(1.8, sc * 0.18); // T-cap line weight
+
+    // Dashed verticals — 15m from each touchline
+    vline(15, 'rgba(255,255,255,0.32)', vLW15, 0, 100, V_DASH);
+    vline(53, 'rgba(255,255,255,0.32)', vLW15, 0, 100, V_DASH);
+    // Dashed verticals — 5m from each touchline
+    vline(5,  'rgba(255,255,255,0.24)', vLW5,  0, 100, V_DASH);
+    vline(63, 'rgba(255,255,255,0.24)', vLW5,  0, 100, V_DASH);
+
+    // T-junction caps: short horizontal stroke at every solid-line intersection
+    // 15m T-caps at all major horizontal lines
+    const T15 = [0, 22, 40, 50, 60, 78, 100];
+    // 5m T-caps at goal lines only
+    const T5  = [0, 100];
+
+    function tCap(fx, fy, alpha) {
+      const p  = toC(fx, fy);
+      const px = Math.round(p.x) + 0.5;
+      const py = Math.round(p.y) + 0.5;
       ctx.save();
       ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
-      ctx.lineWidth = hashLW;
-      ctx.lineCap   = 'square';
+      ctx.lineWidth   = tLW;
+      ctx.lineCap     = 'square';
       ctx.beginPath();
-      ctx.moveTo(px_L, py - hashHalf); ctx.lineTo(px_L, py + hashHalf);
-      ctx.moveTo(px_R, py - hashHalf); ctx.lineTo(px_R, py + hashHalf);
+      ctx.moveTo(px - tHalf, py);
+      ctx.lineTo(px + tHalf, py);
       ctx.stroke();
       ctx.restore();
-    });
-  }
+    }
 
-  // ── 13. 5m marks — tiny strokes at goal lines only ───────────────────────
-  {
-    const hash5Half = Math.max(3, sc * 0.30);
-    const hash5LW   = Math.max(1.3, sc * 0.13);
-    [0, 100].forEach(fy => {
-      const pL = toC(5, fy), pR = toC(63, fy);
-      const px_L = Math.round(pL.x) + 0.5, px_R = Math.round(pR.x) + 0.5;
-      const py   = Math.round(pL.y);
-      ctx.save();
-      ctx.strokeStyle = 'rgba(255,255,255,0.36)';
-      ctx.lineWidth = hash5LW;
-      ctx.lineCap   = 'square';
-      ctx.beginPath();
-      ctx.moveTo(px_L, py - hash5Half); ctx.lineTo(px_L, py + hash5Half);
-      ctx.moveTo(px_R, py - hash5Half); ctx.lineTo(px_R, py + hash5Half);
-      ctx.stroke();
-      ctx.restore();
-    });
+    T15.forEach(fy => { tCap(15, fy, 0.58); tCap(53, fy, 0.58); });
+    T5.forEach(fy  => { tCap(5,  fy, 0.42); tCap(63, fy, 0.42); });
   }
 
   // ── 14. Center mark ───────────────────────────────────────────────────────
