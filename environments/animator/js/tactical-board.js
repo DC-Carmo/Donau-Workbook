@@ -95,6 +95,7 @@ const S = {
   defUsed: new Set(),
   ballAssignCandidate: null,
   pointerTap: null,
+  selectedPassIdx: null,
 };
 const SPEEDS = [0.25, 0.5, 1, 1.5, 2, 3];
 let   spdIdx = 2;
@@ -446,21 +447,6 @@ function findAnnotationById(id) {
 function selectedAnnotation() {
   const id = selectedAnnotationId();
   return id ? findAnnotationById(id) : null;
-}
-
-function passSelection(index) {
-  return `pass:${index}`;
-}
-
-function selectedPassIndex() {
-  if (typeof S.selected !== 'string' || !S.selected.startsWith('pass:')) return null;
-  const idx = Number(S.selected.slice(5));
-  return Number.isInteger(idx) ? idx : null;
-}
-
-function selectedPass() {
-  const idx = selectedPassIndex();
-  return idx !== null && idx >= 0 && idx < S.passes.length ? S.passes[idx] : null;
 }
 
 function defaultAnnotationText() {
@@ -1283,14 +1269,83 @@ function catmullRom(pts, t) {
   };
 }
 
-function drawKickToTarget(x1, y1, x2, y2, progress = 1) {
-  drawArc(x1, y1, x2, y2, '#f59e0b', progress, true);
+function distPointToSegmentPx(p, a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+  let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+
+function hitKickPath(fp) {
+  const HIT_DIST = 14;
+  const cp = toC(fp.x, fp.y);
+  for (let i = S.passes.length - 1; i >= 0; i--) {
+    const pass = S.passes[i];
+    if (pass.style !== 'kick') continue;
+    const fromPl = S.players.find(p => p.id === pass.from);
+    if (!fromPl) continue;
+    const p1 = toC(fromPl.x, fromPl.y);
+    let p2;
+    if (pass.to === null && pass.targetX !== undefined) {
+      p2 = toC(pass.targetX, pass.targetY);
+    } else if (pass.to) {
+      const toPl = S.players.find(p => p.id === pass.to);
+      if (!toPl) continue;
+      p2 = toC(toPl.x, toPl.y);
+    } else continue;
+    if (distPointToSegmentPx(cp, p1, p2) <= HIT_DIST) return i;
+  }
+  return -1;
+}
+
+function drawKickLine(x1, y1, x2, y2, progress = 1, selected = false) {
+  const p1 = toC(x1, y1), p2 = toC(x2, y2);
+  const ex = p1.x + (p2.x - p1.x) * progress;
+  const ey = p1.y + (p2.y - p1.y) * progress;
+  const color = selected ? '#fbbf24' : '#f59e0b';
+  const lineW = selected ? 3.0 : 2.2;
+
+  ctx.save();
+  if (selected) {
+    ctx.strokeStyle = 'rgba(251,191,36,0.25)';
+    ctx.lineWidth = lineW + 8;
+    ctx.setLineDash([]);
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(ex, ey); ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(7,16,24,0.42)';
+  ctx.lineWidth = lineW + 2.6;
+  ctx.setLineDash([sc * 0.6, sc * 0.35]);
+  ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(ex, ey); ctx.stroke();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineW;
+  ctx.setLineDash([sc * 0.6, sc * 0.35]);
+  ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(ex, ey); ctx.stroke();
+  ctx.setLineDash([]);
+  if (progress > 0.85) {
+    const ang = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+    const as = 8;
+    ctx.beginPath();
+    ctx.moveTo(ex, ey);
+    ctx.lineTo(ex - as * Math.cos(ang - 0.38), ey - as * Math.sin(ang - 0.38));
+    ctx.lineTo(ex - as * Math.cos(ang + 0.38), ey - as * Math.sin(ang + 0.38));
+    ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawKickToTarget(x1, y1, x2, y2, progress = 1, selected = false) {
+  drawKickLine(x1, y1, x2, y2, progress, selected);
   if (progress > 0.5) {
     const tp = toC(x2, y2);
     const alpha = Math.min(1, (progress - 0.5) * 2) * 0.82;
+    const landColor = selected ? '#fbbf24' : '#f59e0b';
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.strokeStyle = '#f59e0b';
+    ctx.strokeStyle = landColor;
     ctx.lineWidth = 1.8;
     ctx.beginPath();
     ctx.arc(tp.x, tp.y, 8 * Math.min(1, sc / 8), 0, Math.PI * 2);
@@ -1550,34 +1605,6 @@ function drawArrowAnnotation(arrow, selected = false, preview = false) {
   }
 }
 
-function drawPassHighlight(start, end) {
-  const s = toC(start.x, start.y);
-  const e = toC(end.x, end.y);
-  ctx.save();
-  ctx.strokeStyle = 'rgba(251,191,36,0.44)';
-  ctx.lineWidth = 6;
-  ctx.lineCap = 'round';
-  ctx.setLineDash([10, 6]);
-  ctx.beginPath();
-  ctx.moveTo(s.x, s.y);
-  ctx.lineTo(e.x, e.y);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.restore();
-
-  [s, e].forEach(pt => {
-    ctx.save();
-    ctx.fillStyle = '#fbbf24';
-    ctx.strokeStyle = '#0b1420';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(pt.x, pt.y, 5.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
-  });
-}
-
 function drawZoneAnnotation(zone, selected = false, preview = false) {
   const p = toC(zone.x, zone.y);
   const radius = Math.max(zone.r * sc, sc * 1.5);
@@ -1733,22 +1760,23 @@ function render() {
   const t = S.animT;
   renderAnnotations('zones');
 
-  S.passes.forEach((pass, index) => {
+  S.passes.forEach((pass, passIdx) => {
     const fp = S.players.find(p => p.id === pass.from);
     if (!fp) return;
     const fa = animPos(fp, t);
-    const selected = selectedPassIndex() === index;
+    const isSelected = S.selectedPassIdx === passIdx;
     if (pass.style === 'kick' && pass.to === null && pass.targetX !== undefined) {
-      if (selected) drawPassHighlight(fa, { x: pass.targetX, y: pass.targetY });
-      drawKickToTarget(fa.x, fa.y, pass.targetX, pass.targetY, 1);
+      drawKickToTarget(fa.x, fa.y, pass.targetX, pass.targetY, 1, isSelected);
       return;
     }
     const tp = S.players.find(p => p.id === pass.to);
     if (!tp) return;
     const ta = animPos(tp, t);
-    if (selected) drawPassHighlight(fa, ta);
-    const col = pass.style === 'kick' ? '#f59e0b' : 'rgba(255,255,255,0.75)';
-    drawArc(fa.x, fa.y, ta.x, ta.y, col, 1, pass.style === 'kick');
+    if (pass.style === 'kick') {
+      drawKickLine(fa.x, fa.y, ta.x, ta.y, 1, isSelected);
+    } else {
+      drawArc(fa.x, fa.y, ta.x, ta.y, 'rgba(255,255,255,0.75)', 1, false);
+    }
   });
 
   S.paths.forEach(path => {
@@ -1816,27 +1844,6 @@ function pointSegDist(p, a, b) {
   const t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy);
   const tc = clamp(t, 0, 1);
   return d2(p, { x: a.x + tc * dx, y: a.y + tc * dy });
-}
-
-function hitPass(fp) {
-  for (let i = S.passes.length - 1; i >= 0; i--) {
-    const pass = S.passes[i];
-    const from = S.players.find(p => p.id === pass.from);
-    if (!from) continue;
-    const start = { x: from.x, y: from.y };
-    const isKickTarget = pass.style === 'kick' && pass.to === null && Number.isFinite(pass.targetX) && Number.isFinite(pass.targetY);
-    const end = isKickTarget
-      ? { x: pass.targetX, y: pass.targetY }
-      : (() => {
-          const to = S.players.find(p => p.id === pass.to);
-          return to ? { x: to.x, y: to.y } : null;
-        })();
-    if (!end) continue;
-    if (d2(fp, start) <= 2.8) return { index: i, part: 'from' };
-    if (isKickTarget && d2(fp, end) <= 2.8) return { index: i, part: 'target' };
-    if (pointSegDist(fp, start, end) <= 2.4) return { index: i, part: 'move' };
-  }
-  return null;
 }
 
 function hitAnnotation(fp) {
@@ -1963,22 +1970,14 @@ cv.addEventListener('pointerdown', e => {
       beginPointerTap(e.pointerId, { type:'annotation', id:annHit.id, wasSelected }, e);
       cv.setPointerCapture(e.pointerId);
     } else {
-      const passHit = hitPass(fp);
-      if (passHit) {
-        const wasSelected = selectedPassIndex() === passHit.index;
-        snapshot();
-        S.selected = passSelection(passHit.index);
+      const kickIdx = hitKickPath(fp);
+      if (kickIdx !== -1) {
+        S.selectedPassIdx = kickIdx;
+        S.selected = null;
         S.ballAssignCandidate = null;
-        S.dragging = {
-          type:'pass',
-          index: passHit.index,
-          part: passHit.part,
-          anchor: { x: fp.x, y: fp.y },
-          startSnapshot: cloneData(S.passes[passHit.index]),
-        };
-        beginPointerTap(e.pointerId, { type:'pass', index: passHit.index, wasSelected }, e);
-        cv.setPointerCapture(e.pointerId);
+        S.pointerTap = null;
       } else {
+        S.selectedPassIdx = null;
         S.selected = null;
         S.ballAssignCandidate = null;
         S.pointerTap = null;
@@ -2148,14 +2147,6 @@ cv.addEventListener('pointerdown', e => {
         render();
         return;
       }
-      const passHit = hitPass(fp);
-      if (passHit) {
-        snapshot();
-        removePass(passHit.index);
-        refreshInteractionUI();
-        render();
-        return;
-      }
       // Erase nearest path segment
       let removed = false;
       S.paths = S.paths.filter(path => {
@@ -2259,12 +2250,6 @@ cv.addEventListener('pointermove', e => {
           clampBoxAnnotation(ann);
         }
       }
-    } else if (S.dragging.type === 'pass') {
-      const pass = S.passes[S.dragging.index];
-      if (pass && pass.style === 'kick' && pass.to === null && S.dragging.part === 'target') {
-        pass.targetX = clamp(fp.x, F.XMIN, F.XMAX);
-        pass.targetY = clamp(fp.y, F.YMIN, F.YMAX);
-      }
     }
     render(); return;
   }
@@ -2318,11 +2303,6 @@ function onPointerUp(e) {
       return;
     }
     if (tap.payload.type === 'annotation' && tap.payload.wasSelected && selectedAnnotationId() === tap.payload.id) {
-      clearSelection();
-      render();
-      return;
-    }
-    if (tap.payload.type === 'pass' && tap.payload.wasSelected && selectedPassIndex() === tap.payload.index) {
       clearSelection();
       render();
       return;
@@ -2527,29 +2507,19 @@ function removePlayer(id) {
   rebuildPalette(); refreshInteractionUI(); render();
 }
 
-function removePass(index) {
-  if (index === null || index < 0 || index >= S.passes.length) return;
-  const selectedIndex = selectedPassIndex();
-  S.passes.splice(index, 1);
-  if (selectedIndex !== null) {
-    if (selectedIndex === index) {
-      S.selected = null;
-    } else if (selectedIndex > index) {
-      S.selected = passSelection(selectedIndex - 1);
-    }
-  }
-}
-
 function deleteSelected() {
+  if (S.selectedPassIdx !== null && S.selectedPassIdx < S.passes.length) {
+    snapshot();
+    S.passes.splice(S.selectedPassIdx, 1);
+    S.selectedPassIdx = null;
+    setHint('Kick path removed.');
+    refreshInteractionUI(); render();
+    return;
+  }
   const annId = selectedAnnotationId();
-  const passIndex = selectedPassIndex();
   if (annId) {
     snapshot();
     removeAnnotation(annId);
-  }
-  else if (passIndex !== null) {
-    snapshot();
-    removePass(passIndex);
   }
   else if (S.selected && S.selected !== '__ball__') {
     snapshot();
@@ -3113,17 +3083,6 @@ function getSelectedSummary() {
       return { title: 'Box Highlight', meta: 'Drag inside the box to move it or drag any corner handle to resize it.' };
     }
   }
-  const pass = selectedPass();
-  if (pass) {
-    const from = S.players.find(p => p.id === pass.from);
-    const to = pass.to ? S.players.find(p => p.id === pass.to) : null;
-    const title = pass.style === 'kick' ? 'Kick Selected' : 'Pass Selected';
-    const targetLabel = pass.to === null ? 'field target' : `${to ? `${to.team==='A'?'A':'D'} #${to.num}` : 'receiver'}`;
-    const meta = pass.style === 'kick'
-      ? `Kick from ${from ? `${from.team==='A'?'A':'D'} #${from.num}` : 'player'} selected. Drag the target dot in Move mode to reposition it.`
-      : `Pass from ${from ? `${from.team==='A'?'A':'D'} #${from.num}` : 'player'} to ${targetLabel} selected. Move the players to change the angle.`;
-    return { title, meta };
-  }
   if (S.selected) {
     const pl = S.players.find(p => p.id === S.selected);
     if (pl) {
@@ -3136,6 +3095,12 @@ function getSelectedSummary() {
           : `Selected for ${MODE_LABELS[S.tool] || 'interaction'}.`,
       };
     }
+  }
+  if (S.selectedPassIdx !== null) {
+    const pass = S.passes[S.selectedPassIdx];
+    const fromPl = pass ? S.players.find(p => p.id === pass.from) : null;
+    const fromLabel = fromPl ? `from ${fromPl.team === 'A' ? 'Attack' : 'Defence'} #${fromPl.num}` : '';
+    return { title: 'Kick Path', meta: `Kick path${fromLabel ? ' ' + fromLabel : ''}. Press Delete to remove it.` };
   }
   return { title: '-', meta: 'Select a player or ball to inspect it here.' };
 }
@@ -3163,8 +3128,6 @@ function getStatusMessage() {
   if (S.selected === '__ball__') return 'Ball selected. Move it, or switch tools to build around it.';
   const ann = selectedAnnotation();
   if (ann) return `${MODE_LABELS[ann.type] || 'Annotation'} selected. Use Move to adjust it or Delete to remove it.`;
-  const pass = selectedPass();
-  if (pass) return `${pass.style === 'kick' ? 'Kick' : 'Pass'} selected. Use Move to reposition the players or Delete to remove it.`;
   if (S.selected) {
     const pl = S.players.find(p => p.id === S.selected);
     if (pl) {
@@ -3362,6 +3325,7 @@ function updateSmartPanel() {
   const hasSelection = !!S.selected || !!selectedAnnotationId();
   const showDefault = !hasSelection && !isKick;
 
+
   if (annSection) annSection.hidden = !isAnnotationTool;
   if (defaultState) defaultState.hidden = !showDefault;
   if (emptyState) emptyState.hidden = true;
@@ -3400,6 +3364,31 @@ function closeMobileDrawer() {
 }
 window.toggleMobileDrawer = toggleMobileDrawer;
 window.closeMobileDrawer  = closeMobileDrawer;
+
+/* ── Coaching drawer ── */
+function toggleCoachingDrawer() {
+  const drawer = document.getElementById('coachingDrawer');
+  const btn    = document.getElementById('coachModeBtn');
+  if (!drawer) return;
+  const open = drawer.classList.toggle('cd-open');
+  if (btn) {
+    btn.classList.toggle('coach-active', open);
+    btn.setAttribute('aria-pressed', open ? 'true' : 'false');
+  }
+}
+window.toggleCoachingDrawer = toggleCoachingDrawer;
+
+function closeCoachingDrawer() {
+  const drawer = document.getElementById('coachingDrawer');
+  const btn    = document.getElementById('coachModeBtn');
+  if (!drawer) return;
+  drawer.classList.remove('cd-open');
+  if (btn) {
+    btn.classList.remove('coach-active');
+    btn.setAttribute('aria-pressed', 'false');
+  }
+}
+window.closeCoachingDrawer = closeCoachingDrawer;
 
 function toggleAccordion(id) {
   const section = document.getElementById(id);
@@ -3451,6 +3440,7 @@ function setHint(txt) { document.getElementById('hint').textContent = txt; }
 function clearPaths()  { snapshot(); S.paths=[]; S.passes=[]; S.drawing=null; setHint('Paths cleared. Choose the next action.'); refreshInteractionUI(); render(); }
 function clearSelection() {
   S.selected = null;
+  S.selectedPassIdx = null;
   S.ballAssignCandidate = null;
   S.pointerTap = null;
   S.dragging = null;
@@ -3493,7 +3483,7 @@ function cancelActiveBoardInteraction() {
     render();
     return true;
   }
-  if (S.selected) {
+  if (S.selected || S.selectedPassIdx !== null) {
     clearSelection();
     return true;
   }
@@ -3539,7 +3529,7 @@ function updateSelInfo() {
   document.getElementById('selName').textContent = summary.title;
   if (meta) meta.textContent = summary.meta;
   box.classList.toggle('visible', summary.title !== '-');
-  box.classList.toggle('annotation-selected', !!ann);
+  box.classList.toggle('annotation-selected', !!ann && S.selectedPassIdx === null);
   if (editWrap) editWrap.classList.toggle('visible', ann?.type === 'note');
   if (editLabel) editLabel.textContent = ann?.type === 'note' ? 'Note Text' : 'Details';
   if (noteInput) {
@@ -3547,8 +3537,6 @@ function updateSelInfo() {
     noteInput.disabled = ann?.type !== 'note';
     noteInput.placeholder = ann?.type === 'note' ? 'Refine the coaching cue' : 'Update note text';
   }
-  if (clearBtn) clearBtn.textContent = S.selected ? 'Clear Selection' : 'No Selection';
-  if (clearBtn) clearBtn.disabled = !S.selected;
   const giveBallTarget = manualBallAssignmentTarget();
   if (giveBallBtn) {
     giveBallBtn.hidden = !giveBallTarget;
@@ -3575,18 +3563,21 @@ function updateSelInfo() {
       shapeOpacity.value = String(Number(ann.opacity) || 1);
     }
   }
-  const pass = selectedPass();
   if (deleteBtn) {
-    if (S.selected === '__ball__') deleteBtn.textContent = 'Remove Ball';
+    if (S.selectedPassIdx !== null) deleteBtn.textContent = 'Remove Kick';
+    else if (S.selected === '__ball__') deleteBtn.textContent = 'Remove Ball';
     else if (ann) deleteBtn.textContent = `Remove ${MODE_LABELS[ann.type] || 'Item'}`;
-    else if (pass) deleteBtn.textContent = 'Remove Pass';
     else if (S.selected) {
       const pl = S.players.find(p => p.id === S.selected);
       deleteBtn.textContent = pl ? 'Remove from Field' : 'Remove Player';
     } else {
       deleteBtn.textContent = 'Remove Player';
     }
-    deleteBtn.disabled = !S.selected;
+    deleteBtn.disabled = !S.selected && S.selectedPassIdx === null;
+  }
+  if (clearBtn) {
+    clearBtn.textContent = (S.selected || S.selectedPassIdx !== null) ? 'Clear Selection' : 'No Selection';
+    clearBtn.disabled = !S.selected && S.selectedPassIdx === null;
   }
 }
 
@@ -3821,7 +3812,7 @@ document.addEventListener('keydown', e => {
   if (k==='escape')     { e.preventDefault(); cancelActiveBoardInteraction(); return; }
   if (k==='z'&&(e.ctrlKey||e.metaKey)) { e.preventDefault(); undo(); }
   if (k==='delete'||k==='backspace') {
-    if (S.selected || selectedAnnotationId()) {
+    if (S.selected || selectedAnnotationId() || S.selectedPassIdx !== null) {
       e.preventDefault();
       deleteSelected();
     }
