@@ -266,7 +266,7 @@
     bottomNav.className = "mobile-bottom-nav";
     bottomNav.innerHTML = `
       <button class="mobile-bottom-nav-btn" type="button" data-mobile-nav="home">Home</button>
-      <button class="mobile-bottom-nav-btn" type="button" data-mobile-nav="gameplan">Game Plan</button>
+      <button class="mobile-bottom-nav-btn" type="button" data-mobile-nav="gameplan">Principles</button>
       <button class="mobile-bottom-nav-btn" type="button" data-mobile-nav="squad">Final 23</button>
       <button class="mobile-bottom-nav-btn mobile-bottom-modules" type="button" data-mobile-nav="modules" aria-expanded="false">Modules</button>
     `;

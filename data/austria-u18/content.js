@@ -2,7 +2,7 @@
   window.AUSTRIA_U18_DATA = {
     workspaceSections: [
       { slide: 1, group: "Program Core", shortLabel: "Cover",     title: "Program Cover" },
-      { slide: 2, group: "Program Core", shortLabel: "Plan",      title: "Game Plan" },
+      { slide: 2, group: "Program Core", shortLabel: "PRINCIPLES", title: "Principles" },
       { slide: 3, group: "Program Core", shortLabel: "Attack",    title: "Attack System" },
       { slide: 4, group: "Program Core", shortLabel: "Defence",   title: "Defensive System" },
       { slide: 5, group: "Program Core", shortLabel: "Set Piece", title: "Set Piece" },

@@ -120,6 +120,18 @@ boardBallAsset.addEventListener('load', () => {
 });
 boardBallAsset.src = BOARD_BALL_ASSET_SRC;
 
+// ── Rugby Preset Architecture (Phase 2 — not yet implemented) ────────────
+// Future presets will inject player positions + movement paths into the
+// current step. Each preset is a pure data object — no side effects.
+// Preset types: lineout, scrum, pod, backfield.
+// Usage (future): applyPreset(RUGBY_PRESETS.lineout.left);
+const RUGBY_PRESETS = {
+  // lineout:  { variants: { left: null, right: null } },
+  // scrum:    { variants: { left: null, right: null } },
+  // pod:      { variants: { narrow: null, wide: null } },
+  // backfield:{ variants: { standard: null } },
+};
+
 // ── Pitch texture configuration ──────────────────────────────────────────
 const PITCH_CONFIG = {
   textureStrength: 0.09, // grass noise opacity (0–1); lower = subtler
@@ -1406,7 +1418,7 @@ function drawKickToTarget(x1, y1, x2, y2, progress = 1, selected = false) {
   }
 }
 
-function drawArc(x1, y1, x2, y2, color, progress = 1, thick = false) {
+function drawArc(x1, y1, x2, y2, color, progress = 1, thick = false, selected = false) {
   const p1 = toC(x1, y1), p2 = toC(x2, y2);
   const dist = Math.hypot(p2.x-p1.x, p2.y-p1.y);
   const cpx  = (p1.x+p2.x)/2 - (p2.y-p1.y)*0.28;
@@ -1414,6 +1426,17 @@ function drawArc(x1, y1, x2, y2, color, progress = 1, thick = false) {
   const STEPS = 30;
 
   ctx.save();
+  if (selected) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+    ctx.lineWidth = 10;
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(p1.x, p1.y);
+    for (let i = 1; i <= Math.round(progress * STEPS); i++) {
+      const t = i / STEPS;
+      ctx.lineTo((1-t)*(1-t)*p1.x + 2*(1-t)*t*cpx + t*t*p2.x, (1-t)*(1-t)*p1.y + 2*(1-t)*t*cpy + t*t*p2.y);
+    }
+    ctx.stroke();
+  }
   ctx.strokeStyle = 'rgba(7,16,24,0.42)';
   ctx.lineWidth   = (thick ? 2.2 : 1.8) + 2.6;
   ctx.setLineDash([sc*0.6, sc*0.35]);
@@ -1821,7 +1844,7 @@ function render() {
     if (pass.style === 'kick') {
       drawKickLine(fa.x, fa.y, ta.x, ta.y, 1, isSelected);
     } else {
-      drawArc(fa.x, fa.y, ta.x, ta.y, 'rgba(255,255,255,0.75)', 1, false);
+      drawArc(fa.x, fa.y, ta.x, ta.y, 'rgba(255,255,255,0.75)', 1, false, isSelected);
     }
   });
 
@@ -2096,20 +2119,8 @@ cv.addEventListener('pointerdown', e => {
   }
 
   else if (S.tool === 'zone') {
-    const annHit = hitAnnotation(fp);
-    if (annHit) {
-      snapshot();
-      S.selected = annotationSelection(annHit.id);
-      S.ballAssignCandidate = null;
-      const ann = findAnnotationById(annHit.id);
-      const dragOff = ann ? { x: fp.x - ann.x, y: fp.y - ann.y } : { x: 0, y: 0 };
-      S.dragging = { type:'annotation', id:annHit.id, part:annHit.part, anchor:{x:fp.x,y:fp.y}, dragOff, startSnapshot: ann ? cloneData(ann) : null };
-      beginPointerTap(e.pointerId, { type:'annotation', id:annHit.id, wasSelected: selectedAnnotationId() === annHit.id }, e);
-      cv.setPointerCapture(e.pointerId);
-      refreshInteractionUI(); render(); return;
-    }
     if (!isInsidePitch(fp)) {
-      setHint('Start the circle highlight inside the pitch.');
+      setHint('Start the circle highlight inside the pitch. Switch to MOVE to edit existing highlights.');
       refreshInteractionUI();
       render();
       return;
@@ -2128,20 +2139,8 @@ cv.addEventListener('pointerdown', e => {
   }
 
   else if (S.tool === 'box') {
-    const annHit = hitAnnotation(fp);
-    if (annHit) {
-      snapshot();
-      S.selected = annotationSelection(annHit.id);
-      S.ballAssignCandidate = null;
-      const ann = findAnnotationById(annHit.id);
-      const dragOff = ann ? { x: fp.x - ann.x, y: fp.y - ann.y } : { x: 0, y: 0 };
-      S.dragging = { type:'annotation', id:annHit.id, part:annHit.part, anchor:{x:fp.x,y:fp.y}, dragOff, startSnapshot: ann ? cloneData(ann) : null };
-      beginPointerTap(e.pointerId, { type:'annotation', id:annHit.id, wasSelected: selectedAnnotationId() === annHit.id }, e);
-      cv.setPointerCapture(e.pointerId);
-      refreshInteractionUI(); render(); return;
-    }
     if (!isInsidePitch(fp)) {
-      setHint('Start the box highlight inside the pitch.');
+      setHint('Start the box highlight inside the pitch. Switch to MOVE to edit existing highlights.');
       refreshInteractionUI();
       render();
       return;
@@ -2165,31 +2164,40 @@ cv.addEventListener('pointerdown', e => {
     const pl = hitPlayer(fp);
     if (pl) {
       if (!S.passFrom) {
-        S.passFrom = pl.id; S.selected = pl.id;
+        // First click: arm passer/kicker and auto-assign ball to them
+        snapshot();
+        S.passFrom = pl.id;
+        S.selected = pl.id;
+        S.ballOwner = playerRef(pl);
+        S.ballAttached = true;
+        if (!S.ball) S.ball = { x: pl.x, y: pl.y };
+        syncAttachedBallToOwner();
+        applyBallOwnershipVisualState();
+        const teamLabel = pl.team === 'A' ? 'Attack' : 'Defence';
         const hint = S.tool === 'kick'
-          ? `Kick armed from #${pl.num}. Tap a player or anywhere on the pitch.`
-          : `Pass armed from #${pl.num}. Choose the target.`;
+          ? `Kick from ${teamLabel} #${pl.num}. Tap a player or anywhere on the pitch.`
+          : `Pass from ${teamLabel} #${pl.num}. Tap the receiver.`;
         setHint(hint);
         refreshInteractionUI();
       } else if (pl.id !== S.passFrom) {
-        snapshot();
+        // Second click: complete the pass/kick
         const dup = S.passes.find(p => p.from === S.passFrom && p.to === pl.id);
-        if (!dup) S.passes.push({ from:S.passFrom, to:pl.id, style:S.tool });
+        if (!dup) S.passes.push({ from: S.passFrom, to: pl.id, style: S.tool });
         S.passFrom = null; S.selected = null;
-        setHint(S.tool === 'pass' ? 'Pass added. Choose the next action.' : 'Kick to player added. Choose the next action.');
+        setHint(S.tool === 'pass' ? 'Pass added.' : 'Kick to player added.');
         refreshInteractionUI();
       } else {
+        // Clicked same player again: cancel
         S.passFrom = null; S.selected = null;
         setHint(HINTS[S.tool] || '');
         refreshInteractionUI();
       }
       render();
     } else if (S.tool === 'kick' && S.passFrom && isInsidePitch(fp)) {
-      // Kick to field target
-      snapshot();
+      // Kick to field target (no receiver player)
       S.passes.push({ from: S.passFrom, to: null, targetX: clampedFieldPoint.x, targetY: clampedFieldPoint.y, style: 'kick' });
       S.passFrom = null; S.selected = null;
-      setHint('Kick to field drawn. Choose the next action.');
+      setHint('Kick to field drawn.');
       refreshInteractionUI();
       render();
     }
@@ -2348,10 +2356,16 @@ cv.addEventListener('pointermove', e => {
 
   // Cursor
   const pl = hitPlayer(fp), bl = hitBall(fp), ann = hitAnnotation(fp);
-  if      (S.tool === 'move')  cv.style.cursor = (pl||bl||ann) ? 'grab' : 'default';
-  else if (S.tool === 'erase') cv.style.cursor = 'crosshair';
-  else if (S.tool === 'run')   cv.style.cursor = pl ? 'crosshair' : 'default';
-  else                          cv.style.cursor = pl ? 'pointer' : 'default';
+  if (S.tool === 'move') {
+    const onPath = pl || bl || ann || hitRunPath(fp) !== null || hitPassLine(fp) !== -1 || hitKickPath(fp) !== -1;
+    cv.style.cursor = onPath ? 'grab' : 'default';
+  } else if (S.tool === 'erase') {
+    cv.style.cursor = 'crosshair';
+  } else if (S.tool === 'run') {
+    cv.style.cursor = pl ? 'crosshair' : 'default';
+  } else {
+    cv.style.cursor = pl ? 'pointer' : 'default';
+  }
 });
 
 function onPointerUp(e) {
@@ -2963,8 +2977,8 @@ function seekTrack(e) {
 const HINTS = {
   move:  'MOVE – drag players, ball, paths or notes to reposition. Click a path to select it.',
   run:   'RUN – click a player, then drag to draw their movement path.',
-  pass:  'PASS – click the passer, then click the receiver.',
-  kick:  'KICK – click the kicker, then click a player or any field target.',
+  pass:  'PASS – click the passer (ball transfers automatically), then click the receiver.',
+  kick:  'KICK – click the kicker (ball transfers automatically), then click a player or field target.',
   erase: 'ERASE – click any player, ball, path or annotation to remove it.',
   box:   'BOX – drag on the pitch to highlight a channel or area.',
 };
@@ -3368,8 +3382,8 @@ const TOOL_GUIDE_CONTENT = {
   move:  { icon: '↖', desc: 'Move objects. Drag players, ball, paths or notes to reposition. Click a run path, pass or kick to select it.' },
   run:   { icon: '⟶', desc: 'Create player movement. Click a player, draw the run path, then play the step.' },
   path:  { icon: '⟶', desc: 'Create player movement. Click a player, draw the run path, then play the step.' },
-  pass:  { icon: '⤳', desc: 'Tap the passer, then tap the receiver to draw a pass line.' },
-  kick:  { icon: '↑', desc: 'Tap the kicker, then tap a receiver or any empty field spot.' },
+  pass:  { icon: '⤳', desc: 'Tap the passer — ball moves to them automatically. Then tap the receiver.' },
+  kick:  { icon: '↑', desc: 'Tap the kicker — ball moves to them automatically. Then tap a receiver or field target.' },
   zone:  { icon: '○', desc: 'Drag on the field to draw a circle highlight area.' },
   box:   { icon: '□', desc: 'Drag on the field to draw a box zone or channel.' },
   arrow: { icon: '↗', desc: 'Add visual annotation. Arrows explain intent but do not animate players.' },
