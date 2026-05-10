@@ -989,8 +989,8 @@ function drawPosts(fx, fy, side) {
   const baseW       = Math.max(1.8, sc * 0.17); // base stem width
 
   const tryLineY  = base.y;
-  const crossbarY = tryLineY + dir * crossDist;   // crossbar sits in the in-goal area
-  const postTopY  = crossbarY - dir * postLen;    // uprights extend INTO the playing field
+  const crossbarY = tryLineY + dir * crossDist;
+  const postTopY  = crossbarY + dir * postLen;
   const leftX     = base.x - halfW;
   const rightX    = base.x + halfW;
 
@@ -1002,11 +1002,11 @@ function drawPosts(fx, fy, side) {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.beginPath();
-  // Crossbar (in in-goal)
+  ctx.moveTo(leftX + 1, tryLineY + dir);  ctx.lineTo(leftX + 1, crossbarY + dir);
+  ctx.moveTo(rightX + 1, tryLineY + dir); ctx.lineTo(rightX + 1, crossbarY + dir);
   ctx.moveTo(leftX + 1, crossbarY + dir); ctx.lineTo(rightX + 1, crossbarY + dir);
-  // Uprights — from crossbar into field
-  ctx.moveTo(leftX + 1, crossbarY + dir);  ctx.lineTo(leftX + 1, postTopY + dir);
-  ctx.moveTo(rightX + 1, crossbarY + dir); ctx.lineTo(rightX + 1, postTopY + dir);
+  ctx.moveTo(leftX + 1, crossbarY);  ctx.lineTo(leftX + 1, postTopY);
+  ctx.moveTo(rightX + 1, crossbarY); ctx.lineTo(rightX + 1, postTopY);
   ctx.stroke();
 
   // Main post — base stems thicker for grounding
