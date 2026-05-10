@@ -756,119 +756,104 @@ function undo() {
 function drawField() {
   ctx.clearRect(0, 0, cvW, cvH);
 
+  // ── 1. Background ────────────────────────────────────────────────────────
   const bgGrad = ctx.createLinearGradient(0, 0, 0, cvH);
-  bgGrad.addColorStop(0, '#071018');
-  bgGrad.addColorStop(1, '#0b1620');
+  bgGrad.addColorStop(0, '#060d16');
+  bgGrad.addColorStop(1, '#091420');
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, cvW, cvH);
 
   const TL = toC(0, F.YMIN), BR = toC(F.W, F.YMAX);
   const FW = BR.x - TL.x, FH = BR.y - TL.y;
-  const fieldTop = toC(0, 0), fieldBottom = toC(F.W, 100);
-  const mainFieldH = fieldBottom.y - fieldTop.y;
+  const GL_TOP = toC(0, 0), GL_BOT = toC(F.W, 100);
 
+  // ── 2. Field drop shadow ─────────────────────────────────────────────────
   ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.35)';
-  ctx.shadowBlur = 18;
-  ctx.fillStyle = 'rgba(0,0,0,0.12)';
+  ctx.shadowColor = 'rgba(0,0,0,0.6)';
+  ctx.shadowBlur = 28;
+  ctx.fillStyle = 'rgba(0,0,0,0.01)';
   ctx.fillRect(TL.x, TL.y, FW, FH);
   ctx.restore();
 
-  // Base grass — radial gradient: centre slightly brighter, edges deeper
-  const grassBase = ctx.createRadialGradient(
+  // ── 3. Base grass — radial centre-bright ─────────────────────────────────
+  const grassGrad = ctx.createRadialGradient(
     TL.x + FW * 0.5, TL.y + FH * 0.5, FH * 0.04,
-    TL.x + FW * 0.5, TL.y + FH * 0.5, FH * 0.78
+    TL.x + FW * 0.5, TL.y + FH * 0.5, FH * 0.76
   );
-  grassBase.addColorStop(0,   '#3E9428');
-  grassBase.addColorStop(0.45, '#3A8F24');
-  grassBase.addColorStop(1,   '#2C7818');
-  ctx.fillStyle = grassBase;
+  grassGrad.addColorStop(0,    '#3D9326');
+  grassGrad.addColorStop(0.38, '#388C21');
+  grassGrad.addColorStop(1,    '#287016');
+  ctx.fillStyle = grassGrad;
   ctx.fillRect(TL.x, TL.y, FW, FH);
 
-  // Vertical mow stripes — field-length bands (soft feathered edges)
-  const nStripes = PITCH_CONFIG.stripeCount;
-  const bandW = FW / nStripes;
+  // ── 4. Mow stripes — 16 clean bands ─────────────────────────────────────
+  const N_STRIPES = 16;
+  const bandW = FW / N_STRIPES;
   ctx.save();
-  ctx.beginPath();
-  ctx.rect(TL.x, TL.y, FW, FH);
-  ctx.clip();
-  for (let si = 0; si < nStripes; si++) {
+  ctx.beginPath(); ctx.rect(TL.x, TL.y, FW, FH); ctx.clip();
+  for (let si = 0; si < N_STRIPES; si++) {
     const bx = TL.x + si * bandW;
     const sg = ctx.createLinearGradient(bx, 0, bx + bandW, 0);
     if (si % 2 === 0) {
-      sg.addColorStop(0,    'rgba(255,255,255,0.0)');
-      sg.addColorStop(0.26, 'rgba(255,255,255,0.042)');
-      sg.addColorStop(0.74, 'rgba(255,255,255,0.042)');
-      sg.addColorStop(1,    'rgba(255,255,255,0.0)');
+      sg.addColorStop(0,    'rgba(255,255,255,0.000)');
+      sg.addColorStop(0.28, 'rgba(255,255,255,0.038)');
+      sg.addColorStop(0.72, 'rgba(255,255,255,0.038)');
+      sg.addColorStop(1,    'rgba(255,255,255,0.000)');
     } else {
-      sg.addColorStop(0,    'rgba(0,0,0,0.0)');
-      sg.addColorStop(0.26, 'rgba(0,0,0,0.052)');
-      sg.addColorStop(0.74, 'rgba(0,0,0,0.052)');
-      sg.addColorStop(1,    'rgba(0,0,0,0.0)');
+      sg.addColorStop(0,    'rgba(0,0,0,0.000)');
+      sg.addColorStop(0.28, 'rgba(0,0,0,0.044)');
+      sg.addColorStop(0.72, 'rgba(0,0,0,0.044)');
+      sg.addColorStop(1,    'rgba(0,0,0,0.000)');
     }
     ctx.fillStyle = sg;
     ctx.fillRect(bx, TL.y, bandW, FH);
   }
   ctx.restore();
 
-  // Grass noise texture — cached tile drawn at low opacity for fine grain
+  // ── 5. Noise texture ─────────────────────────────────────────────────────
   const tile = getGrassTile();
   if (tile) {
     const pat = ctx.createPattern(tile, 'repeat');
     if (pat) {
       ctx.save();
-      ctx.globalAlpha = PITCH_CONFIG.textureStrength;
-      ctx.beginPath();
-      ctx.rect(TL.x, TL.y, FW, FH);
-      ctx.clip();
+      ctx.globalAlpha = 0.055;
+      ctx.beginPath(); ctx.rect(TL.x, TL.y, FW, FH); ctx.clip();
       ctx.fillStyle = pat;
       ctx.fillRect(TL.x, TL.y, FW, FH);
       ctx.restore();
     }
   }
 
-  const igTop = toC(0, F.YMIN), igTopEnd = toC(68, 0);
-  const igGradTop = ctx.createLinearGradient(0, igTop.y, 0, igTopEnd.y);
-  igGradTop.addColorStop(0, 'rgba(0,0,0,0.28)');
-  igGradTop.addColorStop(1, 'rgba(0,0,0,0.04)');
-  ctx.fillStyle = igGradTop;
-  ctx.fillRect(igTop.x, igTop.y, FW, igTopEnd.y - igTop.y);
+  // ── 6. In-goal areas — darker overlay for visual separation ──────────────
+  const igH_top = GL_TOP.y - TL.y;
+  const igH_bot = BR.y - GL_BOT.y;
+  ctx.fillStyle = 'rgba(0,0,0,0.16)';
+  ctx.fillRect(TL.x, TL.y, FW, igH_top);
+  ctx.fillRect(GL_BOT.x, GL_BOT.y, FW, igH_bot);
 
-  const igBot = toC(0, 100), igBotEnd = toC(68, F.YMAX);
-  const igGradBot = ctx.createLinearGradient(0, igBot.y, 0, igBotEnd.y);
-  igGradBot.addColorStop(0, 'rgba(0,0,0,0.04)');
-  igGradBot.addColorStop(1, 'rgba(0,0,0,0.28)');
-  ctx.fillStyle = igGradBot;
-  ctx.fillRect(igBot.x, igBot.y, FW, igBotEnd.y - igBot.y);
-
-  // Subtle vignette — edges slightly deeper, centre stays open
+  // ── 7. Vignette ──────────────────────────────────────────────────────────
   const vig = ctx.createRadialGradient(
-    TL.x + FW * 0.5, TL.y + FH * 0.5, Math.min(FW, FH) * 0.28,
-    TL.x + FW * 0.5, TL.y + FH * 0.5, Math.max(FW, FH) * 0.74
+    TL.x + FW * 0.5, TL.y + FH * 0.5, Math.min(FW, FH) * 0.26,
+    TL.x + FW * 0.5, TL.y + FH * 0.5, Math.max(FW, FH) * 0.78
   );
-  vig.addColorStop(0, 'rgba(0,0,0,0)');
-  vig.addColorStop(1, 'rgba(0,0,0,0.16)');
+  vig.addColorStop(0, 'rgba(0,0,0,0.00)');
+  vig.addColorStop(1, 'rgba(0,0,0,0.20)');
   ctx.fillStyle = vig;
   ctx.fillRect(TL.x, TL.y, FW, FH);
 
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.14)';
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(TL.x, TL.y, FW, FH);
-  ctx.strokeStyle = 'rgba(255,255,255,0.09)';
-  ctx.strokeRect(fieldTop.x, fieldTop.y, FW, mainFieldH);
-  ctx.restore();
-
-  function hline(fy, color, lw, dash = []) {
-    const p = toC(0, fy), q = toC(68, fy);
+  // ── 8. Line helpers — pixel-aligned for crisp rendering ──────────────────
+  function hline(fy, color, lw, dash = [], x0 = 0, x1 = F.W) {
+    const p = toC(x0, fy), q = toC(x1, fy);
+    const py = Math.round(p.y) + 0.5;
     ctx.save();
     ctx.strokeStyle = color;
     ctx.lineWidth = lw;
-    ctx.setLineDash(dash);
     ctx.lineCap = 'butt';
+    ctx.lineJoin = 'miter';
+    if (dash.length) ctx.setLineDash(dash);
     ctx.beginPath();
-    ctx.moveTo(p.x, p.y);
-    ctx.lineTo(q.x, q.y);
+    ctx.moveTo(Math.round(p.x), py);
+    ctx.lineTo(Math.round(q.x), py);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
@@ -876,171 +861,186 @@ function drawField() {
 
   function vline(fx, color, lw, fy0 = F.YMIN, fy1 = F.YMAX, dash = []) {
     const p = toC(fx, fy0), q = toC(fx, fy1);
+    const px = Math.round(p.x) + 0.5;
     ctx.save();
     ctx.strokeStyle = color;
     ctx.lineWidth = lw;
-    ctx.setLineDash(dash);
     ctx.lineCap = 'butt';
+    ctx.lineJoin = 'miter';
+    if (dash.length) ctx.setLineDash(dash);
     ctx.beginPath();
-    ctx.moveTo(p.x, p.y);
-    ctx.lineTo(q.x, q.y);
+    ctx.moveTo(px, Math.round(p.y));
+    ctx.lineTo(px, Math.round(q.y));
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
   }
 
-  hline(F.YMIN, 'rgba(255,255,255,0.18)', 1.2);
-  hline(F.YMAX, 'rgba(255,255,255,0.18)', 1.2);
-  hline(0, 'rgba(255,255,255,0.98)', 2.8);
-  hline(5, 'rgba(255,255,255,0.68)', 1.85);
-  hline(100, 'rgba(255,255,255,0.98)', 2.8);
-  hline(95, 'rgba(255,255,255,0.68)', 1.85);
-  hline(22, 'rgba(255,255,255,0.72)', 1.9);
-  hline(78, 'rgba(255,255,255,0.72)', 1.9);
-  hline(40, 'rgba(255,255,255,0.62)', 1.8, [sc * 1.05, sc * 0.72]);
-  hline(60, 'rgba(255,255,255,0.62)', 1.8, [sc * 1.05, sc * 0.72]);
-  hline(50, 'rgba(255,255,255,0.88)', 2.2);
+  // Dash sizes: fixed pixel segments that scale naturally with field scale
+  const D_10M  = [Math.max(6, sc * 1.4), Math.max(4, sc * 0.72)]; // 10m dashes
+  const D_5M   = [Math.max(4, sc * 0.72), Math.max(3, sc * 0.55)]; // 5m dashes
 
-  vline(0, 'rgba(255,255,255,0.72)', 2.2);
-  vline(68, 'rgba(255,255,255,0.72)', 2.2);
+  // Line weight tiers
+  const T1_C = 'rgba(255,255,255,0.96)', T1_W = Math.max(1.8, sc * 0.18);  // boundary + halfway
+  const T2_C = 'rgba(255,255,255,0.85)', T2_W = Math.max(1.5, sc * 0.155); // 22m
+  const T3_C = 'rgba(255,255,255,0.60)', T3_W = Math.max(1.1, sc * 0.115); // 10m dashed
+  const T4_C = 'rgba(255,255,255,0.38)', T4_W = Math.max(0.9, sc * 0.092); // 5m / technical
 
-  function crossTick(fx, fy, size = 2.2, alpha = 0.22) {
-    const p = toC(fx, fy);
-    const dx = size * sx;
-    const dy = size * sy;
+  // ── 9. Tier 1: Boundary, goal lines, halfway ──────────────────────────────
+  hline(F.YMIN, T1_C, T1_W);   // top dead-ball
+  hline(F.YMAX, T1_C, T1_W);   // bottom dead-ball
+  hline(0,   T1_C, T1_W);      // top goal line
+  hline(100, T1_C, T1_W);      // bottom goal line
+  hline(50,  T1_C, T1_W);      // halfway — same visual tier as goal lines
+
+  // Touchlines: full field height
+  vline(0,  T1_C, T1_W);
+  vline(68, T1_C, T1_W);
+
+  // ── 10. Tier 2: 22m lines ────────────────────────────────────────────────
+  hline(22, T2_C, T2_W);
+  hline(78, T2_C, T2_W);
+
+  // ── 11. Tier 3: 10m dashed lines ─────────────────────────────────────────
+  hline(10, T3_C, T3_W, D_10M);
+  hline(90, T3_C, T3_W, D_10M);
+
+  // ── 12. Tier 4: 5m lines from touchline (inside field, goal line to goal line) ──
+  vline(5,  T4_C, T4_W, 0, 100, D_5M);
+  vline(63, T4_C, T4_W, 0, 100, D_5M);
+
+  // ── 13. Lineout guides at 15m from touch ─────────────────────────────────
+  // Short perpendicular ticks at all major yard lines — broadcast standard
+  const TICK_ROWS = [0, 10, 22, 50, 78, 90, 100];
+  const tickHalf = Math.max(3.5, sx * 1.5); // half-width in canvas px
+
+  TICK_ROWS.forEach(fy => {
+    const pL = toC(15, fy), pR = toC(53, fy);
+    const py = Math.round(pL.y) + 0.5;
+    const isMajor = (fy === 0 || fy === 50 || fy === 100);
+    const isSec   = (fy === 22 || fy === 78);
+    const alpha   = isMajor ? 0.62 : isSec ? 0.50 : 0.36;
+    const lw      = isMajor ? T2_W : T4_W;
     ctx.save();
     ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
-    ctx.lineWidth = alpha >= 0.3 ? 1.3 : 1;
-    ctx.beginPath();
-    ctx.moveTo(p.x - dx * 0.5, p.y);
-    ctx.lineTo(p.x + dx * 0.5, p.y);
-    ctx.moveTo(p.x, p.y - dy * 0.5);
-    ctx.lineTo(p.x, p.y + dy * 0.5);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  function lineoutTick(fx, fy, reach = 1.45, alpha = 0.3) {
-    const p = toC(fx, fy);
-    const tickLen = reach * sx;
-    ctx.save();
-    ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
-    ctx.lineWidth = alpha >= 0.4 ? 1.45 : 1.2;
-    ctx.beginPath();
-    ctx.moveTo(p.x - tickLen * 0.5, p.y);
-    ctx.lineTo(p.x + tickLen * 0.5, p.y);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  function tramlinePost(fx, fy, height = 5.8, alpha = 0.46, width = 1.75) {
-    const p = toC(fx, fy);
-    const stem = height * sy;
-    ctx.save();
-    ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
-    ctx.lineWidth = width;
+    ctx.lineWidth = lw;
     ctx.lineCap = 'butt';
     ctx.beginPath();
-    ctx.moveTo(p.x, p.y - stem * 0.5);
-    ctx.lineTo(p.x, p.y + stem * 0.5);
+    ctx.moveTo(pL.x - tickHalf, py); ctx.lineTo(pL.x + tickHalf, py);
+    ctx.moveTo(pR.x - tickHalf, py); ctx.lineTo(pR.x + tickHalf, py);
     ctx.stroke();
     ctx.restore();
-  }
-
-  function touchlineTramMark(side, fy, strong = false) {
-    const y = toC(0, fy).y;
-    const fiveX = side === 'left' ? toC(5, fy).x : toC(63, fy).x;
-    const stem = (strong ? 5.9 : 4.9) * sy;
-    ctx.save();
-    ctx.strokeStyle = strong ? 'rgba(255,255,255,0.56)' : 'rgba(255,255,255,0.42)';
-    ctx.lineWidth = strong ? 1.9 : 1.55;
-    ctx.lineCap = 'butt';
-    ctx.beginPath();
-    ctx.moveTo(fiveX, y - stem);
-    ctx.lineTo(fiveX, y + stem);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  const tramlineRows = [8, 22, 36, 50, 64, 78, 92];
-  tramlineRows.forEach(fy => {
-    const strong = fy === 22 || fy === 50 || fy === 78;
-    touchlineTramMark('left', fy, strong);
-    touchlineTramMark('right', fy, strong);
   });
 
-  [10, 22, 36, 50, 64, 78, 90].forEach(fy => {
-    const strong = fy === 22 || fy === 50 || fy === 78;
-    tramlinePost(15, fy, strong ? 6.7 : 6.0, strong ? 0.62 : 0.5, strong ? 2.1 : 1.85);
-    tramlinePost(53, fy, strong ? 6.7 : 6.0, strong ? 0.62 : 0.5, strong ? 2.1 : 1.85);
-  });
-
-  [22, 50, 78].forEach(fy => {
-    lineoutTick(15, fy, 2.2, 0.48);
-    lineoutTick(53, fy, 2.2, 0.48);
-    crossTick(15, fy, 2.45, 0.4);
-    crossTick(53, fy, 2.45, 0.4);
-  });
-
-  const hw = toC(34, 50);
-  ctx.fillStyle = 'rgba(255,255,255,0.72)';
+  // ── 14. Center mark ───────────────────────────────────────────────────────
+  const cm = toC(34, 50);
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.90)';
   ctx.beginPath();
-  ctx.arc(hw.x, hw.y, 2.5, 0, Math.PI * 2);
+  ctx.arc(cm.x, cm.y, Math.max(2.6, sc * 0.25), 0, Math.PI * 2);
   ctx.fill();
+  ctx.restore();
 
-  function drawSubtleFieldText(fx, fy, text) {
+  // ── 15. Field labels — minimal, high contrast ────────────────────────────
+  function fieldLabel(fx, fy, text, alpha = 0.24) {
     const p = toC(fx, fy);
-    const fontSize = Math.max(10, sc * 1.05);
+    const fs = Math.max(9, sc * 0.98);
     ctx.save();
-    ctx.font = `700 ${fontSize}px "Barlow Condensed"`;
+    ctx.font = `600 ${fs}px "Barlow Condensed", sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+    ctx.fillStyle = `rgba(255,255,255,${alpha})`;
     ctx.fillText(text, p.x, p.y);
     ctx.restore();
   }
 
-  drawSubtleFieldText(34, 50, '50');
-  drawSubtleFieldText(4.8, 22, '22');
-  drawSubtleFieldText(63.2, 22, '22');
-  drawSubtleFieldText(4.8, 78, '22');
-  drawSubtleFieldText(63.2, 78, '22');
-  drawSubtleFieldText(4.8, 10, '10');
-  drawSubtleFieldText(63.2, 10, '10');
-  drawSubtleFieldText(4.8, 90, '10');
-  drawSubtleFieldText(63.2, 90, '10');
+  // 50 label — slightly above center mark so mark is visible
+  fieldLabel(34, 47.5, '50', 0.30);
 
+  // 22m labels — inside field, just below/above the line
+  fieldLabel(4.6, 20.8, '22', 0.30);
+  fieldLabel(63.4, 20.8, '22', 0.30);
+  fieldLabel(4.6, 79.2, '22', 0.30);
+  fieldLabel(63.4, 79.2, '22', 0.30);
+
+  // 10m labels
+  fieldLabel(4.6, 8.8, '10', 0.22);
+  fieldLabel(63.4, 8.8, '10', 0.22);
+  fieldLabel(4.6, 91.2, '10', 0.22);
+  fieldLabel(63.4, 91.2, '10', 0.22);
+
+  // ── 16. Goal posts ────────────────────────────────────────────────────────
   drawPosts(34, 0, 'top');
   drawPosts(34, 100, 'bot');
 }
 
 function drawPosts(fx, fy, side) {
   const base = toC(fx, fy);
-  const halfW = (5.6 / 2) * sc;
-  const crossH = 3.4 * sc;
-  const postAboveBar = 8 * sc;
-  const dir = side === 'top' ? -1 : 1;
-  const leftX = base.x - halfW;
-  const rightX = base.x + halfW;
-  const tryLineY = base.y;
-  const crossbarY = tryLineY + dir * crossH;
-  const postTopY = crossbarY + dir * postAboveBar;
+  const dir  = side === 'top' ? -1 : 1;
+
+  // Geometry — proportional to field scale, real-world basis
+  // Uprights: 5.6m apart, centred on goal line
+  // Crossbar: 3.0m from goal line into in-goal
+  // Uprights extend 12m above crossbar (long for visibility)
+  const halfW       = (5.6 / 2) * sx;          // half-gap between posts
+  const crossDist   = 3.2 * sy;                 // crossbar distance from goal line
+  const postLen     = 10.5 * sy;                // upright length beyond crossbar
+  const postW       = Math.max(2.6, sc * 0.26); // post stroke width
+  const baseW       = Math.max(1.8, sc * 0.17); // base stem width
+
+  const tryLineY  = base.y;
+  const crossbarY = tryLineY + dir * crossDist;
+  const postTopY  = crossbarY + dir * postLen;
+  const leftX     = base.x - halfW;
+  const rightX    = base.x + halfW;
 
   ctx.save();
-  ctx.strokeStyle = 'rgba(252,252,252,0.92)';
-  ctx.lineWidth = Math.max(2, sc * 0.2);
-  ctx.lineCap = 'round';
-  ctx.shadowColor = 'rgba(0,0,0,0.45)';
-  ctx.shadowBlur = 5;
 
+  // Shadow pass — drawn first for depth
+  ctx.strokeStyle = 'rgba(0,0,0,0.50)';
+  ctx.lineWidth = postW + 2.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   ctx.beginPath();
-  ctx.moveTo(leftX, tryLineY);
-  ctx.lineTo(leftX, postTopY);
-  ctx.moveTo(rightX, tryLineY);
-  ctx.lineTo(rightX, postTopY);
-  ctx.moveTo(leftX, crossbarY);
-  ctx.lineTo(rightX, crossbarY);
+  // Base stems (goal line to crossbar)
+  ctx.moveTo(leftX + 1, tryLineY + dir);  ctx.lineTo(leftX + 1, crossbarY + dir);
+  ctx.moveTo(rightX + 1, tryLineY + dir); ctx.lineTo(rightX + 1, crossbarY + dir);
+  // Crossbar
+  ctx.moveTo(leftX + 1, crossbarY + dir); ctx.lineTo(rightX + 1, crossbarY + dir);
+  // Uprights
+  ctx.moveTo(leftX + 1, crossbarY);  ctx.lineTo(leftX + 1, postTopY);
+  ctx.moveTo(rightX + 1, crossbarY); ctx.lineTo(rightX + 1, postTopY);
   ctx.stroke();
+
+  // Main post — base stems thicker for grounding
+  ctx.strokeStyle = 'rgba(252,252,252,0.40)';
+  ctx.lineWidth = baseW;
+  ctx.lineCap = 'butt';
+  ctx.lineJoin = 'miter';
+  ctx.beginPath();
+  ctx.moveTo(leftX,  tryLineY); ctx.lineTo(leftX,  crossbarY);
+  ctx.moveTo(rightX, tryLineY); ctx.lineTo(rightX, crossbarY);
+  ctx.stroke();
+
+  // Main post — uprights + crossbar
+  ctx.strokeStyle = 'rgba(252,252,252,0.94)';
+  ctx.lineWidth = postW;
+  ctx.lineCap = 'square';
+  ctx.lineJoin = 'miter';
+  ctx.beginPath();
+  // Crossbar
+  ctx.moveTo(leftX,  crossbarY); ctx.lineTo(rightX, crossbarY);
+  // Uprights (crossbar to top)
+  ctx.moveTo(leftX,  crossbarY); ctx.lineTo(leftX,  postTopY);
+  ctx.moveTo(rightX, crossbarY); ctx.lineTo(rightX, postTopY);
+  ctx.stroke();
+
+  // Post base dots — where uprights meet the goal line
+  ctx.fillStyle = 'rgba(255,255,255,0.88)';
+  const dotR = Math.max(2.2, sc * 0.22);
+  ctx.beginPath(); ctx.arc(leftX,  tryLineY, dotR, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(rightX, tryLineY, dotR, 0, Math.PI * 2); ctx.fill();
+
   ctx.restore();
 }
 
