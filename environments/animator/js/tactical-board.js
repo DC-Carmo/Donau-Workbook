@@ -592,6 +592,15 @@ function giveBallToSelectedPlayer() {
 
 window.giveBallToSelectedPlayer = giveBallToSelectedPlayer;
 
+function giveBall(playerId) {
+  snapshot();
+  S.players.forEach(pl => { pl.isBC = false; });
+  const target = S.players.find(pl => pl.id === playerId);
+  if (target) target.isBC = true;
+  render();
+}
+window.giveBall = giveBall;
+
 function currentPlayTitle() {
   return document.getElementById('playName').value.trim() || 'Untitled Play';
 }
@@ -2525,7 +2534,7 @@ function addPlayerByNum(num, team) {
   const idx = existing.length;
   const cols = 6, spacingX = 10, spacingY = 12;
   const startX = team === 'A' ? 10 : 10;
-  const startY = team === 'A' ? 15 : 55;
+  const startY = team === 'A' ? 20 : 70;
   const x = startX + (idx % cols) * spacingX;
   const y = startY + Math.floor(idx / cols) * spacingY;
   S.players.push({
@@ -2585,15 +2594,15 @@ function addNextAvailablePlayer(team) {
 window.addNextAvailablePlayer = addNextAvailablePlayer;
 
 function addBall() {
+  snapshot();
   const selectedPlayer = S.selected && S.selected !== '__ball__'
     ? S.players.find(p => p.id === S.selected)
     : null;
   if (selectedPlayer) {
     setTool('move');
-    assignBallToPlayer(selectedPlayer, { snapshotBefore: !S.ball, source: 'place' });
+    assignBallToPlayer(selectedPlayer, { snapshotBefore: false, source: 'place' });
     return;
   }
-  if (!S.ball) snapshot();
   S.ball = { x:34, y:50 };
   S.ballAttached = false;
   updateBallOwnerFromPosition();

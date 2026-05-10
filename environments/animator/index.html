@@ -108,7 +108,7 @@
             <label id="selEditLabel" class="sp-field-label" for="selNoteInput">Note Text</label>
             <input id="selNoteInput" class="sp-field-input" type="text" maxlength="48" placeholder="Update note text">
           </div>
-          <button id="selGiveBallBtn" class="sp-btn sp-btn-accent" onclick="giveBallToSelectedPlayer()" hidden>Give Ball</button>
+          <button id="selGiveBallBtn" class="sp-btn sp-btn-accent" onclick="giveBall(S.selected)" hidden>Give Ball</button>
           <div class="sp-sel-actions">
             <button id="selClearBtn" class="sp-btn" onclick="clearSelection()">Deselect</button>
             <button id="selDeleteBtn" class="sp-btn sp-btn-danger" onclick="deleteSelected()">Remove</button>
