@@ -905,23 +905,50 @@ function drawField() {
   hline(40, T3_C, T3_W, D_10M);
   hline(60, T3_C, T3_W, D_10M);
 
-  // ── 12. 5m and 15m: bold dashed verticals [15,10] + crisp T-junctions ────
+  // ── 12. 5m and 15m: large field-scaled dashes, anchor-synced alignment ───
   {
-    const V_DASH = [15, 10]; // longer dashes for visibility
-    // Match 22m line weight and use 0.85–0.90 opacity — major feature of pitch
-    const vLW15 = T2_W;
-    const vLW5  = T2_W;
+    // Dash = 5 field-units (~5m), gap = 3 field-units (~3m)
+    const dashPx = Math.max(22, sy * 5);
+    const gapPx  = Math.max(13, sy * 3);
+    // 20% thicker than 22m lines, butt caps for painted-on look
+    const vLW15 = T2_W * 1.2;
+    const vLW5  = T2_W * 1.2;
 
-    // No glow on these — sharp crisp edges only
-    vline(15, 'rgba(255,255,255,0.88)', vLW15, 0, 100, V_DASH);
-    vline(53, 'rgba(255,255,255,0.88)', vLW15, 0, 100, V_DASH);
-    vline(5,  'rgba(255,255,255,0.80)', vLW5,  0, 100, V_DASH);
-    vline(63, 'rgba(255,255,255,0.80)', vLW5,  0, 100, V_DASH);
+    // Anchor rows — draw each segment independently with dashOffset = -dashPx/2
+    // so every major horizontal intersection is guaranteed a centered dash
+    const ANCHORS = [0, 22, 40, 50, 60, 78, 100];
 
-    // T-junction marks — pure white, full opacity, sharp square caps
-    const tHalf15 = Math.max(8, sc * 0.80);
-    const tHalf5  = Math.max(6, sc * 0.60);
-    const tLW     = T2_W;
+    function syncedDashV(fx, color, lw) {
+      const px = Math.round(toC(fx, 0).x) + 0.5;
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth   = lw;
+      ctx.lineCap     = 'butt';
+      ctx.setLineDash([dashPx, gapPx]);
+      for (let i = 0; i < ANCHORS.length - 1; i++) {
+        const y0 = Math.round(toC(fx, ANCHORS[i]).y);
+        const y1 = Math.round(toC(fx, ANCHORS[i + 1]).y);
+        // Center a dash exactly at y0 (the anchor intersection)
+        ctx.lineDashOffset = -dashPx / 2;
+        ctx.beginPath();
+        ctx.moveTo(px, y0);
+        ctx.lineTo(px, y1);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      ctx.lineDashOffset = 0;
+      ctx.restore();
+    }
+
+    syncedDashV(15, 'rgba(255,255,255,0.90)', vLW15);
+    syncedDashV(53, 'rgba(255,255,255,0.90)', vLW15);
+    syncedDashV(5,  'rgba(255,255,255,0.82)', vLW5);
+    syncedDashV(63, 'rgba(255,255,255,0.82)', vLW5);
+
+    // T-junction marks — pure white, full opacity, square caps
+    const tHalf15 = Math.max(9, sc * 0.90);
+    const tHalf5  = Math.max(7, sc * 0.65);
+    const tLW     = T2_W * 1.2;
 
     function tMark(fx, fy, half) {
       const p  = toC(fx, fy);
@@ -938,12 +965,8 @@ function drawField() {
       ctx.restore();
     }
 
-    [0, 22, 40, 50, 60, 78, 100].forEach(fy => {
-      tMark(15, fy, tHalf15); tMark(53, fy, tHalf15);
-    });
-    [0, 100].forEach(fy => {
-      tMark(5, fy, tHalf5); tMark(63, fy, tHalf5);
-    });
+    ANCHORS.forEach(fy => { tMark(15, fy, tHalf15); tMark(53, fy, tHalf15); });
+    [0, 100].forEach(fy => { tMark(5, fy, tHalf5); tMark(63, fy, tHalf5); });
   }
 
   // ── 14. Center mark ───────────────────────────────────────────────────────
