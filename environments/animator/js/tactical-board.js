@@ -905,37 +905,47 @@ function drawField() {
   hline(40, T3_C, T3_W, D_10M);
   hline(60, T3_C, T3_W, D_10M);
 
-  // ── 12. Tier 4: 5m lines from touchline (inside field, goal line to goal line) ──
-  vline(5,  T4_C, T4_W, 0, 100, D_5M);
-  vline(63, T4_C, T4_W, 0, 100, D_5M);
+  // ── 12. 15m lineout hash marks — bold perpendicular strokes, no continuous line ─
+  // Authentic rugby broadcast: short white marks at each major yard line, not connected
+  {
+    const HASH_ROWS = [0, 22, 40, 50, 60, 78, 100];
+    const hashHalf  = Math.max(9, sx * 3.5);  // visible length each side
+    const hashLW    = Math.max(1.8, sc * 0.18);
+    HASH_ROWS.forEach(fy => {
+      const isPrimary = (fy === 0 || fy === 50 || fy === 100);
+      const alpha     = isPrimary ? 0.72 : 0.55;
+      const pL = toC(15, fy), pR = toC(53, fy);
+      const py = Math.round(pL.y) + 0.5;
+      ctx.save();
+      ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+      ctx.lineWidth   = hashLW;
+      ctx.lineCap     = 'square';
+      ctx.beginPath();
+      ctx.moveTo(Math.round(pL.x) - hashHalf, py); ctx.lineTo(Math.round(pL.x) + hashHalf, py);
+      ctx.moveTo(Math.round(pR.x) - hashHalf, py); ctx.lineTo(Math.round(pR.x) + hashHalf, py);
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
 
-  // 15m lineout guide — dashed vertical, goal line to goal line
-  const T4_15M = 'rgba(255,255,255,0.36)';
-  vline(15, T4_15M, T4_W, 0, 100, D_5M);
-  vline(53, T4_15M, T4_W, 0, 100, D_5M);
-
-  // ── 13. Lineout guides at 15m from touch ─────────────────────────────────
-  // Short perpendicular ticks at all major yard lines — broadcast standard
-  const TICK_ROWS = [0, 22, 40, 50, 60, 78, 100];
-  const tickHalf = Math.max(3.5, sx * 1.5); // half-width in canvas px
-
-  TICK_ROWS.forEach(fy => {
-    const pL = toC(15, fy), pR = toC(53, fy);
-    const py = Math.round(pL.y) + 0.5;
-    const isMajor = (fy === 0 || fy === 50 || fy === 100);
-    const isSec   = (fy === 22 || fy === 78);
-    const alpha   = isMajor ? 0.62 : isSec ? 0.50 : 0.36;
-    const lw      = isMajor ? T2_W : T4_W;
-    ctx.save();
-    ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
-    ctx.lineWidth = lw;
-    ctx.lineCap = 'butt';
-    ctx.beginPath();
-    ctx.moveTo(pL.x - tickHalf, py); ctx.lineTo(pL.x + tickHalf, py);
-    ctx.moveTo(pR.x - tickHalf, py); ctx.lineTo(pR.x + tickHalf, py);
-    ctx.stroke();
-    ctx.restore();
-  });
+  // ── 13. 5m hash marks — shorter, softer, only at goal lines ──────────────
+  {
+    const hash5Half = Math.max(5, sx * 2.0);
+    const hash5LW   = Math.max(1.4, sc * 0.14);
+    [0, 100].forEach(fy => {
+      const pL = toC(5, fy), pR = toC(63, fy);
+      const py = Math.round(pL.y) + 0.5;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,0.44)';
+      ctx.lineWidth   = hash5LW;
+      ctx.lineCap     = 'square';
+      ctx.beginPath();
+      ctx.moveTo(Math.round(pL.x) - hash5Half, py); ctx.lineTo(Math.round(pL.x) + hash5Half, py);
+      ctx.moveTo(Math.round(pR.x) - hash5Half, py); ctx.lineTo(Math.round(pR.x) + hash5Half, py);
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
 
   // ── 14. Center mark ───────────────────────────────────────────────────────
   const cm = toC(34, 50);
