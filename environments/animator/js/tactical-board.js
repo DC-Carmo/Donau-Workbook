@@ -905,23 +905,22 @@ function drawField() {
   hline(40, T3_C, T3_W, D_10M);
   hline(60, T3_C, T3_W, D_10M);
 
-  // ── 12. 15m lineout hash marks — bold perpendicular strokes, no continuous line ─
-  // Authentic rugby broadcast: short white marks at each major yard line, not connected
+  // ── 12. 15m hash marks — short isolated ticks, evenly spaced every 5m ──────
+  // Authentic rugby broadcast: tiny bold strokes, never connected, never a rail
   {
-    const HASH_ROWS = [0, 22, 40, 50, 60, 78, 100];
-    const hashHalf  = Math.max(9, sx * 3.5);  // visible length each side
-    const hashLW    = Math.max(1.8, sc * 0.18);
-    HASH_ROWS.forEach(fy => {
-      const isPrimary = (fy === 0 || fy === 50 || fy === 100);
-      const alpha     = isPrimary ? 0.72 : 0.55;
+    const MAJOR = new Set([0, 22, 40, 50, 60, 78, 100]);
+    const H_ROWS = [0,5,10,15,20,22,25,30,35,40,45,50,55,60,65,70,75,78,80,85,90,95,100];
+    const hashHalf = Math.max(4, sc * 0.42);  // ~4–5 px each side — short tick
+    const hashLW   = Math.max(1.5, sc * 0.15);
+    H_ROWS.forEach(fy => {
+      const alpha = MAJOR.has(fy) ? 0.52 : 0.34;
       const pL = toC(15, fy), pR = toC(53, fy);
-      const px_L = Math.round(pL.x) + 0.5;
-      const px_R = Math.round(pR.x) + 0.5;
+      const px_L = Math.round(pL.x) + 0.5, px_R = Math.round(pR.x) + 0.5;
       const py   = Math.round(pL.y);
       ctx.save();
       ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
-      ctx.lineWidth   = hashLW;
-      ctx.lineCap     = 'square';
+      ctx.lineWidth = hashLW;
+      ctx.lineCap   = 'square';
       ctx.beginPath();
       ctx.moveTo(px_L, py - hashHalf); ctx.lineTo(px_L, py + hashHalf);
       ctx.moveTo(px_R, py - hashHalf); ctx.lineTo(px_R, py + hashHalf);
@@ -930,19 +929,18 @@ function drawField() {
     });
   }
 
-  // ── 13. 5m hash marks — shorter, softer, only at goal lines ──────────────
+  // ── 13. 5m marks — tiny strokes at goal lines only ───────────────────────
   {
-    const hash5Half = Math.max(5, sx * 2.0);
-    const hash5LW   = Math.max(1.4, sc * 0.14);
+    const hash5Half = Math.max(3, sc * 0.30);
+    const hash5LW   = Math.max(1.3, sc * 0.13);
     [0, 100].forEach(fy => {
       const pL = toC(5, fy), pR = toC(63, fy);
-      const px_L = Math.round(pL.x) + 0.5;
-      const px_R = Math.round(pR.x) + 0.5;
+      const px_L = Math.round(pL.x) + 0.5, px_R = Math.round(pR.x) + 0.5;
       const py   = Math.round(pL.y);
       ctx.save();
-      ctx.strokeStyle = 'rgba(255,255,255,0.44)';
-      ctx.lineWidth   = hash5LW;
-      ctx.lineCap     = 'square';
+      ctx.strokeStyle = 'rgba(255,255,255,0.36)';
+      ctx.lineWidth = hash5LW;
+      ctx.lineCap   = 'square';
       ctx.beginPath();
       ctx.moveTo(px_L, py - hash5Half); ctx.lineTo(px_L, py + hash5Half);
       ctx.moveTo(px_R, py - hash5Half); ctx.lineTo(px_R, py + hash5Half);
