@@ -905,47 +905,44 @@ function drawField() {
   hline(40, T3_C, T3_W, D_10M);
   hline(60, T3_C, T3_W, D_10M);
 
-  // ── 12. 5m and 15m: dashed verticals [10,10] + T/+ intersection marks ────
+  // ── 12. 5m and 15m: bold dashed verticals [15,10] + crisp T-junctions ────
   {
-    const V_DASH = [10, 10]; // professional dash rhythm
-    const vLW15  = Math.max(1.3, sc * 0.13);
-    const vLW5   = Math.max(1.1, sc * 0.11);
+    const V_DASH = [15, 10]; // longer dashes for visibility
+    // Match 22m line weight and use 0.85–0.90 opacity — major feature of pitch
+    const vLW15 = T2_W;
+    const vLW5  = T2_W;
 
-    // Dashed verticals
-    vline(15, 'rgba(255,255,255,0.36)', vLW15, 0, 100, V_DASH);
-    vline(53, 'rgba(255,255,255,0.36)', vLW15, 0, 100, V_DASH);
-    vline(5,  'rgba(255,255,255,0.26)', vLW5,  0, 100, V_DASH);
-    vline(63, 'rgba(255,255,255,0.26)', vLW5,  0, 100, V_DASH);
+    // No glow on these — sharp crisp edges only
+    vline(15, 'rgba(255,255,255,0.88)', vLW15, 0, 100, V_DASH);
+    vline(53, 'rgba(255,255,255,0.88)', vLW15, 0, 100, V_DASH);
+    vline(5,  'rgba(255,255,255,0.80)', vLW5,  0, 100, V_DASH);
+    vline(63, 'rgba(255,255,255,0.80)', vLW5,  0, 100, V_DASH);
 
-    // T/+ intersection marks — horizontal arm at each solid-line crossing
-    const tHalf15 = Math.max(7, sc * 0.70);
-    const tHalf5  = Math.max(5, sc * 0.50);
-    const tLW15   = Math.max(2.0, sc * 0.20);
-    const tLW5    = Math.max(1.6, sc * 0.16);
+    // T-junction marks — pure white, full opacity, sharp square caps
+    const tHalf15 = Math.max(8, sc * 0.80);
+    const tHalf5  = Math.max(6, sc * 0.60);
+    const tLW     = T2_W;
 
-    function tMark(fx, fy, half, lw, alpha) {
+    function tMark(fx, fy, half) {
       const p  = toC(fx, fy);
       const px = Math.round(p.x) + 0.5;
       const py = Math.round(p.y) + 0.5;
       ctx.save();
-      ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
-      ctx.lineWidth   = lw;
+      ctx.strokeStyle = '#ffffff';
+      ctx.globalAlpha = 1.0;
+      ctx.lineWidth   = tLW;
       ctx.lineCap     = 'square';
       ctx.beginPath();
-      ctx.moveTo(px - half, py); ctx.lineTo(px + half, py); // horizontal arm
+      ctx.moveTo(px - half, py); ctx.lineTo(px + half, py);
       ctx.stroke();
       ctx.restore();
     }
 
-    // 15m marks at all major horizontal lines
     [0, 22, 40, 50, 60, 78, 100].forEach(fy => {
-      tMark(15, fy, tHalf15, tLW15, 0.65);
-      tMark(53, fy, tHalf15, tLW15, 0.65);
+      tMark(15, fy, tHalf15); tMark(53, fy, tHalf15);
     });
-    // 5m marks at goal lines only
     [0, 100].forEach(fy => {
-      tMark(5,  fy, tHalf5, tLW5, 0.48);
-      tMark(63, fy, tHalf5, tLW5, 0.48);
+      tMark(5, fy, tHalf5); tMark(63, fy, tHalf5);
     });
   }
 
