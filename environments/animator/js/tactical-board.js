@@ -6,7 +6,7 @@
 //   y: -10-110 (dead ball line top -> dead ball line bottom)
 //   y=0:  top try line     y=100: bottom try line
 //   y=22: top 22m line     y=78:  bottom 22m line
-//   y=10: top 10m          y=90:  bottom 10m
+//   y=40: top 10m          y=60:  bottom 10m
 //   y=50: halfway line
 //   Posts: x=34, y=0 (top) and x=34, y=100 (bottom)
 
