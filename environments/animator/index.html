@@ -228,14 +228,17 @@
         <button class="board-pill action-btn" id="seqPrevBtn" onclick="prevStep()" data-label-desktop="&#10216;" data-label-mobile="&#10216;">&#10216;</button>
         <button class="board-pill play-btn" id="playBtn" onclick="togglePlay()">PLAY</button>
         <button class="board-pill action-btn" id="seqNextBtn" onclick="nextStep()" data-label-desktop="&#10217;" data-label-mobile="&#10217;">&#10217;</button>
+        <div id="spdGroup" class="spd-group">
+          <span class="spd-group-label">Speed</span>
+          <button class="board-pill speed-btn" id="mspd-0.25" onclick="setMobileSpd(0.25)">¼×</button>
+          <button class="board-pill speed-btn" id="mspd-0.5" onclick="setMobileSpd(0.5)">½×</button>
+          <button class="board-pill speed-btn active" id="mspd-1" onclick="setMobileSpd(1)">1×</button>
+          <button class="board-pill speed-btn" id="mspd-2" onclick="setMobileSpd(2)">2×</button>
+        </div>
         <span class="toolbar-divider" aria-hidden="true"></span>
         <button class="board-pill action-btn" id="mobileUndoBtn" onclick="undo()" data-label-desktop="UNDO" data-label-mobile="&#8617;">UNDO</button>
+        <button class="board-pill action-btn" id="mobileRedoBtn" onclick="redo()" data-label-desktop="REDO" data-label-mobile="&#8618;">REDO</button>
         <button class="board-pill action-btn" id="mobileClearBtn" onclick="clearAll()" data-label-desktop="CLEAR" data-label-mobile="&#10005;">CLEAR</button>
-        <span class="toolbar-divider" aria-hidden="true"></span>
-        <button class="board-pill speed-btn active" id="mspd-1" onclick="setMobileSpd(1)">1x</button>
-        <button class="board-pill speed-btn" id="mspd-1.5" onclick="setMobileSpd(1.5)">1.5x</button>
-        <button class="board-pill speed-btn" id="mspd-2" onclick="setMobileSpd(2)">2x</button>
-        <button class="board-pill speed-btn" id="mspd-3" onclick="setMobileSpd(3)">3x</button>
         <span class="toolbar-divider toolbar-divider-tools" aria-hidden="true"></span>
         <button class="board-pill tool-btn active" data-tool="move" onclick="setTool('move')" data-label-desktop="MOVE" data-label-mobile="MV">MOVE</button>
         <button class="board-pill tool-btn" data-tool="run" onclick="setTool('run')" data-label-desktop="RUN" data-label-mobile="RUN">RUN</button>
@@ -290,7 +293,7 @@
       <div id="trackThumb"></div>
     </div>
     <span id="tlTime">0.0 / 5.0s</span>
-    <span id="spdLabel">1x</span>
+    <span id="spdLabel">1×</span>
   </div>
 </div>
 <script src="js/tactical-board.js"></script>

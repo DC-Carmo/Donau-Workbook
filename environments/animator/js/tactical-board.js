@@ -82,6 +82,7 @@ const S = {
   drawing: null,        // { pid, pts:[], last:{x,y} }
   passFrom: null,
   history: [],          // undo stack (snapshots)
+  future: [],           // redo stack
   animT: 0,
   animating: false,
   animSpd: 1,
@@ -97,8 +98,9 @@ const S = {
   selectedPassIdx: null,
   selectedPathPid: null,
 };
-const SPEEDS = [0.25, 0.5, 1, 1.5, 2, 3];
+const SPEEDS = [0.25, 0.5, 1, 2];
 let   spdIdx = 2;
+function fmtSpd(v) { return v===0.25?'¼×':v===0.5?'½×':v+'×'; }
 const SAVED_PLAYS_KEY = 'coachmato.animator.savedPlays.v1';
 const FIRST_USE_TUTORIAL_KEY = 'coachmato.animator.firstUseTutorial.v1';
 const PROJECT_SCHEMA_VERSION = 4;
@@ -741,9 +743,19 @@ function snapshot() {
     projectPlayback: S.projectPlayback,
   }));
   if (S.history.length > 30) S.history.shift();
+  S.future = [];
 }
 function undo() {
   if (!S.history.length) return;
+  S.future.push(cloneData({
+    steps: S.steps,
+    currentStep: S.currentStep,
+    playMetadata: S.playMetadata,
+    projectId: S.projectId,
+    projectMeta: S.projectMeta,
+    projectPlayback: S.projectPlayback,
+  }));
+  if (S.future.length > 30) S.future.shift();
   const h = S.history.pop();
   S.steps = Array.isArray(h.steps) && h.steps.length ? h.steps.map(step => normalizeStepState(step)) : [emptyStepState()];
   S.currentStep = clamp(Number.isFinite(h.currentStep) ? h.currentStep : 0, 0, S.steps.length - 1);
@@ -759,6 +771,34 @@ function undo() {
   rebuildPalette(); refreshInteractionUI();
   render();
 }
+function redo() {
+  if (!S.future.length) return;
+  persistCurrentStep();
+  S.history.push(cloneData({
+    steps: S.steps,
+    currentStep: S.currentStep,
+    playMetadata: S.playMetadata,
+    projectId: S.projectId,
+    projectMeta: S.projectMeta,
+    projectPlayback: S.projectPlayback,
+  }));
+  if (S.history.length > 30) S.history.shift();
+  const h = S.future.pop();
+  S.steps = Array.isArray(h.steps) && h.steps.length ? h.steps.map(step => normalizeStepState(step)) : [emptyStepState()];
+  S.currentStep = clamp(Number.isFinite(h.currentStep) ? h.currentStep : 0, 0, S.steps.length - 1);
+  setLiveBoardFromStep(S.steps[S.currentStep]);
+  S.playMetadata = normalizeProjectMetadata({ name: currentPlayTitle() }, h.playMetadata || {});
+  S.projectId = h.projectId || null;
+  S.projectMeta = h.projectMeta || null;
+  S.projectPlayback = normalizePlaybackSettings(h.projectPlayback || {});
+  S.atkUsed = new Set(S.players.filter(p=>p.team==='A').map(p=>p.num));
+  S.defUsed = new Set(S.players.filter(p=>p.team==='D').map(p=>p.num));
+  S.selected = null;
+  updatePlayMetadataPanel();
+  rebuildPalette(); refreshInteractionUI();
+  render();
+}
+window.redo = redo;
 
 //  FIELD RENDERING
 function drawField() {
@@ -983,11 +1023,13 @@ function drawField() {
     ctx.restore();
   }
 
-  fieldLabel(34, 47.5, '50', 0.36);
-  fieldLabel(4.2, 20.6, '22', 0.36); fieldLabel(63.8, 20.6, '22', 0.36);
-  fieldLabel(4.2, 79.4, '22', 0.36); fieldLabel(63.8, 79.4, '22', 0.36);
-  fieldLabel(4.2, 38.6, '10', 0.28); fieldLabel(63.8, 38.6, '10', 0.28);
-  fieldLabel(4.2, 61.4, '10', 0.28); fieldLabel(63.8, 61.4, '10', 0.28);
+  fieldLabel(34, 47.5, '50', 0.48);
+  fieldLabel(4.2, 20.6, '22', 0.48); fieldLabel(63.8, 20.6, '22', 0.48);
+  fieldLabel(4.2, 79.4, '22', 0.48); fieldLabel(63.8, 79.4, '22', 0.48);
+  fieldLabel(4.2, 38.6, '10', 0.48); fieldLabel(63.8, 38.6, '10', 0.48);
+  fieldLabel(4.2, 61.4, '10', 0.48); fieldLabel(63.8, 61.4, '10', 0.48);
+  fieldLabel(34, -5,  'IN-GOAL', 0.48);
+  fieldLabel(34, 105, 'IN-GOAL', 0.48);
 
   // ── 16. Goal posts ────────────────────────────────────────────────────────
   drawPosts(34, 0, 'top');
@@ -2991,8 +3033,7 @@ function chSpd(d) {
     ...(S.projectPlayback || {}),
     currentSpeed: S.animSpd,
   });
-  const lbl = S.animSpd + 'x';
-  document.getElementById('spdLabel').textContent = S.animSpd + 'x';
+  document.getElementById('spdLabel').textContent = fmtSpd(S.animSpd);
 }
 function updateTL() {
   const pct = S.animT * 100;
@@ -3077,9 +3118,8 @@ function setMobileSpd(val) {
   spdIdx = idx;
   S.animSpd = SPEEDS[spdIdx];
   S.projectPlayback = normalizePlaybackSettings({ ...(S.projectPlayback || {}), currentSpeed: S.animSpd });
-  const lbl = S.animSpd + 'x';
-  document.getElementById('spdLabel').textContent = lbl;
-  [1, 1.5, 2, 3].forEach(v => {
+  document.getElementById('spdLabel').textContent = fmtSpd(S.animSpd);
+  [0.25, 0.5, 1, 2].forEach(v => {
     const chip = document.getElementById('mspd-' + v);
     if (chip) chip.classList.toggle('active', v === S.animSpd);
   });
@@ -3157,7 +3197,7 @@ function updateMobileUI() {
     mobileSequencePlayBtn.textContent = S.animating ? '⏸ Pause' : '▶ Play';
     mobileSequencePlayBtn.disabled = count < 2;
   }
-  [1, 1.5, 2, 3].forEach(v => {
+  [0.25, 0.5, 1, 2].forEach(v => {
     const chip = document.getElementById('mspd-' + v);
     if (chip) chip.classList.toggle('active', v === S.animSpd);
   });
@@ -3648,7 +3688,7 @@ function clearAll() {
   S.atkUsed=new Set(); S.defUsed=new Set();
   document.getElementById('playName').value='New Play';
   setHint('Board reset. Start by adding players from the left.');
-  document.getElementById('spdLabel').textContent = '1x';
+  document.getElementById('spdLabel').textContent = '1×';
   updateAnnotationPanel();
   setPlayBtnState(); rebuildPalette(); refreshInteractionUI(); updateTL(); render();
 }
@@ -3795,7 +3835,7 @@ function applyBoardData(play, { snapshotBefore = true } = {}) {
   document.getElementById('playName').value = p.name || 'Untitled Play';
   syncPlayMetadataTitle();
   setPlayBtnState();
-  document.getElementById('spdLabel').textContent = S.animSpd + 'x';
+  document.getElementById('spdLabel').textContent = fmtSpd(S.animSpd);
   rebuildPalette();
   refreshInteractionUI();
   updateTL();
@@ -3948,6 +3988,7 @@ document.addEventListener('keydown', e => {
   if (k === 'arrowleft') { e.preventDefault(); prevStep(); return; }
   if (k === 'arrowright') { e.preventDefault(); nextStep(); return; }
   if (k==='escape')     { e.preventDefault(); cancelActiveBoardInteraction(); return; }
+  if (k==='z'&&(e.ctrlKey||e.metaKey)&&e.shiftKey) { e.preventDefault(); redo(); return; }
   if (k==='z'&&(e.ctrlKey||e.metaKey)) { e.preventDefault(); undo(); }
   if (k==='delete'||k==='backspace') {
     if (S.selected || selectedAnnotationId() || S.selectedPassIdx !== null || S.selectedPathPid !== null) {
