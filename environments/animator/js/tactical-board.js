@@ -901,9 +901,15 @@ function drawField() {
   hline(22, T2_C, T2_W, [], 0, F.W, 0.18);
   hline(78, T2_C, T2_W, [], 0, F.W, 0.18);
 
-  // ── 11. Tier 3: 10m dashed lines ─────────────────────────────────────────
-  hline(40, T3_C, T3_W, D_10M);
-  hline(60, T3_C, T3_W, D_10M);
+  // ── 11. 10m lines — bold painted blocks matching vertical dash scale ───────
+  {
+    const d10Px  = Math.max(22, sx * 5);   // ~5m in x-direction
+    const g10Px  = Math.max(13, sx * 3);   // ~3m gap
+    const lw10   = T2_W * 1.2;
+    const col10  = 'rgba(255,255,255,0.88)';
+    hline(40, col10, lw10, [d10Px, g10Px]);
+    hline(60, col10, lw10, [d10Px, g10Px]);
+  }
 
   // ── 12. 5m and 15m: large field-scaled dashes, anchor-synced alignment ───
   {
@@ -940,33 +946,11 @@ function drawField() {
       ctx.restore();
     }
 
+    // Dashes are anchor-synced — no separate T-marks needed
     syncedDashV(15, 'rgba(255,255,255,0.90)', vLW15);
     syncedDashV(53, 'rgba(255,255,255,0.90)', vLW15);
     syncedDashV(5,  'rgba(255,255,255,0.82)', vLW5);
     syncedDashV(63, 'rgba(255,255,255,0.82)', vLW5);
-
-    // T-junction marks — pure white, full opacity, square caps
-    const tHalf15 = Math.max(9, sc * 0.90);
-    const tHalf5  = Math.max(7, sc * 0.65);
-    const tLW     = T2_W * 1.2;
-
-    function tMark(fx, fy, half) {
-      const p  = toC(fx, fy);
-      const px = Math.round(p.x) + 0.5;
-      const py = Math.round(p.y) + 0.5;
-      ctx.save();
-      ctx.strokeStyle = '#ffffff';
-      ctx.globalAlpha = 1.0;
-      ctx.lineWidth   = tLW;
-      ctx.lineCap     = 'square';
-      ctx.beginPath();
-      ctx.moveTo(px - half, py); ctx.lineTo(px + half, py);
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    ANCHORS.forEach(fy => { tMark(15, fy, tHalf15); tMark(53, fy, tHalf15); });
-    [0, 100].forEach(fy => { tMark(5, fy, tHalf5); tMark(63, fy, tHalf5); });
   }
 
   // ── 14. Center mark ───────────────────────────────────────────────────────
@@ -1058,19 +1042,22 @@ function drawPosts(fx, fy, side) {
   ctx.moveTo(rightX, tryLineY); ctx.lineTo(rightX, crossbarY);
   ctx.stroke();
 
-  // ── Pass 4: main H — warm metallic white ─────────────────────────────────
-  ctx.strokeStyle = 'rgba(255,253,235,0.96)';
-  ctx.lineWidth = postW;
-  ctx.lineCap = 'square';
-  ctx.lineJoin = 'miter';
-  ctx.shadowColor = 'rgba(255,248,180,0.30)';
-  ctx.shadowBlur   = 4;
+  // ── Pass 4: main H — warm metallic white + 3D drop shadow ───────────────
+  ctx.strokeStyle   = 'rgba(255,253,235,0.96)';
+  ctx.lineWidth     = postW;
+  ctx.lineCap       = 'square';
+  ctx.lineJoin      = 'miter';
+  ctx.shadowColor   = 'rgba(0,0,0,0.50)';
+  ctx.shadowBlur    = 5;
+  ctx.shadowOffsetX = 3;
+  ctx.shadowOffsetY = dir * 3;
   ctx.beginPath();
   ctx.moveTo(leftX,  crossbarY); ctx.lineTo(rightX, crossbarY);
   ctx.moveTo(leftX,  crossbarY); ctx.lineTo(leftX,  postTopY);
   ctx.moveTo(rightX, crossbarY); ctx.lineTo(rightX, postTopY);
   ctx.stroke();
-  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
 
   // ── Pass 5: highlight edge (left side of each upright) ───────────────────
   ctx.strokeStyle = 'rgba(255,255,255,0.55)';
