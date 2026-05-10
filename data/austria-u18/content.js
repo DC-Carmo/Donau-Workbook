@@ -47,14 +47,13 @@
           points: [
             "Vary the forward attack first — earn the right to go wide.",
             "Play for points. Be decisive.",
-            "Use Rhino, Magic, Boss to fix before releasing backs."
+            "Use England, Wales, Full House to fix before releasing backs."
           ]
         }
       ],
       directionCalls: [
         { key: "BLACK", value: "Pass to forward off 9" },
-        { key: "RED",   value: "Pass to forward off 10" },
-        { key: "FIJI",  value: "Snapback" }
+        { key: "RED",   value: "Pass to forward off 10" }
       ],
       pods: []
     },
@@ -121,51 +120,6 @@
       ],
       phase: [
         {
-          name: "Rhino",
-          type: "PHASE PLAY",
-          detail: [
-            "Pick and go.",
-            "Forward takes the ball from the base and drives hard into contact.",
-            "Best used when the defence is still folding or numbers are short."
-          ]
-        },
-        {
-          name: "Magic",
-          type: "PHASE PLAY",
-          detail: [
-            "Forwards act as dummy runners. Play released to backs.",
-            "Forwards show carry intent to fix defensive attention.",
-            "Ball moves through or behind them to the backs line."
-          ]
-        },
-        {
-          name: "Boss",
-          type: "PHASE PLAY",
-          detail: [
-            "Pull pass from a forward to the playmaker ??? out the back.",
-            "Forward fixes the inside defenders. Playmaker arrives late with space.",
-            "Effective when defence over-commits to the carry picture."
-          ]
-        },
-        {
-          name: "Tips",
-          type: "PHASE PLAY",
-          detail: [
-            "Short pass close to contact.",
-            "Attack the shoulder of the defender just before or after contact.",
-            "Requires tight timing and early connection from support."
-          ]
-        },
-        {
-          name: "Fiji",
-          type: "PHASE PLAY",
-          detail: [
-            "Change direction ??? snap the ball back against the grain.",
-            "Attack the blind side of the defence before they can reset.",
-            "Requires clear communication and a sharp support runner arriving from depth."
-          ]
-        },
-        {
           name: "England",
           type: "PHASE PLAY",
           detail: [
@@ -184,7 +138,7 @@
           ]
         },
         {
-          name: "Full",
+          name: "Full House",
           type: "PHASE PLAY",
           detail: [
             "Phase play used to keep the attack connected across the line.",
