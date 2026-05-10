@@ -786,7 +786,7 @@ function drawField() {
   ctx.fillStyle = grassGrad;
   ctx.fillRect(TL.x, TL.y, FW, FH);
 
-  // ── 4. Mow stripes — 16 clean bands ─────────────────────────────────────
+  // ── 4. Mow stripes — 16 crisp bands, more contrast ──────────────────────
   const N_STRIPES = 16;
   const bandW = FW / N_STRIPES;
   ctx.save();
@@ -796,13 +796,13 @@ function drawField() {
     const sg = ctx.createLinearGradient(bx, 0, bx + bandW, 0);
     if (si % 2 === 0) {
       sg.addColorStop(0,    'rgba(255,255,255,0.000)');
-      sg.addColorStop(0.28, 'rgba(255,255,255,0.038)');
-      sg.addColorStop(0.72, 'rgba(255,255,255,0.038)');
+      sg.addColorStop(0.28, 'rgba(255,255,255,0.062)');
+      sg.addColorStop(0.72, 'rgba(255,255,255,0.062)');
       sg.addColorStop(1,    'rgba(255,255,255,0.000)');
     } else {
       sg.addColorStop(0,    'rgba(0,0,0,0.000)');
-      sg.addColorStop(0.28, 'rgba(0,0,0,0.044)');
-      sg.addColorStop(0.72, 'rgba(0,0,0,0.044)');
+      sg.addColorStop(0.28, 'rgba(0,0,0,0.068)');
+      sg.addColorStop(0.72, 'rgba(0,0,0,0.068)');
       sg.addColorStop(1,    'rgba(0,0,0,0.000)');
     }
     ctx.fillStyle = sg;
@@ -842,10 +842,11 @@ function drawField() {
   ctx.fillRect(TL.x, TL.y, FW, FH);
 
   // ── 8. Line helpers — pixel-aligned for crisp rendering ──────────────────
-  function hline(fy, color, lw, dash = [], x0 = 0, x1 = F.W) {
+  function hline(fy, color, lw, dash = [], x0 = 0, x1 = F.W, glow = 0) {
     const p = toC(x0, fy), q = toC(x1, fy);
     const py = Math.round(p.y) + 0.5;
     ctx.save();
+    if (glow > 0) { ctx.shadowColor = `rgba(255,255,255,${glow})`; ctx.shadowBlur = 5; }
     ctx.strokeStyle = color;
     ctx.lineWidth = lw;
     ctx.lineCap = 'butt';
@@ -859,10 +860,11 @@ function drawField() {
     ctx.restore();
   }
 
-  function vline(fx, color, lw, fy0 = F.YMIN, fy1 = F.YMAX, dash = []) {
+  function vline(fx, color, lw, fy0 = F.YMIN, fy1 = F.YMAX, dash = [], glow = 0) {
     const p = toC(fx, fy0), q = toC(fx, fy1);
     const px = Math.round(p.x) + 0.5;
     ctx.save();
+    if (glow > 0) { ctx.shadowColor = `rgba(255,255,255,${glow})`; ctx.shadowBlur = 5; }
     ctx.strokeStyle = color;
     ctx.lineWidth = lw;
     ctx.lineCap = 'butt';
@@ -886,64 +888,65 @@ function drawField() {
   const T3_C = 'rgba(255,255,255,0.75)', T3_W = Math.max(1.3, sc * 0.13);  // 10m dashed
   const T4_C = 'rgba(255,255,255,0.44)', T4_W = Math.max(1.0, sc * 0.10);  // 5m / technical
 
-  // ── 9. Tier 1: Boundary, goal lines, halfway ──────────────────────────────
-  hline(F.YMIN, T1_C, T1_W);   // top dead-ball
-  hline(F.YMAX, T1_C, T1_W);   // bottom dead-ball
-  hline(0,   T1_C, T1_W);      // top goal line
-  hline(100, T1_C, T1_W);      // bottom goal line
-  hline(50,  T1_C, T1_W);      // halfway — same visual tier as goal lines
-
-  // Touchlines: full field height
-  vline(0,  T1_C, T1_W);
-  vline(68, T1_C, T1_W);
+  // ── 9. Tier 1: Boundary, goal lines, halfway — with subtle painted glow ───
+  hline(F.YMIN, T1_C, T1_W, [], 0, F.W, 0.22);
+  hline(F.YMAX, T1_C, T1_W, [], 0, F.W, 0.22);
+  hline(0,   T1_C, T1_W, [], 0, F.W, 0.28);
+  hline(100, T1_C, T1_W, [], 0, F.W, 0.28);
+  hline(50,  T1_C, T1_W, [], 0, F.W, 0.28);
+  vline(0,  T1_C, T1_W, F.YMIN, F.YMAX, [], 0.22);
+  vline(68, T1_C, T1_W, F.YMIN, F.YMAX, [], 0.22);
 
   // ── 10. Tier 2: 22m lines ────────────────────────────────────────────────
-  hline(22, T2_C, T2_W);
-  hline(78, T2_C, T2_W);
+  hline(22, T2_C, T2_W, [], 0, F.W, 0.18);
+  hline(78, T2_C, T2_W, [], 0, F.W, 0.18);
 
   // ── 11. Tier 3: 10m dashed lines ─────────────────────────────────────────
   hline(40, T3_C, T3_W, D_10M);
   hline(60, T3_C, T3_W, D_10M);
 
-  // ── 12. 5m and 15m: dashed vertical lines + T-junction caps ─────────────
-  // Authentic rugby: subtle dashed verticals with bold T-caps at each solid line
+  // ── 12. 5m and 15m: dashed verticals [10,10] + T/+ intersection marks ────
   {
-    const V_DASH = [6, 5]; // dash, gap in canvas px
-    const vLW15  = Math.max(1.2, sc * 0.12);
-    const vLW5   = Math.max(1.0, sc * 0.10);
-    const tHalf  = Math.max(6, sc * 0.60);   // T-cap arm length each side in px
-    const tLW    = Math.max(1.8, sc * 0.18); // T-cap line weight
+    const V_DASH = [10, 10]; // professional dash rhythm
+    const vLW15  = Math.max(1.3, sc * 0.13);
+    const vLW5   = Math.max(1.1, sc * 0.11);
 
-    // Dashed verticals — 15m from each touchline
-    vline(15, 'rgba(255,255,255,0.32)', vLW15, 0, 100, V_DASH);
-    vline(53, 'rgba(255,255,255,0.32)', vLW15, 0, 100, V_DASH);
-    // Dashed verticals — 5m from each touchline
-    vline(5,  'rgba(255,255,255,0.24)', vLW5,  0, 100, V_DASH);
-    vline(63, 'rgba(255,255,255,0.24)', vLW5,  0, 100, V_DASH);
+    // Dashed verticals
+    vline(15, 'rgba(255,255,255,0.36)', vLW15, 0, 100, V_DASH);
+    vline(53, 'rgba(255,255,255,0.36)', vLW15, 0, 100, V_DASH);
+    vline(5,  'rgba(255,255,255,0.26)', vLW5,  0, 100, V_DASH);
+    vline(63, 'rgba(255,255,255,0.26)', vLW5,  0, 100, V_DASH);
 
-    // T-junction caps: short horizontal stroke at every solid-line intersection
-    // 15m T-caps at all major horizontal lines
-    const T15 = [0, 22, 40, 50, 60, 78, 100];
-    // 5m T-caps at goal lines only
-    const T5  = [0, 100];
+    // T/+ intersection marks — horizontal arm at each solid-line crossing
+    const tHalf15 = Math.max(7, sc * 0.70);
+    const tHalf5  = Math.max(5, sc * 0.50);
+    const tLW15   = Math.max(2.0, sc * 0.20);
+    const tLW5    = Math.max(1.6, sc * 0.16);
 
-    function tCap(fx, fy, alpha) {
+    function tMark(fx, fy, half, lw, alpha) {
       const p  = toC(fx, fy);
       const px = Math.round(p.x) + 0.5;
       const py = Math.round(p.y) + 0.5;
       ctx.save();
       ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
-      ctx.lineWidth   = tLW;
+      ctx.lineWidth   = lw;
       ctx.lineCap     = 'square';
       ctx.beginPath();
-      ctx.moveTo(px - tHalf, py);
-      ctx.lineTo(px + tHalf, py);
+      ctx.moveTo(px - half, py); ctx.lineTo(px + half, py); // horizontal arm
       ctx.stroke();
       ctx.restore();
     }
 
-    T15.forEach(fy => { tCap(15, fy, 0.58); tCap(53, fy, 0.58); });
-    T5.forEach(fy  => { tCap(5,  fy, 0.42); tCap(63, fy, 0.42); });
+    // 15m marks at all major horizontal lines
+    [0, 22, 40, 50, 60, 78, 100].forEach(fy => {
+      tMark(15, fy, tHalf15, tLW15, 0.65);
+      tMark(53, fy, tHalf15, tLW15, 0.65);
+    });
+    // 5m marks at goal lines only
+    [0, 100].forEach(fy => {
+      tMark(5,  fy, tHalf5, tLW5, 0.48);
+      tMark(63, fy, tHalf5, tLW5, 0.48);
+    });
   }
 
   // ── 14. Center mark ───────────────────────────────────────────────────────
@@ -955,12 +958,12 @@ function drawField() {
   ctx.fill();
   ctx.restore();
 
-  // ── 15. Field labels — minimal, high contrast ────────────────────────────
-  function fieldLabel(fx, fy, text, alpha = 0.24) {
-    const p = toC(fx, fy);
-    const fs = Math.max(9, sc * 0.98);
+  // ── 15. Field labels — bold Montserrat, near sidelines ──────────────────
+  function fieldLabel(fx, fy, text, alpha = 0.30) {
+    const p  = toC(fx, fy);
+    const fs = Math.max(10, sc * 1.05);
     ctx.save();
-    ctx.font = `600 ${fs}px "Barlow Condensed", sans-serif`;
+    ctx.font = `700 ${fs}px "Montserrat","Barlow Condensed","Arial Narrow",sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = `rgba(255,255,255,${alpha})`;
@@ -968,20 +971,11 @@ function drawField() {
     ctx.restore();
   }
 
-  // 50 label — slightly above center mark so mark is visible
-  fieldLabel(34, 47.5, '50', 0.30);
-
-  // 22m labels — inside field, just below/above the line
-  fieldLabel(4.6, 20.8, '22', 0.30);
-  fieldLabel(63.4, 20.8, '22', 0.30);
-  fieldLabel(4.6, 79.2, '22', 0.30);
-  fieldLabel(63.4, 79.2, '22', 0.30);
-
-  // 10m labels
-  fieldLabel(4.6, 38.8, '10', 0.22);
-  fieldLabel(63.4, 38.8, '10', 0.22);
-  fieldLabel(4.6, 61.2, '10', 0.22);
-  fieldLabel(63.4, 61.2, '10', 0.22);
+  fieldLabel(34, 47.5, '50', 0.36);
+  fieldLabel(4.2, 20.6, '22', 0.36); fieldLabel(63.8, 20.6, '22', 0.36);
+  fieldLabel(4.2, 79.4, '22', 0.36); fieldLabel(63.8, 79.4, '22', 0.36);
+  fieldLabel(4.2, 38.6, '10', 0.28); fieldLabel(63.8, 38.6, '10', 0.28);
+  fieldLabel(4.2, 61.4, '10', 0.28); fieldLabel(63.8, 61.4, '10', 0.28);
 
   // ── 16. Goal posts ────────────────────────────────────────────────────────
   drawPosts(34, 0, 'top');
@@ -1010,21 +1004,32 @@ function drawPosts(fx, fy, side) {
 
   ctx.save();
 
-  // Shadow pass — drawn first for depth
-  ctx.strokeStyle = 'rgba(0,0,0,0.50)';
-  ctx.lineWidth = postW + 2.5;
+  // ── Pass 1: deep drop shadow (offset toward field) ───────────────────────
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+  ctx.lineWidth = postW + 3.5;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
+  const sdx = 1.5, sdy = dir * 1.5;
   ctx.beginPath();
-  ctx.moveTo(leftX + 1, tryLineY + dir);  ctx.lineTo(leftX + 1, crossbarY + dir);
-  ctx.moveTo(rightX + 1, tryLineY + dir); ctx.lineTo(rightX + 1, crossbarY + dir);
-  ctx.moveTo(leftX + 1, crossbarY + dir); ctx.lineTo(rightX + 1, crossbarY + dir);
-  ctx.moveTo(leftX + 1, crossbarY);  ctx.lineTo(leftX + 1, postTopY);
-  ctx.moveTo(rightX + 1, crossbarY); ctx.lineTo(rightX + 1, postTopY);
+  ctx.moveTo(leftX  + sdx, tryLineY + sdy); ctx.lineTo(leftX  + sdx, crossbarY + sdy);
+  ctx.moveTo(rightX + sdx, tryLineY + sdy); ctx.lineTo(rightX + sdx, crossbarY + sdy);
+  ctx.moveTo(leftX  + sdx, crossbarY + sdy); ctx.lineTo(rightX + sdx, crossbarY + sdy);
+  ctx.moveTo(leftX  + sdx, crossbarY + sdy); ctx.lineTo(leftX  + sdx, postTopY + sdy);
+  ctx.moveTo(rightX + sdx, crossbarY + sdy); ctx.lineTo(rightX + sdx, postTopY + sdy);
   ctx.stroke();
 
-  // Main post — base stems thicker for grounding
-  ctx.strokeStyle = 'rgba(252,252,252,0.40)';
+  // ── Pass 2: glow halo around full H ──────────────────────────────────────
+  ctx.strokeStyle = 'rgba(255,252,220,0.12)';
+  ctx.lineWidth = postW + 6;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(leftX,  crossbarY); ctx.lineTo(rightX, crossbarY);
+  ctx.moveTo(leftX,  crossbarY); ctx.lineTo(leftX,  postTopY);
+  ctx.moveTo(rightX, crossbarY); ctx.lineTo(rightX, postTopY);
+  ctx.stroke();
+
+  // ── Pass 3: base stems (goal line → crossbar) — ghost/translucent ────────
+  ctx.strokeStyle = 'rgba(240,240,220,0.38)';
   ctx.lineWidth = baseW;
   ctx.lineCap = 'butt';
   ctx.lineJoin = 'miter';
@@ -1033,22 +1038,33 @@ function drawPosts(fx, fy, side) {
   ctx.moveTo(rightX, tryLineY); ctx.lineTo(rightX, crossbarY);
   ctx.stroke();
 
-  // Main post — uprights + crossbar
-  ctx.strokeStyle = 'rgba(252,252,252,0.94)';
+  // ── Pass 4: main H — warm metallic white ─────────────────────────────────
+  ctx.strokeStyle = 'rgba(255,253,235,0.96)';
   ctx.lineWidth = postW;
   ctx.lineCap = 'square';
   ctx.lineJoin = 'miter';
+  ctx.shadowColor = 'rgba(255,248,180,0.30)';
+  ctx.shadowBlur   = 4;
   ctx.beginPath();
-  // Crossbar
   ctx.moveTo(leftX,  crossbarY); ctx.lineTo(rightX, crossbarY);
-  // Uprights (crossbar to top)
   ctx.moveTo(leftX,  crossbarY); ctx.lineTo(leftX,  postTopY);
   ctx.moveTo(rightX, crossbarY); ctx.lineTo(rightX, postTopY);
   ctx.stroke();
+  ctx.shadowBlur = 0;
 
-  // Post base dots — where uprights meet the goal line
-  ctx.fillStyle = 'rgba(255,255,255,0.88)';
-  const dotR = Math.max(2.2, sc * 0.22);
+  // ── Pass 5: highlight edge (left side of each upright) ───────────────────
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+  ctx.lineWidth = Math.max(1, postW * 0.35);
+  ctx.lineCap = 'square';
+  ctx.beginPath();
+  ctx.moveTo(leftX  - 0.8, crossbarY); ctx.lineTo(leftX  - 0.8, postTopY);
+  ctx.moveTo(rightX - 0.8, crossbarY); ctx.lineTo(rightX - 0.8, postTopY);
+  ctx.stroke();
+
+  // ── Pass 6: base anchor dots ─────────────────────────────────────────────
+  const dotR = Math.max(2.4, sc * 0.24);
+  ctx.fillStyle = 'rgba(255,253,220,0.92)';
+  ctx.shadowColor = 'rgba(0,0,0,0.40)'; ctx.shadowBlur = 3;
   ctx.beginPath(); ctx.arc(leftX,  tryLineY, dotR, 0, Math.PI * 2); ctx.fill();
   ctx.beginPath(); ctx.arc(rightX, tryLineY, dotR, 0, Math.PI * 2); ctx.fill();
 
