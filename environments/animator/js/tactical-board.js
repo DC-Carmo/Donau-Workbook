@@ -2362,6 +2362,10 @@ function handlePointerMove(e) {
       if (pl) {
         pl.x = clamp(fp.x - S.dragOff.x, -2, 70);
         pl.y = clamp(fp.y - S.dragOff.y, -11, 111);
+        if (pl.isBC && S.ball) {
+          S.ball.x = pl.x;
+          S.ball.y = pl.y;
+        }
         const path = S.paths.find(p => p.pid === pl.id);
         if (path && path.pts.length) path.pts[0] = {x:pl.x, y:pl.y};
         if (S.ballAttached && samePlayerRef(playerRef(pl), S.ballOwner)) {
