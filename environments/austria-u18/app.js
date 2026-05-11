@@ -42,6 +42,35 @@
     }
   }
 
+  function openDiagramLightbox(src, alt) {
+    const lb = document.getElementById("diagramLightbox");
+    const img = document.getElementById("diagramLightboxImg");
+    img.src = src;
+    img.alt = alt || "";
+    lb.classList.add("open");
+    document.addEventListener("keydown", diagramLightboxEsc);
+  }
+
+  function closeDiagramLightbox(event) {
+    const lightbox = document.getElementById("diagramLightbox");
+    if (
+      event &&
+      event.target !== lightbox &&
+      !event.target.classList.contains("diagram-lightbox-close")
+    ) {
+      return;
+    }
+
+    lightbox.classList.remove("open");
+    document.removeEventListener("keydown", diagramLightboxEsc);
+  }
+
+  function diagramLightboxEsc(event) {
+    if (event.key === "Escape") {
+      closeDiagramLightbox();
+    }
+  }
+
   function openOverlay(id) {
     const el = document.getElementById(id);
     if (!el) {
@@ -518,7 +547,7 @@
                 <ul>${(play.detail || []).map((point) => `<li>${point}</li>`).join("")}</ul>
               </section>
               <div class="play-diagram-card">
-                <img src="${play.diagram}" alt="${play.name} diagram" class="play-diagram-image">
+                <img src="${play.diagram}" alt="${play.name} diagram" class="play-diagram-image" onclick="openDiagramLightbox('${play.diagram}', '${play.name} diagram')" style="cursor: pointer;">
               </div>
             </div>
           ` : `
@@ -1056,10 +1085,12 @@
 
   window.askQ = askQ;
   window.changeSlide = changeSlide;
+  window.closeDiagramLightbox = closeDiagramLightbox;
   window.closeFieldLightbox = closeFieldLightbox;
   window.closeLineoutSystem = closeLineoutSystem;
   window.closeOverlay = closeOverlay;
   window.goTo = goTo;
+  window.openDiagramLightbox = openDiagramLightbox;
   window.openFieldLightbox = openFieldLightbox;
   window.openLineoutSystem = openLineoutSystem;
   window.openOverlay = openOverlay;

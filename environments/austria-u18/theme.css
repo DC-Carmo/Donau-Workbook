@@ -1501,3 +1501,73 @@ body.austria-u18-theme::before {
     color: var(--text);
   }
 }
+
+/* ── Diagram Lightbox ── */
+
+.diagram-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.diagram-lightbox.open {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.diagram-lightbox-inner {
+  position: relative;
+  max-width: 92vw;
+  max-height: 88vh;
+  transform: scale(0.95);
+  transition: transform 0.25s cubic-bezier(0.22, 0.8, 0.36, 1);
+}
+
+.diagram-lightbox.open .diagram-lightbox-inner {
+  transform: scale(1);
+}
+
+.diagram-lightbox-inner img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.8);
+}
+
+.diagram-lightbox-close {
+  position: absolute;
+  top: -16px;
+  right: -16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(177, 31, 48, 0.9);
+  border: 2px solid rgba(183, 154, 97, 0.3);
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: bold;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 1;
+}
+
+.diagram-lightbox-close:hover {
+  background: rgba(177, 31, 48, 1);
+  transform: scale(1.1);
+}
