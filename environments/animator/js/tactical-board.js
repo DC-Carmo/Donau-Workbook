@@ -4104,6 +4104,7 @@ document.getElementById('importPlayInput').addEventListener('change', e => {
 });
 window.addEventListener('resize', resize);
 resize();
+loadPlay('launch_fly');
 setHint('MOVE - drag any player or ball freely on the pitch');
 refreshInteractionUI();
 
