@@ -220,35 +220,58 @@
 
     <div id="bottomPanel">
       <div id="compactToolbar" aria-label="Board controls">
-        <button class="board-pill action-btn" id="mobileAddAttackBtn" onclick="addNextAvailablePlayer('A')" data-label-desktop="+ ATTACK" data-label-mobile="+ATK">+ ATTACK</button>
-        <button class="board-pill action-btn" id="mobileAddDefenceBtn" onclick="addNextAvailablePlayer('D')" data-label-desktop="+ DEFENCE" data-label-mobile="+DEF">+ DEFENCE</button>
-        <button class="board-pill ball-btn" id="mobileBallBtn" onclick="addBall()" data-label-desktop="BALL" data-label-mobile="BALL">BALL</button>
-        <span class="toolbar-divider" aria-hidden="true"></span>
-        <button class="board-pill action-btn" id="mobileAddStepBtn" onclick="addStep()" data-label-desktop="+ STEP" data-label-mobile="+STEP">+ STEP</button>
-        <button class="board-pill action-btn" id="seqPrevBtn" onclick="prevStep()" data-label-desktop="&#10216;" data-label-mobile="&#10216;">&#10216;</button>
-        <button class="board-pill play-btn" id="playBtn" onclick="togglePlay()">PLAY</button>
-        <button class="board-pill action-btn" id="seqNextBtn" onclick="nextStep()" data-label-desktop="&#10217;" data-label-mobile="&#10217;">&#10217;</button>
-        <div id="spdGroup" class="spd-group">
-          <span class="spd-group-label">Speed</span>
-          <button class="board-pill speed-btn" id="mspd-0.25" onclick="setMobileSpd(0.25)">¼×</button>
-          <button class="board-pill speed-btn" id="mspd-0.5" onclick="setMobileSpd(0.5)">½×</button>
-          <button class="board-pill speed-btn active" id="mspd-1" onclick="setMobileSpd(1)">1×</button>
-          <button class="board-pill speed-btn" id="mspd-2" onclick="setMobileSpd(2)">2×</button>
+
+        <!-- Group A: Players & objects -->
+        <div class="tb-group tb-group-a">
+          <button class="board-pill action-btn" id="mobileAddAttackBtn" onclick="addNextAvailablePlayer('A')" data-label-desktop="+ ATTACK" data-label-mobile="+ATK">+ ATTACK</button>
+          <button class="board-pill action-btn" id="mobileAddDefenceBtn" onclick="addNextAvailablePlayer('D')" data-label-desktop="+ DEFENCE" data-label-mobile="+DEF">+ DEFENCE</button>
+          <button class="board-pill ball-btn" id="mobileBallBtn" onclick="addBall()" data-label-desktop="BALL" data-label-mobile="BALL">BALL</button>
         </div>
+
         <span class="toolbar-divider" aria-hidden="true"></span>
-        <button class="board-pill action-btn" id="mobileUndoBtn" onclick="undo()" data-label-desktop="UNDO" data-label-mobile="&#8617;">UNDO</button>
-        <button class="board-pill action-btn" id="mobileRedoBtn" onclick="redo()" data-label-desktop="REDO" data-label-mobile="&#8618;">REDO</button>
-        <button class="board-pill action-btn" id="mobileClearBtn" onclick="clearAll()" data-label-desktop="CLEAR" data-label-mobile="&#10005;">CLEAR</button>
-        <span class="toolbar-divider toolbar-divider-tools" aria-hidden="true"></span>
-        <button class="board-pill tool-btn active" data-tool="move" onclick="setTool('move')" data-label-desktop="MOVE" data-label-mobile="MV">MOVE</button>
-        <button class="board-pill tool-btn" data-tool="run" onclick="setTool('run')" data-label-desktop="RUN" data-label-mobile="RUN">RUN</button>
-        <button class="board-pill tool-btn" data-tool="pass" onclick="setTool('pass')" data-label-desktop="PASS" data-label-mobile="PASS">PASS</button>
-        <button class="board-pill tool-btn" data-tool="kick" onclick="setTool('kick')" data-label-desktop="KICK" data-label-mobile="KICK">KICK</button>
-        <button class="board-pill tool-btn" data-tool="zone" onclick="setTool('zone')" data-label-desktop="CIRCLE" data-label-mobile="O">CIRCLE</button>
-        <button class="board-pill tool-btn" data-tool="box" onclick="setTool('box')" data-label-desktop="BOX" data-label-mobile="BOX">BOX</button>
-        <button class="board-pill tool-btn" data-tool="arrow" onclick="setTool('arrow')" data-label-desktop="ARROW" data-label-mobile="ARR">ARROW</button>
-        <button class="board-pill tool-btn" data-tool="note" onclick="setTool('note')" data-label-desktop="NOTE" data-label-mobile="NOTE">NOTE</button>
-        <button class="board-pill tool-btn" data-tool="erase" onclick="setTool('erase')" data-label-desktop="ERASE" data-label-mobile="DEL">ERASE</button>
+
+        <!-- Group B: Sequence & playback -->
+        <div class="tb-group tb-group-b">
+          <button class="board-pill action-btn" id="mobileAddStepBtn" onclick="addStep()" data-label-desktop="+ STEP" data-label-mobile="+STEP">+ STEP</button>
+          <button class="board-pill action-btn" id="seqPrevBtn" onclick="prevStep()" data-label-desktop="&#10216;" data-label-mobile="&#10216;">&#10216;</button>
+          <button class="board-pill play-btn" id="playBtn" onclick="togglePlay()">PLAY</button>
+          <button class="board-pill action-btn" id="seqNextBtn" onclick="nextStep()" data-label-desktop="&#10217;" data-label-mobile="&#10217;">&#10217;</button>
+          <div id="spdGroup" class="spd-group">
+            <span class="spd-group-label">Speed</span>
+            <button class="board-pill speed-btn" id="mspd-0.25" onclick="setMobileSpd(0.25)">¼×</button>
+            <button class="board-pill speed-btn" id="mspd-0.5" onclick="setMobileSpd(0.5)">½×</button>
+            <button class="board-pill speed-btn active" id="mspd-1" onclick="setMobileSpd(1)">1×</button>
+            <button class="board-pill speed-btn" id="mspd-2" onclick="setMobileSpd(2)">2×</button>
+          </div>
+        </div>
+
+        <span class="toolbar-divider" aria-hidden="true"></span>
+
+        <!-- Group C: Drawing tools (active) -->
+        <div class="tb-group tb-group-c">
+          <button class="board-pill tool-btn" data-tool="run" onclick="setTool('run')" data-label-desktop="RUN" data-label-mobile="RUN">RUN</button>
+          <button class="board-pill tool-btn" data-tool="pass" onclick="setTool('pass')" data-label-desktop="PASS" data-label-mobile="PASS">PASS</button>
+          <button class="board-pill tool-btn" data-tool="kick" onclick="setTool('kick')" data-label-desktop="KICK" data-label-mobile="KICK">KICK</button>
+          <span class="toolbar-divider" aria-hidden="true"></span>
+          <button class="board-pill tool-btn active" data-tool="move" onclick="setTool('move')" data-label-desktop="MOVE" data-label-mobile="MV">MOVE</button>
+          <button class="board-pill tool-btn" data-tool="erase" onclick="setTool('erase')" data-label-desktop="ERASE" data-label-mobile="DEL">ERASE</button>
+          <button class="board-pill action-btn" id="mobileUndoBtn" onclick="undo()" data-label-desktop="UNDO" data-label-mobile="&#8617;">UNDO</button>
+          <button class="board-pill action-btn" id="mobileRedoBtn" onclick="redo()" data-label-desktop="REDO" data-label-mobile="&#8618;">REDO</button>
+        </div>
+
+        <span class="toolbar-divider" aria-hidden="true"></span>
+
+        <!-- Group D: Annotation tools (coming soon) -->
+        <div class="tb-group tb-group-d">
+          <button class="board-pill tool-btn" data-tool="zone" disabled title="Coming soon" data-label-desktop="CIRCLE" data-label-mobile="O">CIRCLE</button>
+          <button class="board-pill tool-btn" data-tool="box" disabled title="Coming soon" data-label-desktop="BOX" data-label-mobile="BOX">BOX</button>
+          <button class="board-pill tool-btn" data-tool="arrow" disabled title="Coming soon" data-label-desktop="ARROW" data-label-mobile="ARR">ARROW</button>
+          <button class="board-pill tool-btn" data-tool="note" disabled title="Coming soon" data-label-desktop="NOTE" data-label-mobile="NOTE">NOTE</button>
+        </div>
+
+        <!-- CLEAR: destructive action, far right -->
+        <button class="board-pill action-btn tb-clear-btn" id="mobileClearBtn" onclick="clearAll()" data-label-desktop="CLEAR" data-label-mobile="&#10005;" title="Clear all players and paths">CLEAR</button>
+
         <div id="toolbarModeInline">MODE: MOVE</div>
       </div>
 

@@ -1890,6 +1890,13 @@ function renderAnnotationDraft() {
 }
 
 //  MAIN RENDER
+let _rafPending = false;
+function scheduleRender() {
+  if (_rafPending) return;
+  _rafPending = true;
+  requestAnimationFrame(() => { _rafPending = false; render(); });
+}
+
 function render() {
   drawField();
 
@@ -2422,7 +2429,7 @@ function handlePointerMove(e) {
         }
       }
     }
-    render(); return;
+    scheduleRender(); return;
   }
 
   // Freehand draw
@@ -2430,7 +2437,7 @@ function handlePointerMove(e) {
     if (d2(fp, S.drawing.last) > 1.2) {
       S.drawing.pts.push({x:fp.x, y:fp.y});
       S.drawing.last = {x:fp.x, y:fp.y};
-      render();
+      scheduleRender();
     }
     return;
   }
@@ -2448,7 +2455,7 @@ function handlePointerMove(e) {
       setBoxFromBounds(S.annotationDraft, start.x, start.y, fieldPoint.x, fieldPoint.y);
       clampBoxAnnotation(S.annotationDraft);
     }
-    render();
+    scheduleRender();
     return;
   }
 
