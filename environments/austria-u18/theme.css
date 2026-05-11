@@ -1511,11 +1511,11 @@ body.austria-u18-theme::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.9);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(12px);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.25s ease;
+  transition: opacity 0.28s ease;
 }
 
 .diagram-lightbox.open {
@@ -1525,10 +1525,17 @@ body.austria-u18-theme::before {
 
 .diagram-lightbox-inner {
   position: relative;
-  max-width: 92vw;
-  max-height: 88vh;
-  transform: scale(0.95);
-  transition: transform 0.25s cubic-bezier(0.22, 0.8, 0.36, 1);
+  max-width: 82vw;
+  max-height: 82vh;
+  padding: 24px;
+  background: rgba(15, 18, 23, 0.88);
+  border: 1px solid rgba(177, 31, 48, 0.24);
+  border-radius: 12px;
+  box-shadow:
+    0 20px 64px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transform: scale(0.96);
+  transition: transform 0.28s cubic-bezier(0.22, 0.8, 0.36, 1);
 }
 
 .diagram-lightbox.open .diagram-lightbox-inner {
@@ -1538,36 +1545,49 @@ body.austria-u18-theme::before {
 .diagram-lightbox-inner img {
   display: block;
   max-width: 100%;
-  max-height: 100%;
+  max-height: 76vh;
   width: auto;
   height: auto;
   object-fit: contain;
   border-radius: 8px;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(177, 31, 48, 0.18);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
 }
 
 .diagram-lightbox-close {
   position: absolute;
-  top: -16px;
-  right: -16px;
+  top: 12px;
+  right: 12px;
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(177, 31, 48, 0.9);
-  border: 2px solid rgba(183, 154, 97, 0.3);
+  background: rgba(177, 31, 48, 0.88);
+  border: 1px solid rgba(177, 31, 48, 0.5);
   color: #fff;
-  font-size: 1.2rem;
-  font-weight: bold;
+  font-size: 1.4rem;
+  font-weight: 300;
   line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  z-index: 1;
+  z-index: 10;
 }
 
 .diagram-lightbox-close:hover {
   background: rgba(177, 31, 48, 1);
-  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(177, 31, 48, 0.4);
+}
+
+@media (max-width: 768px) {
+  .diagram-lightbox-inner {
+    max-width: 94vw;
+    max-height: 84vh;
+    padding: 14px;
+  }
+
+  .diagram-lightbox-inner img {
+    max-height: 72vh;
+  }
 }

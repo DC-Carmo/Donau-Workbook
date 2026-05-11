@@ -546,8 +546,8 @@
                 <div class="attack-info-label">Coaching Points</div>
                 <ul>${(play.detail || []).map((point) => `<li>${point}</li>`).join("")}</ul>
               </section>
-              <div class="play-diagram-card">
-                <img src="${play.diagram}" alt="${play.name} diagram" class="play-diagram-image" onclick="openDiagramLightbox('${play.diagram}', '${play.name} diagram')" style="cursor: pointer;">
+              <div class="play-diagram-card" data-diagram="${play.diagram}" data-name="${play.name}">
+                <img src="${play.diagram}" alt="${play.name} diagram" class="play-diagram-image" style="cursor: pointer;">
               </div>
             </div>
           ` : `
@@ -559,6 +559,16 @@
         </div>
       </article>
     `).join("");
+
+    document.querySelectorAll(".play-diagram-image").forEach((img) => {
+      img.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const card = img.closest(".play-diagram-card");
+        const src = card?.dataset.diagram;
+        const name = card?.dataset.name;
+        if (src) openDiagramLightbox(src, name ? `${name} diagram` : "Play diagram");
+      });
+    });
   }
 
   function setDefSide(side, btn) {
