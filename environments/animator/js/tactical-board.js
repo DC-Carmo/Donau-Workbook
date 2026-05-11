@@ -610,7 +610,11 @@ function giveBall(playerId) {
   snapshot();
   S.players.forEach(pl => { pl.isBC = false; });
   const target = S.players.find(pl => pl.id === playerId);
-  if (target) target.isBC = true;
+  if (target) {
+    target.isBC = true;
+    S.ball = { x: target.x, y: target.y };
+    setTool('move');
+  }
   render();
 }
 window.giveBall = giveBall;
@@ -2309,40 +2313,36 @@ function handlePointerDown(e) {
 
   else if (S.tool === 'erase') {
     snapshot();
-    const pl = hitPlayer(fp);
-    if (pl) {
-      removePlayer(pl.id);
-    } else if (hitBall(fp)) {
-      S.ball = null;
-      S.ballOwner = null;
-      applyBallOwnershipVisualState();
-    } else {
-      const annHit = hitAnnotation(fp);
-      if (annHit) {
-        removeAnnotation(annHit.id);
-        refreshInteractionUI();
-        render();
-        return;
-      }
-      // Erase nearest path segment
-      let removed = false;
-      S.paths = S.paths.filter(path => {
-        if (removed) return true;
-        const close = path.pts.some(pt => d2(fp, pt) < 3.5);
-        if (close) { removed = true; return false; }
-        return true;
+    let removed = false;
+
+    // 1. Try to erase a path near the click point
+    S.paths = S.paths.filter(path => {
+      if (removed) return true;
+      const close = path.pts.some(pt => d2(fp, pt) < 3.5);
+      if (close) { removed = true; return false; }
+      return true;
+    });
+
+    // 2. Try to erase a pass arc near the click point
+    if (!removed) {
+      const before = S.passes.length;
+      S.passes = S.passes.filter(pass => {
+        const fp2 = S.players.find(p => p.id === pass.from);
+        const tp  = S.players.find(p => p.id === pass.to);
+        if (!fp2 || !tp) return false;
+        const mx = (fp2.x + tp.x) / 2, my = (fp2.y + tp.y) / 2;
+        return d2(fp, { x: mx, y: my }) > 4;
       });
-      // Erase nearest pass
-      if (!removed) {
-        S.passes = S.passes.filter(pass => {
-          const fp2 = S.players.find(p=>p.id===pass.from);
-          const tp  = S.players.find(p=>p.id===pass.to);
-          if (!fp2||!tp) return false;
-          const mx = (fp2.x+tp.x)/2, my = (fp2.y+tp.y)/2;
-          return d2(fp, {x:mx,y:my}) > 4;
-        });
-      }
+      if (S.passes.length < before) removed = true;
     }
+
+    // 3. Only remove player or ball if nothing else was hit
+    if (!removed) {
+      const pl = hitPlayer(fp);
+      if (pl) removePlayer(pl.id);
+      else if (hitBall(fp)) { S.ball = null; S.selected = null; }
+    }
+
     refreshInteractionUI();
     render();
   }
