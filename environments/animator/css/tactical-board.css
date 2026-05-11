@@ -2605,6 +2605,25 @@ html, body {
 }
 
 /* ── Coaching Notes accordion panel (BOTTOM) ── */
+.section-block {
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255,255,255,0.09);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.08) transparent;
+  max-height: 220px;
+}
+.section-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.36);
+  padding: 7px 12px 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+
 .sp-notes-panel {
   flex-shrink: 0;
   overflow-y: auto;

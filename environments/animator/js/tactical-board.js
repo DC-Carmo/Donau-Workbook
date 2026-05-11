@@ -3916,7 +3916,7 @@ function saveCurrentPlay() {
 }
 
 function refreshSavedPlayList() {
-  const wrap = document.getElementById('savedPlayList');
+  const wrap = document.getElementById('playList') || document.getElementById('savedPlayList');
   if (!wrap) return;
   const saved = getSavedPlays();
   wrap.innerHTML = '';
