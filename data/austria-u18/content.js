@@ -78,7 +78,8 @@
             "Lineout starter used to launch with clarity.",
             "First movement must hold the defence and create the picture.",
             "Support lines stay early and connected through the launch."
-          ]
+          ],
+          diagram: "../../assets/donau/images/ml-nt.png"
         },
         {
           name: "L.A",
