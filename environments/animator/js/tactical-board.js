@@ -22,6 +22,7 @@ const FVW = F.DX1 - F.DX0;
 const FVH = F.DY1 - F.DY0;
 const BALL_CARRY_OFFSET = { x: 1.45, y: -1.05 };
 const MOBILE_TAP_TOGGLE_PX = 5;
+const SNAP_RADIUS = 4; // field units (~4m)
 
 // Canvas scaling
 const FIELD_X_STRETCH = 1.7;
@@ -280,6 +281,11 @@ function samePlayerRef(a, b) {
 function findPlayerByRef(ref) {
   if (!ref) return null;
   return S.players.find(pl => pl.num === ref.num && pl.team === ref.team) || null;
+}
+
+function findBallSnapTarget(ball = S.ball) {
+  if (!ball) return null;
+  return S.players.find(p => d2({ x: ball.x, y: ball.y }, { x: p.x, y: p.y }) < SNAP_RADIUS) || null;
 }
 
 function normalizePlayerRef(ref) {
@@ -2190,6 +2196,21 @@ function render() {
     }
   }
 
+  if (S.dragging?.type === 'ball' && S.ball) {
+    const near = findBallSnapTarget(S.ball);
+    if (near) {
+      const pt = toC(near.x, near.y);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(251,191,36,0.5)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, R() + 8, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   S.players.forEach(pl => {
     const pos = animPos(pl, t);
     const sel = S.selected === pl.id;
@@ -2585,7 +2606,19 @@ function handlePointerMove(e) {
     } else if (S.dragging.type === 'ball' && S.ball) {
       S.ball.x = clamp(fp.x - S.dragOff.x, -2, 70);
       S.ball.y = clamp(fp.y - S.dragOff.y, -11, 111);
-      updateBallOwnerFromPosition();
+      const nearest = findBallSnapTarget(S.ball);
+      if (nearest) {
+        S.ball.x = nearest.x;
+        S.ball.y = nearest.y;
+        S.players.forEach(p => p.isBC = false);
+        nearest.isBC = true;
+        S.ballOwner = playerRef(nearest);
+        S.ballAttached = false;
+      } else {
+        S.players.forEach(p => p.isBC = false);
+        S.ballOwner = null;
+        S.ballAttached = false;
+      }
     } else if (S.dragging.type === 'annotation') {
       const ann = findAnnotationById(S.dragging.id);
       if (ann) {
