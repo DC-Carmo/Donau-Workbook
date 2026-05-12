@@ -4793,6 +4793,69 @@ function exportPlayData(play) {
   refreshInteractionUI();
 }
 
+async function exportPDF() {
+  updatePlayMetadataFromInputs();
+  if (!window.jspdf?.jsPDF || typeof window.qrcode !== 'function') {
+    setHint('PDF export is unavailable right now. Reload the board and try again.');
+    refreshInteractionUI();
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const W = 297, H = 210;
+  const playName = document.getElementById('playName').value || 'Play';
+  const noteFields = [
+    ['PHASE PURPOSE', document.getElementById('metaPurpose')?.value?.trim() || ''],
+    ['DECISION CUE', document.getElementById('metaDecisionCue')?.value?.trim() || ''],
+    ['COACHING POINTS', readMetaList(['metaCoachingPoint1', 'metaCoachingPoint2', 'metaCoachingPoint3'], 3).join('\n')],
+    ['COMMON MISTAKES', readMetaList(['metaCommonMistake1', 'metaCommonMistake2', 'metaCommonMistake3'], 3).join('\n')],
+  ];
+
+  doc.setFillColor(10, 19, 16);
+  doc.rect(0, 0, W, H, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(22);
+  doc.text('RDA TACTICAL BOARD', 14, 14);
+  doc.setFontSize(14);
+  doc.setTextColor(251, 191, 36);
+  doc.text(playName, 14, 22);
+
+  const imgData = cv.toDataURL('image/png');
+  doc.addImage(imgData, 'PNG', 14, 28, 110, 155);
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10);
+  let noteY = 32;
+  noteFields.forEach(([label, val]) => {
+    if (!val) return;
+    doc.setTextColor(251, 191, 36);
+    doc.setFontSize(8);
+    doc.text(label, 135, noteY);
+    noteY += 5;
+    doc.setTextColor(220, 220, 220);
+    doc.setFontSize(9);
+    const lines = doc.splitTextToSize(val, 75);
+    doc.text(lines, 135, noteY);
+    noteY += lines.length * 5 + 4;
+  });
+
+  const qr = qrcode(0, 'M');
+  qr.addData(window.location.href);
+  qr.make();
+  const qrImg = qr.createDataURL(4);
+  doc.addImage(qrImg, 'PNG', 255, 160, 30, 30);
+  doc.setTextColor(150, 150, 150);
+  doc.setFontSize(7);
+  doc.text('Scan to open live board', 256, 194);
+
+  doc.save(`${playName || 'play'}.pdf`);
+  setHint(`Exported "${playName}" as PDF.`);
+  refreshInteractionUI();
+}
+window.exportPDF = exportPDF;
+
 function exportCurrentPlay() {
   exportPlayData(makeBoardData());
 }
