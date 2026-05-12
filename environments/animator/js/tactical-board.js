@@ -752,9 +752,14 @@ function clearSelectedObject() {
 }
 
 function selectPlayer(id, { highlightedIds = [] } = {}) {
+  // Player selection is exclusive: selecting a player clears other object/path selections
+  // so later actions always resolve from this one player id.
   S.selectedPlayerId = id;
   S.selectedAnnotationIdValue = null;
   S.selectedObjectType = 'player';
+  S.selectedPassIdx = null;
+  S.selectedPathPid = null;
+  S.ballAssignCandidate = id;
   S.highlightedPlayerIds = Array.isArray(highlightedIds) ? [...highlightedIds] : [];
   syncLegacySelectionState();
 }
@@ -771,6 +776,8 @@ function selectBall(candidateId = null) {
   S.selectedPlayerId = null;
   S.selectedAnnotationIdValue = null;
   S.selectedObjectType = 'ball';
+  S.selectedPassIdx = null;
+  S.selectedPathPid = null;
   clearHighlightedPlayers();
   S.ballAssignCandidate = candidateId;
   syncLegacySelectionState();
@@ -780,6 +787,8 @@ function selectAnnotationById(id) {
   S.selectedPlayerId = null;
   S.selectedAnnotationIdValue = id;
   S.selectedObjectType = 'annotation';
+  S.selectedPassIdx = null;
+  S.selectedPathPid = null;
   clearHighlightedPlayers();
   syncLegacySelectionState();
 }
@@ -4533,6 +4542,7 @@ window.setAnnotationColor = setAnnotationColor;
 function refreshInteractionUI() {
   persistCurrentStep();
   updateSelInfo();
+  rebuildPalette();
   updatePaletteSummary();
   updateBoardStatus();
   updatePlayMetadataPanel();
@@ -4676,6 +4686,7 @@ function updateSelInfo() {
   if (giveBallBtn) {
     giveBallBtn.hidden = !giveBallTarget;
     giveBallBtn.disabled = !giveBallTarget;
+    giveBallBtn.onclick = giveBallToSelectedPlayer;
     if (giveBallTarget) {
       giveBallBtn.textContent = `Give Ball to ${giveBallTarget.team === 'A' ? 'A' : 'D'} #${giveBallTarget.num}`;
     }
