@@ -2016,15 +2016,6 @@ function drawBallCarrierHighlight(fx, fy) {
   const p = toC(fx, fy);
   const r = R();
   ctx.save();
-  ctx.shadowColor = '#fbbf24';
-  ctx.shadowBlur = isMobileBoardViewport() ? 12 : 20;
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, r + (isMobileBoardViewport() ? 4 : 5), 0, Math.PI * 2);
-  ctx.strokeStyle = isMobileBoardViewport() ? 'rgba(251,191,36,0.24)' : 'rgba(251,191,36,0.34)';
-  ctx.lineWidth = isMobileBoardViewport() ? 1.6 : 2;
-  ctx.stroke();
-  ctx.shadowBlur = 0;
-
   const bx = p.x + r * 0.68;
   const by = p.y - r * 0.7;
   ctx.beginPath();
@@ -2729,19 +2720,6 @@ function render() {
     drawRunPath(S.drawing.pts, col, 2.2, 1, true);
   }
   renderAnnotationDraft();
-
-  if (activeWorkflowPlayerId()) {
-    const fp = S.players.find(p => p.id === activeWorkflowPlayerId());
-    if (fp) {
-      const p = toC(fp.x, fp.y), r = R() + 6;
-      ctx.save();
-      ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 2;
-      ctx.setLineDash([4, 3]);
-      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.restore();
-    }
-  }
 
   if (S.dragging?.type === 'ball' && S.ball) {
     const near = findBallSnapTarget(S.ball);
