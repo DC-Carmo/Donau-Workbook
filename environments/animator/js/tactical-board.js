@@ -1149,13 +1149,13 @@ function scrumBacks(side = 'centre', team = 'A', yBase = 60) {
   }
   if (side === 'right') {
     return [
-      { num: 9, team, x: 43.5, y: yBase },
-      { num: 10, team, x: 40.5, y: yBase + 8 },
-      { num: 11, team, x: 10, y: yBase + 15 },
-      { num: 12, team, x: 36, y: yBase + 10 },
-      { num: 13, team, x: 27.5, y: yBase + 11.5 },
-      { num: 14, team, x: 60, y: yBase + 9 },
-      { num: 15, team, x: 21.5, y: yBase + 20.5 },
+      { num: 9, team, x: 56.5, y: yBase },
+      { num: 10, team, x: 40.5, y: yBase + 10.5 },
+      { num: 11, team, x: 2, y: yBase + 16.5 },
+      { num: 12, team, x: 32.5, y: yBase + 15.5 },
+      { num: 13, team, x: 21.5, y: yBase + 17 },
+      { num: 14, team, x: 66, y: yBase + 15 },
+      { num: 15, team, x: 20.5, y: yBase + 33 },
     ];
   }
   return [
