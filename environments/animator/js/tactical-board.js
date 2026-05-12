@@ -217,6 +217,7 @@ Object.assign(S, {
   selectedPlayerId: null,
   selectedObjectType: null,
   selectedAnnotationIdValue: null,
+  dragPlayerId: null,
   dragging: null,       // { type:'player'|'ball', id? }
   dragOff: { x:0, y:0 },
   drawing: null,        // { pid, pts:[], last:{x,y} }
@@ -717,7 +718,7 @@ function annotationSelection(id) {
 }
 
 function selectedAnnotationId() {
-  return S.selectedAnnotationIdValue || (typeof S.selected === 'string' && S.selected.startsWith('ann:') ? S.selected.slice(4) : null);
+  return S.selectedAnnotationIdValue || null;
 }
 
 function syncLegacySelectionState() {
@@ -725,7 +726,7 @@ function syncLegacySelectionState() {
   else if (S.selectedObjectType === 'ball') S.selected = '__ball__';
   else if (S.selectedObjectType === 'annotation' && S.selectedAnnotationIdValue) S.selected = annotationSelection(S.selectedAnnotationIdValue);
   else S.selected = null;
-  S.passFrom = S.activeKickerId || S.activePasserId || null;
+  S.passFrom = null;
 }
 
 function clearHighlightedPlayers() {
@@ -756,6 +757,14 @@ function selectPlayer(id, { highlightedIds = [] } = {}) {
   S.selectedObjectType = 'player';
   S.highlightedPlayerIds = Array.isArray(highlightedIds) ? [...highlightedIds] : [];
   syncLegacySelectionState();
+}
+
+function setDragPlayer(id) {
+  S.dragPlayerId = id;
+}
+
+function clearDragPlayer() {
+  S.dragPlayerId = null;
 }
 
 function selectBall(candidateId = null) {
@@ -2695,7 +2704,7 @@ function render() {
   });
 
   if (S.dragging?.type === 'player') {
-    const pl = S.players.find(p => p.id === S.dragging.id);
+    const pl = S.players.find(p => p.id === S.dragPlayerId);
     const path = pl && S.paths.find(p => p.pid === pl.id);
 
     if (path && path.pts.length >= 2) {
@@ -2904,6 +2913,7 @@ function handlePointerDown(e) {
       closeRadialMenu();
       snapshot();
       S.dragging = { type:'gainline' };
+      clearDragPlayer();
       clearSelectedObject();
       clearPassKickState();
       S.ballAssignCandidate = null;
@@ -2924,6 +2934,8 @@ function handlePointerDown(e) {
       const wasSelected = isPlayerSelected(pl.id);
       clearPassKickState();
       selectPlayer(pl.id);
+      clearDragPlayer();
+      setDragPlayer(pl.id);
       S.ballAssignCandidate = pl.id;
       S.dragging  = { type:'player', id:pl.id, snapshotDone: false };
       S.dragOff   = { x:fp.x - pl.x, y:fp.y - pl.y };
@@ -2933,6 +2945,7 @@ function handlePointerDown(e) {
     } else if (ballHit) {
       const wasSelected = isBallSelected();
       snapshot();
+      clearDragPlayer();
       clearPassKickState();
       selectBall(previousSelectedPlayer ? previousSelectedPlayer.id : null);
       S.dragging  = { type:'ball' };
@@ -2944,6 +2957,7 @@ function handlePointerDown(e) {
     } else if (annHit) {
       const wasSelected = selectedAnnotationId() === annHit.id;
       snapshot();
+      clearDragPlayer();
       clearPassKickState();
       selectAnnotationById(annHit.id);
       S.ballAssignCandidate = null;
@@ -2968,6 +2982,7 @@ function handlePointerDown(e) {
       const passIdx = hitPassLine(fp);
       const runPid  = hitRunPath(fp);
       if (kickIdx !== -1) {
+        clearDragPlayer();
         clearSelectedObject();
         clearPassKickState();
         S.selectedPassIdx = kickIdx;
@@ -2975,6 +2990,7 @@ function handlePointerDown(e) {
         S.ballAssignCandidate = null;
         S.pointerTap = null;
       } else if (passIdx !== -1) {
+        clearDragPlayer();
         clearSelectedObject();
         clearPassKickState();
         S.selectedPassIdx = passIdx;
@@ -2982,6 +2998,7 @@ function handlePointerDown(e) {
         S.ballAssignCandidate = null;
         S.pointerTap = null;
       } else if (runPid !== null) {
+        clearDragPlayer();
         clearSelectedObject();
         clearPassKickState();
         S.selectedPathPid = runPid;
@@ -2989,6 +3006,7 @@ function handlePointerDown(e) {
         S.ballAssignCandidate = null;
         S.pointerTap = null;
       } else {
+        clearDragPlayer();
         clearSelectedObject();
         clearPassKickState();
         S.selectedPassIdx = null;
@@ -3003,6 +3021,7 @@ function handlePointerDown(e) {
   else if (S.tool === 'run') {
     const pl = hitPlayer(fp);
     if (pl) {
+      clearDragPlayer();
       clearPassKickState();
       selectPlayer(pl.id);
       S.drawing = { pid:pl.id, pts:[{x:pl.x, y:pl.y}], last:{x:fp.x, y:fp.y} };
@@ -3092,6 +3111,7 @@ function handlePointerDown(e) {
   else if (S.tool === 'pass' || S.tool === 'kick') {
     const pl = hitPlayer(fp);
     if (pl) {
+      clearDragPlayer();
       const activeSourceId = activeWorkflowPlayerId();
       if (!activeSourceId) {
         // First click: arm passer/kicker and auto-assign ball to them
@@ -3192,7 +3212,7 @@ function handlePointerMove(e) {
   if (S.dragging) {
     cv.style.cursor = 'grabbing';
     if (S.dragging.type === 'player') {
-      const pl = S.players.find(p => p.id === S.dragging.id);
+      const pl = S.players.find(p => p.id === S.dragPlayerId);
       if (pl) {
         if (!S.dragging.snapshotDone) {
           snapshot();
@@ -3348,6 +3368,7 @@ function onPointerUp(e) {
   if (tap && !tap.moved && S.tool === 'move') {
     if (tap.payload.type === 'player' && isPlayerSelected(tap.payload.id)) {
       S.dragging = null;
+      clearDragPlayer();
       const pl = S.players.find(p => p.id === tap.payload.id);
       if (pl) {
         showRadial(pl, tap.payload.canvasX, tap.payload.canvasY);
@@ -3373,6 +3394,7 @@ function onPointerUp(e) {
   if (S.dragging) {
     if (S.dragging.type === 'ball' || S.dragging.type === 'player') updateBallOwnerFromPosition();
     S.dragging = null;
+    clearDragPlayer();
     refreshInteractionUI();
     render();
   }
@@ -4214,7 +4236,7 @@ function getStatusMessage() {
   if (!S.players.length && !S.ball && !S.annotations.length) return 'Add players from the left, place the ball, then choose how to build the picture.';
   if (S.dragging?.type === 'gainline') return 'Dragging the gainline. Release to lock the contest line.';
   if (S.dragging?.type === 'player') {
-    const pl = S.players.find(p => p.id === S.dragging.id);
+    const pl = S.players.find(p => p.id === S.dragPlayerId);
     return pl ? `Dragging ${pl.team==='A'?'Attack':'Defence'} #${pl.num}. Release to place.` : 'Dragging player.';
   }
   if (S.dragging?.type === 'ball') return 'Dragging the ball. Release to place it.';
@@ -4547,6 +4569,7 @@ function setTool(t) {
   if (t !== 'arrow' && t !== 'zone' && t !== 'box') S.annotationDraft = null;
   if (t !== 'tele') teleDrawing = null;
   if (t !== 'pass' && t !== 'kick') clearPassKickState();
+  if (t !== 'move') clearDragPlayer();
   S.selectedPathPid = null;
   S.selectedPassIdx = null;
   document.querySelectorAll('[data-tool]').forEach(b => b.classList.remove('active'));
@@ -4567,6 +4590,7 @@ function clearSelection() {
   S.ballAssignCandidate = null;
   S.pointerTap = null;
   S.dragging = null;
+  clearDragPlayer();
   clearPassKickState();
   S.drawing = null;
   S.annotationDraft = null;
@@ -4610,13 +4634,14 @@ function cancelActiveBoardInteraction() {
   if (activeWorkflowPlayerId()) {
     clearPassKickState();
     clearSelectedObject();
+    clearDragPlayer();
     S.pointerTap = null;
     setHint(`${MODE_LABELS[S.tool] || 'Tool'} cancelled.`);
     refreshInteractionUI();
     render();
     return true;
   }
-  if (S.selected || S.selectedPassIdx !== null || S.selectedPathPid !== null) {
+  if (S.selectedPlayerId !== null || isBallSelected() || selectedAnnotationId() || S.selectedPassIdx !== null || S.selectedPathPid !== null) {
     clearSelection();
     return true;
   }
@@ -4634,7 +4659,7 @@ function clearAll() {
   S.playMetadata = emptyPlayMetadata('New Play');
   S.projectPlayback = null;
   S.annotations = [];
-  S.drawing=null; S.passFrom=null; S.annotationDraft=null; S.selected=null; S.selectedPlayerId=null; S.selectedAnnotationIdValue=null; S.selectedObjectType=null; S.activePasserId=null; S.activeKickerId=null; S.highlightedPlayerIds=[]; S.ballAssignCandidate=null; S.selectedPathPid=null; S.selectedPassIdx=null;
+  S.drawing=null; S.passFrom=null; S.annotationDraft=null; S.selected=null; S.selectedPlayerId=null; S.selectedAnnotationIdValue=null; S.selectedObjectType=null; S.dragPlayerId=null; S.activePasserId=null; S.activeKickerId=null; S.highlightedPlayerIds=[]; S.ballAssignCandidate=null; S.selectedPathPid=null; S.selectedPassIdx=null;
   S.animT=0; S.animating=false;
   S.animSpd=1; spdIdx=2;
   S.steps=[emptyStepState()]; S.currentStep=0;
@@ -5029,7 +5054,7 @@ document.addEventListener('keydown', e => {
   if (k==='z'&&(e.ctrlKey||e.metaKey)&&e.shiftKey) { e.preventDefault(); redo(); return; }
   if (k==='z'&&(e.ctrlKey||e.metaKey)) { e.preventDefault(); undo(); }
   if (k==='delete'||k==='backspace') {
-    if (S.selected || selectedAnnotationId() || S.selectedPassIdx !== null || S.selectedPathPid !== null) {
+    if (S.selectedPlayerId !== null || isBallSelected() || selectedAnnotationId() || S.selectedPassIdx !== null || S.selectedPathPid !== null) {
       e.preventDefault();
       deleteSelected();
     }
