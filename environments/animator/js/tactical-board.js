@@ -124,7 +124,7 @@ function renderRadialMenu() {
     btn.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      S.selected = radialMenu?.playerId || S.selected;
+      if (radialMenu?.playerId) selectPlayer(radialMenu.playerId);
       if (action.tool) setTool(action.tool);
       if (action.fn) action.fn();
       closeRadialMenu();
@@ -207,11 +207,23 @@ Object.assign(S, {
   playMetadata: null,
   projectPlayback: null,
   annotationDraft: null,
-  selected: null,       // player id
+  // Selection model:
+  // - selectedPlayerId: one player selected for editing at a time
+  // - selectedObjectType/selectedAnnotationIdValue: non-player object selection
+  // - activePasserId/activeKickerId: pass/kick workflow only
+  // - highlightedPlayerIds: temporary workflow highlights only
+  // S.selected and S.passFrom remain compatibility mirrors for older UI helpers.
+  selected: null,
+  selectedPlayerId: null,
+  selectedObjectType: null,
+  selectedAnnotationIdValue: null,
   dragging: null,       // { type:'player'|'ball', id? }
   dragOff: { x:0, y:0 },
   drawing: null,        // { pid, pts:[], last:{x,y} }
   passFrom: null,
+  activePasserId: null,
+  activeKickerId: null,
+  highlightedPlayerIds: [],
   history: [],          // undo stack (snapshots)
   future: [],           // redo stack
   animT: 0,
@@ -573,7 +585,11 @@ function serializeGamePlan(nameOverride) {
 
 function setLiveBoardFromStep(step, { keepSelection = false } = {}) {
   const normalized = normalizeStepState(step);
-  const selected = keepSelection ? S.selected : null;
+  const selectedPlayerRef = keepSelection && S.selectedObjectType === 'player'
+    ? playerRef(S.players.find(pl => pl.id === S.selectedPlayerId))
+    : null;
+  const selectedObjectType = keepSelection ? S.selectedObjectType : null;
+  const selectedAnnotation = keepSelection ? S.selectedAnnotationIdValue : null;
   S.players = normalized.players.map(pl => ({ ...pl, id: S.nextId++, isBC: false }));
   S.atkUsed = new Set(S.players.filter(pl => pl.team === 'A').map(pl => pl.num));
   S.defUsed = new Set(S.players.filter(pl => pl.team === 'D').map(pl => pl.num));
@@ -598,7 +614,11 @@ function setLiveBoardFromStep(step, { keepSelection = false } = {}) {
     return to ? { from: from.id, to: to.id, style: pass.style } : null;
   }).filter(Boolean);
 
-  S.selected = keepSelection ? selected : null;
+  const selectedPlayer = selectedPlayerRef ? S.players.find(pl => samePlayerRef(playerRef(pl), selectedPlayerRef)) : null;
+  S.selectedPlayerId = selectedPlayer?.id || null;
+  S.selectedObjectType = selectedObjectType === 'player' && !selectedPlayer ? null : selectedObjectType;
+  S.selectedAnnotationIdValue = selectedAnnotation;
+  syncLegacySelectionState();
   if (S.ballAttached && S.ballOwner) syncAttachedBallToOwner();
   else if (S.ball && !S.ballOwner) updateBallOwnerFromPosition();
   else applyBallOwnershipVisualState();
@@ -609,10 +629,10 @@ function goToPhase(idx) {
   GamePlan.currentPhase = Math.max(0, Math.min(idx, GamePlan.phases.length - 1));
   const phase = normalizePhaseState(GamePlan.phases[GamePlan.currentPhase], GamePlan.currentPhase);
   GamePlan.phases[GamePlan.currentPhase] = phase;
-  S.selected = null;
+  clearSelectedObject();
   S.dragging = null;
   S.drawing = null;
-  S.passFrom = null;
+  clearPassKickState();
   S.annotationDraft = null;
   setLiveBoardFromStep(phase.steps[phase.currentStep] || emptyStepState());
   rebuildPalette();
@@ -697,7 +717,82 @@ function annotationSelection(id) {
 }
 
 function selectedAnnotationId() {
-  return typeof S.selected === 'string' && S.selected.startsWith('ann:') ? S.selected.slice(4) : null;
+  return S.selectedAnnotationIdValue || (typeof S.selected === 'string' && S.selected.startsWith('ann:') ? S.selected.slice(4) : null);
+}
+
+function syncLegacySelectionState() {
+  if (S.selectedObjectType === 'player') S.selected = S.selectedPlayerId;
+  else if (S.selectedObjectType === 'ball') S.selected = '__ball__';
+  else if (S.selectedObjectType === 'annotation' && S.selectedAnnotationIdValue) S.selected = annotationSelection(S.selectedAnnotationIdValue);
+  else S.selected = null;
+  S.passFrom = S.activeKickerId || S.activePasserId || null;
+}
+
+function clearHighlightedPlayers() {
+  S.highlightedPlayerIds = [];
+}
+
+function clearPassKickState() {
+  S.activePasserId = null;
+  S.activeKickerId = null;
+  clearHighlightedPlayers();
+  syncLegacySelectionState();
+}
+
+function activeWorkflowPlayerId() {
+  return S.activeKickerId || S.activePasserId || null;
+}
+
+function clearSelectedObject() {
+  S.selectedPlayerId = null;
+  S.selectedAnnotationIdValue = null;
+  S.selectedObjectType = null;
+  syncLegacySelectionState();
+}
+
+function selectPlayer(id, { highlightedIds = [] } = {}) {
+  S.selectedPlayerId = id;
+  S.selectedAnnotationIdValue = null;
+  S.selectedObjectType = 'player';
+  S.highlightedPlayerIds = Array.isArray(highlightedIds) ? [...highlightedIds] : [];
+  syncLegacySelectionState();
+}
+
+function selectBall(candidateId = null) {
+  S.selectedPlayerId = null;
+  S.selectedAnnotationIdValue = null;
+  S.selectedObjectType = 'ball';
+  clearHighlightedPlayers();
+  S.ballAssignCandidate = candidateId;
+  syncLegacySelectionState();
+}
+
+function selectAnnotationById(id) {
+  S.selectedPlayerId = null;
+  S.selectedAnnotationIdValue = id;
+  S.selectedObjectType = 'annotation';
+  clearHighlightedPlayers();
+  syncLegacySelectionState();
+}
+
+function isBallSelected() {
+  return S.selectedObjectType === 'ball';
+}
+
+function isPlayerSelected(id) {
+  return S.selectedObjectType === 'player' && S.selectedPlayerId === id;
+}
+
+function setWorkflowSource(id, tool = S.tool) {
+  if (tool === 'kick') {
+    S.activeKickerId = id;
+    S.activePasserId = null;
+  } else {
+    S.activePasserId = id;
+    S.activeKickerId = null;
+  }
+  S.highlightedPlayerIds = id ? [id] : [];
+  syncLegacySelectionState();
 }
 
 function findAnnotationById(id) {
@@ -805,10 +900,10 @@ function syncAttachedBallToOwner() {
 }
 
 function manualBallAssignmentTarget() {
-  if (S.selected && S.selected !== '__ball__') {
-    return S.players.find(p => p.id === S.selected) || null;
+  if (S.selectedObjectType === 'player' && S.selectedPlayerId !== null) {
+    return S.players.find(p => p.id === S.selectedPlayerId) || null;
   }
-  if (S.selected === '__ball__' && S.ballAssignCandidate) {
+  if (isBallSelected() && S.ballAssignCandidate) {
     return S.players.find(p => p.id === S.ballAssignCandidate) || null;
   }
   return null;
@@ -822,7 +917,7 @@ function assignBallToPlayer(player, { snapshotBefore = false, source = 'manual' 
   S.ballAttached = true;
   S.ballAssignCandidate = player.id;
   syncAttachedBallToOwner();
-  S.selected = player.id;
+  selectPlayer(player.id);
   completeFirstUseTutorial();
   const prefix = source === 'place' ? 'Ball placed with' : 'Ball given to';
   setHint(`${prefix} ${player.team === 'A' ? 'Attack' : 'Defence'} #${player.num}.`);
@@ -841,11 +936,13 @@ window.giveBallToSelectedPlayer = giveBallToSelectedPlayer;
 
 function giveBall(playerId) {
   snapshot();
-  S.players.forEach(pl => { pl.isBC = false; });
   const target = S.players.find(pl => pl.id === playerId);
   if (target) {
-    target.isBC = true;
     S.ball = { x: target.x, y: target.y };
+    S.ballOwner = playerRef(target);
+    S.ballAttached = false;
+    applyBallOwnershipVisualState();
+    selectPlayer(target.id);
     setTool('move');
   }
   render();
@@ -1385,7 +1482,8 @@ function undo() {
   S.projectId = h.projectId || null;
   S.projectMeta = h.projectMeta || null;
   S.projectPlayback = normalizePlaybackSettings(h.projectPlayback || {});
-  S.selected = null;
+  clearSelectedObject();
+  clearPassKickState();
   updatePlayMetadataPanel();
   updatePhaseUI();
   rebuildPalette(); refreshInteractionUI();
@@ -1418,7 +1516,8 @@ function redo() {
   S.projectId = h.projectId || null;
   S.projectMeta = h.projectMeta || null;
   S.projectPlayback = normalizePlaybackSettings(h.projectPlayback || {});
-  S.selected = null;
+  clearSelectedObject();
+  clearPassKickState();
   updatePlayMetadataPanel();
   updatePhaseUI();
   rebuildPalette(); refreshInteractionUI();
@@ -2622,8 +2721,8 @@ function render() {
   }
   renderAnnotationDraft();
 
-  if (S.passFrom) {
-    const fp = S.players.find(p => p.id === S.passFrom);
+  if (activeWorkflowPlayerId()) {
+    const fp = S.players.find(p => p.id === activeWorkflowPlayerId());
     if (fp) {
       const p = toC(fp.x, fp.y), r = R() + 6;
       ctx.save();
@@ -2652,11 +2751,11 @@ function render() {
 
   S.players.forEach(pl => {
     const pos = animPos(pl, t);
-    const sel = S.selected === pl.id;
+    const sel = isPlayerSelected(pl.id);
     drawPlayer(pos.x, pos.y, pl.num, pl.team, sel, pl.isBC);
   });
   if (S.ball) {
-    drawBall(S.ball.x, S.ball.y, S.selected === '__ball__');
+    drawBall(S.ball.x, S.ball.y, isBallSelected());
   }
   S.players.forEach(pl => {
     if (pl.isBC) drawBallCarrierHighlight(pl.x, pl.y);
@@ -2697,7 +2796,16 @@ function getPx(e) { const r=cv.getBoundingClientRect(); return {x:e.clientX-r.le
 const PRT = () => (R() + 1) / sc; // player hit radius in field units
 
 function hitPlayer(fp) {
-  return S.players.find(p => d2(fp, {x:p.x, y:p.y}) < PRT());
+  let nearest = null;
+  let nearestDist = Infinity;
+  S.players.forEach((player) => {
+    const dist = d2(fp, { x: player.x, y: player.y });
+    if (dist < PRT() && dist < nearestDist) {
+      nearest = player;
+      nearestDist = dist;
+    }
+  });
+  return nearest;
 }
 function hitBall(fp) {
   if (!S.ball) return false;
@@ -2756,7 +2864,7 @@ function removeAnnotation(id) {
   const ann = findAnnotationById(id);
   if (!ann) return;
   S.annotations = S.annotations.filter(item => item.id !== id);
-  if (selectedAnnotationId() === id) S.selected = null;
+  if (selectedAnnotationId() === id) clearSelectedObject();
   setHint(`${MODE_LABELS[ann.type] || 'Annotation'} removed.`);
 }
 
@@ -2796,7 +2904,8 @@ function handlePointerDown(e) {
       closeRadialMenu();
       snapshot();
       S.dragging = { type:'gainline' };
-      S.selected = null;
+      clearSelectedObject();
+      clearPassKickState();
       S.ballAssignCandidate = null;
       beginPointerTap(e.pointerId, { type:'gainline' }, e);
       try { cv.setPointerCapture(e.pointerId); } catch(_) {}
@@ -2807,13 +2916,14 @@ function handlePointerDown(e) {
     }
     const pl = hitPlayer(fp);
     const ballHit = !pl && hitBall(fp);
-    const previousSelectedPlayer = S.selected && S.selected !== '__ball__'
-      ? S.players.find(p => p.id === S.selected)
+    const previousSelectedPlayer = S.selectedObjectType === 'player' && S.selectedPlayerId !== null
+      ? S.players.find(p => p.id === S.selectedPlayerId)
       : null;
     const annHit = !pl && !ballHit ? hitAnnotation(fp) : null;
     if (pl) {
-      const wasSelected = S.selected === pl.id;
-      S.selected = pl.id;
+      const wasSelected = isPlayerSelected(pl.id);
+      clearPassKickState();
+      selectPlayer(pl.id);
       S.ballAssignCandidate = pl.id;
       S.dragging  = { type:'player', id:pl.id, snapshotDone: false };
       S.dragOff   = { x:fp.x - pl.x, y:fp.y - pl.y };
@@ -2821,10 +2931,10 @@ function handlePointerDown(e) {
       closeRadialMenu();
       try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     } else if (ballHit) {
-      const wasSelected = S.selected === '__ball__';
+      const wasSelected = isBallSelected();
       snapshot();
-      S.selected = '__ball__';
-      S.ballAssignCandidate = previousSelectedPlayer ? previousSelectedPlayer.id : null;
+      clearPassKickState();
+      selectBall(previousSelectedPlayer ? previousSelectedPlayer.id : null);
       S.dragging  = { type:'ball' };
       S.dragOff   = { x:fp.x - S.ball.x, y:fp.y - S.ball.y };
       if (S.ballAttached) S.ballAttached = false;
@@ -2834,7 +2944,8 @@ function handlePointerDown(e) {
     } else if (annHit) {
       const wasSelected = selectedAnnotationId() === annHit.id;
       snapshot();
-      S.selected = annotationSelection(annHit.id);
+      clearPassKickState();
+      selectAnnotationById(annHit.id);
       S.ballAssignCandidate = null;
       const ann = findAnnotationById(annHit.id);
       const dragOff = ann && (ann.type === 'note' || ann.type === 'zone' || ann.type === 'box')
@@ -2857,27 +2968,31 @@ function handlePointerDown(e) {
       const passIdx = hitPassLine(fp);
       const runPid  = hitRunPath(fp);
       if (kickIdx !== -1) {
+        clearSelectedObject();
+        clearPassKickState();
         S.selectedPassIdx = kickIdx;
         S.selectedPathPid = null;
-        S.selected = null;
         S.ballAssignCandidate = null;
         S.pointerTap = null;
       } else if (passIdx !== -1) {
+        clearSelectedObject();
+        clearPassKickState();
         S.selectedPassIdx = passIdx;
         S.selectedPathPid = null;
-        S.selected = null;
         S.ballAssignCandidate = null;
         S.pointerTap = null;
       } else if (runPid !== null) {
+        clearSelectedObject();
+        clearPassKickState();
         S.selectedPathPid = runPid;
         S.selectedPassIdx = null;
-        S.selected = null;
         S.ballAssignCandidate = null;
         S.pointerTap = null;
       } else {
+        clearSelectedObject();
+        clearPassKickState();
         S.selectedPassIdx = null;
         S.selectedPathPid = null;
-        S.selected = null;
         S.ballAssignCandidate = null;
         S.pointerTap = null;
       }
@@ -2888,8 +3003,9 @@ function handlePointerDown(e) {
   else if (S.tool === 'run') {
     const pl = hitPlayer(fp);
     if (pl) {
+      clearPassKickState();
+      selectPlayer(pl.id);
       S.drawing = { pid:pl.id, pts:[{x:pl.x, y:pl.y}], last:{x:fp.x, y:fp.y} };
-      S.selected = pl.id;
       try { cv.setPointerCapture(e.pointerId); } catch(_) {}
       setHint('Draw the run path, then release to finish.');
       refreshInteractionUI();
@@ -2910,7 +3026,7 @@ function handlePointerDown(e) {
     });
     if (annotation) {
       S.annotations.push(annotation);
-      S.selected = annotationSelection(annotation.id);
+      selectAnnotationById(annotation.id);
       setHint('Note placed. Drag it in Move or update the text from Selection.');
       refreshInteractionUI();
       render();
@@ -2976,11 +3092,12 @@ function handlePointerDown(e) {
   else if (S.tool === 'pass' || S.tool === 'kick') {
     const pl = hitPlayer(fp);
     if (pl) {
-      if (!S.passFrom) {
+      const activeSourceId = activeWorkflowPlayerId();
+      if (!activeSourceId) {
         // First click: arm passer/kicker and auto-assign ball to them
         snapshot();
-        S.passFrom = pl.id;
-        S.selected = pl.id;
+        setWorkflowSource(pl.id, S.tool);
+        selectPlayer(pl.id, { highlightedIds: [pl.id] });
         S.ballOwner = playerRef(pl);
         S.ballAttached = true;
         if (!S.ball) S.ball = { x: pl.x, y: pl.y };
@@ -2992,24 +3109,27 @@ function handlePointerDown(e) {
           : `Pass from ${teamLabel} #${pl.num}. Tap the receiver.`;
         setHint(hint);
         refreshInteractionUI();
-      } else if (pl.id !== S.passFrom) {
+      } else if (pl.id !== activeSourceId) {
         // Second click: complete the pass/kick
-        const dup = S.passes.find(p => p.from === S.passFrom && p.to === pl.id);
-        if (!dup) S.passes.push({ from: S.passFrom, to: pl.id, style: S.tool });
-        S.passFrom = null; S.selected = null;
+        const dup = S.passes.find(p => p.from === activeSourceId && p.to === pl.id);
+        if (!dup) S.passes.push({ from: activeSourceId, to: pl.id, style: S.tool });
+        clearPassKickState();
+        clearSelectedObject();
         setHint(S.tool === 'pass' ? 'Pass added.' : 'Kick to player added.');
         refreshInteractionUI();
       } else {
         // Clicked same player again: cancel
-        S.passFrom = null; S.selected = null;
+        clearPassKickState();
+        clearSelectedObject();
         setHint(HINTS[S.tool] || '');
         refreshInteractionUI();
       }
       render();
-    } else if (S.tool === 'kick' && S.passFrom && isInsidePitch(fp)) {
+    } else if (S.tool === 'kick' && activeWorkflowPlayerId() && isInsidePitch(fp)) {
       // Kick to field target (no receiver player)
-      S.passes.push({ from: S.passFrom, to: null, targetX: clampedFieldPoint.x, targetY: clampedFieldPoint.y, style: 'kick' });
-      S.passFrom = null; S.selected = null;
+      S.passes.push({ from: activeWorkflowPlayerId(), to: null, targetX: clampedFieldPoint.x, targetY: clampedFieldPoint.y, style: 'kick' });
+      clearPassKickState();
+      clearSelectedObject();
       setHint('Kick to field drawn.');
       refreshInteractionUI();
       render();
@@ -3045,7 +3165,7 @@ function handlePointerDown(e) {
     if (!removed) {
       const pl = hitPlayer(fp);
       if (pl) removePlayer(pl.id);
-      else if (hitBall(fp)) { S.ball = null; S.selected = null; }
+      else if (hitBall(fp)) { S.ball = null; clearSelectedObject(); }
     }
 
     refreshInteractionUI();
@@ -3226,7 +3346,7 @@ cv.addEventListener('pointermove', handlePointerMove);
 function onPointerUp(e) {
   const tap = consumePointerTap(e?.pointerId);
   if (tap && !tap.moved && S.tool === 'move') {
-    if (tap.payload.type === 'player' && S.selected === tap.payload.id) {
+    if (tap.payload.type === 'player' && isPlayerSelected(tap.payload.id)) {
       S.dragging = null;
       const pl = S.players.find(p => p.id === tap.payload.id);
       if (pl) {
@@ -3238,7 +3358,7 @@ function onPointerUp(e) {
       render();
       return;
     }
-    if (tap.payload.type === 'ball' && tap.payload.wasSelected && S.selected === '__ball__') {
+    if (tap.payload.type === 'ball' && tap.payload.wasSelected && isBallSelected()) {
       clearSelection();
       render();
       return;
@@ -3321,7 +3441,7 @@ function finishAnnotationDraft() {
   }
   snapshot();
   S.annotations.push(draft);
-  S.selected = annotationSelection(draft.id);
+  selectAnnotationById(draft.id);
   completeFirstUseTutorial();
   setHint(`${MODE_LABELS[draft.type] || 'Annotation'} placed — selected. Press Delete to remove, or click it again to reposition.`);
   refreshInteractionUI();
@@ -3387,8 +3507,8 @@ function addPlayerByNum(num, team) {
   completeFirstUseTutorial();
   rebuildPalette();
   setTool('move');
-  S.selected = S.players[S.players.length - 1].id;
-  S.ballAssignCandidate = S.selected;
+  selectPlayer(S.players[S.players.length - 1].id);
+  S.ballAssignCandidate = S.selectedPlayerId;
   setHint(`${team === 'A' ? 'Attack' : 'Defence'} #${num} added. Drag to position.`);
   refreshInteractionUI();
   render();
@@ -3398,7 +3518,7 @@ function togglePalettePlayer(num, team) {
   const existing = S.players.find((player) => player.num === num && player.team === team) || null;
 
   if (existing) {
-    if (S.selected === existing.id) {
+    if (isPlayerSelected(existing.id)) {
       clearSelection();
       setHint(`${team === 'A' ? 'Attack' : 'Defence'} #${num} deselected.`);
       refreshInteractionUI();
@@ -3407,7 +3527,8 @@ function togglePalettePlayer(num, team) {
     }
 
     setTool('move');
-    S.selected = existing.id;
+    clearPassKickState();
+    selectPlayer(existing.id);
     S.ballAssignCandidate = existing.id;
     setHint(`${team === 'A' ? 'Attack' : 'Defence'} #${num} selected.`);
     refreshInteractionUI();
@@ -3436,8 +3557,8 @@ window.addNextAvailablePlayer = addNextAvailablePlayer;
 
 function addBall() {
   snapshot();
-  const selectedPlayer = S.selected && S.selected !== '__ball__'
-    ? S.players.find(p => p.id === S.selected)
+  const selectedPlayer = S.selectedObjectType === 'player' && S.selectedPlayerId !== null
+    ? S.players.find(p => p.id === S.selectedPlayerId)
     : null;
   if (selectedPlayer) {
     setTool('move');
@@ -3463,7 +3584,8 @@ function removePlayer(id) {
   }
   S.paths   = S.paths.filter(p => p.pid !== id);
   S.passes  = S.passes.filter(p => p.from!==id && p.to!==id);
-  if (S.selected === id) S.selected = null;
+  if (isPlayerSelected(id)) clearSelectedObject();
+  if (S.activePasserId === id || S.activeKickerId === id) clearPassKickState();
   if (S.ballAssignCandidate === id) S.ballAssignCandidate = null;
   applyBallOwnershipVisualState();
   setHint(`${pl.team === 'A' ? 'Attack' : 'Defence'} #${pl.num} removed. That number is available again.`);
@@ -3493,11 +3615,11 @@ function deleteSelected() {
     snapshot();
     removeAnnotation(annId);
   }
-  else if (S.selected && S.selected !== '__ball__') {
+  else if (S.selectedObjectType === 'player' && S.selectedPlayerId !== null) {
     snapshot();
-    removePlayer(S.selected);
+    removePlayer(S.selectedPlayerId);
   }
-  else if (S.selected === '__ball__') { snapshot(); S.ball=null; S.ballOwner=null; S.ballAttached=false; S.ballAssignCandidate=null; S.selected=null; applyBallOwnershipVisualState(); setHint('Ball removed from the board.'); }
+  else if (isBallSelected()) { snapshot(); S.ball=null; S.ballOwner=null; S.ballAttached=false; S.ballAssignCandidate=null; clearSelectedObject(); applyBallOwnershipVisualState(); setHint('Ball removed from the board.'); }
   refreshInteractionUI();
   render();
 }
@@ -3526,7 +3648,7 @@ function duplicateSelected() {
     copy.y = clamp(copy.y + 2, F.YMIN, F.YMAX - Math.abs(copy.h));
   }
   S.annotations.push(copy);
-  S.selected = annotationSelection(copy.id);
+  selectAnnotationById(copy.id);
   refreshInteractionUI();
   render();
 }
@@ -3660,7 +3782,8 @@ function gotoStep(index, { snapshotBefore = false } = {}) {
   S.currentStep = next;
   stopPlayback(true);
   S.drawing = null;
-  S.passFrom = null;
+  clearPassKickState();
+  clearSelectedObject();
   S.annotationDraft = null;
   setLiveBoardFromStep(S.steps[S.currentStep]);
   setHint(`Step ${S.currentStep + 1} ready. Build the next phase from here.`);
@@ -4030,7 +4153,7 @@ function updateMobileUI() {
 }
 
 function getSelectedSummary() {
-  if (S.selected === '__ball__') {
+  if (isBallSelected()) {
     const owner = findPlayerByRef(S.ballOwner);
     const candidate = manualBallAssignmentTarget();
     const ownerLabel = owner
@@ -4054,8 +4177,8 @@ function getSelectedSummary() {
       return { title: 'Box Highlight', meta: 'Drag inside the box to move it or drag any corner handle to resize it.' };
     }
   }
-  if (S.selected) {
-    const pl = S.players.find(p => p.id === S.selected);
+  if (S.selectedObjectType === 'player' && S.selectedPlayerId !== null) {
+    const pl = S.players.find(p => p.id === S.selectedPlayerId);
     if (pl) {
       return {
         title: `${pl.team==='A'?'Attack':'Defence'} #${pl.num}`,
@@ -4103,16 +4226,16 @@ function getStatusMessage() {
     const pl = S.players.find(p => p.id === S.drawing.pid);
     return pl ? `Drawing run for ${pl.team==='A'?'Attack':'Defence'} #${pl.num}. Release to finish.` : 'Drawing run path.';
   }
-  if (S.passFrom) {
-    const pl = S.players.find(p => p.id === S.passFrom);
+  if (activeWorkflowPlayerId()) {
+    const pl = S.players.find(p => p.id === activeWorkflowPlayerId());
     return pl ? `${MODE_LABELS[S.tool]} armed from ${pl.team==='A'?'Attack':'Defence'} #${pl.num}. Choose the target.` : 'Choose the target.';
   }
   if (S.annotationDraft) return `Drawing ${MODE_LABELS[S.annotationDraft.type] || 'annotation'}. Release to place it.`;
-  if (S.selected === '__ball__') return 'Ball selected. Move it, or switch tools to build around it.';
+  if (isBallSelected()) return 'Ball selected. Move it, or switch tools to build around it.';
   const ann = selectedAnnotation();
   if (ann) return `${MODE_LABELS[ann.type] || 'Annotation'} selected. Use Move to adjust it or Delete to remove it.`;
-  if (S.selected) {
-    const pl = S.players.find(p => p.id === S.selected);
+  if (S.selectedObjectType === 'player' && S.selectedPlayerId !== null) {
+    const pl = S.players.find(p => p.id === S.selectedPlayerId);
     if (pl) {
       return pl.isBC
         ? `${pl.team==='A'?'Attack':'Defence'} #${pl.num} selected with the ball attached.`
@@ -4313,12 +4436,12 @@ function updateSmartPanel() {
     guideText.hidden = isKick;
   }
   if (kickCtx) kickCtx.hidden = !isKick;
-  if (kickStep1) kickStep1.classList.toggle('active', isKick && !S.passFrom);
-  if (kickStep2) kickStep2.classList.toggle('active', isKick && !!S.passFrom);
+  if (kickStep1) kickStep1.classList.toggle('active', isKick && !activeWorkflowPlayerId());
+  if (kickStep2) kickStep2.classList.toggle('active', isKick && !!activeWorkflowPlayerId());
 
   const isAnnotationTool = S.tool === 'note' || S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box';
   const defaultState = document.getElementById('spDefaultState');
-  const hasSelection = !!S.selected || !!selectedAnnotationId();
+  const hasSelection = !!S.selectedPlayerId || isBallSelected() || !!selectedAnnotationId();
   const showDefault = !hasSelection && !isKick;
 
 
@@ -4423,7 +4546,7 @@ function setTool(t) {
   if (t !== 'run')           S.drawing = null;
   if (t !== 'arrow' && t !== 'zone' && t !== 'box') S.annotationDraft = null;
   if (t !== 'tele') teleDrawing = null;
-  if (t !== 'pass' && t !== 'kick') { S.passFrom=null; S.selected=null; }
+  if (t !== 'pass' && t !== 'kick') clearPassKickState();
   S.selectedPathPid = null;
   S.selectedPassIdx = null;
   document.querySelectorAll('[data-tool]').forEach(b => b.classList.remove('active'));
@@ -4438,13 +4561,13 @@ function setHint(txt) { document.getElementById('hint').textContent = txt; }
 
 function clearPaths()  { snapshot(); S.paths=[]; S.passes=[]; S.drawing=null; setHint('Paths cleared. Choose the next action.'); refreshInteractionUI(); render(); }
 function clearSelection() {
-  S.selected = null;
+  clearSelectedObject();
   S.selectedPassIdx = null;
   S.selectedPathPid = null;
   S.ballAssignCandidate = null;
   S.pointerTap = null;
   S.dragging = null;
-  S.passFrom = null;
+  clearPassKickState();
   S.drawing = null;
   S.annotationDraft = null;
   setHint('Selection cleared. Choose the next action.');
@@ -4478,14 +4601,15 @@ function cancelActiveBoardInteraction() {
     teleDrawing = null;
     S.dragging = null;
     S.pointerTap = null;
+    clearHighlightedPlayers();
     setHint('Telestrator cancelled.');
     refreshInteractionUI();
     render();
     return true;
   }
-  if (S.passFrom) {
-    S.passFrom = null;
-    S.selected = null;
+  if (activeWorkflowPlayerId()) {
+    clearPassKickState();
+    clearSelectedObject();
     S.pointerTap = null;
     setHint(`${MODE_LABELS[S.tool] || 'Tool'} cancelled.`);
     refreshInteractionUI();
@@ -4510,7 +4634,7 @@ function clearAll() {
   S.playMetadata = emptyPlayMetadata('New Play');
   S.projectPlayback = null;
   S.annotations = [];
-  S.drawing=null; S.passFrom=null; S.annotationDraft=null; S.selected=null; S.ballAssignCandidate=null; S.selectedPathPid=null; S.selectedPassIdx=null;
+  S.drawing=null; S.passFrom=null; S.annotationDraft=null; S.selected=null; S.selectedPlayerId=null; S.selectedAnnotationIdValue=null; S.selectedObjectType=null; S.activePasserId=null; S.activeKickerId=null; S.highlightedPlayerIds=[]; S.ballAssignCandidate=null; S.selectedPathPid=null; S.selectedPassIdx=null;
   S.animT=0; S.animating=false;
   S.animSpd=1; spdIdx=2;
   S.steps=[emptyStepState()]; S.currentStep=0;
@@ -4571,17 +4695,17 @@ function updateSelInfo() {
       shapeOpacity.value = String(Number(ann.opacity) || 1);
     }
   }
-  const hasAnySelection = !!S.selected || S.selectedPassIdx !== null || S.selectedPathPid !== null;
+  const hasAnySelection = !!S.selectedPlayerId || isBallSelected() || !!ann || S.selectedPassIdx !== null || S.selectedPathPid !== null;
   if (deleteBtn) {
     if (S.selectedPathPid !== null) deleteBtn.textContent = 'Remove Run Path';
     else if (S.selectedPassIdx !== null) {
       const pass = S.passes[S.selectedPassIdx];
       deleteBtn.textContent = pass?.style === 'pass' ? 'Remove Pass' : 'Remove Kick';
     }
-    else if (S.selected === '__ball__') deleteBtn.textContent = 'Remove Ball';
+    else if (isBallSelected()) deleteBtn.textContent = 'Remove Ball';
     else if (ann) deleteBtn.textContent = `Remove ${MODE_LABELS[ann.type] || 'Item'}`;
-    else if (S.selected) {
-      const pl = S.players.find(p => p.id === S.selected);
+    else if (S.selectedPlayerId !== null) {
+      const pl = S.players.find(p => p.id === S.selectedPlayerId);
       deleteBtn.textContent = pl ? 'Remove from Field' : 'Remove Player';
     } else {
       deleteBtn.textContent = 'Remove Player';
@@ -4625,7 +4749,7 @@ function rebuildPalette() {
     if (!target) return;
     for (let n = 1; n <= 15; n++) {
       const existing = S.players.find((player) => player.num === n && player.team === team) || null;
-      const isSelected = !!existing && S.selected === existing.id;
+      const isSelected = !!existing && isPlayerSelected(existing.id);
       const btn = document.createElement('button');
       btn.className = `player-token ${key}${used.has(n) ? ' on' : ''}${isSelected ? ' active' : ''}`;
       btn.textContent = n;
@@ -4659,10 +4783,10 @@ function applyBoardData(play, { snapshotBefore = true } = {}) {
   setLiveBoardFromStep(activePhase.steps[activePhase.currentStep] || emptyStepState());
   S.animT = 0;
   S.animating = false;
-  S.selected = null;
+  clearSelectedObject();
   S.drawing = null;
   S.annotationDraft = null;
-  S.passFrom = null;
+  clearPassKickState();
   S.projectId = p.id;
   S.projectMeta = p.metadata;
   S.playMetadata = normalizeProjectMetadata({ name: p.name }, p.metadata);
