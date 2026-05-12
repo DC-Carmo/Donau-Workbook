@@ -2116,6 +2116,35 @@ html, body {
   color: #fff;
 }
 
+.board-pill.tool-btn[data-tool="tele"] {
+  position: relative;
+}
+
+.board-pill.tool-btn[data-tool="tele"].active {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(248, 113, 113, 0.55);
+  color: #fff6d9;
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.16);
+}
+
+.board-pill.tool-btn[data-tool="tele"].active::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #f87171;
+  box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.55);
+  animation: tele-pulse 1.1s ease-out infinite;
+}
+
+@keyframes tele-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.55); }
+  100% { box-shadow: 0 0 0 7px rgba(248, 113, 113, 0); }
+}
+
 #toolbarModeInline {
   margin-left: auto;
   padding-left: 8px;

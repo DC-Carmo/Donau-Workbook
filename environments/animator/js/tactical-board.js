@@ -26,6 +26,11 @@ const SNAP_RADIUS = 4; // field units (~4m)
 let GAINLINE_Y = 50;      // default: halfway
 let showGainline = true;
 let radialMenu = null; // { playerId, x, y } in canvas px
+let teleStrokes = []; // [{ pts:[{x,y}], born: timestamp, color }]
+let teleDrawing = null; // current stroke being drawn
+let teleFadeRaf = null;
+const TELE_DURATION = 3000; // ms before fully faded
+const TELE_COLOR = '#facc15'; // yellow ink
 
 // Canvas scaling
 const FIELD_X_STRETCH = 1.7;
@@ -2638,6 +2643,26 @@ function render() {
     if (pl.isBC) drawBallCarrierHighlight(pl.x, pl.y);
   });
   renderAnnotations('notes');
+  const now = Date.now();
+  [...teleStrokes, ...(teleDrawing ? [teleDrawing] : [])].forEach(s => {
+    if (s.pts.length < 2) return;
+    const age = now - s.born;
+    const alpha = Math.max(0, 1 - age / TELE_DURATION);
+    ctx.save();
+    ctx.strokeStyle = s.color.replace(')', `, ${alpha})`)
+      .replace('#facc15', `rgba(250,204,21,${alpha})`);
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    s.pts.forEach((pt, i) => {
+      const p = toC(pt.x, pt.y);
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    });
+    ctx.stroke();
+    ctx.restore();
+  });
   renderRadialMenu();
 }
 
@@ -3007,6 +3032,15 @@ function handlePointerDown(e) {
     refreshInteractionUI();
     render();
   }
+
+  else if (S.tool === 'tele') {
+    closeRadialMenu();
+    teleDrawing = { pts: [fp], born: Date.now(), color: TELE_COLOR };
+    try { cv.setPointerCapture(e.pointerId); } catch(_) {}
+    setHint('TELESTRATOR live - draw over the phase. Ink fades after 3 seconds.');
+    refreshInteractionUI();
+    scheduleRender();
+  }
 }
 cv.addEventListener('pointerdown', handlePointerDown);
 
@@ -3147,12 +3181,20 @@ function handlePointerMove(e) {
     return;
   }
 
+  if (S.tool === 'tele' && teleDrawing) {
+    teleDrawing.pts.push(fp);
+    scheduleRender();
+    return;
+  }
+
   // Cursor
   const pl = hitPlayer(fp), bl = hitBall(fp), ann = hitAnnotation(fp);
   if (S.tool === 'move') {
     const onPath = pl || bl || ann || hitRunPath(fp) !== null || hitPassLine(fp) !== -1 || hitKickPath(fp) !== -1;
     cv.style.cursor = onPath ? 'grab' : 'default';
   } else if (S.tool === 'erase') {
+    cv.style.cursor = 'crosshair';
+  } else if (S.tool === 'tele') {
     cv.style.cursor = 'crosshair';
   } else if (S.tool === 'run') {
     cv.style.cursor = pl ? 'crosshair' : 'default';
@@ -3194,6 +3236,14 @@ function onPointerUp(e) {
     S.dragging = null;
     refreshInteractionUI();
     render();
+  }
+  if (S.tool === 'tele') {
+    if (teleDrawing && teleDrawing.pts.length > 1) {
+      teleStrokes.push({ ...teleDrawing });
+      scheduleTeleFade();
+    }
+    teleDrawing = null;
+    scheduleRender();
   }
   if (S.drawing && S.tool === 'run') finishDraw();
   if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box')) finishAnnotationDraft();
@@ -3257,6 +3307,17 @@ function finishAnnotationDraft() {
   setHint(`${MODE_LABELS[draft.type] || 'Annotation'} placed — selected. Press Delete to remove, or click it again to reposition.`);
   refreshInteractionUI();
   render();
+}
+
+function scheduleTeleFade() {
+  if (teleFadeRaf || !teleStrokes.length) return;
+  teleFadeRaf = requestAnimationFrame(() => {
+    teleFadeRaf = null;
+    const now = Date.now();
+    teleStrokes = teleStrokes.filter(s => now - s.born < TELE_DURATION);
+    render();
+    if (teleStrokes.length) scheduleTeleFade();
+  });
 }
 
 // Douglas-Peucker path simplification
@@ -3801,6 +3862,9 @@ MODE_LABELS.note  = 'Note';
 MODE_LABELS.arrow = 'Arrow';
 MODE_LABELS.zone  = 'Circle Highlight';
 
+HINTS.tele = 'TELESTRATOR - draw live ink that fades in 3 seconds.';
+MODE_LABELS.tele = 'Telestrator';
+
 const MOBILE_DRAWER_IDS = ['selection', 'annotations', 'notes', 'files'];
 
 function isMobileViewport() {
@@ -3931,7 +3995,7 @@ function updateMobileUI() {
   if (mobileAddAttackBtn) mobileAddAttackBtn.disabled = S.atkUsed.size >= 15;
   if (mobileAddDefenceBtn) mobileAddDefenceBtn.disabled = S.defUsed.size >= 15;
 
-  ['move', 'run', 'pass', 'kick', 'zone', 'box', 'erase', 'note', 'arrow'].forEach(tool => {
+  ['move', 'run', 'pass', 'kick', 'tele', 'zone', 'box', 'erase', 'note', 'arrow'].forEach(tool => {
     const btn = document.getElementById(`mq-${tool}`);
     if (btn) btn.classList.toggle('active', S.tool === tool);
   });
@@ -4339,6 +4403,7 @@ function setTool(t) {
   S.tool = t;
   if (t !== 'run')           S.drawing = null;
   if (t !== 'arrow' && t !== 'zone' && t !== 'box') S.annotationDraft = null;
+  if (t !== 'tele') teleDrawing = null;
   if (t !== 'pass' && t !== 'kick') { S.passFrom=null; S.selected=null; }
   S.selectedPathPid = null;
   S.selectedPassIdx = null;
@@ -4386,6 +4451,15 @@ function cancelActiveBoardInteraction() {
     S.dragging = null;
     S.pointerTap = null;
     setHint('Run path cancelled.');
+    refreshInteractionUI();
+    render();
+    return true;
+  }
+  if (teleDrawing) {
+    teleDrawing = null;
+    S.dragging = null;
+    S.pointerTap = null;
+    setHint('Telestrator cancelled.');
     refreshInteractionUI();
     render();
     return true;
@@ -4731,7 +4805,7 @@ function importPlayFromFile(file) {
 document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   const k = e.key.toLowerCase();
-  const map = {v:'move',r:'run',p:'pass',k:'kick',e:'erase',c:'zone',b:'box'};
+  const map = {v:'move',r:'run',p:'pass',k:'kick',e:'erase',t:'tele',c:'zone',b:'box'};
   if (map[k])           { setTool(map[k]); return; }
   if (k===' ')          { e.preventDefault(); togglePlay(); return; }
   if (k === 'arrowleft') { e.preventDefault(); prevStep(); return; }
