@@ -23,6 +23,8 @@ const FVH = F.DY1 - F.DY0;
 const BALL_CARRY_OFFSET = { x: 1.45, y: -1.05 };
 const MOBILE_TAP_TOGGLE_PX = 5;
 const SNAP_RADIUS = 4; // field units (~4m)
+let GAINLINE_Y = 50;      // default: halfway
+let showGainline = true;
 
 // Canvas scaling
 const FIELD_X_STRETCH = 1.7;
@@ -56,6 +58,15 @@ function clampFieldPoint(point) {
     x: clamp(point.x, F.XMIN, F.XMAX),
     y: clamp(point.y, F.YMIN, F.YMAX),
   };
+}
+
+function updateGainDisplayForY(y) {
+  const el = document.getElementById('gainDisplay');
+  if (!el) return;
+  const dist = Math.round((GAINLINE_Y - y) * 1);
+  const sign = dist > 0 ? '+' : '';
+  el.textContent = dist === 0 ? 'On gainline' : `${sign}${dist}m`;
+  el.style.color = dist > 0 ? '#4ade80' : dist < 0 ? '#f87171' : '#fbbf24';
 }
 
 function resize() {
@@ -1172,6 +1183,29 @@ function drawField() {
   hline(0,   T1_C, T1_W, [], 0, F.W, 0.28);
   hline(100, T1_C, T1_W, [], 0, F.W, 0.28);
   hline(50,  T1_C, T1_W, [], 0, F.W, 0.28);
+  if (showGainline) {
+    const p0 = toC(0, GAINLINE_Y), p1 = toC(68, GAINLINE_Y);
+    const top = toC(0, F.YMIN);
+    ctx.fillStyle = 'rgba(34,197,94,0.07)';
+    ctx.fillRect(p0.x, top.y, p1.x - p0.x, p0.y - top.y);
+
+    const bot = toC(68, F.YMAX);
+    ctx.fillStyle = 'rgba(239,68,68,0.07)';
+    ctx.fillRect(p0.x, p0.y, p1.x - p0.x, bot.y - p0.y);
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(251,191,36,0.7)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([sc * 1.2, sc * 0.6]);
+    ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y);
+    ctx.stroke(); ctx.setLineDash([]);
+
+    ctx.fillStyle = 'rgba(251,191,36,0.8)';
+    ctx.font = `bold ${Math.max(9, sc * 0.75)}px "Barlow Condensed"`;
+    ctx.textAlign = 'right';
+    ctx.fillText('GAINLINE', toC(67, GAINLINE_Y).x, p0.y - 4);
+    ctx.restore();
+  }
   vline(0,  T1_C, T1_W, F.YMIN, F.YMAX, [], 0.22);
   vline(68, T1_C, T1_W, F.YMIN, F.YMAX, [], 0.22);
 
@@ -2331,6 +2365,18 @@ function handlePointerDown(e) {
   const clampedFieldPoint = clampFieldPoint(fp);
 
   if (S.tool === 'move') {
+    if (showGainline && Math.abs(fp.y - GAINLINE_Y) <= 2) {
+      snapshot();
+      S.dragging = { type:'gainline' };
+      S.selected = null;
+      S.ballAssignCandidate = null;
+      beginPointerTap(e.pointerId, { type:'gainline' }, e);
+      try { cv.setPointerCapture(e.pointerId); } catch(_) {}
+      setHint('Drag the gainline to match the current phase picture.');
+      refreshInteractionUI();
+      render();
+      return;
+    }
     const pl = hitPlayer(fp);
     const ballHit = !pl && hitBall(fp);
     const previousSelectedPlayer = S.selected && S.selected !== '__ball__'
@@ -2602,6 +2648,9 @@ function handlePointerMove(e) {
         } else if (samePlayerRef(playerRef(pl), S.ballOwner)) {
           updateBallOwnerFromPosition();
         }
+        if (pl.isBC) {
+          updateGainDisplayForY(pl.y);
+        }
       }
     } else if (S.dragging.type === 'ball' && S.ball) {
       S.ball.x = clamp(fp.x - S.dragOff.x, -2, 70);
@@ -2619,6 +2668,10 @@ function handlePointerMove(e) {
         S.ballOwner = null;
         S.ballAttached = false;
       }
+    } else if (S.dragging.type === 'gainline') {
+      GAINLINE_Y = clamp(fp.y, 5, 95);
+      const carrier = S.players.find(p => p.isBC);
+      if (carrier) updateGainDisplayForY(carrier.y);
     } else if (S.dragging.type === 'annotation') {
       const ann = findAnnotationById(S.dragging.id);
       if (ann) {
@@ -3555,6 +3608,7 @@ function getSelectedSummary() {
 
 function getStatusMessage() {
   if (!S.players.length && !S.ball && !S.annotations.length) return 'Add players from the left, place the ball, then choose how to build the picture.';
+  if (S.dragging?.type === 'gainline') return 'Dragging the gainline. Release to lock the contest line.';
   if (S.dragging?.type === 'player') {
     const pl = S.players.find(p => p.id === S.dragging.id);
     return pl ? `Dragging ${pl.team==='A'?'Attack':'Defence'} #${pl.num}. Release to place.` : 'Dragging player.';
@@ -3628,6 +3682,7 @@ function updateBoardStatus() {
   const empty = document.getElementById('emptyState');
   const tutorial = document.getElementById('firstUseTutorial');
   const toolbarMode = document.getElementById('toolbarModeInline');
+  const gainlineBtn = document.getElementById('gainlineToggleBtn');
   const count = sequenceStepCount();
   const owner = normalizePlayerRef(S.ballOwner);
   const ownerText = owner ? `Ball: ${owner.team === 'A' ? 'A' : 'D'} #${owner.num}` : (S.ball ? 'Ball: Loose' : 'Ball: Off board');
@@ -3635,9 +3690,18 @@ function updateBoardStatus() {
   if (mode) mode.textContent = MODE_LABELS[S.tool] || 'Board';
   if (text) text.textContent = summary;
   if (toolbarMode) toolbarMode.textContent = `Mode: ${MODE_LABELS[S.tool] || 'Board'}`;
+  if (gainlineBtn) gainlineBtn.classList.toggle('active', showGainline);
   if (empty) empty.classList.toggle('hidden', !!S.players.length || !!S.ball || !!S.annotations.length);
   if (tutorial) tutorial.classList.toggle('hidden', !shouldShowFirstUseTutorial());
 }
+
+function toggleGainline() {
+  showGainline = !showGainline;
+  setHint(showGainline ? 'Gainline visible. Drag it in Move mode to reposition it.' : 'Gainline hidden.');
+  refreshInteractionUI();
+  render();
+}
+window.toggleGainline = toggleGainline;
 
 function updateAnnotationPanel() {
   const copy = document.getElementById('annotationCopy');
@@ -4036,6 +4100,9 @@ function updateSelInfo() {
     clearBtn.textContent = hasAnySelection ? 'Clear Selection' : 'No Selection';
     clearBtn.disabled = !hasAnySelection;
   }
+  const carrier = S.players.find(p => p.isBC);
+  if (carrier) updateGainDisplayForY(carrier.y);
+  else updateGainDisplayForY(GAINLINE_Y);
 }
 
 // Palette --------------------------------------------------

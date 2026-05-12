@@ -2541,6 +2541,19 @@ html, body {
 .sel-edit.sp-sel-edit.visible {
   display: flex;
 }
+.sp-gain-display {
+  padding: 7px 9px;
+  border-radius: 8px;
+  border: 1px solid rgba(251,191,36,0.16);
+  background: rgba(251,191,36,0.05);
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fbbf24;
+  text-align: center;
+}
 .sp-sel-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
