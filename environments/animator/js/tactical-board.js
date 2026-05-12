@@ -1341,6 +1341,68 @@ function lineoutDefenceFivePreset() {
   };
 }
 
+function lineoutAttackSevenPreset() {
+  return {
+    id: 'lineout_7_attack',
+    name: 'Lineout 7-Man Attack',
+    cat: 'Lineouts',
+    desc: 'Seven-man attacking lineout with 11 fixed left, 14 fixed right, and the strike runners spaced underneath.',
+    defaultGroupId: 'atk_lineout_seven_shape',
+    focusTeam: 'A',
+    players: [
+      { num: 2, team: 'A', x: 2.2, y: 60.2 },
+      { num: 1, team: 'A', x: 7, y: 61.8 },
+      { num: 4, team: 'A', x: 9.1, y: 61.8 },
+      { num: 5, team: 'A', x: 11.2, y: 61.8 },
+      { num: 6, team: 'A', x: 13.3, y: 61.8 },
+      { num: 7, team: 'A', x: 15.4, y: 61.8 },
+      { num: 8, team: 'A', x: 17.5, y: 61.8 },
+      { num: 3, team: 'A', x: 19.6, y: 61.8 },
+      { num: 9, team: 'A', x: 11.5, y: 68.6 },
+      { num: 10, team: 'A', x: 25.5, y: 72.2 },
+      { num: 13, team: 'A', x: 33.8, y: 73.2 },
+      { num: 12, team: 'A', x: 27.8, y: 78.2 },
+      { num: 11, team: 'A', x: 3.2, y: 80.5 },
+      { num: 15, team: 'A', x: 39.5, y: 88.2 },
+      { num: 14, team: 'A', x: 63.8, y: 90.8 },
+    ],
+    groups: [
+      makeGroup('atk_lineout_seven_shape', 'Attack 7-Man Lineout', 'A', [1, 2, 3, 4, 5, 6, 7, 8], PRESET_GROUP_ATTACK),
+    ],
+  };
+}
+
+function lineoutDefenceSevenPreset() {
+  return {
+    id: 'lineout_7_defence',
+    name: 'Lineout 7-Man Defence',
+    cat: 'Lineouts',
+    desc: 'Seven-man defensive lineout with the line intact and 10 to 15 connected across the same defensive lane.',
+    defaultGroupId: 'def_lineout_seven_shape',
+    focusTeam: 'D',
+    players: [
+      { num: 2, team: 'D', x: 4.2, y: 60.2 },
+      { num: 1, team: 'D', x: 7, y: 61.8 },
+      { num: 4, team: 'D', x: 9.1, y: 61.8 },
+      { num: 5, team: 'D', x: 11.2, y: 61.8 },
+      { num: 6, team: 'D', x: 13.3, y: 61.8 },
+      { num: 7, team: 'D', x: 15.4, y: 61.8 },
+      { num: 8, team: 'D', x: 17.5, y: 61.8 },
+      { num: 3, team: 'D', x: 19.6, y: 61.8 },
+      { num: 9, team: 'D', x: 11.5, y: 68.6 },
+      { num: 10, team: 'D', x: 20, y: 73.2 },
+      { num: 11, team: 'D', x: 8, y: 73.2 },
+      { num: 12, team: 'D', x: 26, y: 73.2 },
+      { num: 13, team: 'D', x: 32, y: 73.2 },
+      { num: 15, team: 'D', x: 38, y: 73.2 },
+      { num: 14, team: 'D', x: 50, y: 73.2 },
+    ],
+    groups: [
+      makeGroup('def_lineout_seven_shape', 'Defence 7-Man Lineout', 'D', [1, 2, 3, 4, 5, 6, 7, 8], PRESET_GROUP_DEFENCE),
+    ],
+  };
+}
+
 function lineoutPreset(id, name, count, attacking) {
   const nums = count === 5 ? [1, 2, 4, 5, 6] : [1, 2, 3, 4, 5, 6, 7];
   return {
@@ -1371,8 +1433,8 @@ const PLAYS = [
   lineoutDefenceFivePreset(),
   lineoutPreset('lineout_5_attack', 'Lineout 5-Man Attack', 5, true),
   lineoutPreset('lineout_5_defence', 'Lineout 5-Man Defence', 5, false),
-  lineoutPreset('lineout_7_attack', 'Lineout 7-Man Attack', 7, true),
-  lineoutPreset('lineout_7_defence', 'Lineout 7-Man Defence', 7, false),
+  lineoutAttackSevenPreset(),
+  lineoutDefenceSevenPreset(),
   {
     id: 'kickoff_receive',
     name: 'Kickoff Receive Setup',
