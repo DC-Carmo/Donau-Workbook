@@ -408,12 +408,19 @@ function normalizeStepPlayers(players = []) {
   if (!Array.isArray(players)) return [];
   return players
     .map(pl => {
+      const id = Number(pl?.id);
       const team = pl?.team === 'D' ? 'D' : pl?.team === 'A' ? 'A' : null;
       const num = Number(pl?.num);
       const x = Number(pl?.x);
       const y = Number(pl?.y);
       if (!team || !Number.isFinite(num) || !Number.isFinite(x) || !Number.isFinite(y)) return null;
-      return { num, team, x, y };
+      return {
+        ...(Number.isFinite(id) ? { id } : {}),
+        num,
+        team,
+        x,
+        y
+      };
     })
     .filter(Boolean);
 }
@@ -519,7 +526,7 @@ function emptyStepState() {
 
 function liveBoardToStepState() {
   return normalizeStepState({
-    players: S.players.map(({ num, team, x, y }) => ({ num, team, x, y })),
+    players: S.players.map(({ id, num, team, x, y }) => ({ id, num, team, x, y })),
     ball: S.ball ? { ...S.ball } : null,
     ballOwner: normalizePlayerRef(S.ballOwner),
     ballAttached: !!S.ballAttached,
@@ -591,7 +598,13 @@ function setLiveBoardFromStep(step, { keepSelection = false } = {}) {
     : null;
   const selectedObjectType = keepSelection ? S.selectedObjectType : null;
   const selectedAnnotation = keepSelection ? S.selectedAnnotationIdValue : null;
-  S.players = normalized.players.map(pl => ({ ...pl, id: S.nextId++, isBC: false }));
+  let nextIdSeed = S.nextId;
+  S.players = normalized.players.map(pl => {
+    const id = Number.isFinite(Number(pl.id)) ? Number(pl.id) : nextIdSeed++;
+    nextIdSeed = Math.max(nextIdSeed, id + 1);
+    return { ...pl, id, isBC: false };
+  });
+  S.nextId = nextIdSeed;
   S.atkUsed = new Set(S.players.filter(pl => pl.team === 'A').map(pl => pl.num));
   S.defUsed = new Set(S.players.filter(pl => pl.team === 'D').map(pl => pl.num));
   S.ball = normalized.ball ? { ...normalized.ball } : null;
@@ -4652,6 +4665,7 @@ function clearAll() {
   S.drawing=null; S.passFrom=null; S.annotationDraft=null; S.selected=null; S.selectedPlayerId=null; S.selectedAnnotationIdValue=null; S.selectedObjectType=null; S.dragPlayerId=null; S.activePasserId=null; S.activeKickerId=null; S.highlightedPlayerIds=[]; S.ballAssignCandidate=null; S.selectedPathPid=null; S.selectedPassIdx=null;
   S.animT=0; S.animating=false;
   S.animSpd=1; spdIdx=2;
+  S.nextId=1;
   S.steps=[emptyStepState()]; S.currentStep=0;
   S.atkUsed=new Set(); S.defUsed=new Set();
   document.getElementById('playName').value='New Play';
