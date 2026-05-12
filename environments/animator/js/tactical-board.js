@@ -75,19 +75,56 @@ function resize() {
   render();
 }
 
-const S = {
+const GamePlan = {
+  name: 'New Play',
+  currentPhase: 0,
+  phases: [
+    {
+      label: 'Phase 1',
+      players: [],
+      ball: null,
+      paths: [],
+      passes: [],
+    }
+  ]
+};
+window.GamePlan = GamePlan;
+
+function S() {
+  return GamePlan.phases[GamePlan.currentPhase];
+}
+
+[
+  'label',
+  'players',
+  'ball',
+  'ballOwner',
+  'ballAttached',
+  'paths',
+  'passes',
+  'annotations',
+  'steps',
+  'currentStep',
+  'atkUsed',
+  'defUsed',
+].forEach(key => {
+  Object.defineProperty(S, key, {
+    configurable: true,
+    get() {
+      return S()[key];
+    },
+    set(value) {
+      S()[key] = value;
+    },
+  });
+});
+
+Object.assign(S, {
   tool: 'move',
-  players: [],          // { id, num, team:'A'|'D', x, y, isBC:false }
-  ball: null,           // { x, y }
-  ballOwner: null,      // { num, team } for the starting ball carrier
-  ballAttached: false,  // manual carrier assignment keeps the ball attached to the owner
-  paths: [],            // { pid, pts:[{x,y}], color }
-  passes: [],           // { from, to, style:'pass'|'kick' }
   projectId: null,
   projectMeta: null,
   playMetadata: null,
   projectPlayback: null,
-  annotations: [],
   annotationDraft: null,
   selected: null,       // player id
   dragging: null,       // { type:'player'|'ball', id? }
@@ -101,16 +138,12 @@ const S = {
   animSpd: 1,
   raf: null,
   lastTs: null,
-  steps: [],
-  currentStep: 0,
   nextId: 1,
-  atkUsed: new Set(),   // which numbers are on field
-  defUsed: new Set(),
   ballAssignCandidate: null,
   pointerTap: null,
   selectedPassIdx: null,
   selectedPathPid: null,
-};
+});
 const SPEEDS = [0.25, 0.5, 1, 2];
 let   spdIdx = 2;
 function fmtSpd(v) { return v===0.25?'¼×':v===0.5?'½×':v+'×'; }
@@ -344,6 +377,39 @@ function normalizeStepState(step = {}, fallbackPlayers = []) {
   };
 }
 
+function normalizePhaseState(phase = {}, index = 0) {
+  const fallbackStep = normalizeStepState({
+    players: cloneData(phase.players || []),
+    ball: phase.ball ? cloneData(phase.ball) : null,
+    ballOwner: normalizePlayerRef(phase.ballOwner || phase.ball?.owner),
+    ballAttached: !!phase.ballAttached,
+    paths: cloneData(phase.paths || []),
+    passes: cloneData(phase.passes || []),
+    annotations: Array.isArray(phase.annotations) ? phase.annotations : [],
+  });
+  const steps = Array.isArray(phase.steps) && phase.steps.length
+    ? phase.steps.map(step => normalizeStepState(step, fallbackStep.players))
+    : [fallbackStep];
+  const currentStep = clamp(Number.isFinite(phase.currentStep) ? Number(phase.currentStep) : 0, 0, steps.length - 1);
+  const liveStep = steps[currentStep] || steps[0] || fallbackStep;
+  const players = cloneData(liveStep.players);
+
+  return {
+    label: phase.label || `Phase ${index + 1}`,
+    players,
+    ball: liveStep.ball ? cloneData(liveStep.ball) : null,
+    ballOwner: normalizePlayerRef(liveStep.ballOwner),
+    ballAttached: !!liveStep.ballAttached,
+    paths: cloneData(liveStep.paths),
+    passes: cloneData(liveStep.passes),
+    annotations: cloneData(liveStep.annotations),
+    steps,
+    currentStep,
+    atkUsed: new Set(players.filter(pl => pl.team === 'A').map(pl => pl.num)),
+    defUsed: new Set(players.filter(pl => pl.team === 'D').map(pl => pl.num)),
+  };
+}
+
 function cloneStepState(step) {
   return normalizeStepState(cloneData(step), step?.players || []);
 }
@@ -387,6 +453,38 @@ function persistCurrentStep() {
   S.steps[S.currentStep] = liveBoardToStepState();
 }
 
+function serializePhase(phase = S(), index = GamePlan.currentPhase) {
+  const normalized = normalizePhaseState(phase, index);
+  return {
+    label: normalized.label || `Phase ${index + 1}`,
+    players: cloneData(normalized.players),
+    ball: normalized.ball ? cloneData(normalized.ball) : null,
+    ballOwner: normalizePlayerRef(normalized.ballOwner),
+    ballAttached: !!normalized.ballAttached,
+    paths: cloneData(normalized.paths),
+    passes: cloneData(normalized.passes),
+    annotations: cloneData(normalized.annotations),
+    currentStep: normalized.currentStep,
+    steps: normalized.steps.map(step => cloneStepState(step)),
+  };
+}
+
+function persistCurrentPhase() {
+  persistCurrentStep();
+  GamePlan.phases[GamePlan.currentPhase] = normalizePhaseState(serializePhase(S(), GamePlan.currentPhase), GamePlan.currentPhase);
+}
+
+function serializeGamePlan(nameOverride) {
+  persistCurrentPhase();
+  const title = nameOverride || currentPlayTitle();
+  GamePlan.name = title;
+  return {
+    name: title,
+    currentPhase: clamp(GamePlan.currentPhase, 0, Math.max(0, GamePlan.phases.length - 1)),
+    phases: GamePlan.phases.map((phase, index) => serializePhase(phase, index)),
+  };
+}
+
 function setLiveBoardFromStep(step, { keepSelection = false } = {}) {
   const normalized = normalizeStepState(step);
   const selected = keepSelection ? S.selected : null;
@@ -418,6 +516,55 @@ function setLiveBoardFromStep(step, { keepSelection = false } = {}) {
   if (S.ballAttached && S.ballOwner) syncAttachedBallToOwner();
   else if (S.ball && !S.ballOwner) updateBallOwnerFromPosition();
   else applyBallOwnershipVisualState();
+}
+
+function goToPhase(idx) {
+  persistCurrentPhase();
+  GamePlan.currentPhase = Math.max(0, Math.min(idx, GamePlan.phases.length - 1));
+  const phase = normalizePhaseState(GamePlan.phases[GamePlan.currentPhase], GamePlan.currentPhase);
+  GamePlan.phases[GamePlan.currentPhase] = phase;
+  S.selected = null;
+  S.dragging = null;
+  S.drawing = null;
+  S.passFrom = null;
+  S.annotationDraft = null;
+  setLiveBoardFromStep(phase.steps[phase.currentStep] || emptyStepState());
+  rebuildPalette();
+  updateSelInfo();
+  updatePhaseUI();
+  refreshInteractionUI();
+  render();
+}
+
+function addPhase() {
+  persistCurrentPhase();
+  const current = serializePhase(S(), GamePlan.currentPhase);
+  current.label = `Phase ${GamePlan.phases.length + 1}`;
+  current.paths = [];
+  current.passes = [];
+  current.steps = [normalizeStepState({
+    players: cloneData(current.players),
+    ball: current.ball ? cloneData(current.ball) : null,
+    ballOwner: normalizePlayerRef(current.ballOwner),
+    ballAttached: !!current.ballAttached,
+    paths: [],
+    passes: [],
+    annotations: cloneData(current.annotations || []),
+  })];
+  current.currentStep = 0;
+  GamePlan.phases.push(normalizePhaseState(current, GamePlan.phases.length));
+  goToPhase(GamePlan.phases.length - 1);
+}
+
+function updatePhaseUI() {
+  const total = GamePlan.phases.length;
+  const cur = GamePlan.currentPhase;
+  const label = document.getElementById('phaseLabel');
+  const prev = document.getElementById('phasePrev');
+  const next = document.getElementById('phaseNext');
+  if (label) label.textContent = `${GamePlan.phases[cur]?.label || `Phase ${cur + 1}`} / ${total}`;
+  if (prev) prev.disabled = cur === 0;
+  if (next) next.disabled = cur === total - 1;
 }
 
 function createCarryForwardStep(step) {
@@ -632,6 +779,7 @@ function buildPlayMetadata() {
 }
 
 function syncPlayMetadataTitle() {
+  GamePlan.name = currentPlayTitle();
   if (!S.playMetadata) {
     S.playMetadata = emptyPlayMetadata(currentPlayTitle());
   }
@@ -662,7 +810,7 @@ function updateBallOwnerFromPosition() {
 }
 
 function makeProjectRecord(nameOverride, metadataOverrides = {}) {
-  persistCurrentStep();
+  persistCurrentPhase();
   const prevMeta = S.projectMeta || {};
   const stamp = nowIso();
   const title = nameOverride || currentPlayTitle();
@@ -678,19 +826,22 @@ function makeProjectRecord(nameOverride, metadataOverrides = {}) {
     source: prevMeta.source || 'animator',
   };
   const playback = normalizePlaybackSettings(S.projectPlayback || {});
-  const currentStepData = cloneStepState(S.steps[S.currentStep] || liveBoardToStepState());
-  const steps = S.steps.map(step => cloneStepState(step));
+  const gamePlan = serializeGamePlan(title);
+  const currentPhase = gamePlan.phases[gamePlan.currentPhase] || gamePlan.phases[0];
+  const currentStepData = cloneStepState(currentPhase.steps[currentPhase.currentStep] || emptyStepState());
 
   return {
     schemaVersion: PROJECT_SCHEMA_VERSION,
     projectType: PROJECT_TYPE,
     id: S.projectId || mkProjectId(),
     name: title,
+    currentPhase: gamePlan.currentPhase,
+    phases: gamePlan.phases,
     cat: 'Saved Board',
     metadata: meta,
     playback,
-    currentStepIndex: S.currentStep,
-    steps,
+    currentStepIndex: currentPhase.currentStep,
+    steps: currentPhase.steps,
     annotations: cloneData(currentStepData.annotations),
     players: cloneData(currentStepData.players),
     ball: currentStepData.ball ? { ...currentStepData.ball } : null,
@@ -704,6 +855,35 @@ function makeProjectRecord(nameOverride, metadataOverrides = {}) {
 function normalizeProjectRecord(input) {
   const project = input?.project || input?.play || input;
   if (!project) return null;
+  if (Array.isArray(project.phases) && project.phases.length) {
+    const phases = project.phases.map((phase, index) => normalizePhaseState(phase, index));
+    const currentPhase = clamp(Number.isFinite(project.currentPhase) ? Number(project.currentPhase) : 0, 0, phases.length - 1);
+    const activePhase = phases[currentPhase] || phases[0];
+    const activeStep = activePhase.steps[activePhase.currentStep] || emptyStepState();
+    const normalizedGamePlan = {
+      schemaVersion: Number.isFinite(project.schemaVersion) ? project.schemaVersion : 0,
+      projectType: project.projectType || PROJECT_TYPE,
+      id: project.id || mkProjectId(),
+      name: project.name || 'Untitled Play',
+      currentPhase,
+      phases: phases.map((phase, index) => serializePhase(phase, index)),
+      cat: project.cat || 'Saved Board',
+      metadata: normalizeProjectMetadata(project, project.metadata),
+      playback: normalizePlaybackSettings(project.playback),
+      currentStepIndex: activePhase.currentStep,
+      steps: activePhase.steps.map(step => cloneStepState(step)),
+      annotations: cloneData(activeStep.annotations),
+      players: cloneData(activeStep.players),
+      ball: activeStep.ball ? cloneData(activeStep.ball) : null,
+      ballOwner: normalizePlayerRef(activeStep.ballOwner),
+      ballAttached: !!activeStep.ballAttached,
+      paths: cloneData(activeStep.paths),
+      passes: cloneData(activeStep.passes),
+    };
+    normalizedGamePlan.metadata.title = normalizedGamePlan.name || normalizedGamePlan.metadata.title || '';
+    if (project.savedAt) normalizedGamePlan.savedAt = project.savedAt;
+    return normalizedGamePlan;
+  }
   const hasPlayers = Array.isArray(project.players);
   const hasSteps = Array.isArray(project.steps) && project.steps.length;
   if (!hasPlayers && !hasSteps) return null;
@@ -729,6 +909,19 @@ function normalizeProjectRecord(input) {
     projectType: project.projectType || PROJECT_TYPE,
     id: project.id || mkProjectId(),
     name: project.name || 'Untitled Play',
+    currentPhase: 0,
+    phases: [serializePhase(normalizePhaseState({
+      label: project.phaseLabel || 'Phase 1',
+      players: cloneData(currentStep.players),
+      ball: currentStep.ball ? cloneData(currentStep.ball) : null,
+      ballOwner: normalizePlayerRef(currentStep.ballOwner),
+      ballAttached: !!currentStep.ballAttached,
+      paths: cloneData(currentStep.paths),
+      passes: cloneData(currentStep.passes),
+      annotations: cloneData(currentStep.annotations),
+      currentStep: currentStepIndex,
+      steps: safeSteps,
+    }, 0), 0)],
     cat: project.cat || 'Saved Board',
     metadata: normalizeProjectMetadata(project, project.metadata),
     playback: normalizePlaybackSettings(project.playback),
@@ -750,10 +943,11 @@ function normalizeProjectRecord(input) {
 }
 
 function snapshot() {
-  persistCurrentStep();
+  persistCurrentPhase();
   S.history.push(cloneData({
-    steps: S.steps,
-    currentStep: S.currentStep,
+    phaseIdx: GamePlan.currentPhase,
+    phase: serializePhase(S(), GamePlan.currentPhase),
+    gamePlanName: GamePlan.name,
     playMetadata: S.playMetadata,
     projectId: S.projectId,
     projectMeta: S.projectMeta,
@@ -764,9 +958,11 @@ function snapshot() {
 }
 function undo() {
   if (!S.history.length) return;
+  persistCurrentPhase();
   S.future.push(cloneData({
-    steps: S.steps,
-    currentStep: S.currentStep,
+    phaseIdx: GamePlan.currentPhase,
+    phase: serializePhase(S(), GamePlan.currentPhase),
+    gamePlanName: GamePlan.name,
     playMetadata: S.playMetadata,
     projectId: S.projectId,
     projectMeta: S.projectMeta,
@@ -774,26 +970,32 @@ function undo() {
   }));
   if (S.future.length > 30) S.future.shift();
   const h = S.history.pop();
-  S.steps = Array.isArray(h.steps) && h.steps.length ? h.steps.map(step => normalizeStepState(step)) : [emptyStepState()];
-  S.currentStep = clamp(Number.isFinite(h.currentStep) ? h.currentStep : 0, 0, S.steps.length - 1);
-  setLiveBoardFromStep(S.steps[S.currentStep]);
-  S.playMetadata = normalizeProjectMetadata({ name: currentPlayTitle() }, h.playMetadata || {});
+  GamePlan.name = h.gamePlanName || GamePlan.name;
+  GamePlan.currentPhase = clamp(Number.isFinite(h.phaseIdx) ? h.phaseIdx : GamePlan.currentPhase, 0, Math.max(0, GamePlan.phases.length - 1));
+  while (GamePlan.phases.length <= GamePlan.currentPhase) {
+    GamePlan.phases.push(normalizePhaseState({ label: `Phase ${GamePlan.phases.length + 1}` }, GamePlan.phases.length));
+  }
+  GamePlan.phases[GamePlan.currentPhase] = normalizePhaseState(h.phase, GamePlan.currentPhase);
+  const phase = GamePlan.phases[GamePlan.currentPhase];
+  setLiveBoardFromStep(phase.steps[phase.currentStep] || emptyStepState());
+  document.getElementById('playName').value = GamePlan.name || 'Untitled Play';
+  S.playMetadata = normalizeProjectMetadata({ name: GamePlan.name || 'Untitled Play' }, h.playMetadata || {});
   S.projectId = h.projectId || null;
   S.projectMeta = h.projectMeta || null;
   S.projectPlayback = normalizePlaybackSettings(h.projectPlayback || {});
-  S.atkUsed = new Set(S.players.filter(p=>p.team==='A').map(p=>p.num));
-  S.defUsed = new Set(S.players.filter(p=>p.team==='D').map(p=>p.num));
   S.selected = null;
   updatePlayMetadataPanel();
+  updatePhaseUI();
   rebuildPalette(); refreshInteractionUI();
   render();
 }
 function redo() {
   if (!S.future.length) return;
-  persistCurrentStep();
+  persistCurrentPhase();
   S.history.push(cloneData({
-    steps: S.steps,
-    currentStep: S.currentStep,
+    phaseIdx: GamePlan.currentPhase,
+    phase: serializePhase(S(), GamePlan.currentPhase),
+    gamePlanName: GamePlan.name,
     playMetadata: S.playMetadata,
     projectId: S.projectId,
     projectMeta: S.projectMeta,
@@ -801,17 +1003,22 @@ function redo() {
   }));
   if (S.history.length > 30) S.history.shift();
   const h = S.future.pop();
-  S.steps = Array.isArray(h.steps) && h.steps.length ? h.steps.map(step => normalizeStepState(step)) : [emptyStepState()];
-  S.currentStep = clamp(Number.isFinite(h.currentStep) ? h.currentStep : 0, 0, S.steps.length - 1);
-  setLiveBoardFromStep(S.steps[S.currentStep]);
-  S.playMetadata = normalizeProjectMetadata({ name: currentPlayTitle() }, h.playMetadata || {});
+  GamePlan.name = h.gamePlanName || GamePlan.name;
+  GamePlan.currentPhase = clamp(Number.isFinite(h.phaseIdx) ? h.phaseIdx : GamePlan.currentPhase, 0, Math.max(0, GamePlan.phases.length - 1));
+  while (GamePlan.phases.length <= GamePlan.currentPhase) {
+    GamePlan.phases.push(normalizePhaseState({ label: `Phase ${GamePlan.phases.length + 1}` }, GamePlan.phases.length));
+  }
+  GamePlan.phases[GamePlan.currentPhase] = normalizePhaseState(h.phase, GamePlan.currentPhase);
+  const phase = GamePlan.phases[GamePlan.currentPhase];
+  setLiveBoardFromStep(phase.steps[phase.currentStep] || emptyStepState());
+  document.getElementById('playName').value = GamePlan.name || 'Untitled Play';
+  S.playMetadata = normalizeProjectMetadata({ name: GamePlan.name || 'Untitled Play' }, h.playMetadata || {});
   S.projectId = h.projectId || null;
   S.projectMeta = h.projectMeta || null;
   S.projectPlayback = normalizePlaybackSettings(h.projectPlayback || {});
-  S.atkUsed = new Set(S.players.filter(p=>p.team==='A').map(p=>p.num));
-  S.defUsed = new Set(S.players.filter(p=>p.team==='D').map(p=>p.num));
   S.selected = null;
   updatePlayMetadataPanel();
+  updatePhaseUI();
   rebuildPalette(); refreshInteractionUI();
   render();
 }
@@ -3705,6 +3912,9 @@ function cancelActiveBoardInteraction() {
 }
 function clearAll() {
   snapshot();
+  GamePlan.name = 'New Play';
+  GamePlan.currentPhase = 0;
+  GamePlan.phases = [normalizePhaseState({ label: 'Phase 1' }, 0)];
   S.players=[]; S.ball=null; S.ballOwner=null; S.ballAttached=false; S.paths=[]; S.passes=[];
   S.projectId = null;
   S.projectMeta = null;
@@ -3720,6 +3930,7 @@ function clearAll() {
   setHint('Board reset. Start by adding players from the left.');
   document.getElementById('spdLabel').textContent = '1×';
   updateAnnotationPanel();
+  updatePhaseUI();
   setPlayBtnState(); rebuildPalette(); refreshInteractionUI(); updateTL(); render();
 }
 
@@ -3847,9 +4058,13 @@ function applyBoardData(play, { snapshotBefore = true } = {}) {
   if (snapshotBefore) snapshot();
 
   const p = cloneData(project);
-  S.steps = Array.isArray(p.steps) && p.steps.length ? p.steps.map(step => normalizeStepState(step)) : [normalizeStepState(p)];
-  S.currentStep = clamp(Number.isFinite(p.currentStepIndex) ? p.currentStepIndex : 0, 0, S.steps.length - 1);
-  setLiveBoardFromStep(S.steps[S.currentStep]);
+  GamePlan.name = p.name || 'Untitled Play';
+  GamePlan.currentPhase = clamp(Number.isFinite(p.currentPhase) ? p.currentPhase : 0, 0, Math.max(0, (p.phases?.length || 1) - 1));
+  GamePlan.phases = Array.isArray(p.phases) && p.phases.length
+    ? p.phases.map((phase, index) => normalizePhaseState(phase, index))
+    : [normalizePhaseState(p, 0)];
+  const activePhase = GamePlan.phases[GamePlan.currentPhase] || GamePlan.phases[0];
+  setLiveBoardFromStep(activePhase.steps[activePhase.currentStep] || emptyStepState());
   S.animT = 0;
   S.animating = false;
   S.selected = null;
@@ -3862,10 +4077,11 @@ function applyBoardData(play, { snapshotBefore = true } = {}) {
   S.projectPlayback = p.playback;
   S.animSpd = S.projectPlayback?.currentSpeed || 1;
   spdIdx = Math.max(0, SPEEDS.indexOf(S.animSpd));
-  document.getElementById('playName').value = p.name || 'Untitled Play';
+  document.getElementById('playName').value = GamePlan.name || 'Untitled Play';
   syncPlayMetadataTitle();
   setPlayBtnState();
   document.getElementById('spdLabel').textContent = fmtSpd(S.animSpd);
+  updatePhaseUI();
   rebuildPalette();
   refreshInteractionUI();
   updateTL();
@@ -3965,7 +4181,11 @@ function exportPlayData(play) {
     schemaVersion: PROJECT_SCHEMA_VERSION,
     projectType: PROJECT_TYPE,
     exportedAt: nowIso(),
-    project,
+    project: {
+      name: project.name,
+      currentPhase: project.currentPhase,
+      phases: project.phases,
+    },
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -4064,15 +4284,20 @@ _trackThumb.addEventListener('touchend',    () => trackDrag = false, { passive: 
 _trackThumb.addEventListener('touchcancel', () => trackDrag = false, { passive: false });
 
 //  INIT
+GamePlan.phases = GamePlan.phases.map((phase, index) => normalizePhaseState(phase, index));
 rebuildPalette();
 refreshSavedPlayList();
 S.playMetadata = emptyPlayMetadata('New Play');
+GamePlan.name = 'New Play';
+GamePlan.currentPhase = 0;
 S.steps = [emptyStepState()];
 S.currentStep = 0;
 firstUseTutorialDismissed = hasSeenFirstUseTutorial();
 updateAnnotationPanel();
+updatePhaseUI();
 updatePlayMetadataPanel();
 document.getElementById('playName').addEventListener('input', () => {
+  GamePlan.name = currentPlayTitle();
   syncPlayMetadataTitle();
   refreshInteractionUI();
 });

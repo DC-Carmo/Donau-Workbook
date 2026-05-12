@@ -30,6 +30,13 @@
       <input id="playName" placeholder="Play name..." value="New Play" autocomplete="off">
     </div>
 
+    <div class="tb-phase-nav" aria-label="Phase navigation">
+      <button class="c-btn" id="phasePrev" type="button" onclick="goToPhase(GamePlan.currentPhase - 1)">&larr; Prev</button>
+      <span class="tb-phase-label" id="phaseLabel">Phase 1 / 1</span>
+      <button class="c-btn" id="phaseNext" type="button" onclick="goToPhase(GamePlan.currentPhase + 1)">Next &rarr;</button>
+      <button class="c-btn tb-phase-add" id="phaseAdd" type="button" onclick="addPhase()">+ Add Phase</button>
+    </div>
+
     <div class="tb-actions">
       <a class="c-btn tb-portal" href="../../index.html"><span>&#9664;</span> Portal</a>
       <button class="c-btn" id="mobileSaveBtn" onclick="saveCurrentPlay()">Save</button>
