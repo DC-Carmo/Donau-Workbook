@@ -1894,6 +1894,47 @@ html, body {
   display: none;
 }
 
+#radialMenu {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: none;
+  z-index: 18;
+}
+
+#radialMenu.visible {
+  display: block;
+  pointer-events: all;
+}
+
+.radial-btn {
+  position: absolute;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: #1a2a24;
+  border: 1.5px solid rgba(255,255,255,0.2);
+  color: white;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 1px;
+  transition: border-color .15s, background .15s;
+}
+
+.radial-btn:hover {
+  background: #263d33;
+  border-color: #fbbf24;
+}
+
+.radial-btn.danger:hover {
+  border-color: #f87171;
+}
+
 #bottomPanel {
   flex: 0 0 auto;
   max-height: 220px;

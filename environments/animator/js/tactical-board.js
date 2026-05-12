@@ -25,6 +25,7 @@ const MOBILE_TAP_TOGGLE_PX = 5;
 const SNAP_RADIUS = 4; // field units (~4m)
 let GAINLINE_Y = 50;      // default: halfway
 let showGainline = true;
+let radialMenu = null; // { playerId, x, y } in canvas px
 
 // Canvas scaling
 const FIELD_X_STRETCH = 1.7;
@@ -67,6 +68,69 @@ function updateGainDisplayForY(y) {
   const sign = dist > 0 ? '+' : '';
   el.textContent = dist === 0 ? 'On gainline' : `${sign}${dist}m`;
   el.style.color = dist > 0 ? '#4ade80' : dist < 0 ? '#f87171' : '#fbbf24';
+}
+
+function closeRadialMenu() {
+  radialMenu = null;
+  const menu = document.getElementById('radialMenu');
+  if (menu) {
+    menu.classList.remove('visible');
+    menu.innerHTML = '';
+  }
+}
+
+function renderRadialMenu() {
+  const menu = document.getElementById('radialMenu');
+  if (!menu) return;
+  if (!radialMenu) {
+    menu.classList.remove('visible');
+    menu.innerHTML = '';
+    return;
+  }
+  const pl = S.players.find(player => player.id === radialMenu.playerId);
+  if (!pl) {
+    closeRadialMenu();
+    return;
+  }
+
+  const center = toC(pl.x, pl.y);
+  radialMenu.x = center.x;
+  radialMenu.y = center.y;
+  menu.innerHTML = '';
+  menu.classList.add('visible');
+
+  const ACTIONS = [
+    { label: 'Run', icon: '→', tool: 'run' },
+    { label: 'Pass', icon: '~', tool: 'pass' },
+    { label: 'Kick', icon: '⬆', tool: 'kick' },
+    { label: 'Ball', icon: '●', fn: () => giveBall(radialMenu.playerId) },
+    { label: 'Remove', icon: '✕', fn: () => { snapshot(); removePlayer(radialMenu.playerId); }, danger: true },
+  ];
+
+  const radius = 52;
+  ACTIONS.forEach((action, index) => {
+    const angle = (-Math.PI / 2) + (index * (Math.PI * 2 / ACTIONS.length));
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `radial-btn${action.danger ? ' danger' : ''}`;
+    btn.style.left = `${center.x + Math.cos(angle) * radius}px`;
+    btn.style.top = `${center.y + Math.sin(angle) * radius}px`;
+    btn.innerHTML = `<span>${action.icon}</span><span>${action.label}</span>`;
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      S.selected = radialMenu?.playerId || S.selected;
+      if (action.tool) setTool(action.tool);
+      if (action.fn) action.fn();
+      closeRadialMenu();
+    });
+    menu.appendChild(btn);
+  });
+}
+
+function showRadial(pl, canvasX, canvasY) {
+  radialMenu = { playerId: pl.id, x: canvasX, y: canvasY };
+  renderRadialMenu();
 }
 
 function resize() {
@@ -2178,6 +2242,7 @@ function render() {
       if (samePlayerRef(playerRef(pl), frame.ballOwner)) drawBallCarrierHighlight(pl.x, pl.y);
     });
     renderAnnotations('notes', frame.annotations);
+    closeRadialMenu();
     return;
   }
 
@@ -2257,6 +2322,7 @@ function render() {
     if (pl.isBC) drawBallCarrierHighlight(pl.x, pl.y);
   });
   renderAnnotations('notes');
+  renderRadialMenu();
 }
 
 function animPos(pl, t) {
@@ -2363,9 +2429,11 @@ function consumePointerTap(pointerId) {
 function handlePointerDown(e) {
   const fp = getF(e);
   const clampedFieldPoint = clampFieldPoint(fp);
+  const canvasPoint = getPx(e);
 
   if (S.tool === 'move') {
     if (showGainline && Math.abs(fp.y - GAINLINE_Y) <= 2) {
+      closeRadialMenu();
       snapshot();
       S.dragging = { type:'gainline' };
       S.selected = null;
@@ -2385,12 +2453,12 @@ function handlePointerDown(e) {
     const annHit = !pl && !ballHit ? hitAnnotation(fp) : null;
     if (pl) {
       const wasSelected = S.selected === pl.id;
-      snapshot();
       S.selected = pl.id;
       S.ballAssignCandidate = pl.id;
-      S.dragging  = { type:'player', id:pl.id };
+      S.dragging  = { type:'player', id:pl.id, snapshotDone: false };
       S.dragOff   = { x:fp.x - pl.x, y:fp.y - pl.y };
-      beginPointerTap(e.pointerId, { type:'player', id:pl.id, wasSelected }, e);
+      beginPointerTap(e.pointerId, { type:'player', id:pl.id, wasSelected, canvasX: canvasPoint.x, canvasY: canvasPoint.y }, e);
+      closeRadialMenu();
       try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     } else if (ballHit) {
       const wasSelected = S.selected === '__ball__';
@@ -2401,6 +2469,7 @@ function handlePointerDown(e) {
       S.dragOff   = { x:fp.x - S.ball.x, y:fp.y - S.ball.y };
       if (S.ballAttached) S.ballAttached = false;
       beginPointerTap(e.pointerId, { type:'ball', wasSelected }, e);
+      closeRadialMenu();
       try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     } else if (annHit) {
       const wasSelected = selectedAnnotationId() === annHit.id;
@@ -2420,8 +2489,10 @@ function handlePointerDown(e) {
         startSnapshot: ann ? cloneData(ann) : null,
       };
       beginPointerTap(e.pointerId, { type:'annotation', id:annHit.id, wasSelected }, e);
+      closeRadialMenu();
       try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     } else {
+      closeRadialMenu();
       const kickIdx = hitKickPath(fp);
       const passIdx = hitPassLine(fp);
       const runPid  = hitRunPath(fp);
@@ -2634,6 +2705,10 @@ function handlePointerMove(e) {
     if (S.dragging.type === 'player') {
       const pl = S.players.find(p => p.id === S.dragging.id);
       if (pl) {
+        if (!S.dragging.snapshotDone) {
+          snapshot();
+          S.dragging.snapshotDone = true;
+        }
         pl.x = clamp(fp.x - S.dragOff.x, -2, 70);
         pl.y = clamp(fp.y - S.dragOff.y, -11, 111);
         if (pl.isBC && S.ball) {
@@ -2774,8 +2849,15 @@ cv.addEventListener('pointermove', handlePointerMove);
 function onPointerUp(e) {
   const tap = consumePointerTap(e?.pointerId);
   if (tap && !tap.moved && S.tool === 'move') {
-    if (tap.payload.type === 'player' && tap.payload.wasSelected && S.selected === tap.payload.id) {
-      clearSelection();
+    if (tap.payload.type === 'player' && S.selected === tap.payload.id) {
+      S.dragging = null;
+      const pl = S.players.find(p => p.id === tap.payload.id);
+      if (pl) {
+        showRadial(pl, tap.payload.canvasX, tap.payload.canvasY);
+      } else {
+        closeRadialMenu();
+      }
+      refreshInteractionUI();
       render();
       return;
     }
@@ -3697,6 +3779,7 @@ function updateBoardStatus() {
 
 function toggleGainline() {
   showGainline = !showGainline;
+  closeRadialMenu();
   setHint(showGainline ? 'Gainline visible. Drag it in Move mode to reposition it.' : 'Gainline hidden.');
   refreshInteractionUI();
   render();
@@ -4337,7 +4420,16 @@ document.addEventListener('keydown', e => {
   if (k===' ')          { e.preventDefault(); togglePlay(); return; }
   if (k === 'arrowleft') { e.preventDefault(); prevStep(); return; }
   if (k === 'arrowright') { e.preventDefault(); nextStep(); return; }
-  if (k==='escape')     { e.preventDefault(); cancelActiveBoardInteraction(); return; }
+  if (k==='escape')     {
+    e.preventDefault();
+    if (radialMenu) {
+      closeRadialMenu();
+      render();
+      return;
+    }
+    cancelActiveBoardInteraction();
+    return;
+  }
   if (k==='z'&&(e.ctrlKey||e.metaKey)&&e.shiftKey) { e.preventDefault(); redo(); return; }
   if (k==='z'&&(e.ctrlKey||e.metaKey)) { e.preventDefault(); undo(); }
   if (k==='delete'||k==='backspace') {
@@ -4400,6 +4492,15 @@ document.getElementById('playName').addEventListener('input', () => {
   GamePlan.name = currentPlayTitle();
   syncPlayMetadataTitle();
   refreshInteractionUI();
+});
+
+document.addEventListener('pointerdown', e => {
+  if (!radialMenu) return;
+  const menu = document.getElementById('radialMenu');
+  if (menu && !menu.contains(e.target)) {
+    closeRadialMenu();
+    render();
+  }
 });
 [
   'metaPurpose',
