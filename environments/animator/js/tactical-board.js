@@ -1310,6 +1310,37 @@ function scrumAttackFivePreset() {
   };
 }
 
+function lineoutDefenceFivePreset() {
+  return {
+    id: 'lineout_5_defence_shape',
+    name: 'Lineout Defence 5-Man',
+    cat: 'Lineouts',
+    desc: 'Five-man defensive lineout picture with hooker offset and the backfield already covered.',
+    defaultGroupId: 'def_lineout_five_shape',
+    focusTeam: 'D',
+    players: [
+      { num: 2, team: 'D', x: 4.2, y: 66 },
+      { num: 1, team: 'D', x: 6, y: 71.2 },
+      { num: 4, team: 'D', x: 8.2, y: 71.2 },
+      { num: 5, team: 'D', x: 10.4, y: 71.2 },
+      { num: 6, team: 'D', x: 12.6, y: 71.2 },
+      { num: 3, team: 'D', x: 15.2, y: 71.2 },
+      { num: 9, team: 'D', x: 10.3, y: 63 },
+      { num: 10, team: 'D', x: 17, y: 64.2 },
+      { num: 8, team: 'D', x: 22, y: 64 },
+      { num: 7, team: 'D', x: 26.2, y: 64.2 },
+      { num: 12, team: 'D', x: 30.8, y: 64 },
+      { num: 13, team: 'D', x: 35.3, y: 64.2 },
+      { num: 11, team: 'D', x: 9.5, y: 53.2 },
+      { num: 15, team: 'D', x: 37, y: 49.8 },
+      { num: 14, team: 'D', x: 49.2, y: 49.8 },
+    ],
+    groups: [
+      makeGroup('def_lineout_five_shape', 'Defence 5-Man Lineout', 'D', [1, 2, 3, 4, 5, 6], PRESET_GROUP_DEFENCE),
+    ],
+  };
+}
+
 function lineoutPreset(id, name, count, attacking) {
   const nums = count === 5 ? [1, 2, 4, 5, 6] : [1, 2, 3, 4, 5, 6, 7];
   return {
@@ -1337,6 +1368,7 @@ const PLAYS = [
   scrumPreset('scrum_centre', 'Scrum Centre Launch', 'Scrum Centre', 34, 'centre'),
   scrumPreset('scrum_right', 'Scrum Right Launch', 'Scrum Right', 50, 'right'),
   scrumAttackFivePreset(),
+  lineoutDefenceFivePreset(),
   lineoutPreset('lineout_5_attack', 'Lineout 5-Man Attack', 5, true),
   lineoutPreset('lineout_5_defence', 'Lineout 5-Man Defence', 5, false),
   lineoutPreset('lineout_7_attack', 'Lineout 7-Man Attack', 7, true),
