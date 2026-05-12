@@ -166,6 +166,7 @@ const GamePlan = {
       ball: null,
       paths: [],
       passes: [],
+      groups: [],
     }
   ]
 };
@@ -183,6 +184,7 @@ function S() {
   'ballAttached',
   'paths',
   'passes',
+  'groups',
   'annotations',
   'steps',
   'currentStep',
@@ -215,10 +217,11 @@ Object.assign(S, {
   // S.selected and S.passFrom remain compatibility mirrors for older UI helpers.
   selected: null,
   selectedPlayerId: null,
+  selectedGroupId: null,
   selectedObjectType: null,
   selectedAnnotationIdValue: null,
   dragPlayerId: null,
-  dragging: null,       // { type:'player'|'ball', id? }
+  dragging: null,       // { type:'player'|'group'|'ball', id? }
   dragOff: { x:0, y:0 },
   drawing: null,        // { pid, pts:[], last:{x,y} }
   passFrom: null,
@@ -389,6 +392,30 @@ function normalizePlayerRef(ref) {
   return { num, team };
 }
 
+function normalizeGroupRef(ref) {
+  return normalizePlayerRef(ref);
+}
+
+function normalizeGroupState(group = {}, index = 0) {
+  const refs = Array.isArray(group.playerRefs)
+    ? group.playerRefs.map(normalizeGroupRef).filter(Boolean)
+    : [];
+  if (!refs.length) return null;
+  return {
+    id: group.id || `group_${index + 1}`,
+    label: String(group.label || `Pack ${index + 1}`).trim(),
+    type: group.type || 'pack',
+    team: group.team === 'D' ? 'D' : 'A',
+    active: group.active !== false,
+    color: typeof group.color === 'string' ? group.color : '',
+    playerRefs: refs,
+  };
+}
+
+function playerMatchesRef(player, ref) {
+  return !!player && !!ref && player.num === ref.num && player.team === ref.team;
+}
+
 function normalizePlaybackSettings(playback = {}) {
   const currentSpeed = Number(playback.currentSpeed);
   const defaultSpeed = Number(playback.defaultSpeed);
@@ -409,6 +436,7 @@ function normalizeStepPlayers(players = []) {
   return players
     .map(pl => {
       const id = Number(pl?.id);
+      const colorOverride = typeof pl?.colorOverride === 'string' ? pl.colorOverride : '';
       const team = pl?.team === 'D' ? 'D' : pl?.team === 'A' ? 'A' : null;
       const num = Number(pl?.num);
       const x = Number(pl?.x);
@@ -419,7 +447,8 @@ function normalizeStepPlayers(players = []) {
         num,
         team,
         x,
-        y
+        y,
+        ...(colorOverride ? { colorOverride } : {}),
       };
     })
     .filter(Boolean);
@@ -499,6 +528,9 @@ function normalizePhaseState(phase = {}, index = 0) {
   const currentStep = clamp(Number.isFinite(phase.currentStep) ? Number(phase.currentStep) : 0, 0, steps.length - 1);
   const liveStep = steps[currentStep] || steps[0] || fallbackStep;
   const players = cloneData(liveStep.players);
+  const groups = Array.isArray(phase.groups)
+    ? phase.groups.map((group, groupIndex) => normalizeGroupState(group, groupIndex)).filter(Boolean)
+    : [];
 
   return {
     label: phase.label || `Phase ${index + 1}`,
@@ -508,6 +540,7 @@ function normalizePhaseState(phase = {}, index = 0) {
     ballAttached: !!liveStep.ballAttached,
     paths: cloneData(liveStep.paths),
     passes: cloneData(liveStep.passes),
+    groups,
     annotations: cloneData(liveStep.annotations),
     steps,
     currentStep,
@@ -569,6 +602,7 @@ function serializePhase(phase = S(), index = GamePlan.currentPhase) {
     ballAttached: !!normalized.ballAttached,
     paths: cloneData(normalized.paths),
     passes: cloneData(normalized.passes),
+    groups: cloneData(normalized.groups),
     annotations: cloneData(normalized.annotations),
     currentStep: normalized.currentStep,
     steps: normalized.steps.map(step => cloneStepState(step)),
@@ -734,6 +768,36 @@ function selectedAnnotationId() {
   return S.selectedAnnotationIdValue || null;
 }
 
+function groupMembers(group) {
+  if (!group) return [];
+  return group.playerRefs
+    .map(ref => S.players.find(player => playerMatchesRef(player, ref)) || null)
+    .filter(Boolean);
+}
+
+function groupForPlayer(player) {
+  if (!player) return null;
+  return (S.groups || []).find(group => group.playerRefs.some(ref => playerMatchesRef(player, ref))) || null;
+}
+
+function activeGroupForPlayer(player) {
+  const group = groupForPlayer(player);
+  return group?.active ? group : null;
+}
+
+function selectedGroup() {
+  return (S.groups || []).find(group => group.id === S.selectedGroupId) || null;
+}
+
+function playerUsesSelectedGroup(player) {
+  const group = selectedGroup();
+  return !!group && group.playerRefs.some(ref => playerMatchesRef(player, ref));
+}
+
+function clearSelectedGroup() {
+  S.selectedGroupId = null;
+}
+
 function syncLegacySelectionState() {
   if (S.selectedPlayerId !== null) S.selected = S.selectedPlayerId;
   else if (S.selectedObjectType === 'ball') S.selected = '__ball__';
@@ -759,8 +823,20 @@ function activeWorkflowPlayerId() {
 
 function clearSelectedObject() {
   S.selectedPlayerId = null;
+  clearSelectedGroup();
   S.selectedAnnotationIdValue = null;
   S.selectedObjectType = null;
+  syncLegacySelectionState();
+}
+
+function selectGroup(id) {
+  S.selectedPlayerId = null;
+  S.selectedGroupId = id;
+  S.selectedAnnotationIdValue = null;
+  S.selectedObjectType = null;
+  S.selectedPassIdx = null;
+  S.selectedPathPid = null;
+  clearHighlightedPlayers();
   syncLegacySelectionState();
 }
 
@@ -768,6 +844,7 @@ function selectPlayer(id, { highlightedIds = [] } = {}) {
   // Player selection is exclusive: selecting a player clears other object/path selections
   // so later actions always resolve from this one player id.
   S.selectedPlayerId = id;
+  clearSelectedGroup();
   S.selectedAnnotationIdValue = null;
   S.selectedObjectType = 'player';
   S.selectedPassIdx = null;
@@ -787,6 +864,7 @@ function clearDragPlayer() {
 
 function selectBall(candidateId = null) {
   S.selectedPlayerId = null;
+  clearSelectedGroup();
   S.selectedAnnotationIdValue = null;
   S.selectedObjectType = 'ball';
   S.selectedPassIdx = null;
@@ -798,6 +876,7 @@ function selectBall(candidateId = null) {
 
 function selectAnnotationById(id) {
   S.selectedPlayerId = null;
+  clearSelectedGroup();
   S.selectedAnnotationIdValue = id;
   S.selectedObjectType = 'annotation';
   S.selectedPassIdx = null;
@@ -811,7 +890,7 @@ function isBallSelected() {
 }
 
 function isPlayerSelected(id) {
-  return S.selectedPlayerId === id;
+  return S.selectedPlayerId === id || playerUsesSelectedGroup(S.players.find(player => player.id === id));
 }
 
 function setWorkflowSource(id, tool = S.tool) {
@@ -824,6 +903,52 @@ function setWorkflowSource(id, tool = S.tool) {
   }
   S.highlightedPlayerIds = id ? [id] : [];
   syncLegacySelectionState();
+}
+
+function regroupSelectedPack() {
+  const targetPlayer = S.selectedPlayerId !== null
+    ? S.players.find(player => player.id === S.selectedPlayerId)
+    : null;
+  const group = selectedGroup() || groupForPlayer(targetPlayer);
+  if (!group) return;
+  group.active = true;
+  selectGroup(group.id);
+  setHint(`${group.label} regrouped. Drag any grouped forward to move the pack together.`);
+  refreshInteractionUI();
+  render();
+}
+
+function editSelectedPackIndividuals() {
+  const group = selectedGroup();
+  if (!group) return;
+  group.active = false;
+  const leadPlayer = groupMembers(group)[0] || null;
+  if (leadPlayer) selectPlayer(leadPlayer.id);
+  else clearSelection();
+  setHint(`${group.label} unlocked. Players can now be edited individually.`);
+  refreshInteractionUI();
+  render();
+}
+
+function selectedColorTarget() {
+  if (S.selectedPlayerId !== null) {
+    return S.players.find(player => player.id === S.selectedPlayerId) || null;
+  }
+  return selectedGroup();
+}
+
+function setSelectedUnitColor(color) {
+  const target = selectedColorTarget();
+  if (!target) return;
+  if (S.selectedPlayerId !== null) {
+    target.colorOverride = color;
+    setHint('Player color updated.');
+  } else if (S.selectedGroupId) {
+    target.color = color;
+    setHint(`${target.label} color updated.`);
+  }
+  refreshInteractionUI();
+  render();
 }
 
 function findAnnotationById(id) {
@@ -980,256 +1105,203 @@ function giveBall(playerId) {
 }
 window.giveBall = giveBall;
 
+const PRESET_GROUP_ATTACK = '#6ca88b';
+const PRESET_GROUP_DEFENCE = '#f97316';
+
+function makeGroup(id, label, team, nums, color, type = 'pack') {
+  return {
+    id,
+    label,
+    type,
+    team,
+    active: true,
+    color,
+    playerRefs: nums.map(num => ({ num, team })),
+  };
+}
+
+function scrumPack(team, yBase, midX = 34) {
+  return [
+    { num: 1, team, x: midX - 3, y: yBase },
+    { num: 2, team, x: midX, y: yBase },
+    { num: 3, team, x: midX + 3, y: yBase },
+    { num: 4, team, x: midX - 2, y: yBase + 2.1 },
+    { num: 5, team, x: midX + 2, y: yBase + 2.1 },
+    { num: 6, team, x: midX - 5.5, y: yBase + 3.2 },
+    { num: 7, team, x: midX + 5.5, y: yBase + 3.2 },
+    { num: 8, team, x: midX, y: yBase + 5.1 },
+  ];
+}
+
+function scrumBacks(direction = 'centre', team = 'A', yBase = 58) {
+  const shift = direction === 'left' ? -8 : direction === 'right' ? 8 : 0;
+  return [
+    { num: 9, team, x: 34 + shift * 0.45, y: yBase },
+    { num: 10, team, x: 34 + shift, y: yBase + 4 },
+    { num: 11, team, x: 14 + shift, y: yBase + 6 },
+    { num: 12, team, x: 42 + shift, y: yBase + 6 },
+    { num: 13, team, x: 50 + shift, y: yBase + 8 },
+    { num: 14, team, x: 60 + shift, y: yBase + 6 },
+    { num: 15, team, x: 34, y: yBase + 11 },
+  ];
+}
+
+function scrumDefence(direction = 'centre', yBase = 42) {
+  const shift = direction === 'left' ? -4 : direction === 'right' ? 4 : 0;
+  return [
+    ...scrumPack('D', yBase, 34),
+    { num: 9, team: 'D', x: 34 + shift, y: yBase + 6 },
+    { num: 10, team: 'D', x: 26 + shift, y: yBase + 8 },
+    { num: 11, team: 'D', x: 14 + shift, y: yBase + 10 },
+    { num: 12, team: 'D', x: 42 + shift, y: yBase + 8 },
+    { num: 13, team: 'D', x: 50 + shift, y: yBase + 10 },
+    { num: 14, team: 'D', x: 60 + shift, y: yBase + 10 },
+    { num: 15, team: 'D', x: 34, y: yBase + 13 },
+  ];
+}
+
+function lineoutChain(team, count, xStart, yBase) {
+  const nums = count === 5 ? [1, 2, 4, 5, 6] : [1, 2, 3, 4, 5, 6, 7];
+  return nums.map((num, index) => ({ num, team, x: xStart + index * 4, y: yBase }));
+}
+
+function attackLineoutSupport(yBase = 84) {
+  return [
+    { num: 8, team: 'A', x: 34, y: yBase + 4 },
+    { num: 9, team: 'A', x: 42, y: yBase + 1 },
+    { num: 10, team: 'A', x: 48, y: yBase - 1 },
+    { num: 11, team: 'A', x: 20, y: yBase + 2 },
+    { num: 12, team: 'A', x: 54, y: yBase + 2 },
+    { num: 13, team: 'A', x: 60, y: yBase + 4 },
+    { num: 14, team: 'A', x: 64, y: yBase + 1 },
+    { num: 15, team: 'A', x: 34, y: yBase + 10 },
+  ];
+}
+
+function defenceLineoutSupport(yBase = 80) {
+  return [
+    { num: 8, team: 'D', x: 34, y: yBase - 5 },
+    { num: 9, team: 'D', x: 42, y: yBase - 2 },
+    { num: 10, team: 'D', x: 48, y: yBase - 1 },
+    { num: 11, team: 'D', x: 18, y: yBase - 1 },
+    { num: 12, team: 'D', x: 54, y: yBase },
+    { num: 13, team: 'D', x: 60, y: yBase + 1 },
+    { num: 14, team: 'D', x: 66, y: yBase - 1 },
+    { num: 15, team: 'D', x: 34, y: yBase - 10 },
+  ];
+}
+
+function kickoffReceivePlayers() {
+  return [
+    { num: 15, team: 'A', x: 34, y: 22 },
+    { num: 11, team: 'A', x: 16, y: 29 },
+    { num: 14, team: 'A', x: 52, y: 29 },
+    { num: 10, team: 'A', x: 26, y: 34 },
+    { num: 12, team: 'A', x: 42, y: 34 },
+    { num: 13, team: 'A', x: 50, y: 38 },
+    { num: 9, team: 'A', x: 34, y: 38 },
+    { num: 1, team: 'A', x: 28, y: 26 },
+    { num: 2, team: 'A', x: 32, y: 27 },
+    { num: 3, team: 'A', x: 36, y: 26 },
+    { num: 4, team: 'A', x: 30, y: 30 },
+    { num: 5, team: 'A', x: 34, y: 31 },
+    { num: 6, team: 'A', x: 26, y: 33 },
+    { num: 7, team: 'A', x: 38, y: 33 },
+    { num: 8, team: 'A', x: 34, y: 35 },
+    { num: 10, team: 'D', x: 28, y: 8 },
+    { num: 12, team: 'D', x: 40, y: 8 },
+    { num: 15, team: 'D', x: 34, y: 6 },
+  ];
+}
+
+function kickoffChasePlayers() {
+  return [
+    { num: 10, team: 'A', x: 34, y: 48 },
+    { num: 1, team: 'A', x: 16, y: 44 },
+    { num: 2, team: 'A', x: 22, y: 44 },
+    { num: 3, team: 'A', x: 28, y: 44 },
+    { num: 4, team: 'A', x: 34, y: 44 },
+    { num: 5, team: 'A', x: 40, y: 44 },
+    { num: 6, team: 'A', x: 46, y: 44 },
+    { num: 7, team: 'A', x: 52, y: 44 },
+    { num: 8, team: 'A', x: 58, y: 44 },
+    { num: 9, team: 'A', x: 34, y: 52 },
+    { num: 11, team: 'A', x: 14, y: 50 },
+    { num: 12, team: 'A', x: 44, y: 50 },
+    { num: 13, team: 'A', x: 50, y: 52 },
+    { num: 14, team: 'A', x: 62, y: 50 },
+    { num: 15, team: 'A', x: 34, y: 58 },
+    { num: 15, team: 'D', x: 34, y: 18 },
+    { num: 11, team: 'D', x: 18, y: 22 },
+    { num: 14, team: 'D', x: 50, y: 22 },
+  ];
+}
+
+function scrumPreset(id, name, cat, direction) {
+  return {
+    id,
+    name,
+    cat,
+    desc: 'Attack forwards load as a draggable scrum pack. Unlock the pack to edit individual forwards.',
+    defaultGroupId: 'atk_scrum_pack',
+    players: [
+      ...scrumPack('A', 50, 34),
+      ...scrumBacks(direction, 'A', 58),
+      ...scrumDefence(direction, 42),
+    ],
+    groups: [
+      makeGroup('atk_scrum_pack', 'Attack Scrum Pack', 'A', [1, 2, 3, 4, 5, 6, 7, 8], PRESET_GROUP_ATTACK),
+      makeGroup('def_scrum_pack', 'Defence Scrum Pack', 'D', [1, 2, 3, 4, 5, 6, 7, 8], PRESET_GROUP_DEFENCE),
+    ],
+  };
+}
+
+function lineoutPreset(id, name, count, attacking) {
+  const nums = count === 5 ? [1, 2, 4, 5, 6] : [1, 2, 3, 4, 5, 6, 7];
+  return {
+    id,
+    name,
+    cat: 'Lineouts',
+    desc: 'Lineout pods load horizontally across the field and stay editable after setup.',
+    defaultGroupId: attacking ? 'atk_lineout_pack' : 'def_lineout_pack',
+    players: [
+      ...lineoutChain('A', count, 8, 84),
+      ...attackLineoutSupport(84),
+      ...lineoutChain('D', count, 10, 80),
+      ...defenceLineoutSupport(80),
+    ],
+    groups: [
+      makeGroup('atk_lineout_pack', count === 5 ? 'Attack 5-Man Lineout' : 'Attack 7-Man Lineout', 'A', nums, PRESET_GROUP_ATTACK),
+      makeGroup('def_lineout_pack', count === 5 ? 'Defence 5-Man Lineout' : 'Defence 7-Man Lineout', 'D', nums, PRESET_GROUP_DEFENCE),
+    ],
+  };
+}
+
 const PLAYS = [
+  scrumPreset('scrum_left', 'Scrum Left Launch', 'Scrum Left', 'left'),
+  scrumPreset('scrum_centre', 'Scrum Centre Launch', 'Scrum Centre', 'centre'),
+  scrumPreset('scrum_right', 'Scrum Right Launch', 'Scrum Right', 'right'),
+  lineoutPreset('lineout_5_attack', 'Lineout 5-Man Attack', 5, true),
+  lineoutPreset('lineout_5_defence', 'Lineout 5-Man Defence', 5, false),
+  lineoutPreset('lineout_7_attack', 'Lineout 7-Man Attack', 7, true),
+  lineoutPreset('lineout_7_defence', 'Lineout 7-Man Defence', 7, false),
   {
-    id:'launch_fly', name:'Scrum — Launch Fly', cat:'Attack · Scrum',
-    players:[
-      {num:1,team:'A',x:31,y:61},{num:2,team:'A',x:34,y:61},{num:3,team:'A',x:37,y:61},
-      {num:4,team:'A',x:32,y:63},{num:5,team:'A',x:36,y:63},{num:6,team:'A',x:28,y:64},
-      {num:7,team:'A',x:40,y:64},{num:8,team:'A',x:34,y:66},{num:9,team:'A',x:38,y:68},
-      {num:10,team:'A',x:46,y:72},{num:11,team:'A',x:8,y:68},{num:12,team:'A',x:54,y:74},
-      {num:13,team:'A',x:58,y:77},{num:14,team:'A',x:62,y:68},{num:15,team:'A',x:34,y:78},
-      {num:9,team:'D',x:40,y:69},{num:10,team:'D',x:48,y:74},{num:12,team:'D',x:56,y:77},{num:13,team:'D',x:62,y:80},
-    ],
-    ball:{x:34,y:66},
-    paths:[
-      {num:8,team:'A',pts:[{x:34,y:66},{x:34,y:62},{x:35,y:59}]},
-      {num:9,team:'A',pts:[{x:38,y:68},{x:40,y:66},{x:44,y:64}]},
-      {num:10,team:'A',pts:[{x:46,y:72},{x:48,y:70},{x:56,y:65}]},
-      {num:12,team:'A',pts:[{x:54,y:74},{x:56,y:71},{x:62,y:66}]},
-      {num:11,team:'A',pts:[{x:8,y:68},{x:12,y:65},{x:18,y:62}]},
-      {num:15,team:'A',pts:[{x:34,y:78},{x:38,y:74},{x:46,y:70}]},
-    ],
-    passes:[{fromNum:8,fromT:'A',toNum:9,toT:'A',style:'pass'},{fromNum:9,fromT:'A',toNum:10,toT:'A',style:'pass'}],
+    id: 'kickoff_receive',
+    name: 'Kickoff Receive Setup',
+    cat: 'Kickoffs',
+    desc: 'Backfield catcher with a secure support pod underneath the reception picture.',
+    players: kickoffReceivePlayers(),
+    groups: [],
   },
   {
-    id:'counter', name:'Counter Attack', cat:'Transition',
-    players:[
-      {num:15,team:'A',x:34,y:28},{num:11,team:'A',x:10,y:35},{num:14,team:'A',x:58,y:35},
-      {num:9,team:'A',x:34,y:44},{num:10,team:'A',x:26,y:52},{num:12,team:'A',x:20,y:58},
-      {num:13,team:'A',x:14,y:64},{num:8,team:'A',x:32,y:50},{num:6,team:'A',x:36,y:47},
-      {num:10,team:'D',x:26,y:60},{num:12,team:'D',x:20,y:66},{num:13,team:'D',x:14,y:72},
-      {num:9,team:'D',x:32,y:58},{num:15,team:'D',x:34,y:72},
-    ],
-    ball:{x:34,y:28},
-    paths:[
-      {num:15,team:'A',pts:[{x:34,y:28},{x:32,y:36},{x:30,y:42}]},
-      {num:11,team:'A',pts:[{x:10,y:35},{x:14,y:42},{x:20,y:48}]},
-      {num:9,team:'A',pts:[{x:34,y:44},{x:32,y:52},{x:28,y:58}]},
-      {num:10,team:'A',pts:[{x:26,y:52},{x:24,y:58},{x:20,y:64}]},
-      {num:8,team:'A',pts:[{x:32,y:50},{x:30,y:57},{x:28,y:62}]},
-    ],
-    passes:[{fromNum:15,fromT:'A',toNum:9,toT:'A',style:'pass'},{fromNum:9,fromT:'A',toNum:10,toT:'A',style:'pass'}],
-  },
-  {
-    id:'hammer_def', name:'Defence — HAMMER', cat:'Defence',
-    players:[
-      {num:9,team:'A',x:34,y:57},{num:10,team:'A',x:26,y:63},{num:12,team:'A',x:18,y:67},
-      {num:13,team:'A',x:12,y:71},{num:11,team:'A',x:6,y:67},{num:14,team:'A',x:60,y:67},
-      {num:15,team:'A',x:52,y:60},{num:8,team:'A',x:34,y:61},
-      {num:14,team:'D',x:62,y:54},{num:13,team:'D',x:54,y:58},{num:12,team:'D',x:46,y:58},
-      {num:10,team:'D',x:38,y:58},{num:9,team:'D',x:30,y:56},{num:11,team:'D',x:18,y:58},
-      {num:7,team:'D',x:32,y:60},{num:6,team:'D',x:36,y:63},{num:8,team:'D',x:34,y:58},
-    ],
-    ball:{x:34,y:57},
-    paths:[
-      {num:14,team:'D',pts:[{x:62,y:54},{x:55,y:59}]},
-      {num:13,team:'D',pts:[{x:54,y:58},{x:47,y:63}]},
-      {num:12,team:'D',pts:[{x:46,y:58},{x:39,y:63}]},
-      {num:10,team:'D',pts:[{x:38,y:58},{x:31,y:63}]},
-      {num:9,team:'D',pts:[{x:30,y:56},{x:23,y:61}]},
-      {num:11,team:'D',pts:[{x:18,y:58},{x:11,y:63}]},
-      {num:7,team:'D',pts:[{x:32,y:60},{x:25,y:65}]},
-      {num:6,team:'D',pts:[{x:36,y:63},{x:29,y:68}]},
-    ],
-    passes:[],
-  },
-  {
-    id:'lineout_maul', name:'Lineout — Maul Drive', cat:'Set Piece',
-    players:[
-      {num:2,team:'A',x:2,y:82},{num:4,team:'A',x:2,y:86},{num:5,team:'A',x:2,y:90},
-      {num:6,team:'A',x:2,y:94},{num:1,team:'A',x:2,y:78},{num:3,team:'A',x:2,y:98},
-      {num:7,team:'A',x:2,y:100},{num:8,team:'A',x:5,y:88},{num:9,team:'A',x:10,y:84},
-      {num:10,team:'A',x:20,y:82},{num:11,team:'A',x:18,y:76},{num:12,team:'A',x:28,y:84},
-      {num:13,team:'A',x:34,y:88},{num:14,team:'A',x:50,y:82},{num:15,team:'A',x:40,y:80},
-      {num:1,team:'D',x:8,y:81},{num:2,team:'D',x:8,y:85},{num:3,team:'D',x:8,y:89},{num:4,team:'D',x:8,y:93},
-    ],
-    ball:{x:2,y:82},
-    paths:[
-      {num:4,team:'A',pts:[{x:2,y:86},{x:6,y:86},{x:10,y:86}]},
-      {num:5,team:'A',pts:[{x:2,y:90},{x:6,y:90},{x:10,y:90}]},
-      {num:6,team:'A',pts:[{x:2,y:94},{x:6,y:94},{x:10,y:94}]},
-      {num:1,team:'A',pts:[{x:2,y:78},{x:6,y:79},{x:10,y:80}]},
-      {num:3,team:'A',pts:[{x:2,y:98},{x:6,y:97},{x:10,y:96}]},
-      {num:8,team:'A',pts:[{x:5,y:88},{x:8,y:86},{x:12,y:84}]},
-    ],
-    passes:[],
-  },
-  {
-    id:'scrum_left_channel', name:'Scrum — Left Channel', cat:'Attack · Scrum',
-    players:[
-      {num:1,team:'A',x:31,y:49},{num:2,team:'A',x:34,y:49},{num:3,team:'A',x:37,y:49},
-      {num:4,team:'A',x:32,y:51},{num:5,team:'A',x:36,y:51},{num:6,team:'A',x:28,y:52},
-      {num:7,team:'A',x:40,y:52},{num:8,team:'A',x:34,y:54},{num:9,team:'A',x:29,y:56},
-      {num:10,team:'A',x:22,y:59},{num:11,team:'A',x:10,y:58},{num:12,team:'A',x:18,y:62},
-      {num:13,team:'A',x:14,y:66},{num:14,team:'A',x:6,y:70},{num:15,team:'A',x:30,y:66},
-      {num:9,team:'D',x:31,y:56},{num:10,team:'D',x:24,y:60},{num:12,team:'D',x:18,y:64},{num:13,team:'D',x:12,y:68},
-    ],
-    ball:{x:34,y:54},
-    paths:[
-      {num:8,team:'A',pts:[{x:34,y:54},{x:33,y:52},{x:31,y:50}]},
-      {num:9,team:'A',pts:[{x:29,y:56},{x:26,y:55},{x:22,y:56}]},
-      {num:10,team:'A',pts:[{x:22,y:59},{x:18,y:58},{x:14,y:60}]},
-      {num:12,team:'A',pts:[{x:18,y:62},{x:15,y:62},{x:11,y:64}]},
-      {num:11,team:'A',pts:[{x:10,y:58},{x:8,y:56},{x:5,y:54}]},
-    ],
-    passes:[{fromNum:8,fromT:'A',toNum:9,toT:'A',style:'pass'},{fromNum:9,fromT:'A',toNum:10,toT:'A',style:'pass'}],
-  },
-  {
-    id:'scrum_strike_right', name:'Scrum — Strike Right', cat:'Attack · Scrum',
-    players:[
-      {num:1,team:'A',x:31,y:49},{num:2,team:'A',x:34,y:49},{num:3,team:'A',x:37,y:49},
-      {num:4,team:'A',x:32,y:51},{num:5,team:'A',x:36,y:51},{num:6,team:'A',x:28,y:52},
-      {num:7,team:'A',x:40,y:52},{num:8,team:'A',x:34,y:54},{num:9,team:'A',x:39,y:56},
-      {num:10,team:'A',x:46,y:58},{num:11,team:'A',x:60,y:60},{num:12,team:'A',x:50,y:62},
-      {num:13,team:'A',x:56,y:66},{num:14,team:'A',x:64,y:70},{num:15,team:'A',x:42,y:67},
-      {num:9,team:'D',x:41,y:56},{num:10,team:'D',x:48,y:60},{num:12,team:'D',x:54,y:64},{num:13,team:'D',x:61,y:68},
-    ],
-    ball:{x:34,y:54},
-    paths:[
-      {num:8,team:'A',pts:[{x:34,y:54},{x:35,y:52},{x:37,y:50}]},
-      {num:9,team:'A',pts:[{x:39,y:56},{x:42,y:56},{x:46,y:58}]},
-      {num:10,team:'A',pts:[{x:46,y:58},{x:50,y:58},{x:56,y:60}]},
-      {num:12,team:'A',pts:[{x:50,y:62},{x:55,y:62},{x:60,y:64}]},
-      {num:11,team:'A',pts:[{x:60,y:60},{x:63,y:58},{x:66,y:56}]},
-      {num:15,team:'A',pts:[{x:42,y:67},{x:46,y:64},{x:52,y:61}]},
-    ],
-    passes:[{fromNum:8,fromT:'A',toNum:9,toT:'A',style:'pass'},{fromNum:9,fromT:'A',toNum:10,toT:'A',style:'pass'},{fromNum:10,fromT:'A',toNum:12,toT:'A',style:'pass'}],
-  },
-  {
-    id:'lineout_short_throw', name:'Lineout — Short Throw', cat:'Set Piece',
-    players:[
-      {num:1,team:'A',x:2,y:79},{num:2,team:'A',x:2,y:82},{num:3,team:'A',x:2,y:96},
-      {num:4,team:'A',x:2,y:84},{num:5,team:'A',x:2,y:88},{num:6,team:'A',x:2,y:92},
-      {num:7,team:'A',x:2,y:100},{num:8,team:'A',x:6,y:86},{num:9,team:'A',x:10,y:83},
-      {num:10,team:'A',x:20,y:80},{num:11,team:'A',x:14,y:76},{num:12,team:'A',x:28,y:82},
-      {num:13,team:'A',x:36,y:84},{num:14,team:'A',x:52,y:80},{num:15,team:'A',x:42,y:78},
-      {num:2,team:'D',x:8,y:82},{num:4,team:'D',x:8,y:85},{num:5,team:'D',x:8,y:89},{num:6,team:'D',x:8,y:93},
-    ],
-    ball:{x:2,y:82},
-    paths:[
-      {num:4,team:'A',pts:[{x:2,y:84},{x:4,y:84},{x:6,y:84}]},
-      {num:8,team:'A',pts:[{x:6,y:86},{x:8,y:85},{x:12,y:84}]},
-      {num:9,team:'A',pts:[{x:10,y:83},{x:12,y:82},{x:16,y:81}]},
-    ],
-    passes:[{fromNum:2,fromT:'A',toNum:4,toT:'A',style:'pass'},{fromNum:4,fromT:'A',toNum:9,toT:'A',style:'pass'}],
-  },
-  {
-    id:'lineout_back_pickup', name:'Lineout — Back of Lineout', cat:'Set Piece',
-    players:[
-      {num:1,team:'A',x:2,y:78},{num:2,team:'A',x:2,y:82},{num:3,team:'A',x:2,y:98},
-      {num:4,team:'A',x:2,y:84},{num:5,team:'A',x:2,y:88},{num:6,team:'A',x:2,y:92},
-      {num:7,team:'A',x:2,y:96},{num:8,team:'A',x:5,y:96},{num:9,team:'A',x:10,y:92},
-      {num:10,team:'A',x:20,y:88},{num:11,team:'A',x:16,y:84},{num:12,team:'A',x:28,y:90},
-      {num:13,team:'A',x:36,y:92},{num:14,team:'A',x:52,y:88},{num:15,team:'A',x:42,y:86},
-      {num:4,team:'D',x:8,y:85},{num:5,team:'D',x:8,y:89},{num:6,team:'D',x:8,y:93},{num:7,team:'D',x:8,y:97},
-    ],
-    ball:{x:5,y:96},
-    paths:[
-      {num:7,team:'A',pts:[{x:2,y:96},{x:4,y:96},{x:5,y:96}]},
-      {num:8,team:'A',pts:[{x:5,y:96},{x:8,y:95},{x:12,y:93}]},
-      {num:9,team:'A',pts:[{x:10,y:92},{x:12,y:91},{x:16,y:90}]},
-      {num:10,team:'A',pts:[{x:20,y:88},{x:24,y:87},{x:30,y:88}]},
-    ],
-    passes:[{fromNum:2,fromT:'A',toNum:8,toT:'A',style:'pass'},{fromNum:8,fromT:'A',toNum:9,toT:'A',style:'pass'}],
-  },
-  {
-    id:'ruck_blindside', name:'Ruck — Blind Side Attack', cat:'Attack · Ruck',
-    players:[
-      {num:1,team:'A',x:29,y:61},{num:2,team:'A',x:32,y:60},{num:3,team:'A',x:35,y:61},
-      {num:4,team:'A',x:31,y:64},{num:5,team:'A',x:35,y:64},{num:6,team:'A',x:26,y:63},
-      {num:7,team:'A',x:39,y:63},{num:8,team:'A',x:34,y:66},{num:9,team:'A',x:24,y:62},
-      {num:10,team:'A',x:16,y:60},{num:11,team:'A',x:8,y:58},{num:12,team:'A',x:46,y:64},
-      {num:13,team:'A',x:54,y:66},{num:14,team:'A',x:62,y:68},{num:15,team:'A',x:34,y:74},
-      {num:9,team:'D',x:26,y:60},{num:10,team:'D',x:18,y:58},{num:12,team:'D',x:46,y:60},{num:13,team:'D',x:54,y:62},
-    ],
-    ball:{x:32,y:60},
-    paths:[
-      {num:9,team:'A',pts:[{x:24,y:62},{x:20,y:60},{x:16,y:59}]},
-      {num:10,team:'A',pts:[{x:16,y:60},{x:12,y:58},{x:8,y:56}]},
-      {num:11,team:'A',pts:[{x:8,y:58},{x:6,y:55},{x:4,y:52}]},
-      {num:6,team:'A',pts:[{x:26,y:63},{x:22,y:61},{x:18,y:60}]},
-    ],
-    passes:[{fromNum:2,fromT:'A',toNum:9,toT:'A',style:'pass'},{fromNum:9,fromT:'A',toNum:10,toT:'A',style:'pass'}],
-  },
-  {
-    id:'ruck_wide_shift', name:'Ruck — Wide Shift', cat:'Attack · Ruck',
-    players:[
-      {num:1,team:'A',x:30,y:61},{num:2,team:'A',x:33,y:60},{num:3,team:'A',x:36,y:61},
-      {num:4,team:'A',x:31,y:64},{num:5,team:'A',x:35,y:64},{num:6,team:'A',x:27,y:66},
-      {num:7,team:'A',x:39,y:66},{num:8,team:'A',x:34,y:67},{num:9,team:'A',x:38,y:60},
-      {num:10,team:'A',x:46,y:60},{num:11,team:'A',x:62,y:58},{num:12,team:'A',x:52,y:64},
-      {num:13,team:'A',x:58,y:68},{num:14,team:'A',x:66,y:71},{num:15,team:'A',x:42,y:72},
-      {num:9,team:'D',x:40,y:58},{num:10,team:'D',x:48,y:58},{num:12,team:'D',x:56,y:62},{num:13,team:'D',x:62,y:66},
-    ],
-    ball:{x:33,y:60},
-    paths:[
-      {num:9,team:'A',pts:[{x:38,y:60},{x:42,y:60},{x:46,y:60}]},
-      {num:10,team:'A',pts:[{x:46,y:60},{x:50,y:61},{x:54,y:63}]},
-      {num:12,team:'A',pts:[{x:52,y:64},{x:56,y:65},{x:60,y:67}]},
-      {num:11,team:'A',pts:[{x:62,y:58},{x:65,y:57},{x:68,y:56}]},
-      {num:14,team:'A',pts:[{x:66,y:71},{x:67,y:68},{x:68,y:64}]},
-    ],
-    passes:[
-      {fromNum:2,fromT:'A',toNum:9,toT:'A',style:'pass'},
-      {fromNum:9,fromT:'A',toNum:10,toT:'A',style:'pass'},
-      {fromNum:10,fromT:'A',toNum:12,toT:'A',style:'pass'},
-      {fromNum:12,fromT:'A',toNum:13,toT:'A',style:'pass'},
-    ],
-  },
-  {
-    id:'kickoff_receive_secure', name:'Kickoff — Receive and Secure', cat:'Set Piece',
-    players:[
-      {num:1,team:'A',x:28,y:18},{num:2,team:'A',x:32,y:18},{num:3,team:'A',x:36,y:18},
-      {num:4,team:'A',x:30,y:21},{num:5,team:'A',x:34,y:21},{num:6,team:'A',x:26,y:24},
-      {num:7,team:'A',x:38,y:24},{num:8,team:'A',x:34,y:26},{num:9,team:'A',x:34,y:30},
-      {num:10,team:'A',x:24,y:32},{num:11,team:'A',x:10,y:34},{num:12,team:'A',x:44,y:32},
-      {num:13,team:'A',x:54,y:35},{num:14,team:'A',x:62,y:34},{num:15,team:'A',x:34,y:20},
-      {num:10,team:'D',x:30,y:8},{num:12,team:'D',x:38,y:8},{num:15,team:'D',x:34,y:6},
-    ],
-    ball:{x:34,y:20},
-    paths:[
-      {num:15,team:'A',pts:[{x:34,y:20},{x:34,y:22},{x:34,y:24}]},
-      {num:8,team:'A',pts:[{x:34,y:26},{x:32,y:24},{x:31,y:22}]},
-      {num:6,team:'A',pts:[{x:26,y:24},{x:28,y:23},{x:30,y:22}]},
-      {num:7,team:'A',pts:[{x:38,y:24},{x:36,y:23},{x:35,y:22}]},
-      {num:9,team:'A',pts:[{x:34,y:30},{x:34,y:27},{x:34,y:24}]},
-    ],
-    passes:[{fromNum:15,fromT:'A',toNum:9,toT:'A',style:'pass'}],
-  },
-  {
-    id:'defence_drift', name:'Defence — Drift', cat:'Defence',
-    players:[
-      {num:1,team:'A',x:30,y:62},{num:2,team:'A',x:33,y:62},{num:3,team:'A',x:36,y:62},
-      {num:4,team:'A',x:31,y:65},{num:5,team:'A',x:35,y:65},{num:6,team:'A',x:27,y:66},
-      {num:7,team:'A',x:39,y:66},{num:8,team:'A',x:34,y:68},{num:9,team:'A',x:34,y:58},
-      {num:10,team:'A',x:26,y:60},{num:11,team:'A',x:14,y:62},{num:12,team:'A',x:18,y:61},
-      {num:13,team:'A',x:22,y:60},{num:14,team:'A',x:10,y:64},{num:15,team:'A',x:6,y:66},
-      {num:9,team:'D',x:38,y:58},{num:10,team:'D',x:46,y:59},{num:12,team:'D',x:54,y:62},{num:13,team:'D',x:62,y:64},
-    ],
-    ball:{x:38,y:58},
-    paths:[
-      {num:9,team:'A',pts:[{x:34,y:58},{x:32,y:57},{x:30,y:57}]},
-      {num:10,team:'A',pts:[{x:26,y:60},{x:24,y:59},{x:22,y:59}]},
-      {num:12,team:'A',pts:[{x:18,y:61},{x:16,y:60},{x:14,y:60}]},
-      {num:13,team:'A',pts:[{x:22,y:60},{x:20,y:60},{x:18,y:60}]},
-      {num:6,team:'A',pts:[{x:27,y:66},{x:24,y:64},{x:21,y:63}]},
-      {num:7,team:'A',pts:[{x:39,y:66},{x:36,y:64},{x:33,y:63}]},
-    ],
-    passes:[],
+    id: 'kickoff_chase',
+    name: 'Kickoff Chase Line',
+    cat: 'Kickoffs',
+    desc: 'Connected restart chase line with support depth behind the kicker.',
+    players: kickoffChasePlayers(),
+    groups: [],
   },
 ];
-
 function presetToProject(play) {
   return {
     name: play.name,
@@ -1238,17 +1310,18 @@ function presetToProject(play) {
       {
         label: 'Phase 1',
         players: cloneData(play.players || []),
-        ball: play.ball ? cloneData(play.ball) : null,
-        paths: cloneData(play.paths || []),
-        passes: cloneData(play.passes || []),
+        ball: null,
+        paths: [],
+        passes: [],
+        groups: cloneData(play.groups || []),
         annotations: [],
         currentStep: 0,
         steps: [
           normalizeStepState({
             players: cloneData(play.players || []),
-            ball: play.ball ? cloneData(play.ball) : null,
-            paths: cloneData(play.paths || []),
-            passes: cloneData(play.passes || []),
+            ball: null,
+            paths: [],
+            passes: [],
             annotations: [],
           })
         ],
@@ -1277,7 +1350,7 @@ function buildPlayList() {
     plays.forEach(play => {
       const btn = document.createElement('button');
       btn.className = 'play-preset-btn';
-      btn.innerHTML = `<div class="play-preset-name">${play.name}</div>`;
+      btn.innerHTML = `<div class="play-preset-name">${play.name}</div><div class="play-preset-copy">${play.desc || 'Load a clean coaching picture.'}</div>`;
       btn.onclick = () => loadPlay(play.id);
       c.appendChild(btn);
     });
@@ -1289,9 +1362,13 @@ function loadPlay(id) {
   if (!play) return;
   closeRadialMenu();
   if (applyBoardData(presetToProject(play))) {
+    const defaultGroup = S.groups.find(group => group.id === play.defaultGroupId) || null;
+    if (defaultGroup) selectGroup(defaultGroup.id);
     document.getElementById('playName').value = play.name;
     syncPlayMetadataTitle();
-    setHint(`Loaded preset "${play.name}".`);
+    setHint(defaultGroup
+      ? `Loaded preset "${play.name}". Drag a grouped forward to move the pack, or unlock it for individual edits.`
+      : `Loaded preset "${play.name}".`);
     refreshInteractionUI();
   }
 }
@@ -1941,13 +2018,27 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 //  PLAYER RENDERING
-function drawPlayer(fx, fy, num, team, selected, isBallCarrier) {
+function playerColorPalette(player) {
+  const baseGroup = activeGroupForPlayer(player) || groupForPlayer(player);
+  const color = player?.colorOverride || baseGroup?.color || '';
+  if (!color) {
+    return player?.team === 'A'
+      ? { fill: '#2563eb', border: '#93c5fd', glow: '#3b82f6' }
+      : { fill: '#dc2626', border: '#fca5a5', glow: '#ef4444' };
+  }
+  return {
+    fill: color,
+    border: lightenHex(color, 72),
+    glow: lightenHex(color, 26),
+  };
+}
+
+function drawPlayer(fx, fy, num, team, selected, isBallCarrier, palette = null) {
   const p = toC(fx, fy);
   const r = R();
-  const isAtk = team === 'A';
-  const fill   = isAtk ? '#2563eb' : '#dc2626';
-  const border = isAtk ? '#93c5fd' : '#fca5a5';
-  const glow   = isAtk ? '#3b82f6' : '#ef4444';
+  const fill = palette?.fill || (team === 'A' ? '#2563eb' : '#dc2626');
+  const border = palette?.border || (team === 'A' ? '#93c5fd' : '#fca5a5');
+  const glow = palette?.glow || (team === 'A' ? '#3b82f6' : '#ef4444');
 
   ctx.save();
 
@@ -2055,6 +2146,14 @@ function lighten(hex, amt) {
   const r = Math.min(255, ((n>>16)&0xff) + amt);
   const g = Math.min(255, ((n>>8)&0xff) + amt);
   const b = Math.min(255, (n&0xff) + amt);
+  return `rgb(${r},${g},${b})`;
+}
+
+function lightenHex(hex, amt) {
+  const n = parseInt(hex.replace('#',''), 16);
+  const r = Math.min(255, ((n >> 16) & 0xff) + amt);
+  const g = Math.min(255, ((n >> 8) & 0xff) + amt);
+  const b = Math.min(255, (n & 0xff) + amt);
   return `rgb(${r},${g},${b})`;
 }
 
@@ -2678,7 +2777,7 @@ function render() {
       drawRunPath(path.pts, path.team === 'A' ? '#60a5fa' : '#f87171', 2.8, 1);
     });
     renderAnnotations('lines', frame.annotations);
-    frame.players.forEach(pl => drawPlayer(pl.x, pl.y, pl.num, pl.team, false, samePlayerRef(playerRef(pl), frame.ballOwner)));
+    frame.players.forEach(pl => drawPlayer(pl.x, pl.y, pl.num, pl.team, false, samePlayerRef(playerRef(pl), frame.ballOwner), playerColorPalette(pl)));
     if (frame.ball) drawBall(frame.ball.x, frame.ball.y, false);
     frame.players.forEach(pl => {
       if (samePlayerRef(playerRef(pl), frame.ballOwner)) drawBallCarrierHighlight(pl.x, pl.y);
@@ -2761,7 +2860,7 @@ function render() {
   S.players.forEach(pl => {
     const pos = animPos(pl, t);
     const sel = isPlayerSelected(pl.id);
-    drawPlayer(pos.x, pos.y, pl.num, pl.team, sel, pl.isBC);
+    drawPlayer(pos.x, pos.y, pl.num, pl.team, sel, pl.isBC, playerColorPalette(pl));
   });
   if (S.ball) {
     drawBall(S.ball.x, S.ball.y, isBallSelected());
@@ -2931,15 +3030,29 @@ function handlePointerDown(e) {
       : null;
     const annHit = !pl && !ballHit ? hitAnnotation(fp) : null;
     if (pl) {
-      const wasSelected = isPlayerSelected(pl.id);
+      const activeGroup = activeGroupForPlayer(pl);
+      const wasSelected = activeGroup ? playerUsesSelectedGroup(pl) : isPlayerSelected(pl.id);
       clearPassKickState();
-      selectPlayer(pl.id);
       clearDragPlayer();
-      setDragPlayer(pl.id);
-      S.ballAssignCandidate = pl.id;
-      S.dragging  = { type:'player', id:pl.id, snapshotDone: false };
-      S.dragOff   = { x:fp.x - pl.x, y:fp.y - pl.y };
-      beginPointerTap(e.pointerId, { type:'player', id:pl.id, wasSelected, canvasX: canvasPoint.x, canvasY: canvasPoint.y }, e);
+      if (activeGroup) {
+        selectGroup(activeGroup.id);
+        S.dragging = {
+          type:'group',
+          id:activeGroup.id,
+          anchorPlayerId: pl.id,
+          snapshotDone: false,
+          startPositions: groupMembers(activeGroup).map(member => ({ id: member.id, x: member.x, y: member.y })),
+          startBall: S.ball ? { x: S.ball.x, y: S.ball.y } : null,
+        };
+        beginPointerTap(e.pointerId, { type:'group', id: activeGroup.id }, e);
+      } else {
+        selectPlayer(pl.id);
+        setDragPlayer(pl.id);
+        S.ballAssignCandidate = pl.id;
+        S.dragging  = { type:'player', id:pl.id, snapshotDone: false };
+        S.dragOff   = { x:fp.x - pl.x, y:fp.y - pl.y };
+        beginPointerTap(e.pointerId, { type:'player', id:pl.id, wasSelected, canvasX: canvasPoint.x, canvasY: canvasPoint.y }, e);
+      }
       closeRadialMenu();
       try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     } else if (ballHit) {
@@ -3236,6 +3349,44 @@ function handlePointerMove(e) {
           updateGainDisplayForY(pl.y);
         }
       }
+    } else if (S.dragging.type === 'group') {
+      const anchor = S.players.find(player => player.id === S.dragging.anchorPlayerId);
+      const startAnchor = S.dragging.startPositions?.find(player => player.id === S.dragging.anchorPlayerId);
+      if (anchor && startAnchor) {
+        if (!S.dragging.snapshotDone) {
+          snapshot();
+          S.dragging.snapshotDone = true;
+        }
+        const members = S.dragging.startPositions
+          .map(start => {
+            const live = S.players.find(player => player.id === start.id);
+            return live ? { live, start } : null;
+          })
+          .filter(Boolean);
+        const dxRaw = (fp.x - anchor.x) + (anchor.x - startAnchor.x);
+        const dyRaw = (fp.y - anchor.y) + (anchor.y - startAnchor.y);
+        const dxMin = Math.max(...members.map(({ start }) => F.XMIN - start.x));
+        const dxMax = Math.min(...members.map(({ start }) => F.XMAX - start.x));
+        const dyMin = Math.max(...members.map(({ start }) => F.YMIN - start.y));
+        const dyMax = Math.min(...members.map(({ start }) => F.YMAX - start.y));
+        const dx = clamp(dxRaw, dxMin, dxMax);
+        const dy = clamp(dyRaw, dyMin, dyMax);
+        members.forEach(({ live, start }) => {
+          live.x = start.x + dx;
+          live.y = start.y + dy;
+          const path = S.paths.find(pathItem => pathItem.pid === live.id);
+          if (path && path.pts.length) path.pts[0] = { x: live.x, y: live.y };
+          if (live.isBC && S.ball) {
+            if (S.ballAttached && samePlayerRef(playerRef(live), S.ballOwner)) {
+              S.ball = attachedBallPositionForPlayer(live);
+            } else if (S.dragging.startBall) {
+              S.ball.x = S.dragging.startBall.x + dx;
+              S.ball.y = S.dragging.startBall.y + dy;
+            }
+            updateGainDisplayForY(live.y);
+          }
+        });
+      }
     } else if (S.dragging.type === 'ball' && S.ball) {
       S.ball.x = clamp(fp.x - S.dragOff.x, -2, 70);
       S.ball.y = clamp(fp.y - S.dragOff.y, -11, 111);
@@ -3389,10 +3540,15 @@ function onPointerUp(e) {
       render();
       return;
     }
+    if (tap.payload.type === 'group') {
+      refreshInteractionUI();
+      render();
+      return;
+    }
   }
 
   if (S.dragging) {
-    if (S.dragging.type === 'ball' || S.dragging.type === 'player') updateBallOwnerFromPosition();
+    if (S.dragging.type === 'ball' || S.dragging.type === 'player' || S.dragging.type === 'group') updateBallOwnerFromPosition();
     S.dragging = null;
     clearDragPlayer();
     refreshInteractionUI();
@@ -3615,6 +3771,10 @@ function removePlayer(id) {
 }
 
 function deleteSelected() {
+  if (selectedGroup()) {
+    clearSelection();
+    return;
+  }
   if (S.selectedPathPid !== null) {
     snapshot();
     S.paths = S.paths.filter(p => p.pid !== S.selectedPathPid);
@@ -4176,6 +4336,16 @@ function updateMobileUI() {
 }
 
 function getSelectedSummary() {
+  const group = selectedGroup();
+  if (group) {
+    const members = groupMembers(group);
+    return {
+      title: group.label,
+      meta: group.active
+        ? `Pack selected with ${members.length} players. Drag any grouped forward to move the full unit.`
+        : 'Pack available for regrouping. Players are currently in individual edit mode.',
+    };
+  }
   if (isBallSelected()) {
     const owner = findPlayerByRef(S.ballOwner);
     const candidate = manualBallAssignmentTarget();
@@ -4240,6 +4410,10 @@ function getStatusMessage() {
     const pl = S.players.find(p => p.id === S.dragPlayerId);
     return pl ? `Dragging ${pl.team==='A'?'Attack':'Defence'} #${pl.num}. Release to place.` : 'Dragging player.';
   }
+  if (S.dragging?.type === 'group') {
+    const group = selectedGroup() || S.groups.find(item => item.id === S.dragging.id);
+    return group ? `Dragging ${group.label}. Release to place the pack.` : 'Dragging pack.';
+  }
   if (S.dragging?.type === 'ball') return 'Dragging the ball. Release to place it.';
   if (S.dragging?.type === 'annotation') {
     const ann = findAnnotationById(S.dragging.id);
@@ -4254,6 +4428,12 @@ function getStatusMessage() {
     return pl ? `${MODE_LABELS[S.tool]} armed from ${pl.team==='A'?'Attack':'Defence'} #${pl.num}. Choose the target.` : 'Choose the target.';
   }
   if (S.annotationDraft) return `Drawing ${MODE_LABELS[S.annotationDraft.type] || 'annotation'}. Release to place it.`;
+  const group = selectedGroup();
+  if (group) {
+    return group.active
+      ? `${group.label} selected. Drag any grouped forward to move the pack together.`
+      : `${group.label} unlocked. Players can be edited individually.`;
+  }
   if (isBallSelected()) return 'Ball selected. Move it, or switch tools to build around it.';
   const ann = selectedAnnotation();
   if (ann) return `${MODE_LABELS[ann.type] || 'Annotation'} selected. Use Move to adjust it or Delete to remove it.`;
@@ -4464,7 +4644,7 @@ function updateSmartPanel() {
 
   const isAnnotationTool = S.tool === 'note' || S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box';
   const defaultState = document.getElementById('spDefaultState');
-  const hasSelection = !!S.selectedPlayerId || isBallSelected() || !!selectedAnnotationId();
+  const hasSelection = !!S.selectedPlayerId || !!S.selectedGroupId || isBallSelected() || !!selectedAnnotationId();
   const showDefault = !hasSelection && !isKick;
 
 
@@ -4545,11 +4725,17 @@ window.toggleAccordion = toggleAccordion;
 
 function setAnnotationColor(color) {
   const ann = selectedAnnotation();
-  if (!ann) return;
-  snapshot();
-  ann.color = color;
-  refreshInteractionUI();
-  render();
+  if (ann) {
+    snapshot();
+    ann.color = color;
+    refreshInteractionUI();
+    render();
+    return;
+  }
+  if (selectedGroup() || S.selectedPlayerId !== null) {
+    snapshot();
+    setSelectedUnitColor(color);
+  }
 }
 window.setAnnotationColor = setAnnotationColor;
 
@@ -4644,7 +4830,7 @@ function cancelActiveBoardInteraction() {
     render();
     return true;
   }
-  if (S.selectedPlayerId !== null || isBallSelected() || selectedAnnotationId() || S.selectedPassIdx !== null || S.selectedPathPid !== null) {
+  if (S.selectedPlayerId !== null || S.selectedGroupId !== null || isBallSelected() || selectedAnnotationId() || S.selectedPassIdx !== null || S.selectedPathPid !== null) {
     clearSelection();
     return true;
   }
@@ -4662,7 +4848,7 @@ function clearAll() {
   S.playMetadata = emptyPlayMetadata('New Play');
   S.projectPlayback = null;
   S.annotations = [];
-  S.drawing=null; S.passFrom=null; S.annotationDraft=null; S.selected=null; S.selectedPlayerId=null; S.selectedAnnotationIdValue=null; S.selectedObjectType=null; S.dragPlayerId=null; S.activePasserId=null; S.activeKickerId=null; S.highlightedPlayerIds=[]; S.ballAssignCandidate=null; S.selectedPathPid=null; S.selectedPassIdx=null;
+  S.drawing=null; S.passFrom=null; S.annotationDraft=null; S.selected=null; S.selectedPlayerId=null; S.selectedGroupId=null; S.selectedAnnotationIdValue=null; S.selectedObjectType=null; S.dragPlayerId=null; S.activePasserId=null; S.activeKickerId=null; S.highlightedPlayerIds=[]; S.ballAssignCandidate=null; S.selectedPathPid=null; S.selectedPassIdx=null;
   S.animT=0; S.animating=false;
   S.animSpd=1; spdIdx=2;
   S.nextId=1;
@@ -4682,11 +4868,19 @@ function updateSelInfo() {
   const clearBtn = document.getElementById('selClearBtn');
   const deleteBtn = document.getElementById('selDeleteBtn');
   const giveBallBtn = document.getElementById('selGiveBallBtn');
+  const groupActions = document.getElementById('spGroupActions');
+  const groupModeBtn = document.getElementById('selGroupModeBtn');
+  const regroupBtn = document.getElementById('selRegroupBtn');
   const editWrap = document.getElementById('selEditWrap');
   const editLabel = document.getElementById('selEditLabel');
   const noteInput = document.getElementById('selNoteInput');
   const summary = getSelectedSummary();
   const ann = selectedAnnotation();
+  const group = selectedGroup();
+  const selectedPlayer = S.selectedPlayerId !== null
+    ? S.players.find(player => player.id === S.selectedPlayerId) || null
+    : null;
+  const playerGroup = !group && selectedPlayer ? groupForPlayer(selectedPlayer) : null;
   document.getElementById('selName').textContent = summary.title;
   if (meta) meta.textContent = summary.meta;
   box.classList.toggle('visible', summary.title !== '-');
@@ -4709,9 +4903,13 @@ function updateSelInfo() {
   }
   const colorPicker = document.getElementById('spColorPicker');
   if (colorPicker) {
-    colorPicker.hidden = !ann;
-    if (ann) {
-      const currentColor = ann.color || annotationColor(ann.type);
+    colorPicker.hidden = !ann && !group && !selectedPlayer;
+    if (ann || group || selectedPlayer) {
+      const currentColor = ann
+        ? (ann.color || annotationColor(ann.type))
+        : group
+          ? (group.color || PRESET_GROUP_ATTACK)
+          : (selectedPlayer?.colorOverride || playerColorPalette(selectedPlayer).fill);
       colorPicker.querySelectorAll('.sp-color-swatch').forEach(sw => {
         sw.classList.toggle('active', sw.dataset.color === currentColor);
       });
@@ -4725,7 +4923,21 @@ function updateSelInfo() {
       shapeOpacity.value = String(Number(ann.opacity) || 1);
     }
   }
-  const hasAnySelection = !!S.selectedPlayerId || isBallSelected() || !!ann || S.selectedPassIdx !== null || S.selectedPathPid !== null;
+  const hasAnySelection = !!S.selectedPlayerId || !!group || isBallSelected() || !!ann || S.selectedPassIdx !== null || S.selectedPathPid !== null;
+  if (groupActions) {
+    const canUnlock = !!group && group.active;
+    const canRegroup = !!playerGroup && playerGroup.active === false;
+    groupActions.hidden = !canUnlock && !canRegroup;
+    if (groupModeBtn) {
+      groupModeBtn.hidden = !canUnlock;
+      groupModeBtn.onclick = editSelectedPackIndividuals;
+    }
+    if (regroupBtn) {
+      regroupBtn.hidden = !canRegroup;
+      regroupBtn.onclick = regroupSelectedPack;
+      if (canRegroup) regroupBtn.textContent = `Regroup ${playerGroup.label}`;
+    }
+  }
   if (deleteBtn) {
     deleteBtn.onclick = deleteSelected;
     if (S.selectedPathPid !== null) deleteBtn.textContent = 'Remove Run Path';
@@ -4741,7 +4953,7 @@ function updateSelInfo() {
     } else {
       deleteBtn.textContent = 'Remove Player';
     }
-    deleteBtn.disabled = !hasAnySelection;
+    deleteBtn.disabled = !hasAnySelection || !!group;
   }
   if (clearBtn) {
     clearBtn.onclick = clearSelection;
@@ -5061,7 +5273,7 @@ document.addEventListener('keydown', e => {
   if (k==='z'&&(e.ctrlKey||e.metaKey)&&e.shiftKey) { e.preventDefault(); redo(); return; }
   if (k==='z'&&(e.ctrlKey||e.metaKey)) { e.preventDefault(); undo(); }
   if (k==='delete'||k==='backspace') {
-    if (S.selectedPlayerId !== null || isBallSelected() || selectedAnnotationId() || S.selectedPassIdx !== null || S.selectedPathPid !== null) {
+    if (S.selectedPlayerId !== null || S.selectedGroupId !== null || isBallSelected() || selectedAnnotationId() || S.selectedPassIdx !== null || S.selectedPathPid !== null) {
       e.preventDefault();
       deleteSelected();
     }
@@ -5190,3 +5402,4 @@ document.addEventListener('pointerdown', e => {
     closeMobileToolsDropdown();
   }
 }, { capture: true });
+
