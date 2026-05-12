@@ -722,7 +722,7 @@ function selectedAnnotationId() {
 }
 
 function syncLegacySelectionState() {
-  if (S.selectedObjectType === 'player') S.selected = S.selectedPlayerId;
+  if (S.selectedPlayerId !== null) S.selected = S.selectedPlayerId;
   else if (S.selectedObjectType === 'ball') S.selected = '__ball__';
   else if (S.selectedObjectType === 'annotation' && S.selectedAnnotationIdValue) S.selected = annotationSelection(S.selectedAnnotationIdValue);
   else S.selected = null;
@@ -798,7 +798,7 @@ function isBallSelected() {
 }
 
 function isPlayerSelected(id) {
-  return S.selectedObjectType === 'player' && S.selectedPlayerId === id;
+  return S.selectedPlayerId === id;
 }
 
 function setWorkflowSource(id, tool = S.tool) {
@@ -918,7 +918,7 @@ function syncAttachedBallToOwner() {
 }
 
 function manualBallAssignmentTarget() {
-  if (S.selectedObjectType === 'player' && S.selectedPlayerId !== null) {
+  if (S.selectedPlayerId !== null) {
     return S.players.find(p => p.id === S.selectedPlayerId) || null;
   }
   if (isBallSelected() && S.ballAssignCandidate) {
@@ -3566,7 +3566,7 @@ window.addNextAvailablePlayer = addNextAvailablePlayer;
 
 function addBall() {
   snapshot();
-  const selectedPlayer = S.selectedObjectType === 'player' && S.selectedPlayerId !== null
+  const selectedPlayer = S.selectedPlayerId !== null
     ? S.players.find(p => p.id === S.selectedPlayerId)
     : null;
   if (selectedPlayer) {
@@ -3624,7 +3624,7 @@ function deleteSelected() {
     snapshot();
     removeAnnotation(annId);
   }
-  else if (S.selectedObjectType === 'player' && S.selectedPlayerId !== null) {
+  else if (S.selectedPlayerId !== null) {
     snapshot();
     removePlayer(S.selectedPlayerId);
   }
@@ -3632,6 +3632,7 @@ function deleteSelected() {
   refreshInteractionUI();
   render();
 }
+window.deleteSelected = deleteSelected;
 
 function duplicateSelected() {
   const ann = selectedAnnotation();
@@ -4186,7 +4187,7 @@ function getSelectedSummary() {
       return { title: 'Box Highlight', meta: 'Drag inside the box to move it or drag any corner handle to resize it.' };
     }
   }
-  if (S.selectedObjectType === 'player' && S.selectedPlayerId !== null) {
+  if (S.selectedPlayerId !== null) {
     const pl = S.players.find(p => p.id === S.selectedPlayerId);
     if (pl) {
       return {
@@ -4243,7 +4244,7 @@ function getStatusMessage() {
   if (isBallSelected()) return 'Ball selected. Move it, or switch tools to build around it.';
   const ann = selectedAnnotation();
   if (ann) return `${MODE_LABELS[ann.type] || 'Annotation'} selected. Use Move to adjust it or Delete to remove it.`;
-  if (S.selectedObjectType === 'player' && S.selectedPlayerId !== null) {
+  if (S.selectedPlayerId !== null) {
     const pl = S.players.find(p => p.id === S.selectedPlayerId);
     if (pl) {
       return pl.isBC
@@ -4587,6 +4588,7 @@ function clearSelection() {
   refreshInteractionUI();
   render();
 }
+window.clearSelection = clearSelection;
 
 function cancelActiveBoardInteraction() {
   closeMobileToolsDropdown();
@@ -4711,6 +4713,7 @@ function updateSelInfo() {
   }
   const hasAnySelection = !!S.selectedPlayerId || isBallSelected() || !!ann || S.selectedPassIdx !== null || S.selectedPathPid !== null;
   if (deleteBtn) {
+    deleteBtn.onclick = deleteSelected;
     if (S.selectedPathPid !== null) deleteBtn.textContent = 'Remove Run Path';
     else if (S.selectedPassIdx !== null) {
       const pass = S.passes[S.selectedPassIdx];
@@ -4727,6 +4730,7 @@ function updateSelInfo() {
     deleteBtn.disabled = !hasAnySelection;
   }
   if (clearBtn) {
+    clearBtn.onclick = clearSelection;
     clearBtn.textContent = hasAnySelection ? 'Clear Selection' : 'No Selection';
     clearBtn.disabled = !hasAnySelection;
   }
