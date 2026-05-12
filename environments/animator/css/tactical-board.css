@@ -707,6 +707,39 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
   color:#ef4444;
   background:rgba(239,68,68,.08);
 }
+.play-category-label {
+  margin: 10px 0 6px;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:.68rem;
+  font-weight:700;
+  letter-spacing:1.8px;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.play-preset-btn {
+  width:100%;
+  padding:8px 10px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,0.02);
+  color:var(--text);
+  cursor:pointer;
+  text-align:left;
+  margin-bottom:4px;
+  transition:all .15s;
+}
+.play-preset-btn:hover,
+.play-preset-btn:focus-visible {
+  border-color:var(--accent);
+  background:rgba(255,255,255,0.05);
+  transform:translateY(-1px);
+}
+.play-preset-name {
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:700;
+  font-size:.85rem;
+  letter-spacing:.4px;
+}
 .meta-shell {
   display:flex;
   flex-direction:column;

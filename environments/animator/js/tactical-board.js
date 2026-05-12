@@ -847,6 +847,322 @@ function giveBall(playerId) {
 }
 window.giveBall = giveBall;
 
+const PLAYS = [
+  {
+    id:'launch_fly', name:'Scrum — Launch Fly', cat:'Attack · Scrum',
+    players:[
+      {num:1,team:'A',x:31,y:61},{num:2,team:'A',x:34,y:61},{num:3,team:'A',x:37,y:61},
+      {num:4,team:'A',x:32,y:63},{num:5,team:'A',x:36,y:63},{num:6,team:'A',x:28,y:64},
+      {num:7,team:'A',x:40,y:64},{num:8,team:'A',x:34,y:66},{num:9,team:'A',x:38,y:68},
+      {num:10,team:'A',x:46,y:72},{num:11,team:'A',x:8,y:68},{num:12,team:'A',x:54,y:74},
+      {num:13,team:'A',x:58,y:77},{num:14,team:'A',x:62,y:68},{num:15,team:'A',x:34,y:78},
+      {num:9,team:'D',x:40,y:69},{num:10,team:'D',x:48,y:74},{num:12,team:'D',x:56,y:77},{num:13,team:'D',x:62,y:80},
+    ],
+    ball:{x:34,y:66},
+    paths:[
+      {num:8,team:'A',pts:[{x:34,y:66},{x:34,y:62},{x:35,y:59}]},
+      {num:9,team:'A',pts:[{x:38,y:68},{x:40,y:66},{x:44,y:64}]},
+      {num:10,team:'A',pts:[{x:46,y:72},{x:48,y:70},{x:56,y:65}]},
+      {num:12,team:'A',pts:[{x:54,y:74},{x:56,y:71},{x:62,y:66}]},
+      {num:11,team:'A',pts:[{x:8,y:68},{x:12,y:65},{x:18,y:62}]},
+      {num:15,team:'A',pts:[{x:34,y:78},{x:38,y:74},{x:46,y:70}]},
+    ],
+    passes:[{fromNum:8,fromT:'A',toNum:9,toT:'A',style:'pass'},{fromNum:9,fromT:'A',toNum:10,toT:'A',style:'pass'}],
+  },
+  {
+    id:'counter', name:'Counter Attack', cat:'Transition',
+    players:[
+      {num:15,team:'A',x:34,y:28},{num:11,team:'A',x:10,y:35},{num:14,team:'A',x:58,y:35},
+      {num:9,team:'A',x:34,y:44},{num:10,team:'A',x:26,y:52},{num:12,team:'A',x:20,y:58},
+      {num:13,team:'A',x:14,y:64},{num:8,team:'A',x:32,y:50},{num:6,team:'A',x:36,y:47},
+      {num:10,team:'D',x:26,y:60},{num:12,team:'D',x:20,y:66},{num:13,team:'D',x:14,y:72},
+      {num:9,team:'D',x:32,y:58},{num:15,team:'D',x:34,y:72},
+    ],
+    ball:{x:34,y:28},
+    paths:[
+      {num:15,team:'A',pts:[{x:34,y:28},{x:32,y:36},{x:30,y:42}]},
+      {num:11,team:'A',pts:[{x:10,y:35},{x:14,y:42},{x:20,y:48}]},
+      {num:9,team:'A',pts:[{x:34,y:44},{x:32,y:52},{x:28,y:58}]},
+      {num:10,team:'A',pts:[{x:26,y:52},{x:24,y:58},{x:20,y:64}]},
+      {num:8,team:'A',pts:[{x:32,y:50},{x:30,y:57},{x:28,y:62}]},
+    ],
+    passes:[{fromNum:15,fromT:'A',toNum:9,toT:'A',style:'pass'},{fromNum:9,fromT:'A',toNum:10,toT:'A',style:'pass'}],
+  },
+  {
+    id:'hammer_def', name:'Defence — HAMMER', cat:'Defence',
+    players:[
+      {num:9,team:'A',x:34,y:57},{num:10,team:'A',x:26,y:63},{num:12,team:'A',x:18,y:67},
+      {num:13,team:'A',x:12,y:71},{num:11,team:'A',x:6,y:67},{num:14,team:'A',x:60,y:67},
+      {num:15,team:'A',x:52,y:60},{num:8,team:'A',x:34,y:61},
+      {num:14,team:'D',x:62,y:54},{num:13,team:'D',x:54,y:58},{num:12,team:'D',x:46,y:58},
+      {num:10,team:'D',x:38,y:58},{num:9,team:'D',x:30,y:56},{num:11,team:'D',x:18,y:58},
+      {num:7,team:'D',x:32,y:60},{num:6,team:'D',x:36,y:63},{num:8,team:'D',x:34,y:58},
+    ],
+    ball:{x:34,y:57},
+    paths:[
+      {num:14,team:'D',pts:[{x:62,y:54},{x:55,y:59}]},
+      {num:13,team:'D',pts:[{x:54,y:58},{x:47,y:63}]},
+      {num:12,team:'D',pts:[{x:46,y:58},{x:39,y:63}]},
+      {num:10,team:'D',pts:[{x:38,y:58},{x:31,y:63}]},
+      {num:9,team:'D',pts:[{x:30,y:56},{x:23,y:61}]},
+      {num:11,team:'D',pts:[{x:18,y:58},{x:11,y:63}]},
+      {num:7,team:'D',pts:[{x:32,y:60},{x:25,y:65}]},
+      {num:6,team:'D',pts:[{x:36,y:63},{x:29,y:68}]},
+    ],
+    passes:[],
+  },
+  {
+    id:'lineout_maul', name:'Lineout — Maul Drive', cat:'Set Piece',
+    players:[
+      {num:2,team:'A',x:2,y:82},{num:4,team:'A',x:2,y:86},{num:5,team:'A',x:2,y:90},
+      {num:6,team:'A',x:2,y:94},{num:1,team:'A',x:2,y:78},{num:3,team:'A',x:2,y:98},
+      {num:7,team:'A',x:2,y:100},{num:8,team:'A',x:5,y:88},{num:9,team:'A',x:10,y:84},
+      {num:10,team:'A',x:20,y:82},{num:11,team:'A',x:18,y:76},{num:12,team:'A',x:28,y:84},
+      {num:13,team:'A',x:34,y:88},{num:14,team:'A',x:50,y:82},{num:15,team:'A',x:40,y:80},
+      {num:1,team:'D',x:8,y:81},{num:2,team:'D',x:8,y:85},{num:3,team:'D',x:8,y:89},{num:4,team:'D',x:8,y:93},
+    ],
+    ball:{x:2,y:82},
+    paths:[
+      {num:4,team:'A',pts:[{x:2,y:86},{x:6,y:86},{x:10,y:86}]},
+      {num:5,team:'A',pts:[{x:2,y:90},{x:6,y:90},{x:10,y:90}]},
+      {num:6,team:'A',pts:[{x:2,y:94},{x:6,y:94},{x:10,y:94}]},
+      {num:1,team:'A',pts:[{x:2,y:78},{x:6,y:79},{x:10,y:80}]},
+      {num:3,team:'A',pts:[{x:2,y:98},{x:6,y:97},{x:10,y:96}]},
+      {num:8,team:'A',pts:[{x:5,y:88},{x:8,y:86},{x:12,y:84}]},
+    ],
+    passes:[],
+  },
+  {
+    id:'scrum_left_channel', name:'Scrum — Left Channel', cat:'Attack · Scrum',
+    players:[
+      {num:1,team:'A',x:31,y:49},{num:2,team:'A',x:34,y:49},{num:3,team:'A',x:37,y:49},
+      {num:4,team:'A',x:32,y:51},{num:5,team:'A',x:36,y:51},{num:6,team:'A',x:28,y:52},
+      {num:7,team:'A',x:40,y:52},{num:8,team:'A',x:34,y:54},{num:9,team:'A',x:29,y:56},
+      {num:10,team:'A',x:22,y:59},{num:11,team:'A',x:10,y:58},{num:12,team:'A',x:18,y:62},
+      {num:13,team:'A',x:14,y:66},{num:14,team:'A',x:6,y:70},{num:15,team:'A',x:30,y:66},
+      {num:9,team:'D',x:31,y:56},{num:10,team:'D',x:24,y:60},{num:12,team:'D',x:18,y:64},{num:13,team:'D',x:12,y:68},
+    ],
+    ball:{x:34,y:54},
+    paths:[
+      {num:8,team:'A',pts:[{x:34,y:54},{x:33,y:52},{x:31,y:50}]},
+      {num:9,team:'A',pts:[{x:29,y:56},{x:26,y:55},{x:22,y:56}]},
+      {num:10,team:'A',pts:[{x:22,y:59},{x:18,y:58},{x:14,y:60}]},
+      {num:12,team:'A',pts:[{x:18,y:62},{x:15,y:62},{x:11,y:64}]},
+      {num:11,team:'A',pts:[{x:10,y:58},{x:8,y:56},{x:5,y:54}]},
+    ],
+    passes:[{fromNum:8,fromT:'A',toNum:9,toT:'A',style:'pass'},{fromNum:9,fromT:'A',toNum:10,toT:'A',style:'pass'}],
+  },
+  {
+    id:'scrum_strike_right', name:'Scrum — Strike Right', cat:'Attack · Scrum',
+    players:[
+      {num:1,team:'A',x:31,y:49},{num:2,team:'A',x:34,y:49},{num:3,team:'A',x:37,y:49},
+      {num:4,team:'A',x:32,y:51},{num:5,team:'A',x:36,y:51},{num:6,team:'A',x:28,y:52},
+      {num:7,team:'A',x:40,y:52},{num:8,team:'A',x:34,y:54},{num:9,team:'A',x:39,y:56},
+      {num:10,team:'A',x:46,y:58},{num:11,team:'A',x:60,y:60},{num:12,team:'A',x:50,y:62},
+      {num:13,team:'A',x:56,y:66},{num:14,team:'A',x:64,y:70},{num:15,team:'A',x:42,y:67},
+      {num:9,team:'D',x:41,y:56},{num:10,team:'D',x:48,y:60},{num:12,team:'D',x:54,y:64},{num:13,team:'D',x:61,y:68},
+    ],
+    ball:{x:34,y:54},
+    paths:[
+      {num:8,team:'A',pts:[{x:34,y:54},{x:35,y:52},{x:37,y:50}]},
+      {num:9,team:'A',pts:[{x:39,y:56},{x:42,y:56},{x:46,y:58}]},
+      {num:10,team:'A',pts:[{x:46,y:58},{x:50,y:58},{x:56,y:60}]},
+      {num:12,team:'A',pts:[{x:50,y:62},{x:55,y:62},{x:60,y:64}]},
+      {num:11,team:'A',pts:[{x:60,y:60},{x:63,y:58},{x:66,y:56}]},
+      {num:15,team:'A',pts:[{x:42,y:67},{x:46,y:64},{x:52,y:61}]},
+    ],
+    passes:[{fromNum:8,fromT:'A',toNum:9,toT:'A',style:'pass'},{fromNum:9,fromT:'A',toNum:10,toT:'A',style:'pass'},{fromNum:10,fromT:'A',toNum:12,toT:'A',style:'pass'}],
+  },
+  {
+    id:'lineout_short_throw', name:'Lineout — Short Throw', cat:'Set Piece',
+    players:[
+      {num:1,team:'A',x:2,y:79},{num:2,team:'A',x:2,y:82},{num:3,team:'A',x:2,y:96},
+      {num:4,team:'A',x:2,y:84},{num:5,team:'A',x:2,y:88},{num:6,team:'A',x:2,y:92},
+      {num:7,team:'A',x:2,y:100},{num:8,team:'A',x:6,y:86},{num:9,team:'A',x:10,y:83},
+      {num:10,team:'A',x:20,y:80},{num:11,team:'A',x:14,y:76},{num:12,team:'A',x:28,y:82},
+      {num:13,team:'A',x:36,y:84},{num:14,team:'A',x:52,y:80},{num:15,team:'A',x:42,y:78},
+      {num:2,team:'D',x:8,y:82},{num:4,team:'D',x:8,y:85},{num:5,team:'D',x:8,y:89},{num:6,team:'D',x:8,y:93},
+    ],
+    ball:{x:2,y:82},
+    paths:[
+      {num:4,team:'A',pts:[{x:2,y:84},{x:4,y:84},{x:6,y:84}]},
+      {num:8,team:'A',pts:[{x:6,y:86},{x:8,y:85},{x:12,y:84}]},
+      {num:9,team:'A',pts:[{x:10,y:83},{x:12,y:82},{x:16,y:81}]},
+    ],
+    passes:[{fromNum:2,fromT:'A',toNum:4,toT:'A',style:'pass'},{fromNum:4,fromT:'A',toNum:9,toT:'A',style:'pass'}],
+  },
+  {
+    id:'lineout_back_pickup', name:'Lineout — Back of Lineout', cat:'Set Piece',
+    players:[
+      {num:1,team:'A',x:2,y:78},{num:2,team:'A',x:2,y:82},{num:3,team:'A',x:2,y:98},
+      {num:4,team:'A',x:2,y:84},{num:5,team:'A',x:2,y:88},{num:6,team:'A',x:2,y:92},
+      {num:7,team:'A',x:2,y:96},{num:8,team:'A',x:5,y:96},{num:9,team:'A',x:10,y:92},
+      {num:10,team:'A',x:20,y:88},{num:11,team:'A',x:16,y:84},{num:12,team:'A',x:28,y:90},
+      {num:13,team:'A',x:36,y:92},{num:14,team:'A',x:52,y:88},{num:15,team:'A',x:42,y:86},
+      {num:4,team:'D',x:8,y:85},{num:5,team:'D',x:8,y:89},{num:6,team:'D',x:8,y:93},{num:7,team:'D',x:8,y:97},
+    ],
+    ball:{x:5,y:96},
+    paths:[
+      {num:7,team:'A',pts:[{x:2,y:96},{x:4,y:96},{x:5,y:96}]},
+      {num:8,team:'A',pts:[{x:5,y:96},{x:8,y:95},{x:12,y:93}]},
+      {num:9,team:'A',pts:[{x:10,y:92},{x:12,y:91},{x:16,y:90}]},
+      {num:10,team:'A',pts:[{x:20,y:88},{x:24,y:87},{x:30,y:88}]},
+    ],
+    passes:[{fromNum:2,fromT:'A',toNum:8,toT:'A',style:'pass'},{fromNum:8,fromT:'A',toNum:9,toT:'A',style:'pass'}],
+  },
+  {
+    id:'ruck_blindside', name:'Ruck — Blind Side Attack', cat:'Attack · Ruck',
+    players:[
+      {num:1,team:'A',x:29,y:61},{num:2,team:'A',x:32,y:60},{num:3,team:'A',x:35,y:61},
+      {num:4,team:'A',x:31,y:64},{num:5,team:'A',x:35,y:64},{num:6,team:'A',x:26,y:63},
+      {num:7,team:'A',x:39,y:63},{num:8,team:'A',x:34,y:66},{num:9,team:'A',x:24,y:62},
+      {num:10,team:'A',x:16,y:60},{num:11,team:'A',x:8,y:58},{num:12,team:'A',x:46,y:64},
+      {num:13,team:'A',x:54,y:66},{num:14,team:'A',x:62,y:68},{num:15,team:'A',x:34,y:74},
+      {num:9,team:'D',x:26,y:60},{num:10,team:'D',x:18,y:58},{num:12,team:'D',x:46,y:60},{num:13,team:'D',x:54,y:62},
+    ],
+    ball:{x:32,y:60},
+    paths:[
+      {num:9,team:'A',pts:[{x:24,y:62},{x:20,y:60},{x:16,y:59}]},
+      {num:10,team:'A',pts:[{x:16,y:60},{x:12,y:58},{x:8,y:56}]},
+      {num:11,team:'A',pts:[{x:8,y:58},{x:6,y:55},{x:4,y:52}]},
+      {num:6,team:'A',pts:[{x:26,y:63},{x:22,y:61},{x:18,y:60}]},
+    ],
+    passes:[{fromNum:2,fromT:'A',toNum:9,toT:'A',style:'pass'},{fromNum:9,fromT:'A',toNum:10,toT:'A',style:'pass'}],
+  },
+  {
+    id:'ruck_wide_shift', name:'Ruck — Wide Shift', cat:'Attack · Ruck',
+    players:[
+      {num:1,team:'A',x:30,y:61},{num:2,team:'A',x:33,y:60},{num:3,team:'A',x:36,y:61},
+      {num:4,team:'A',x:31,y:64},{num:5,team:'A',x:35,y:64},{num:6,team:'A',x:27,y:66},
+      {num:7,team:'A',x:39,y:66},{num:8,team:'A',x:34,y:67},{num:9,team:'A',x:38,y:60},
+      {num:10,team:'A',x:46,y:60},{num:11,team:'A',x:62,y:58},{num:12,team:'A',x:52,y:64},
+      {num:13,team:'A',x:58,y:68},{num:14,team:'A',x:66,y:71},{num:15,team:'A',x:42,y:72},
+      {num:9,team:'D',x:40,y:58},{num:10,team:'D',x:48,y:58},{num:12,team:'D',x:56,y:62},{num:13,team:'D',x:62,y:66},
+    ],
+    ball:{x:33,y:60},
+    paths:[
+      {num:9,team:'A',pts:[{x:38,y:60},{x:42,y:60},{x:46,y:60}]},
+      {num:10,team:'A',pts:[{x:46,y:60},{x:50,y:61},{x:54,y:63}]},
+      {num:12,team:'A',pts:[{x:52,y:64},{x:56,y:65},{x:60,y:67}]},
+      {num:11,team:'A',pts:[{x:62,y:58},{x:65,y:57},{x:68,y:56}]},
+      {num:14,team:'A',pts:[{x:66,y:71},{x:67,y:68},{x:68,y:64}]},
+    ],
+    passes:[
+      {fromNum:2,fromT:'A',toNum:9,toT:'A',style:'pass'},
+      {fromNum:9,fromT:'A',toNum:10,toT:'A',style:'pass'},
+      {fromNum:10,fromT:'A',toNum:12,toT:'A',style:'pass'},
+      {fromNum:12,fromT:'A',toNum:13,toT:'A',style:'pass'},
+    ],
+  },
+  {
+    id:'kickoff_receive_secure', name:'Kickoff — Receive and Secure', cat:'Set Piece',
+    players:[
+      {num:1,team:'A',x:28,y:18},{num:2,team:'A',x:32,y:18},{num:3,team:'A',x:36,y:18},
+      {num:4,team:'A',x:30,y:21},{num:5,team:'A',x:34,y:21},{num:6,team:'A',x:26,y:24},
+      {num:7,team:'A',x:38,y:24},{num:8,team:'A',x:34,y:26},{num:9,team:'A',x:34,y:30},
+      {num:10,team:'A',x:24,y:32},{num:11,team:'A',x:10,y:34},{num:12,team:'A',x:44,y:32},
+      {num:13,team:'A',x:54,y:35},{num:14,team:'A',x:62,y:34},{num:15,team:'A',x:34,y:20},
+      {num:10,team:'D',x:30,y:8},{num:12,team:'D',x:38,y:8},{num:15,team:'D',x:34,y:6},
+    ],
+    ball:{x:34,y:20},
+    paths:[
+      {num:15,team:'A',pts:[{x:34,y:20},{x:34,y:22},{x:34,y:24}]},
+      {num:8,team:'A',pts:[{x:34,y:26},{x:32,y:24},{x:31,y:22}]},
+      {num:6,team:'A',pts:[{x:26,y:24},{x:28,y:23},{x:30,y:22}]},
+      {num:7,team:'A',pts:[{x:38,y:24},{x:36,y:23},{x:35,y:22}]},
+      {num:9,team:'A',pts:[{x:34,y:30},{x:34,y:27},{x:34,y:24}]},
+    ],
+    passes:[{fromNum:15,fromT:'A',toNum:9,toT:'A',style:'pass'}],
+  },
+  {
+    id:'defence_drift', name:'Defence — Drift', cat:'Defence',
+    players:[
+      {num:1,team:'A',x:30,y:62},{num:2,team:'A',x:33,y:62},{num:3,team:'A',x:36,y:62},
+      {num:4,team:'A',x:31,y:65},{num:5,team:'A',x:35,y:65},{num:6,team:'A',x:27,y:66},
+      {num:7,team:'A',x:39,y:66},{num:8,team:'A',x:34,y:68},{num:9,team:'A',x:34,y:58},
+      {num:10,team:'A',x:26,y:60},{num:11,team:'A',x:14,y:62},{num:12,team:'A',x:18,y:61},
+      {num:13,team:'A',x:22,y:60},{num:14,team:'A',x:10,y:64},{num:15,team:'A',x:6,y:66},
+      {num:9,team:'D',x:38,y:58},{num:10,team:'D',x:46,y:59},{num:12,team:'D',x:54,y:62},{num:13,team:'D',x:62,y:64},
+    ],
+    ball:{x:38,y:58},
+    paths:[
+      {num:9,team:'A',pts:[{x:34,y:58},{x:32,y:57},{x:30,y:57}]},
+      {num:10,team:'A',pts:[{x:26,y:60},{x:24,y:59},{x:22,y:59}]},
+      {num:12,team:'A',pts:[{x:18,y:61},{x:16,y:60},{x:14,y:60}]},
+      {num:13,team:'A',pts:[{x:22,y:60},{x:20,y:60},{x:18,y:60}]},
+      {num:6,team:'A',pts:[{x:27,y:66},{x:24,y:64},{x:21,y:63}]},
+      {num:7,team:'A',pts:[{x:39,y:66},{x:36,y:64},{x:33,y:63}]},
+    ],
+    passes:[],
+  },
+];
+
+function presetToProject(play) {
+  return {
+    name: play.name,
+    currentPhase: 0,
+    phases: [
+      {
+        label: 'Phase 1',
+        players: cloneData(play.players || []),
+        ball: play.ball ? cloneData(play.ball) : null,
+        paths: cloneData(play.paths || []),
+        passes: cloneData(play.passes || []),
+        annotations: [],
+        currentStep: 0,
+        steps: [
+          normalizeStepState({
+            players: cloneData(play.players || []),
+            ball: play.ball ? cloneData(play.ball) : null,
+            paths: cloneData(play.paths || []),
+            passes: cloneData(play.passes || []),
+            annotations: [],
+          })
+        ],
+      }
+    ],
+    metadata: { title: play.name, source: 'preset' },
+    playback: normalizePlaybackSettings({}),
+    cat: play.cat,
+  };
+}
+
+function buildPlayList() {
+  const c = document.getElementById('playList');
+  if (!c) return;
+  c.innerHTML = '';
+  const groups = new Map();
+  PLAYS.forEach(play => {
+    if (!groups.has(play.cat)) groups.set(play.cat, []);
+    groups.get(play.cat).push(play);
+  });
+  groups.forEach((plays, cat) => {
+    const label = document.createElement('div');
+    label.className = 'play-category-label';
+    label.textContent = cat;
+    c.appendChild(label);
+    plays.forEach(play => {
+      const btn = document.createElement('button');
+      btn.className = 'play-preset-btn';
+      btn.innerHTML = `<div class="play-preset-name">${play.name}</div>`;
+      btn.onclick = () => loadPlay(play.id);
+      c.appendChild(btn);
+    });
+  });
+}
+
+function loadPlay(id) {
+  const play = PLAYS.find(p => p.id === id);
+  if (!play) return;
+  closeRadialMenu();
+  if (applyBoardData(presetToProject(play))) {
+    document.getElementById('playName').value = play.name;
+    syncPlayMetadataTitle();
+    setHint(`Loaded preset "${play.name}".`);
+    refreshInteractionUI();
+  }
+}
+
 function currentPlayTitle() {
   return document.getElementById('playName').value.trim() || 'Untitled Play';
 }
@@ -4315,7 +4631,7 @@ function saveCurrentPlay() {
 }
 
 function refreshSavedPlayList() {
-  const wrap = document.getElementById('playList') || document.getElementById('savedPlayList');
+  const wrap = document.getElementById('savedPlayList');
   if (!wrap) return;
   const saved = getSavedPlays();
   wrap.innerHTML = '';
@@ -4477,6 +4793,7 @@ _trackThumb.addEventListener('touchcancel', () => trackDrag = false, { passive: 
 
 //  INIT
 GamePlan.phases = GamePlan.phases.map((phase, index) => normalizePhaseState(phase, index));
+buildPlayList();
 rebuildPalette();
 refreshSavedPlayList();
 S.playMetadata = emptyPlayMetadata('New Play');
