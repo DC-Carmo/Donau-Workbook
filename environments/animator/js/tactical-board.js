@@ -1279,6 +1279,37 @@ function scrumPreset(id, name, cat, anchorX, side) {
   };
 }
 
+function scrumAttackFivePreset() {
+  return {
+    id: 'scrum_attack_five',
+    name: 'Scrum Attack 5-Man',
+    cat: 'Scrum Attack',
+    desc: 'Compact attacking scrum picture with the strike shape already spaced beyond halfway.',
+    defaultGroupId: 'atk_scrum_five_pack',
+    focusTeam: 'A',
+    players: [
+      { num: 2, team: 'A', x: 5.5, y: 60.2 },
+      { num: 1, team: 'A', x: 11, y: 62.2 },
+      { num: 4, team: 'A', x: 13.2, y: 62.2 },
+      { num: 5, team: 'A', x: 15.6, y: 62.2 },
+      { num: 6, team: 'A', x: 18, y: 62.2 },
+      { num: 3, team: 'A', x: 20.6, y: 62.2 },
+      { num: 9, team: 'A', x: 16, y: 69.5 },
+      { num: 10, team: 'A', x: 27, y: 74.5 },
+      { num: 8, team: 'A', x: 32, y: 76 },
+      { num: 7, team: 'A', x: 37.5, y: 76.5 },
+      { num: 11, team: 'A', x: 15.5, y: 85 },
+      { num: 12, team: 'A', x: 35, y: 82.5 },
+      { num: 13, team: 'A', x: 44, y: 84.5 },
+      { num: 14, team: 'A', x: 65.5, y: 86.5 },
+      { num: 15, team: 'A', x: 42, y: 94 },
+    ],
+    groups: [
+      makeGroup('atk_scrum_five_pack', 'Attack 5-Man Scrum', 'A', [1, 2, 3, 4, 5, 6], PRESET_GROUP_ATTACK),
+    ],
+  };
+}
+
 function lineoutPreset(id, name, count, attacking) {
   const nums = count === 5 ? [1, 2, 4, 5, 6] : [1, 2, 3, 4, 5, 6, 7];
   return {
@@ -1305,6 +1336,7 @@ const PLAYS = [
   scrumPreset('scrum_left', 'Scrum Left Launch', 'Scrum Left', 18, 'left'),
   scrumPreset('scrum_centre', 'Scrum Centre Launch', 'Scrum Centre', 34, 'centre'),
   scrumPreset('scrum_right', 'Scrum Right Launch', 'Scrum Right', 50, 'right'),
+  scrumAttackFivePreset(),
   lineoutPreset('lineout_5_attack', 'Lineout 5-Man Attack', 5, true),
   lineoutPreset('lineout_5_defence', 'Lineout 5-Man Defence', 5, false),
   lineoutPreset('lineout_7_attack', 'Lineout 7-Man Attack', 7, true),
