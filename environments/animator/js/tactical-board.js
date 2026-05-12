@@ -2594,6 +2594,25 @@ function render() {
     const isSelected = S.selectedPathPid === path.pid;
     drawRunPath(path.pts, path.color, 2.8, t > 0 ? t : 1, false, isSelected);
   });
+
+  if (S.dragging?.type === 'player') {
+    const pl = S.players.find(p => p.id === S.dragging.id);
+    const path = pl && S.paths.find(p => p.pid === pl.id);
+
+    if (path && path.pts.length >= 2) {
+      const dx = pl.x - path.pts[0].x;
+      const dy = pl.y - path.pts[0].y;
+      const ghostPts = path.pts.map(pt => ({
+        x: pt.x + dx,
+        y: pt.y + dy
+      }));
+
+      ctx.save();
+      ctx.globalAlpha = 0.3;
+      drawRunPath(ghostPts, path.color, 2, 1, true);
+      ctx.restore();
+    }
+  }
   renderAnnotations('lines');
 
   if (S.drawing && S.drawing.pts.length >= 2) {
