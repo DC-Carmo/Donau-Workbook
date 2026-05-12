@@ -2733,6 +2733,10 @@ html, body {
   border-color: rgba(255,255,255,0.2);
   color: #fff;
 }
+.sp-btn-ghost {
+  width: 100%;
+  margin-bottom: 8px;
+}
 .sp-btn-accent {
   width: 100%;
   border-color: rgba(183,154,97,0.28);

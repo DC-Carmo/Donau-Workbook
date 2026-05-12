@@ -31,6 +31,8 @@ let teleDrawing = null; // current stroke being drawn
 let teleFadeRaf = null;
 const TELE_DURATION = 3000; // ms before fully faded
 const TELE_COLOR = '#facc15'; // yellow ink
+let presetShowOpposition = false;
+let currentPresetId = null;
 
 // Canvas scaling
 const FIELD_X_STRETCH = 1.7;
@@ -1105,8 +1107,8 @@ function giveBall(playerId) {
 }
 window.giveBall = giveBall;
 
-const PRESET_GROUP_ATTACK = '#6ca88b';
-const PRESET_GROUP_DEFENCE = '#f97316';
+const PRESET_GROUP_ATTACK = '#2563eb';
+const PRESET_GROUP_DEFENCE = '#dc2626';
 
 function makeGroup(id, label, team, nums, color, type = 'pack') {
   return {
@@ -1122,41 +1124,61 @@ function makeGroup(id, label, team, nums, color, type = 'pack') {
 
 function scrumPack(team, yBase, midX = 34) {
   return [
-    { num: 1, team, x: midX - 3, y: yBase },
+    { num: 1, team, x: midX - 2.2, y: yBase },
     { num: 2, team, x: midX, y: yBase },
-    { num: 3, team, x: midX + 3, y: yBase },
-    { num: 4, team, x: midX - 2, y: yBase + 2.1 },
-    { num: 5, team, x: midX + 2, y: yBase + 2.1 },
-    { num: 6, team, x: midX - 5.5, y: yBase + 3.2 },
-    { num: 7, team, x: midX + 5.5, y: yBase + 3.2 },
-    { num: 8, team, x: midX, y: yBase + 5.1 },
+    { num: 3, team, x: midX + 2.2, y: yBase },
+    { num: 4, team, x: midX - 1.1, y: yBase + 1.8 },
+    { num: 5, team, x: midX + 1.1, y: yBase + 1.8 },
+    { num: 6, team, x: midX - 3.7, y: yBase + 3.4 },
+    { num: 7, team, x: midX + 3.7, y: yBase + 3.4 },
+    { num: 8, team, x: midX, y: yBase + 4.8 },
   ];
 }
 
-function scrumBacks(direction = 'centre', team = 'A', yBase = 58) {
-  const shift = direction === 'left' ? -8 : direction === 'right' ? 8 : 0;
+function scrumBacks(side = 'centre', team = 'A', yBase = 60) {
+  if (side === 'left') {
+    return [
+      { num: 9, team, x: 24.5, y: yBase },
+      { num: 10, team, x: 27.5, y: yBase + 8 },
+      { num: 11, team, x: 8.5, y: yBase + 9 },
+      { num: 12, team, x: 32, y: yBase + 10 },
+      { num: 13, team, x: 40.5, y: yBase + 11.5 },
+      { num: 14, team, x: 58, y: yBase + 15 },
+      { num: 15, team, x: 46.5, y: yBase + 20.5 },
+    ];
+  }
+  if (side === 'right') {
+    return [
+      { num: 9, team, x: 43.5, y: yBase },
+      { num: 10, team, x: 40.5, y: yBase + 8 },
+      { num: 11, team, x: 10, y: yBase + 15 },
+      { num: 12, team, x: 36, y: yBase + 10 },
+      { num: 13, team, x: 27.5, y: yBase + 11.5 },
+      { num: 14, team, x: 60, y: yBase + 9 },
+      { num: 15, team, x: 21.5, y: yBase + 20.5 },
+    ];
+  }
   return [
-    { num: 9, team, x: 34 + shift * 0.45, y: yBase },
-    { num: 10, team, x: 34 + shift, y: yBase + 4 },
-    { num: 11, team, x: 14 + shift, y: yBase + 6 },
-    { num: 12, team, x: 42 + shift, y: yBase + 6 },
-    { num: 13, team, x: 50 + shift, y: yBase + 8 },
-    { num: 14, team, x: 60 + shift, y: yBase + 6 },
-    { num: 15, team, x: 34, y: yBase + 11 },
+    { num: 9, team, x: 41, y: yBase },
+    { num: 10, team, x: 34, y: yBase + 7 },
+    { num: 11, team, x: 10, y: yBase + 11 },
+    { num: 12, team, x: 42, y: yBase + 9 },
+    { num: 13, team, x: 50, y: yBase + 11 },
+    { num: 14, team, x: 60, y: yBase + 11 },
+    { num: 15, team, x: 34, y: yBase + 20 },
   ];
 }
 
-function scrumDefence(direction = 'centre', yBase = 42) {
-  const shift = direction === 'left' ? -4 : direction === 'right' ? 4 : 0;
+function scrumDefence(anchorX = 34, yBase = 42) {
   return [
-    ...scrumPack('D', yBase, 34),
-    { num: 9, team: 'D', x: 34 + shift, y: yBase + 6 },
-    { num: 10, team: 'D', x: 26 + shift, y: yBase + 8 },
-    { num: 11, team: 'D', x: 14 + shift, y: yBase + 10 },
-    { num: 12, team: 'D', x: 42 + shift, y: yBase + 8 },
-    { num: 13, team: 'D', x: 50 + shift, y: yBase + 10 },
-    { num: 14, team: 'D', x: 60 + shift, y: yBase + 10 },
-    { num: 15, team: 'D', x: 34, y: yBase + 13 },
+    ...scrumPack('D', yBase, anchorX),
+    { num: 9, team: 'D', x: anchorX + 1.8, y: yBase + 5.8 },
+    { num: 10, team: 'D', x: anchorX - 6, y: yBase + 7.8 },
+    { num: 11, team: 'D', x: anchorX - 16, y: yBase + 9.5 },
+    { num: 12, team: 'D', x: anchorX + 7.5, y: yBase + 8.4 },
+    { num: 13, team: 'D', x: anchorX + 16.5, y: yBase + 10.2 },
+    { num: 14, team: 'D', x: anchorX + 26, y: yBase + 11.2 },
+    { num: 15, team: 'D', x: anchorX + 9, y: yBase + 18 },
   ];
 }
 
@@ -1237,17 +1259,18 @@ function kickoffChasePlayers() {
   ];
 }
 
-function scrumPreset(id, name, cat, direction) {
+function scrumPreset(id, name, cat, anchorX, side) {
   return {
     id,
     name,
     cat,
     desc: 'Attack forwards load as a draggable scrum pack. Unlock the pack to edit individual forwards.',
     defaultGroupId: 'atk_scrum_pack',
+    focusTeam: 'A',
     players: [
-      ...scrumPack('A', 50, 34),
-      ...scrumBacks(direction, 'A', 58),
-      ...scrumDefence(direction, 42),
+      ...scrumPack('A', 56, anchorX),
+      ...scrumBacks(side, 'A', 60),
+      ...scrumDefence(anchorX + 1.5, 49.5),
     ],
     groups: [
       makeGroup('atk_scrum_pack', 'Attack Scrum Pack', 'A', [1, 2, 3, 4, 5, 6, 7, 8], PRESET_GROUP_ATTACK),
@@ -1264,6 +1287,7 @@ function lineoutPreset(id, name, count, attacking) {
     cat: 'Lineouts',
     desc: 'Lineout pods load horizontally across the field and stay editable after setup.',
     defaultGroupId: attacking ? 'atk_lineout_pack' : 'def_lineout_pack',
+    focusTeam: attacking ? 'A' : 'D',
     players: [
       ...lineoutChain('A', count, 8, 84),
       ...attackLineoutSupport(84),
@@ -1278,9 +1302,9 @@ function lineoutPreset(id, name, count, attacking) {
 }
 
 const PLAYS = [
-  scrumPreset('scrum_left', 'Scrum Left Launch', 'Scrum Left', 'left'),
-  scrumPreset('scrum_centre', 'Scrum Centre Launch', 'Scrum Centre', 'centre'),
-  scrumPreset('scrum_right', 'Scrum Right Launch', 'Scrum Right', 'right'),
+  scrumPreset('scrum_left', 'Scrum Left Launch', 'Scrum Left', 18, 'left'),
+  scrumPreset('scrum_centre', 'Scrum Centre Launch', 'Scrum Centre', 34, 'centre'),
+  scrumPreset('scrum_right', 'Scrum Right Launch', 'Scrum Right', 50, 'right'),
   lineoutPreset('lineout_5_attack', 'Lineout 5-Man Attack', 5, true),
   lineoutPreset('lineout_5_defence', 'Lineout 5-Man Defence', 5, false),
   lineoutPreset('lineout_7_attack', 'Lineout 7-Man Attack', 7, true),
@@ -1290,6 +1314,7 @@ const PLAYS = [
     name: 'Kickoff Receive Setup',
     cat: 'Kickoffs',
     desc: 'Backfield catcher with a secure support pod underneath the reception picture.',
+    focusTeam: 'A',
     players: kickoffReceivePlayers(),
     groups: [],
   },
@@ -1298,27 +1323,66 @@ const PLAYS = [
     name: 'Kickoff Chase Line',
     cat: 'Kickoffs',
     desc: 'Connected restart chase line with support depth behind the kicker.',
+    focusTeam: 'A',
     players: kickoffChasePlayers(),
     groups: [],
   },
 ];
+
+function presetFocusTeam(play) {
+  return play?.focusTeam === 'D' ? 'D' : 'A';
+}
+
+function presetPlayersForView(play) {
+  const players = Array.isArray(play?.players) ? play.players : [];
+  if (presetShowOpposition) return cloneData(players);
+  const focusTeam = presetFocusTeam(play);
+  return cloneData(players.filter(player => player.team === focusTeam));
+}
+
+function presetGroupsForView(play) {
+  const groups = Array.isArray(play?.groups) ? play.groups : [];
+  if (presetShowOpposition) return cloneData(groups);
+  const focusTeam = presetFocusTeam(play);
+  return cloneData(groups.filter(group => group.team === focusTeam));
+}
+
+function updatePresetOptionsUI() {
+  const btn = document.getElementById('presetOppositionToggle');
+  if (!btn) return;
+  btn.textContent = presetShowOpposition ? 'Opposition: On' : 'Opposition: Off';
+  btn.classList.toggle('sp-btn-accent', presetShowOpposition);
+}
+
+function togglePresetOpposition() {
+  presetShowOpposition = !presetShowOpposition;
+  updatePresetOptionsUI();
+  if (currentPresetId) {
+    loadPlay(currentPresetId);
+    return;
+  }
+  render();
+}
+
 function presetToProject(play) {
+  const players = presetPlayersForView(play);
+  const groups = presetGroupsForView(play);
   return {
     name: play.name,
     currentPhase: 0,
     phases: [
       {
         label: 'Phase 1',
-        players: cloneData(play.players || []),
+        players: cloneData(players),
         ball: null,
         paths: [],
         passes: [],
-        groups: cloneData(play.groups || []),
+        groups: cloneData(groups),
         annotations: [],
         currentStep: 0,
         steps: [
           normalizeStepState({
-            players: cloneData(play.players || []),
+            players: cloneData(players),
             ball: null,
             paths: [],
             passes: [],
@@ -1362,6 +1426,8 @@ function loadPlay(id) {
   if (!play) return;
   closeRadialMenu();
   if (applyBoardData(presetToProject(play))) {
+    currentPresetId = play.id;
+    updatePresetOptionsUI();
     const defaultGroup = S.groups.find(group => group.id === play.defaultGroupId) || null;
     if (defaultGroup) selectGroup(defaultGroup.id);
     document.getElementById('playName').value = play.name;
@@ -4783,6 +4849,7 @@ function clearSelection() {
   S.drawing = null;
   S.annotationDraft = null;
   setHint('Selection cleared. Choose the next action.');
+  updatePresetOptionsUI();
   updateAnnotationPanel();
   refreshInteractionUI();
   render();
@@ -4839,6 +4906,7 @@ function cancelActiveBoardInteraction() {
 }
 function clearAll() {
   snapshot();
+  currentPresetId = null;
   GamePlan.name = 'New Play';
   GamePlan.currentPhase = 0;
   GamePlan.phases = [normalizePhaseState({ label: 'Phase 1' }, 0)];
@@ -5037,10 +5105,12 @@ function applyBoardData(play, { snapshotBefore = true } = {}) {
   S.projectPlayback = p.playback;
   S.animSpd = S.projectPlayback?.currentSpeed || 1;
   spdIdx = Math.max(0, SPEEDS.indexOf(S.animSpd));
+  if (p.metadata?.source !== 'preset') currentPresetId = null;
   document.getElementById('playName').value = GamePlan.name || 'Untitled Play';
   syncPlayMetadataTitle();
   setPlayBtnState();
   document.getElementById('spdLabel').textContent = fmtSpd(S.animSpd);
+  updatePresetOptionsUI();
   updatePhaseUI();
   rebuildPalette();
   refreshInteractionUI();
@@ -5318,6 +5388,7 @@ _trackThumb.addEventListener('touchcancel', () => trackDrag = false, { passive: 
 //  INIT
 GamePlan.phases = GamePlan.phases.map((phase, index) => normalizePhaseState(phase, index));
 buildPlayList();
+updatePresetOptionsUI();
 rebuildPalette();
 refreshSavedPlayList();
 S.playMetadata = emptyPlayMetadata('New Play');
@@ -5375,8 +5446,8 @@ document.getElementById('importPlayInput').addEventListener('change', e => {
 });
 window.addEventListener('resize', resize);
 resize();
-loadPlay('launch_fly');
-setHint('MOVE - drag any player or ball freely on the pitch');
+loadPlay('scrum_left');
+setHint('MOVE - drag the scrum pack as one unit, or switch to individual edits when you need detail.');
 refreshInteractionUI();
 
 (function initAccordions() {
