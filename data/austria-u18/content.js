@@ -88,7 +88,8 @@
             "Lineout starter built to launch into the next phase cleanly.",
             "Timing off the throw must be accurate and connected.",
             "Attack the space created by the initial movement."
-          ]
+          ],
+          diagram: "../../assets/donau/images/la-nt.png"
         },
         {
           name: "Special",
