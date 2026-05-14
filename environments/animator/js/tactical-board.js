@@ -5809,8 +5809,9 @@ function importPlayFromFile(file) {
       setTool('move');
       setHint(`Imported "${play.meta?.name || 'Untitled Play'}" from JSON.`);
       refreshInteractionUI();
-    } catch {
-      setHint('Import failed. Check the JSON structure and try again.');
+    } catch (err) {
+      console.error('Import failed:', err);
+      setHint(`Import failed: ${err.message}`);
       refreshInteractionUI();
     }
   };
