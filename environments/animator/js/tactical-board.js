@@ -843,54 +843,25 @@ function createCarryForwardStep(step) {
   }, players);
 }
 
-function stepHasImplicitPlayback(step) {
-  const source = normalizeStepState(step);
-  const hasPathMotion = source.paths.some(path => Array.isArray(path.pts) && path.pts.length >= 2);
-  return hasPathMotion || source.passes.length > 0;
+function phasePlaybackTargetIndex(startIdx = GamePlan.currentPhase) {
+  return startIdx < GamePlan.phases.length - 1 ? startIdx + 1 : null;
 }
 
 function currentPhaseHasPlayablePlayback() {
-  ensureSteps();
-  return sequenceStepCount() > 1 || stepHasImplicitPlayback(S.steps[S.currentStep] || emptyStepState());
+  return GamePlan.phases.length > 1;
 }
 
-function buildImplicitPlaybackTargetStep(step) {
-  const source = normalizeStepState(step);
-  const pathByPlayer = new Map(
-    source.paths.map(path => [playerKey({ team: path.team, num: path.num }), path])
-  );
-  const players = source.players.map(player => {
-    const path = pathByPlayer.get(playerKey(player));
-    if (path && Array.isArray(path.pts) && path.pts.length >= 2) {
-      const end = catmullRom(path.pts, 1.0);
-      return {
-        ...player,
-        x: end.x,
-        y: end.y,
-      };
-    }
-    return { ...player };
-  });
-  const playerLookup = buildStepLookup(players);
-  let ball = resolveStepBall(source);
-  const finalAction = source.passes[source.passes.length - 1];
-  if (finalAction) {
-    if (finalAction.style === 'kick' && finalAction.targetX !== undefined && finalAction.targetY !== undefined) {
-      ball = { x: finalAction.targetX, y: finalAction.targetY };
-    } else if (finalAction.toNum !== undefined && finalAction.toT !== undefined) {
-      const receiver = playerLookup.get(playerKey({ team: finalAction.toT, num: finalAction.toNum }));
-      if (receiver) ball = { x: receiver.x, y: receiver.y };
-    }
-  }
-  return normalizeStepState({
-    players,
-    ball,
-    ballOwner: null,
-    ballAttached: false,
-    paths: cloneData(source.paths),
-    passes: cloneData(source.passes),
-    annotations: cloneData(source.annotations),
-  }, players);
+function phasePlaybackStepAt(index) {
+  const source = index === GamePlan.currentPhase
+    ? serializePhase(S(), index)
+    : GamePlan.phases[index];
+  const normalizedPhase = normalizePhaseState(source, index);
+  return cloneStepState(normalizedPhase.steps[normalizedPhase.currentStep] || emptyStepState());
+}
+
+function phasePathForPlayer(step, player) {
+  const key = playerKey(player);
+  return step.paths.find(path => playerKey({ team: path.team, num: path.num }) === key) || null;
 }
 
 function emptyPlayMetadata(title = '') {
@@ -3420,7 +3391,7 @@ function render() {
   if (shouldRenderSequencePreview()) {
     const frame = buildSequenceFrame(S.animT);
     const playerLookup = new Map(frame.players.map(pl => [playerKey(pl), pl]));
-    const animatedKickBall = resolveAnimatedKickBall(frame, playerLookup);
+    const animatedActionBall = resolveAnimatedActionBall(frame, playerLookup);
     renderAnnotations('zones', frame.annotations);
     frame.passes.forEach(pass => {
       const from = playerLookup.get(playerKey({ num: pass.fromNum, team: pass.fromT }));
@@ -3440,7 +3411,7 @@ function render() {
     });
     renderAnnotations('lines', frame.annotations);
     frame.players.forEach(pl => drawPlayer(pl.x, pl.y, pl.num, pl.team, false, samePlayerRef(playerRef(pl), frame.ballOwner), playerColorPalette(pl)));
-    const frameBall = animatedKickBall || frame.ball;
+    const frameBall = animatedActionBall || frame.ball;
     if (frameBall) drawBall(frameBall.x, frameBall.y, false);
     frame.players.forEach(pl => {
       if (samePlayerRef(playerRef(pl), frame.ballOwner)) drawBallCarrierHighlight(pl.x, pl.y);
@@ -4559,16 +4530,15 @@ function sequenceSegmentCount() {
 }
 
 function currentPlaybackUsesStepSequence() {
-  return sequenceStepCount() > 1;
+  return false;
 }
 
 function currentPlaybackUsesImplicitMotion() {
-  ensureSteps();
-  return !currentPlaybackUsesStepSequence() && stepHasImplicitPlayback(S.steps[S.currentStep] || emptyStepState());
+  return currentPhaseHasPlayablePlayback() && phasePlaybackTargetIndex() !== null;
 }
 
 function playbackDurationSeconds() {
-  return sequenceSegmentCount() * DEFAULT_PLAYBACK_DURATION;
+  return DEFAULT_PLAYBACK_DURATION;
 }
 
 function currentStepStartProgress() {
@@ -4614,60 +4584,34 @@ function resolveStepBall(step) {
 }
 
 function buildSequenceFrame(progress) {
-  persistCurrentStep();
-  ensureSteps();
-  if (S.steps.length < 2) {
-    const only = cloneStepState(S.steps[0]);
-    if (!stepHasImplicitPlayback(only)) {
-      return { ...only, segmentIndex: 0, localT: 0 };
-    }
-    const target = buildImplicitPlaybackTargetStep(only);
-    const localT = clamp(progress, 0, 1);
-    const fromLookup = buildStepLookup(only.players);
-    const toLookup = buildStepLookup(target.players);
-    const allKeys = new Set([...fromLookup.keys(), ...toLookup.keys()]);
-    const players = Array.from(allKeys).map(key => {
-      const a = fromLookup.get(key) || toLookup.get(key);
-      const b = toLookup.get(key) || fromLookup.get(key);
-      return {
-        ...(cloneData(b) || cloneData(a) || {}),
-        x: lerp(a.x, b.x, localT),
-        y: lerp(a.y, b.y, localT),
-      };
-    });
-    const fromBall = resolveStepBall(only);
-    const toBall = resolveStepBall(target);
-    let ball = null;
-    if (fromBall && toBall) {
-      ball = { x: lerp(fromBall.x, toBall.x, localT), y: lerp(fromBall.y, toBall.y, localT) };
-    } else if (toBall) {
-      ball = { ...toBall };
-    } else if (fromBall) {
-      ball = { ...fromBall };
-    }
+  persistCurrentPhase();
+  const localT = clamp(progress, 0, 1);
+  const fromIdx = GamePlan.currentPhase;
+  const toIdx = phasePlaybackTargetIndex(fromIdx);
+  const from = phasePlaybackStepAt(fromIdx);
+  if (toIdx === null) {
     return {
-      players,
-      ball,
-      ballOwner: null,
-      annotations: cloneData(only.annotations),
-      paths: cloneData(only.paths),
-      passes: cloneData(only.passes),
-      segmentIndex: 0,
-      localT,
+      ...from,
+      segmentIndex: fromIdx,
+      localT: 0,
     };
   }
-  const segments = S.steps.length - 1;
-  const scaled = clamp(progress, 0, 1) * segments;
-  const segmentIndex = Math.min(segments - 1, Math.floor(scaled));
-  const localT = Math.min(1, scaled - segmentIndex);
-  const from = cloneStepState(S.steps[segmentIndex]);
-  const to = cloneStepState(S.steps[Math.min(S.steps.length - 1, segmentIndex + 1)]);
+  const to = phasePlaybackStepAt(toIdx);
   const fromLookup = buildStepLookup(from.players);
   const toLookup = buildStepLookup(to.players);
   const allKeys = new Set([...fromLookup.keys(), ...toLookup.keys()]);
   const players = Array.from(allKeys).map(key => {
     const a = fromLookup.get(key) || toLookup.get(key);
     const b = toLookup.get(key) || fromLookup.get(key);
+    const fromPath = a ? phasePathForPlayer(from, a) : null;
+    if (fromPath && Array.isArray(fromPath.pts) && fromPath.pts.length >= 2) {
+      const alongPath = catmullRom(fromPath.pts, localT);
+      return {
+        ...(cloneData(a) || cloneData(b) || {}),
+        x: alongPath.x,
+        y: alongPath.y,
+      };
+    }
     return {
       ...(cloneData(b) || cloneData(a) || {}),
       x: lerp(a.x, b.x, localT),
@@ -4688,25 +4632,25 @@ function buildSequenceFrame(progress) {
     players,
     ball,
     ballOwner: normalizePlayerRef(localT < 0.5 ? from.ballOwner : to.ballOwner),
-    annotations: cloneData(localT < 0.5 ? from.annotations : to.annotations),
-    paths: cloneData(localT < 0.5 ? from.paths : to.paths),
-    passes: cloneData(localT < 0.5 ? from.passes : to.passes),
-    segmentIndex,
+    annotations: cloneData(from.annotations),
+    paths: cloneData(from.paths),
+    passes: cloneData(from.passes),
+    segmentIndex: fromIdx,
     localT,
   };
 }
 
-function resolveAnimatedKickBall(frame, playerLookup) {
+function resolveAnimatedActionBall(frame, playerLookup) {
   if (!frame?.passes?.length) return null;
-  const activeKick = frame.passes.find(pass => pass.style === 'kick');
-  if (!activeKick) return null;
-  const from = playerLookup.get(playerKey({ num: activeKick.fromNum, team: activeKick.fromT }));
+  const activePass = frame.passes[frame.passes.length - 1];
+  if (!activePass) return null;
+  const from = playerLookup.get(playerKey({ num: activePass.fromNum, team: activePass.fromT }));
   if (!from) return null;
   let target = null;
-  if (activeKick.targetX !== undefined && activeKick.targetY !== undefined) {
-    target = { x: activeKick.targetX, y: activeKick.targetY };
-  } else if (activeKick.toNum !== undefined && activeKick.toT !== undefined) {
-    target = playerLookup.get(playerKey({ num: activeKick.toNum, team: activeKick.toT })) || null;
+  if (activePass.targetX !== undefined && activePass.targetY !== undefined) {
+    target = { x: activePass.targetX, y: activePass.targetY };
+  } else if (activePass.toNum !== undefined && activePass.toT !== undefined) {
+    target = playerLookup.get(playerKey({ num: activePass.toNum, team: activePass.toT })) || null;
   }
   if (!target) return null;
   return {
@@ -4716,9 +4660,7 @@ function resolveAnimatedKickBall(frame, playerLookup) {
 }
 
 function shouldRenderSequencePreview() {
-  const hasPlayback = currentPhaseHasPlayablePlayback();
-  const holdImplicitFrame = currentPlaybackUsesImplicitMotion() && S.animT > 0;
-  return hasPlayback && (S.animating || (S.playAll && S.animT > 0 && S.animT < 1) || holdImplicitFrame);
+  return currentPhaseHasPlayablePlayback() && (S.animating || S.animT > 0);
 }
 
 function gotoStep(index, { snapshotBefore = false } = {}) {
@@ -4839,33 +4781,31 @@ function updateSequenceUI() {
 
 //  ANIMATION
 function togglePlay() {
-  S.playAll = false;
-  persistCurrentStep();
   if (S.animating) {
     S.animating = false;
     S.lastTs = null;
-    if (currentPlaybackUsesStepSequence()) {
-      S.currentStep = clamp(Math.round(S.animT * (sequenceStepCount() - 1)), 0, sequenceStepCount() - 1);
-      setLiveBoardFromStep(S.steps[S.currentStep]);
-    }
-    S.animT = 0;
     setPlayBtnState();
     refreshInteractionUI();
     updateTL();
     render();
     return;
   }
+  S.playAll = false;
+  persistCurrentPhase();
   if (!currentPhaseHasPlayablePlayback()) {
     stopPlayback(false);
-    setHint('Draw a path, pass, or kick to animate this phase.');
+    setHint('Add another phase to animate the board.');
     refreshInteractionUI();
     return;
   }
-  if (currentPlaybackUsesStepSequence()) {
-    S.currentStep = 0;
-    setLiveBoardFromStep(S.steps[0]);
+  if (phasePlaybackTargetIndex() === null) {
+    stopPlayback(false);
+    setHint('This is the last phase. There is no next snapshot to animate to.');
+    refreshInteractionUI();
+    return;
   }
-  S.animT = 0;
+  activatePhaseForPlayback(GamePlan.currentPhase, { resetToStart: false });
+  if (S.animT <= 0 || S.animT >= 1) S.animT = 0;
   S.animating = true;
   const isPlay = S.animating;
   syncPlayButtons();
@@ -4885,9 +4825,9 @@ function togglePlayAll() {
         return;
       }
       S.animating = true;
-      S.lastTs = null;
-      requestAnimationFrame(animLoop);
-    }
+        S.lastTs = null;
+        requestAnimationFrame(animLoop);
+      }
     setPlayBtnState();
     refreshInteractionUI();
     updateTL();
@@ -4895,17 +4835,23 @@ function togglePlayAll() {
     return;
   }
 
-  persistCurrentStep();
+  persistCurrentPhase();
   if (!currentPhaseHasPlayablePlayback()) {
     stopPlayback(false);
-    setHint('Draw a path, pass, or kick to animate this phase.');
+    setHint('Add another phase to animate the board.');
+    refreshInteractionUI();
+    return;
+  }
+  if (phasePlaybackTargetIndex() === null) {
+    stopPlayback(false);
+    setHint('This is the last phase. There are no later phases to play.');
     refreshInteractionUI();
     return;
   }
 
   S.playAll = true;
-  S.animT = 0;
-  activatePhaseForPlayback(GamePlan.currentPhase, { resetToStart: true });
+  activatePhaseForPlayback(GamePlan.currentPhase, { resetToStart: false });
+  if (S.animT <= 0 || S.animT >= 1) S.animT = 0;
   S.animating = true;
   S.lastTs = null;
   setPlayBtnState();
@@ -4921,26 +4867,26 @@ function animLoop(ts) {
   if (S.lastTs !== null) {
     S.animT = Math.min(1, S.animT + (ts - S.lastTs) / 1000 * S.animSpd / DUR);
     if (S.animT >= 1) {
-      if (S.playAll && GamePlan.currentPhase < GamePlan.phases.length - 1) {
-        S.animT = 0;
-        activatePhaseForPlayback(GamePlan.currentPhase + 1, { resetToStart: true });
-        S.lastTs = ts;
-        updateTL();
-        render();
-        requestAnimationFrame(animLoop);
-        return;
+      const targetIdx = phasePlaybackTargetIndex(GamePlan.currentPhase);
+      if (targetIdx !== null) {
+        activatePhaseForPlayback(targetIdx, { resetToStart: false });
+        if (S.playAll && phasePlaybackTargetIndex(GamePlan.currentPhase) !== null) {
+          S.lastTs = ts;
+          updateTL();
+          render();
+          requestAnimationFrame(animLoop);
+          return;
+        }
       }
       S.animating = false;
       S.playAll = false;
-      if (currentPlaybackUsesStepSequence()) {
-        S.animT = 0;
-        S.currentStep = Math.max(0, sequenceStepCount() - 1);
-        setLiveBoardFromStep(S.steps[S.currentStep]);
-      } else {
-        S.animT = 1;
-      }
+      S.animT = 0;
+      S.lastTs = null;
       setPlayBtnState();
       refreshInteractionUI();
+      render();
+      updateTL();
+      return;
     }
   }
   S.lastTs = ts;
