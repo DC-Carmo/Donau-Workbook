@@ -707,25 +707,39 @@ function goToPhase(idx) {
 }
 
 function addPhase() {
-  persistCurrentPhase();
   const current = serializePhase(S(), GamePlan.currentPhase);
+  const sourceStep = cloneStepState(current.steps?.[Number(current.currentStep)] || current.steps?.[0] || emptyStepState());
+  const carryForwardStep = createCarryForwardStep(sourceStep);
   current.id = crypto.randomUUID();
   current.label = `Phase ${GamePlan.phases.length + 1}`;
   current.notes = '';
+  current.players = cloneData(carryForwardStep.players);
+  current.ball = carryForwardStep.ball ? cloneData(carryForwardStep.ball) : null;
+  current.ballOwner = normalizePlayerRef(carryForwardStep.ballOwner);
+  current.ballAttached = !!carryForwardStep.ballAttached;
   current.paths = [];
   current.passes = [];
-  current.steps = [normalizeStepState({
-    players: cloneData(current.players),
-    ball: current.ball ? cloneData(current.ball) : null,
-    ballOwner: normalizePlayerRef(current.ballOwner),
-    ballAttached: !!current.ballAttached,
-    paths: [],
-    passes: [],
-    annotations: cloneData(current.annotations || []),
-  })];
+  current.annotations = cloneData(carryForwardStep.annotations || []);
+  current.steps = [carryForwardStep];
   current.currentStep = 0;
-  GamePlan.phases.push(normalizePhaseState(current, GamePlan.phases.length));
-  goToPhase(GamePlan.phases.length - 1);
+  const nextPhaseIndex = GamePlan.phases.length;
+  const nextPhase = normalizePhaseState(current, nextPhaseIndex);
+  GamePlan.phases.push(nextPhase);
+  GamePlan.currentPhase = nextPhaseIndex;
+  clearSelectedObject();
+  S.dragging = null;
+  S.drawing = null;
+  clearPassKickState();
+  S.annotationDraft = null;
+  setLiveBoardFromStep(nextPhase.steps[nextPhase.currentStep] || emptyStepState());
+  S.ballOwner = null;
+  S.ballAttached = false;
+  applyBallOwnershipVisualState();
+  rebuildPalette();
+  updateSelInfo();
+  updatePhaseUI();
+  refreshInteractionUI();
+  render();
 }
 
 function updatePhaseUI() {
@@ -740,10 +754,50 @@ function updatePhaseUI() {
 }
 
 function createCarryForwardStep(step) {
-  const next = cloneStepState(step);
-  next.paths = [];
-  next.passes = [];
-  return next;
+  const source = normalizeStepState(step);
+  const pathByPlayer = new Map(
+    source.paths.map(path => [playerKey({ team: path.team, num: path.num }), path])
+  );
+
+  const players = source.players.map(player => {
+    const path = pathByPlayer.get(playerKey(player));
+    if (path && Array.isArray(path.pts) && path.pts.length >= 2) {
+      const end = catmullRom(path.pts, 1.0);
+      return {
+        ...player,
+        x: end.x,
+        y: end.y,
+        isBC: false,
+      };
+    }
+    return {
+      ...player,
+      isBC: false,
+    };
+  });
+
+  const carriedPlayerByRef = new Map(
+    players.map(player => [playerKey(player), player])
+  );
+
+  let ball = source.ball ? cloneData(source.ball) : null;
+  const finalPass = source.passes[source.passes.length - 1];
+  if (finalPass && finalPass.toT !== undefined && finalPass.toNum !== undefined) {
+    const receiver = carriedPlayerByRef.get(playerKey({ team: finalPass.toT, num: finalPass.toNum }));
+    if (receiver) {
+      ball = { x: receiver.x, y: receiver.y };
+    }
+  }
+
+  return normalizeStepState({
+    players,
+    ball,
+    ballOwner: null,
+    ballAttached: false,
+    paths: [],
+    passes: [],
+    annotations: cloneData(source.annotations || []),
+  }, players);
 }
 
 function emptyPlayMetadata(title = '') {
