@@ -388,35 +388,36 @@ body.hp-mobile-menu-open {
 .hp-hero-btn-secondary:hover { border-color: rgba(255,255,255,0.45); }
 
 .hp-hero-btn-support {
-  flex-direction: column;
-  align-items: flex-start;
+  flex-direction: row;
+  align-items: center;
   justify-content: center;
-  gap: 2px;
-  background: rgba(255,255,255,0.015);
-  border: 1px solid rgba(227,178,60,0.32);
-  color: #F5E3AA;
+  gap: 8px;
+  background: rgba(227,178,60,0.04);
+  border: 1px solid rgba(227,178,60,0.22);
+  color: rgba(245,227,170,0.92);
+  font-weight: 600;
+  max-width: 220px;
   transition: opacity var(--hp-ease), border-color var(--hp-ease), background var(--hp-ease);
 }
 
 .hp-hero-btn-support:hover,
 .hp-hero-btn-support:focus-visible {
-  opacity: 0.86;
-  border-color: rgba(227,178,60,0.5);
-  background: rgba(227,178,60,0.05);
+  opacity: 0.96;
+  border-color: rgba(227,178,60,0.32);
+  background: rgba(227,178,60,0.07);
 }
 
 .hp-hero-btn-support-title {
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1;
 }
 
-.hp-hero-btn-support-subtext {
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: none;
-  color: rgba(255,255,255,0.68);
-  line-height: 1.2;
+.hp-hero-btn-support-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85em;
+  opacity: 0.75;
 }
 
 /* vertical label — right edge */
