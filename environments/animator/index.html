@@ -33,10 +33,7 @@
     </div>
 
     <div class="tb-phase-nav" aria-label="Phase navigation">
-      <button class="c-btn" id="phasePrev" type="button" onclick="goToPhase(GamePlan.currentPhase - 1)">&larr; Prev</button>
-      <span class="tb-phase-label" id="phaseLabel">Phase 1 / 1</span>
-      <button class="c-btn" id="phaseNext" type="button" onclick="goToPhase(GamePlan.currentPhase + 1)">Next &rarr;</button>
-      <button class="c-btn tb-phase-add" id="phaseAdd" type="button" onclick="addPhase()">+ Add Phase</button>
+      <div class="tb-phase-chip-strip" id="phaseChipStrip"></div>
     </div>
 
     <div class="tb-actions">
@@ -258,9 +255,10 @@
 
         <!-- Group B: Sequence & playback -->
         <div class="tb-group tb-group-b">
-          <button class="board-pill action-btn" id="mobileAddStepBtn" onclick="addStep()" data-label-desktop="+ STEP" data-label-mobile="+STEP">+ STEP</button>
+          <button class="board-pill action-btn toolbar-hidden" id="mobileAddStepBtn" onclick="addStep()" data-label-desktop="+ STEP" data-label-mobile="+STEP">+ STEP</button>
           <button class="board-pill action-btn" id="seqPrevBtn" onclick="prevStep()" data-label-desktop="&#10216;" data-label-mobile="&#10216;">&#10216;</button>
           <button class="board-pill play-btn" id="playBtn" onclick="togglePlay()">PLAY</button>
+          <button class="board-pill play-btn" id="playAllBtn" onclick="togglePlayAll()">&#9654;&#9654; PLAY ALL</button>
           <button class="board-pill action-btn" id="seqNextBtn" onclick="nextStep()" data-label-desktop="&#10217;" data-label-mobile="&#10217;">&#10217;</button>
           <div id="spdGroup" class="spd-group">
             <span class="spd-group-label">Speed</span>

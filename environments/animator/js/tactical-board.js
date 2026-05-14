@@ -241,6 +241,7 @@ Object.assign(S, {
   future: [],           // redo stack
   animT: 0,
   animating: false,
+  playAll: false,
   animSpd: 1,
   raf: null,
   lastTs: null,
@@ -690,6 +691,10 @@ function setLiveBoardFromStep(step, { keepSelection = false } = {}) {
 
 function goToPhase(idx) {
   persistCurrentPhase();
+  S.animating = false;
+  S.playAll = false;
+  S.lastTs = null;
+  S.animT = 0;
   GamePlan.currentPhase = Math.max(0, Math.min(idx, GamePlan.phases.length - 1));
   const phase = normalizePhaseState(GamePlan.phases[GamePlan.currentPhase], GamePlan.currentPhase);
   GamePlan.phases[GamePlan.currentPhase] = phase;
@@ -725,6 +730,10 @@ function addPhase() {
   const nextPhaseIndex = GamePlan.phases.length;
   const nextPhase = normalizePhaseState(current, nextPhaseIndex);
   GamePlan.phases.push(nextPhase);
+  S.animating = false;
+  S.playAll = false;
+  S.lastTs = null;
+  S.animT = 0;
   GamePlan.currentPhase = nextPhaseIndex;
   clearSelectedObject();
   S.dragging = null;
@@ -742,15 +751,49 @@ function addPhase() {
   render();
 }
 
+function activatePhaseForPlayback(idx, { resetToStart = false } = {}) {
+  S.animT = 0;
+  GamePlan.currentPhase = Math.max(0, Math.min(idx, GamePlan.phases.length - 1));
+  const phase = normalizePhaseState(GamePlan.phases[GamePlan.currentPhase], GamePlan.currentPhase);
+  if (resetToStart) phase.currentStep = 0;
+  GamePlan.phases[GamePlan.currentPhase] = phase;
+  clearSelectedObject();
+  S.dragging = null;
+  S.drawing = null;
+  clearPassKickState();
+  S.annotationDraft = null;
+  setLiveBoardFromStep(phase.steps[phase.currentStep] || emptyStepState());
+  rebuildPalette();
+  updateSelInfo();
+  updatePhaseUI();
+  refreshInteractionUI();
+}
+
 function updatePhaseUI() {
   const total = GamePlan.phases.length;
   const cur = GamePlan.currentPhase;
-  const label = document.getElementById('phaseLabel');
-  const prev = document.getElementById('phasePrev');
-  const next = document.getElementById('phaseNext');
-  if (label) label.textContent = `${GamePlan.phases[cur]?.label || `Phase ${cur + 1}`} / ${total}`;
-  if (prev) prev.disabled = cur === 0;
-  if (next) next.disabled = cur === total - 1;
+  const strip = document.getElementById('phaseChipStrip');
+  if (!strip) return;
+  strip.innerHTML = '';
+  GamePlan.phases.forEach((phase, index) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `tb-phase-chip${index === cur ? ' active' : ''}`;
+    btn.textContent = String(index + 1);
+    btn.title = phase?.label || `Phase ${index + 1}`;
+    btn.setAttribute('aria-label', `Go to ${phase?.label || `Phase ${index + 1}`}`);
+    btn.setAttribute('aria-current', index === cur ? 'step' : 'false');
+    btn.onclick = () => goToPhase(index);
+    strip.appendChild(btn);
+  });
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'tb-phase-chip tb-phase-chip-add';
+  addBtn.textContent = '+';
+  addBtn.title = 'Add phase';
+  addBtn.setAttribute('aria-label', 'Add phase');
+  addBtn.onclick = () => addPhase();
+  strip.appendChild(addBtn);
 }
 
 function createCarryForwardStep(step) {
@@ -797,6 +840,56 @@ function createCarryForwardStep(step) {
     paths: [],
     passes: [],
     annotations: cloneData(source.annotations || []),
+  }, players);
+}
+
+function stepHasImplicitPlayback(step) {
+  const source = normalizeStepState(step);
+  const hasPathMotion = source.paths.some(path => Array.isArray(path.pts) && path.pts.length >= 2);
+  return hasPathMotion || source.passes.length > 0;
+}
+
+function currentPhaseHasPlayablePlayback() {
+  ensureSteps();
+  return sequenceStepCount() > 1 || stepHasImplicitPlayback(S.steps[S.currentStep] || emptyStepState());
+}
+
+function buildImplicitPlaybackTargetStep(step) {
+  const source = normalizeStepState(step);
+  const pathByPlayer = new Map(
+    source.paths.map(path => [playerKey({ team: path.team, num: path.num }), path])
+  );
+  const players = source.players.map(player => {
+    const path = pathByPlayer.get(playerKey(player));
+    if (path && Array.isArray(path.pts) && path.pts.length >= 2) {
+      const end = catmullRom(path.pts, 1.0);
+      return {
+        ...player,
+        x: end.x,
+        y: end.y,
+      };
+    }
+    return { ...player };
+  });
+  const playerLookup = buildStepLookup(players);
+  let ball = resolveStepBall(source);
+  const finalAction = source.passes[source.passes.length - 1];
+  if (finalAction) {
+    if (finalAction.style === 'kick' && finalAction.targetX !== undefined && finalAction.targetY !== undefined) {
+      ball = { x: finalAction.targetX, y: finalAction.targetY };
+    } else if (finalAction.toNum !== undefined && finalAction.toT !== undefined) {
+      const receiver = playerLookup.get(playerKey({ team: finalAction.toT, num: finalAction.toNum }));
+      if (receiver) ball = { x: receiver.x, y: receiver.y };
+    }
+  }
+  return normalizeStepState({
+    players,
+    ball,
+    ballOwner: null,
+    ballAttached: false,
+    paths: cloneData(source.paths),
+    passes: cloneData(source.passes),
+    annotations: cloneData(source.annotations),
   }, players);
 }
 
@@ -4465,7 +4558,16 @@ function sequenceSegmentCount() {
   return Math.max(1, sequenceStepCount() - 1);
 }
 
-function sequenceDurationSeconds() {
+function currentPlaybackUsesStepSequence() {
+  return sequenceStepCount() > 1;
+}
+
+function currentPlaybackUsesImplicitMotion() {
+  ensureSteps();
+  return !currentPlaybackUsesStepSequence() && stepHasImplicitPlayback(S.steps[S.currentStep] || emptyStepState());
+}
+
+function playbackDurationSeconds() {
   return sequenceSegmentCount() * DEFAULT_PLAYBACK_DURATION;
 }
 
@@ -4516,7 +4618,43 @@ function buildSequenceFrame(progress) {
   ensureSteps();
   if (S.steps.length < 2) {
     const only = cloneStepState(S.steps[0]);
-    return { ...only, segmentIndex: 0, localT: 0 };
+    if (!stepHasImplicitPlayback(only)) {
+      return { ...only, segmentIndex: 0, localT: 0 };
+    }
+    const target = buildImplicitPlaybackTargetStep(only);
+    const localT = clamp(progress, 0, 1);
+    const fromLookup = buildStepLookup(only.players);
+    const toLookup = buildStepLookup(target.players);
+    const allKeys = new Set([...fromLookup.keys(), ...toLookup.keys()]);
+    const players = Array.from(allKeys).map(key => {
+      const a = fromLookup.get(key) || toLookup.get(key);
+      const b = toLookup.get(key) || fromLookup.get(key);
+      return {
+        ...(cloneData(b) || cloneData(a) || {}),
+        x: lerp(a.x, b.x, localT),
+        y: lerp(a.y, b.y, localT),
+      };
+    });
+    const fromBall = resolveStepBall(only);
+    const toBall = resolveStepBall(target);
+    let ball = null;
+    if (fromBall && toBall) {
+      ball = { x: lerp(fromBall.x, toBall.x, localT), y: lerp(fromBall.y, toBall.y, localT) };
+    } else if (toBall) {
+      ball = { ...toBall };
+    } else if (fromBall) {
+      ball = { ...fromBall };
+    }
+    return {
+      players,
+      ball,
+      ballOwner: null,
+      annotations: cloneData(only.annotations),
+      paths: cloneData(only.paths),
+      passes: cloneData(only.passes),
+      segmentIndex: 0,
+      localT,
+    };
   }
   const segments = S.steps.length - 1;
   const scaled = clamp(progress, 0, 1) * segments;
@@ -4531,8 +4669,7 @@ function buildSequenceFrame(progress) {
     const a = fromLookup.get(key) || toLookup.get(key);
     const b = toLookup.get(key) || fromLookup.get(key);
     return {
-      num: b.num,
-      team: b.team,
+      ...(cloneData(b) || cloneData(a) || {}),
       x: lerp(a.x, b.x, localT),
       y: lerp(a.y, b.y, localT),
     };
@@ -4579,7 +4716,9 @@ function resolveAnimatedKickBall(frame, playerLookup) {
 }
 
 function shouldRenderSequencePreview() {
-  return sequenceStepCount() > 1 && S.animating;
+  const hasPlayback = currentPhaseHasPlayablePlayback();
+  const holdImplicitFrame = currentPlaybackUsesImplicitMotion() && S.animT > 0;
+  return hasPlayback && (S.animating || (S.playAll && S.animT > 0 && S.animT < 1) || holdImplicitFrame);
 }
 
 function gotoStep(index, { snapshotBefore = false } = {}) {
@@ -4673,6 +4812,7 @@ function updateSequenceUI() {
   const tlPlayBtn = document.getElementById('tlPlayBtn');
   const rail = document.getElementById('stepRail');
   const count = sequenceStepCount();
+  const playable = currentPhaseHasPlayablePlayback();
   const owner = normalizePlayerRef(S.ballOwner);
   if (stepStatus) stepStatus.textContent = `Step ${S.currentStep + 1} of ${count}`;
   if (stepStatusCopy) {
@@ -4682,8 +4822,8 @@ function updateSequenceUI() {
   if (prevBtn) prevBtn.disabled = S.currentStep === 0;
   if (nextBtn) nextBtn.disabled = S.currentStep >= count - 1;
   if (deleteBtn) deleteBtn.disabled = count <= 1 && !S.players.length && !S.ball && !S.annotations.length;
-  if (playBtn) playBtn.disabled = count < 2;
-  if (tlPlayBtn) tlPlayBtn.disabled = count < 2;
+  if (playBtn) playBtn.disabled = !playable;
+  if (tlPlayBtn) tlPlayBtn.disabled = !playable;
   if (rail) {
     rail.innerHTML = '';
     for (let i = 0; i < count; i++) {
@@ -4699,11 +4839,12 @@ function updateSequenceUI() {
 
 //  ANIMATION
 function togglePlay() {
+  S.playAll = false;
   persistCurrentStep();
   if (S.animating) {
     S.animating = false;
     S.lastTs = null;
-    if (sequenceStepCount() > 1) {
+    if (currentPlaybackUsesStepSequence()) {
       S.currentStep = clamp(Math.round(S.animT * (sequenceStepCount() - 1)), 0, sequenceStepCount() - 1);
       setLiveBoardFromStep(S.steps[S.currentStep]);
     }
@@ -4714,30 +4855,90 @@ function togglePlay() {
     render();
     return;
   }
-  if (sequenceStepCount() < 2) {
+  if (!currentPhaseHasPlayablePlayback()) {
     stopPlayback(false);
-    setHint('Add another step to animate the sequence.');
+    setHint('Draw a path, pass, or kick to animate this phase.');
     refreshInteractionUI();
     return;
   }
-  S.currentStep = 0;
+  if (currentPlaybackUsesStepSequence()) {
+    S.currentStep = 0;
+    setLiveBoardFromStep(S.steps[0]);
+  }
   S.animT = 0;
-  setLiveBoardFromStep(S.steps[0]);
   S.animating = true;
   const isPlay = S.animating;
   syncPlayButtons();
   if (isPlay) { S.lastTs = null; requestAnimationFrame(animLoop); }
 }
+
+function togglePlayAll() {
+  if (S.playAll) {
+    if (S.animating) {
+      S.animating = false;
+      S.lastTs = null;
+    } else {
+      if (!currentPhaseHasPlayablePlayback()) {
+        stopPlayback(false);
+        setHint('Draw a path, pass, or kick to animate this phase.');
+        refreshInteractionUI();
+        return;
+      }
+      S.animating = true;
+      S.lastTs = null;
+      requestAnimationFrame(animLoop);
+    }
+    setPlayBtnState();
+    refreshInteractionUI();
+    updateTL();
+    render();
+    return;
+  }
+
+  persistCurrentStep();
+  if (!currentPhaseHasPlayablePlayback()) {
+    stopPlayback(false);
+    setHint('Draw a path, pass, or kick to animate this phase.');
+    refreshInteractionUI();
+    return;
+  }
+
+  S.playAll = true;
+  S.animT = 0;
+  activatePhaseForPlayback(GamePlan.currentPhase, { resetToStart: true });
+  S.animating = true;
+  S.lastTs = null;
+  setPlayBtnState();
+  updateTL();
+  render();
+  requestAnimationFrame(animLoop);
+}
+window.togglePlayAll = togglePlayAll;
+
 function animLoop(ts) {
   if (!S.animating) return;
-  const DUR = sequenceDurationSeconds();
+  const DUR = playbackDurationSeconds();
   if (S.lastTs !== null) {
     S.animT = Math.min(1, S.animT + (ts - S.lastTs) / 1000 * S.animSpd / DUR);
     if (S.animT >= 1) {
-      S.animT = 0;
+      if (S.playAll && GamePlan.currentPhase < GamePlan.phases.length - 1) {
+        S.animT = 0;
+        activatePhaseForPlayback(GamePlan.currentPhase + 1, { resetToStart: true });
+        S.lastTs = ts;
+        updateTL();
+        render();
+        requestAnimationFrame(animLoop);
+        return;
+      }
       S.animating = false;
-      S.currentStep = Math.max(0, sequenceStepCount() - 1);
-      setLiveBoardFromStep(S.steps[S.currentStep]);
+      S.playAll = false;
+      if (currentPlaybackUsesStepSequence()) {
+        S.animT = 0;
+        S.currentStep = Math.max(0, sequenceStepCount() - 1);
+        setLiveBoardFromStep(S.steps[S.currentStep]);
+      } else {
+        S.animT = 1;
+      }
       setPlayBtnState();
       refreshInteractionUI();
     }
@@ -4772,7 +4973,7 @@ function updateTL() {
   const pct = S.animT * 100;
   document.getElementById('trackFill').style.width = pct + '%';
   document.getElementById('trackThumb').style.left = pct + '%';
-  const duration = sequenceDurationSeconds();
+  const duration = playbackDurationSeconds();
   document.getElementById('tlTime').textContent = `${(S.animT * duration).toFixed(1)} / ${duration.toFixed(1)}s`;
   updateMobileUI();
 }
@@ -4877,17 +5078,25 @@ function syncResponsiveToolbarLabels() {
 
 function syncPlayButtons() {
   const compact = isCompactViewport();
-  const count = sequenceStepCount();
-  const label = S.animating ? (compact ? '||' : 'PAUSE') : (compact ? '\u25b6' : 'PLAY');
+  const playable = currentPhaseHasPlayablePlayback();
   const playBtn = document.getElementById('playBtn');
+  const playAllBtn = document.getElementById('playAllBtn');
   const tlPlayBtn = document.getElementById('tlPlayBtn');
+  const singlePlayActive = S.animating && !S.playAll;
+  const playAllLocked = S.playAll;
+  const singlePlayLabel = singlePlayActive ? (compact ? '||' : 'PAUSE') : (compact ? '\u25b6' : 'PLAY');
+  const playAllLabel = S.animating && S.playAll ? (compact ? '||' : '\u23f8 PAUSE') : (compact ? '\u25b6\u25b6' : '\u25b6\u25b6 PLAY ALL');
   if (playBtn) {
-    playBtn.textContent = label;
-    playBtn.disabled = count < 2;
+    playBtn.textContent = singlePlayLabel;
+    playBtn.disabled = !playable || playAllLocked;
+  }
+  if (playAllBtn) {
+    playAllBtn.textContent = playAllLabel;
+    playAllBtn.disabled = !playable;
   }
   if (tlPlayBtn) {
-    tlPlayBtn.textContent = S.animating ? 'Pause' : 'Play';
-    tlPlayBtn.disabled = count < 2;
+    tlPlayBtn.textContent = singlePlayActive ? 'Pause' : 'Play';
+    tlPlayBtn.disabled = !playable || playAllLocked;
   }
 }
 
@@ -4919,6 +5128,7 @@ function updateMobileUI() {
   const mobileAddDefenceBtn = document.getElementById('mobileAddDefenceBtn');
   const mobileBoardSummary = document.getElementById('mobileBoardSummary');
   const count = sequenceStepCount();
+  const playable = currentPhaseHasPlayablePlayback();
   const owner = normalizePlayerRef(S.ballOwner);
   const ownerText = owner ? `Ball: ${owner.team === 'A' ? 'A' : 'D'} #${owner.num}` : (S.ball ? 'Ball: Loose' : 'Ball: Off board');
 
@@ -4927,11 +5137,11 @@ function updateMobileUI() {
   if (mobileBoardName) mobileBoardName.textContent = currentPlayTitle();
   if (mobilePlayBtn) {
     mobilePlayBtn.textContent = S.animating ? 'Pause' : 'Play';
-    mobilePlayBtn.disabled = count < 2;
+    mobilePlayBtn.disabled = !playable;
   }
   if (mobileSequencePlayBtn) {
     mobileSequencePlayBtn.textContent = S.animating ? '⏸ Pause' : '▶ Play';
-    mobileSequencePlayBtn.disabled = count < 2;
+    mobileSequencePlayBtn.disabled = !playable;
   }
   [0.25, 0.5, 1, 2].forEach(v => {
     const chip = document.getElementById('mspd-' + v);
@@ -5919,8 +6129,8 @@ document.addEventListener('keydown', e => {
   const map = {v:'move',r:'run',p:'pass',k:'kick',e:'erase',t:'tele',c:'zone',b:'box'};
   if (map[k])           { setTool(map[k]); return; }
   if (k===' ')          { e.preventDefault(); togglePlay(); return; }
-  if (k === 'arrowleft') { e.preventDefault(); prevStep(); return; }
-  if (k === 'arrowright') { e.preventDefault(); nextStep(); return; }
+  if (k === 'arrowleft') { e.preventDefault(); goToPhase(GamePlan.currentPhase - 1); return; }
+  if (k === 'arrowright') { e.preventDefault(); goToPhase(GamePlan.currentPhase + 1); return; }
   if (k==='escape')     {
     e.preventDefault();
     if (radialMenu) {

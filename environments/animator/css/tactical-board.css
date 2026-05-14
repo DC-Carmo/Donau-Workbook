@@ -141,24 +141,59 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
   display:flex;
   align-items:center;
   gap:8px;
+  min-width:0;
+  max-width:min(52vw, 680px);
   padding:5px 6px;
   background:rgba(255,255,255,0.02);
   border:1px solid var(--border);
   border-radius:12px;
 }
-.tb-phase-label {
-  min-width:116px;
-  text-align:center;
-  padding:0 8px;
-  font-family:'Barlow Condensed',sans-serif;
-  font-size:.86rem;
-  font-weight:700;
-  letter-spacing:1px;
-  color:var(--text);
-  text-transform:uppercase;
+.tb-phase-chip-strip {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  min-width:0;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scrollbar-width:none;
+  -ms-overflow-style:none;
 }
-.tb-phase-add {
-  border-color:rgba(216,177,77,0.22);
+.tb-phase-chip-strip::-webkit-scrollbar {
+  display:none;
+}
+.tb-phase-chip {
+  flex:0 0 auto;
+  width:36px;
+  height:36px;
+  border-radius:999px;
+  border:1px solid rgba(108,168,139,0.3);
+  background:rgba(255,255,255,0.03);
+  color:var(--text);
+  cursor:pointer;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:.92rem;
+  font-weight:800;
+  letter-spacing:0.04em;
+  transition:transform .16s ease, border-color .16s ease, background .16s ease, color .16s ease, box-shadow .16s ease;
+}
+.tb-phase-chip:hover,
+.tb-phase-chip:focus-visible {
+  border-color:rgba(216,177,77,0.52);
+  background:rgba(255,255,255,0.08);
+  color:#fff;
+  transform:translateY(-1px);
+}
+.tb-phase-chip.active {
+  width:40px;
+  height:40px;
+  background:#E3B23C;
+  border-color:#E3B23C;
+  color:#09121b;
+  box-shadow:0 0 0 1px rgba(227,178,60,0.18), 0 8px 20px rgba(0,0,0,0.22);
+}
+.tb-phase-chip-add {
+  border-color:rgba(216,177,77,0.35);
+  color:var(--gold);
 }
 .tb-label {
   font-family:'Barlow Condensed',sans-serif;
@@ -2050,6 +2085,10 @@ html, body {
 .play-btn {
   min-width: 84px;
   background: #1A2E24;
+}
+
+.toolbar-hidden {
+  display: none !important;
 }
 
 .speed-btn {
