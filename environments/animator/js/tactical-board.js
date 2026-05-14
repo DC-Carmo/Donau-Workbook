@@ -33,7 +33,7 @@ const TELE_DURATION = 3000; // ms before fully faded
 const TELE_COLOR = '#facc15'; // yellow ink
 let presetShowOpposition = false;
 let currentPresetId = null;
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 // Canvas scaling
 const FIELD_X_STRETCH = 1.7;
@@ -1711,11 +1711,13 @@ function migratePlay(obj) {
   if (obj.version > SCHEMA_VERSION) {
     throw new Error(`Unsupported play version ${obj.version}. This board supports up to version ${SCHEMA_VERSION}.`);
   }
-  if (Array.isArray(obj.phases) && obj.phases.length) {
+  if (obj.version === 1) {
+    return { ...cloneData(obj), version: 2 };
+  }
+  if (obj.version === 2) {
     return cloneData(obj);
   }
-  if (obj.version === 1) return cloneData(obj);
-  throw new Error(`Unsupported play version ${obj.version}. No migration path is available yet.`);
+  throw new Error(`Unsupported play version ${obj.version}. No migration path is available.`);
 }
 
 function deserializePlay(obj) {
