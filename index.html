@@ -12,6 +12,14 @@
 </head>
 <body class="platform-page homepage-rda">
 
+  <div class="hp-banner" id="supportBanner">
+    <div class="hp-banner-inner">
+      Supporting Austria U16 rugby development — live campaign.
+      <a href="https://ko-fi.com/rugbydevelopmentacademy" target="_blank" rel="noopener noreferrer">Support RDA →</a>
+    </div>
+    <button class="hp-banner-close" aria-label="Dismiss banner">✕</button>
+  </div>
+
   <header class="hp-nav">
     <div class="hp-nav-inner">
       <a class="hp-nav-brand" href="index.html" aria-label="RDA home">
@@ -44,14 +52,10 @@
       <div class="hp-hero-content">
         <h1 class="hp-hero-headline">RDA</h1>
         <p class="hp-hero-tagline">Develop. Perform. Succeed.</p>
-        <p class="hp-hero-body">The coaching platform built for rugby environments that want to develop, perform, and succeed.</p>
+        <p class="hp-hero-body">Game plans, tactical boards, and coaching systems for rugby clubs and unions that want to operate like pros.</p>
         <div class="hp-hero-actions">
           <a class="hp-hero-btn-primary" href="#product">Explore Platform</a>
           <a class="hp-hero-btn-secondary" href="#request-access" data-open-request-modal>Request Access</a>
-          <a class="hp-hero-btn-support" href="https://ko-fi.com/rugbydevelopmentacademy" target="_blank" rel="noopener noreferrer">
-            <span class="hp-hero-btn-support-title">Support RDA</span>
-            <span class="hp-hero-btn-support-icon" aria-hidden="true">↗</span>
-          </a>
         </div>
       </div>
       <div class="hp-hero-label" aria-hidden="true">RUGBY DEVELOPMENT ACADEMY — WIEN</div>
@@ -61,16 +65,16 @@
     <section class="hp-stats" id="stats">
       <div class="hp-stats-inner">
         <div class="hp-stat">
-          <div class="hp-stat-value">2</div>
-          <div class="hp-stat-label">Active Environments</div>
-        </div>
-        <div class="hp-stat">
-          <div class="hp-stat-value">4+</div>
-          <div class="hp-stat-label">Tactical Modules</div>
-        </div>
-        <div class="hp-stat">
           <div class="hp-stat-value">1</div>
-          <div class="hp-stat-label">Core Product</div>
+          <div class="hp-stat-label">SENIOR CLUB IN PRODUCTION</div>
+        </div>
+        <div class="hp-stat">
+          <div class="hp-stat-value">U16+U18</div>
+          <div class="hp-stat-label">AUSTRIA YOUTH PATHWAY (in pilot)</div>
+        </div>
+        <div class="hp-stat">
+          <div class="hp-stat-value">11</div>
+          <div class="hp-stat-label">COACHING MODULES PER DEPLOYMENT</div>
         </div>
       </div>
     </section>
@@ -81,7 +85,7 @@
         <div class="hp-tb-copy">
           <div class="hp-eyebrow">
             <span class="hp-eyebrow-line"></span>
-            <span class="hp-eyebrow-text">Core Product</span>
+            <span class="hp-eyebrow-text">AT THE CENTER OF EVERYTHING</span>
           </div>
           <h2 class="hp-section-title">Tactical Board</h2>
           <p class="hp-section-body">Build and present multi-phase plays. Place players, draw runs and passes, sequence the action, and play it back in real time.</p>
@@ -100,6 +104,38 @@
             <div class="hp-tb-feature-name">Team Structures</div>
             <div class="hp-tb-feature-desc">Place up to 15 attack and defence players on the field.</div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BUILT FOR -->
+    <section class="hp-section hp-section-mid" id="built-for">
+      <div class="hp-section-inner">
+        <div class="hp-eyebrow">
+          <span class="hp-eyebrow-line"></span>
+          <span class="hp-eyebrow-text">RUGBY DECISION-MAKERS</span>
+        </div>
+        <h2 class="hp-section-title">BUILT FOR</h2>
+        <div class="hp-env-grid">
+
+          <div class="hp-env-card">
+            <div class="hp-env-num">ROLE 01</div>
+            <h3 class="hp-env-title">CLUBS</h3>
+            <p class="hp-env-body">Run your game model from training to match day. Tactical board, playbook, and coaching standards in one place.</p>
+          </div>
+
+          <div class="hp-env-card">
+            <div class="hp-env-num">ROLE 02</div>
+            <h3 class="hp-env-title">UNIONS</h3>
+            <p class="hp-env-body">Standardize coaching language across pathway environments. Built for national programs and youth campaigns.</p>
+          </div>
+
+          <div class="hp-env-card">
+            <div class="hp-env-num">ROLE 03</div>
+            <h3 class="hp-env-title">COACH EDUCATORS</h3>
+            <p class="hp-env-body">Bring your coursework into a structured digital home. Methodology, modules, and certification — coming next.</p>
+          </div>
+
         </div>
       </div>
     </section>
@@ -163,8 +199,7 @@
         </div>
         <h2 class="hp-section-title">Bring RDA Into Your Environment</h2>
         <p class="hp-section-body">Work with RDA to build your coaching structure, game model, and tactical system.</p>
-        <a class="hp-btn hp-btn-primary" href="#request-access" data-open-request-modal>Request Access</a>
-        <div class="hp-contact-direct">Or email directly: dcmato@rugbydevelopmentacademy.com</div>
+        <a class="hp-btn hp-btn-primary" href="#request-access" data-open-request-modal>Book a Demo</a>
         <div class="hp-contact-email">dcmato@rugbydevelopmentacademy.com</div>
       </div>
     </section>
@@ -270,6 +305,21 @@
   <script src="js/shared/dev-access.js"></script>
   <script src="js/shared/austria-youth-access.js"></script>
   <script src="js/shared/tactical-board-access.js"></script>
+  <script>
+    (function() {
+      const banner = document.getElementById('supportBanner');
+      const closeBtn = document.querySelector('.hp-banner-close');
+
+      if (sessionStorage.getItem('bannerDismissed')) {
+        banner.classList.add('hidden');
+      }
+
+      closeBtn.addEventListener('click', () => {
+        banner.classList.add('hidden');
+        sessionStorage.setItem('bannerDismissed', 'true');
+      });
+    })();
+  </script>
   <script>
     (() => {
       const modal = document.getElementById("requestModal");
