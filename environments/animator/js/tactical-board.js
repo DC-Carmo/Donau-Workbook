@@ -542,7 +542,9 @@ function normalizePhaseState(phase = {}, index = 0) {
     : [];
 
   return {
+    id: typeof phase.id === 'string' && phase.id.trim() ? phase.id : crypto.randomUUID(),
     label: phase.label || `Phase ${index + 1}`,
+    notes: typeof phase.notes === 'string' ? phase.notes : '',
     players,
     ball: liveStep.ball ? cloneData(liveStep.ball) : null,
     ballOwner: normalizePlayerRef(liveStep.ballOwner),
@@ -607,7 +609,9 @@ function persistCurrentStep() {
 function serializePhase(phase = S(), index = GamePlan.currentPhase) {
   const normalized = normalizePhaseState(phase, index);
   return {
+    id: normalized.id,
     label: normalized.label || `Phase ${index + 1}`,
+    notes: normalized.notes,
     players: cloneData(normalized.players),
     ball: normalized.ball ? cloneData(normalized.ball) : null,
     ballOwner: normalizePlayerRef(normalized.ballOwner),
@@ -705,7 +709,9 @@ function goToPhase(idx) {
 function addPhase() {
   persistCurrentPhase();
   const current = serializePhase(S(), GamePlan.currentPhase);
+  current.id = crypto.randomUUID();
   current.label = `Phase ${GamePlan.phases.length + 1}`;
+  current.notes = '';
   current.paths = [];
   current.passes = [];
   current.steps = [normalizeStepState({
@@ -1690,10 +1696,8 @@ function serializePlay() {
       createdAt: stamp,
       modifiedAt: stamp,
     },
-    players: cloneData(Array.isArray(S.players) ? S.players : []),
-    ball: S.ball ? cloneData(S.ball) : null,
-    paths: cloneData(Array.isArray(S.paths) ? S.paths : []),
-    passes: cloneData(Array.isArray(S.passes) ? S.passes : []),
+    phases: GamePlan.phases.map((phase, index) => serializePhase(phase, index)),
+    currentPhase: GamePlan.currentPhase,
   };
 }
 
@@ -1707,12 +1711,63 @@ function migratePlay(obj) {
   if (obj.version > SCHEMA_VERSION) {
     throw new Error(`Unsupported play version ${obj.version}. This board supports up to version ${SCHEMA_VERSION}.`);
   }
+  if (Array.isArray(obj.phases) && obj.phases.length) {
+    return cloneData(obj);
+  }
   if (obj.version === 1) return cloneData(obj);
   throw new Error(`Unsupported play version ${obj.version}. No migration path is available yet.`);
 }
 
 function deserializePlay(obj) {
   const play = migratePlay(obj);
+  if (Array.isArray(play.phases) && play.phases.length) {
+    const phases = play.phases.map((phase, index) => normalizePhaseState(phase, index));
+    GamePlan.name = typeof play.meta?.name === 'string' && play.meta.name.trim()
+      ? play.meta.name.trim()
+      : 'Untitled Play';
+    GamePlan.currentPhase = clamp(Number.isFinite(play.currentPhase) ? Number(play.currentPhase) : 0, 0, phases.length - 1);
+    GamePlan.phases = phases;
+    const activePhase = GamePlan.phases[GamePlan.currentPhase] || GamePlan.phases[0];
+    setLiveBoardFromStep(activePhase.steps[activePhase.currentStep] || emptyStepState());
+    S.tool = 'move';
+    S.tab = 'atk';
+    S.selected = null;
+    S.selectedPlayerId = null;
+    S.selectedPlayerIds = [];
+    S.selectedGroupId = null;
+    S.selectedObjectType = null;
+    S.selectedAnnotationIdValue = null;
+    S.selectedPassIdx = null;
+    S.selectedPathPid = null;
+    S.dragPlayerId = null;
+    S.dragging = null;
+    S.dragOff = { x: 0, y: 0 };
+    S.drawing = null;
+    S.passFrom = null;
+    S.activePasserId = null;
+    S.activeKickerId = null;
+    S.highlightedPlayerIds = [];
+    S.pendingGroupPlacement = null;
+    S.annotationDraft = null;
+    S.ballAssignCandidate = null;
+    S.pointerTap = null;
+    S.animT = 0;
+    S.animating = false;
+    S.raf = null;
+    S.lastTs = null;
+    S.history = [];
+    S.future = [];
+    document.getElementById('playName').value = GamePlan.name;
+    clearSelectedObject();
+    clearPassKickState();
+    syncPlayMetadataTitle();
+    setPlayBtnState();
+    rebuildPalette();
+    refreshInteractionUI();
+    updateTL();
+    render();
+    return;
+  }
   const players = Array.isArray(play.players) ? cloneData(play.players) : [];
   const ball = play.ball ? cloneData(play.ball) : null;
   const paths = Array.isArray(play.paths) ? cloneData(play.paths) : [];
