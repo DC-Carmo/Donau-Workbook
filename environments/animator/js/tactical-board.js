@@ -33,6 +33,7 @@ const TELE_DURATION = 3000; // ms before fully faded
 const TELE_COLOR = '#facc15'; // yellow ink
 let presetShowOpposition = false;
 let currentPresetId = null;
+const SCHEMA_VERSION = 1;
 
 // Canvas scaling
 const FIELD_X_STRETCH = 1.7;
@@ -164,6 +165,7 @@ const GamePlan = {
   phases: [
     {
       label: 'Phase 1',
+      // Persistent state (serialized)
       players: [],
       ball: null,
       paths: [],
@@ -178,6 +180,7 @@ function S() {
   return GamePlan.phases[GamePlan.currentPhase];
 }
 
+// Persistent state (serialized with a phase / play payload)
 [
   'label',
   'players',
@@ -205,7 +208,9 @@ function S() {
 });
 
 Object.assign(S, {
+  // Session state (never serialized)
   tool: 'move',
+  tab: 'atk',
   projectId: null,
   projectMeta: null,
   playMetadata: null,
@@ -1674,6 +1679,147 @@ function loadPlay(id) {
 
 function currentPlayTitle() {
   return document.getElementById('playName').value.trim() || 'Untitled Play';
+}
+
+function serializePlay() {
+  const stamp = Date.now();
+  return {
+    version: SCHEMA_VERSION,
+    meta: {
+      name: currentPlayTitle(),
+      createdAt: stamp,
+      modifiedAt: stamp,
+    },
+    players: cloneData(Array.isArray(S.players) ? S.players : []),
+    ball: S.ball ? cloneData(S.ball) : null,
+    paths: cloneData(Array.isArray(S.paths) ? S.paths : []),
+    passes: cloneData(Array.isArray(S.passes) ? S.passes : []),
+  };
+}
+
+function migratePlay(obj) {
+  if (!obj || typeof obj !== 'object') {
+    throw new Error('Invalid play JSON: expected an object.');
+  }
+  if (!Number.isFinite(obj.version)) {
+    throw new Error('Invalid play JSON: missing version field.');
+  }
+  if (obj.version > SCHEMA_VERSION) {
+    throw new Error(`Unsupported play version ${obj.version}. This board supports up to version ${SCHEMA_VERSION}.`);
+  }
+  if (obj.version === 1) return cloneData(obj);
+  throw new Error(`Unsupported play version ${obj.version}. No migration path is available yet.`);
+}
+
+function deserializePlay(obj) {
+  const play = migratePlay(obj);
+  const players = Array.isArray(play.players) ? cloneData(play.players) : [];
+  const ball = play.ball ? cloneData(play.ball) : null;
+  const paths = Array.isArray(play.paths) ? cloneData(play.paths) : [];
+  const passes = Array.isArray(play.passes) ? cloneData(play.passes) : [];
+  const maxId = players.reduce((max, player) => {
+    const id = Number(player?.id);
+    return Number.isFinite(id) ? Math.max(max, id) : max;
+  }, 0);
+  const carrier = players.find(player => player?.isBC) || null;
+  const ballOwner = carrier ? playerRef(carrier) : null;
+  const ballAttached = !!(carrier && ball);
+  const title = typeof play.meta?.name === 'string' && play.meta.name.trim()
+    ? play.meta.name.trim()
+    : 'Untitled Play';
+  const phaseState = normalizePhaseState({
+    label: 'Phase 1',
+    players,
+    ball,
+    ballOwner,
+    ballAttached,
+    paths,
+    passes,
+    groups: [],
+    annotations: [],
+    currentStep: 0,
+    steps: [
+      {
+        players,
+        ball,
+        ballOwner,
+        ballAttached,
+        paths,
+        passes,
+        annotations: [],
+      }
+    ],
+  }, 0);
+
+  GamePlan.name = title;
+  GamePlan.currentPhase = 0;
+  GamePlan.phases = [phaseState];
+
+  S.players = players;
+  S.ball = ball;
+  S.ballOwner = ballOwner;
+  S.ballAttached = ballAttached;
+  S.paths = paths;
+  S.passes = passes;
+  S.groups = [];
+  S.annotations = [];
+  S.steps = cloneData(phaseState.steps);
+  S.currentStep = 0;
+  S.atkUsed = new Set(S.players.filter(player => player.team === 'A').map(player => player.num));
+  S.defUsed = new Set(S.players.filter(player => player.team === 'D').map(player => player.num));
+
+  S.tool = 'move';
+  S.tab = 'atk';
+  S.selected = null;
+  S.selectedPlayerId = null;
+  S.selectedPlayerIds = [];
+  S.selectedGroupId = null;
+  S.selectedObjectType = null;
+  S.selectedAnnotationIdValue = null;
+  S.selectedPassIdx = null;
+  S.selectedPathPid = null;
+  S.dragPlayerId = null;
+  S.dragging = null;
+  S.dragOff = { x: 0, y: 0 };
+  S.drawing = null;
+  S.passFrom = null;
+  S.activePasserId = null;
+  S.activeKickerId = null;
+  S.highlightedPlayerIds = [];
+  S.pendingGroupPlacement = null;
+  S.annotationDraft = null;
+  S.ballAssignCandidate = null;
+  S.pointerTap = null;
+  S.animT = 0;
+  S.animating = false;
+  S.animSpd = 1;
+  S.raf = null;
+  S.lastTs = null;
+  S.nextId = maxId + 1;
+  S.history = [];
+  S.future = [];
+  S.projectId = null;
+  S.projectMeta = null;
+  S.projectPlayback = null;
+  S.playMetadata = emptyPlayMetadata(title);
+  spdIdx = Math.max(0, SPEEDS.indexOf(S.animSpd));
+
+  palTab = S.tab;
+  document.getElementById('playName').value = title;
+  clearSelectedObject();
+  clearPassKickState();
+  closeRadialMenu();
+  applyBallOwnershipVisualState();
+  syncPlayMetadataTitle();
+  setPlayBtnState();
+  document.getElementById('spdLabel').textContent = fmtSpd(S.animSpd);
+  updatePhaseUI();
+  updatePresetOptionsUI();
+  rebuildPalette();
+  refreshInteractionUI();
+  updateTL();
+  setTab('atk');
+  setTool('move');
 }
 
 function buildPlayMetadata() {
@@ -5316,6 +5462,7 @@ let palTab = 'atk';
 
 function setTab(tab) {
   palTab = tab;
+  S.tab = tab;
   document.querySelectorAll('.pal-tab').forEach(t => t.classList.remove('active'));
   const tabBtn = document.getElementById('tab-'+tab);
   if (tabBtn) tabBtn.classList.add('active');
@@ -5574,7 +5721,19 @@ async function exportPDF() {
 window.exportPDF = exportPDF;
 
 function exportCurrentPlay() {
-  exportPlayData(makeBoardData());
+  const play = serializePlay();
+  const blob = new Blob([JSON.stringify(play, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const safeName = (play.meta.name || 'untitled-play').replace(/[^\w-]+/g, '_');
+  link.href = url;
+  link.download = `${safeName}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  setHint(`Exported "${play.meta.name}" as JSON.`);
+  refreshInteractionUI();
 }
 
 function triggerImportPlay() {
@@ -5588,9 +5747,10 @@ function importPlayFromFile(file) {
   reader.onload = () => {
     try {
       const raw = JSON.parse(reader.result);
-      const play = normalizeProjectRecord(raw);
-      if (!play || !applyBoardData(play)) throw new Error('Invalid play payload');
-      setHint(`Imported "${play.name || 'Untitled Play'}" from JSON.`);
+      const play = migratePlay(raw);
+      deserializePlay(play);
+      setTool('move');
+      setHint(`Imported "${play.meta?.name || 'Untitled Play'}" from JSON.`);
       refreshInteractionUI();
     } catch {
       setHint('Import failed. Check the JSON structure and try again.');
@@ -5684,6 +5844,9 @@ document.getElementById('playName').addEventListener('input', () => {
   syncPlayMetadataTitle();
   refreshInteractionUI();
 });
+window.serializePlay = serializePlay;
+window.deserializePlay = deserializePlay;
+window.migratePlay = migratePlay;
 
 document.addEventListener('pointerdown', e => {
   if (!radialMenu) return;
