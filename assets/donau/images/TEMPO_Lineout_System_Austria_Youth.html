@@ -41,10 +41,11 @@ main{flex:1;overflow:hidden;position:relative;}
 
 /* ── COVER ── */
 #cover-inner{min-height:100%;display:flex;flex-direction:column;justify-content:center;padding:56px 60px;position:relative;overflow:hidden;background:var(--bk);}
+.cphoto{position:absolute;top:0;right:0;bottom:0;width:min(52vw,52%);background-image:linear-gradient(90deg,rgba(0,0,0,.85) 0%,rgba(0,0,0,.62) 34%,rgba(0,0,0,.35) 100%),url("lineout-photo.jpg");background-position:center center;background-size:cover;background-repeat:no-repeat;pointer-events:none;}
 .cbg{position:absolute;inset:0;background:linear-gradient(135deg,rgba(206,17,38,.09) 0%,transparent 55%),repeating-linear-gradient(-45deg,transparent,transparent 38px,rgba(206,17,38,.02) 38px,rgba(206,17,38,.02) 39px);pointer-events:none;}
 .crule{position:absolute;top:0;left:0;width:5px;height:100%;background:var(--r);}
-.cnum{position:absolute;right:-6px;bottom:10px;font-family:'Bebas Neue',sans-serif;font-size:clamp(7rem,16vw,13rem);line-height:.85;color:rgba(206,17,38,.045);pointer-events:none;user-select:none;}
-.ci{position:relative;z-index:2;}
+.cnum{position:absolute;right:-6px;bottom:10px;font-family:'Bebas Neue',sans-serif;font-size:clamp(7rem,16vw,13rem);line-height:.85;color:rgba(206,17,38,.11);pointer-events:none;user-select:none;z-index:2;text-shadow:0 12px 36px rgba(0,0,0,.35);}
+.ci{position:relative;z-index:2;max-width:min(46vw,620px);}
 .ctag{font-family:'Barlow Condensed',sans-serif;font-size:.62rem;letter-spacing:.38em;color:var(--r);text-transform:uppercase;margin-bottom:14px;}
 .ctit{font-family:'Barlow Condensed',sans-serif;font-size:clamp(2.6rem,5.5vw,4.8rem);font-weight:900;line-height:.9;text-transform:uppercase;color:var(--wh);}
 .ctit em{color:var(--r);font-style:normal;}
@@ -229,6 +230,8 @@ p{font-size:.86rem;color:#a0a0b0;margin-bottom:.9rem;max-width:640px;line-height
   .def-calls{grid-template-columns:1fr;}
   .sec{padding:20px 16px;}
   #cover-inner{padding:32px 20px;}
+  .cphoto{inset:0;width:auto;background-image:linear-gradient(180deg,rgba(0,0,0,.46) 0%,rgba(0,0,0,.62) 36%,rgba(0,0,0,.82) 100%),linear-gradient(90deg,rgba(0,0,0,.72) 0%,rgba(0,0,0,.48) 100%),url("lineout-photo.jpg");}
+  .ci{max-width:none;}
   .cmeta{flex-wrap:wrap;gap:14px;}
   #brand{min-width:auto;padding:0 12px;}
   #brand img{height:36px;}
@@ -768,6 +771,7 @@ html, body {
 <!-- 00 COVER -->
 <div id="cover" class="panel on">
   <div id="cover-inner">
+    <div class="cphoto"></div>
     <div class="cbg"></div>
     <div class="crule"></div>
     <div class="cnum">TEMPO</div>

@@ -173,6 +173,150 @@ body.austria-u18-theme::before {
   line-height: 1.7;
 }
 
+.austria-u18-theme #s2 > .nt-section-intro,
+.austria-u18-theme #s2 > .sl-body {
+  display: none;
+}
+
+.nt-principles-page {
+  padding: 20px 24px 30px;
+}
+
+.nt-principles-hero-strip {
+  padding: 20px 0 92px;
+}
+
+.nt-principles-hero-copy {
+  max-width: 980px;
+  margin: 0;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: clamp(1.4rem, 2.25vw, 1.56rem);
+  line-height: 1.6;
+  color: rgba(242, 240, 237, 0.88);
+}
+
+.nt-principles-stack {
+  display: grid;
+}
+
+.nt-principles-divider {
+  width: 100%;
+  height: 1px;
+  margin: 84px 0;
+  background: rgba(220, 38, 38, 0.3);
+}
+
+.nt-principles-pillar-row {
+  display: block;
+}
+
+.nt-principles-pillar-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.25fr) minmax(0, 0.75fr);
+  gap: clamp(28px, 5vw, 72px);
+  align-items: start;
+}
+
+.nt-principles-pillar-left {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.nt-principles-pillar-num {
+  font-family: "Anton", sans-serif;
+  font-size: clamp(6rem, 9vw, 7rem);
+  line-height: 0.9;
+  color: var(--red);
+}
+
+.nt-principles-pillar-name {
+  margin: 0;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: clamp(2rem, 3.4vw, 2.55rem);
+  font-weight: 800;
+  line-height: 0.98;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.nt-principles-pillar-right,
+.nt-principles-copy-column {
+  display: grid;
+  gap: 16px;
+}
+
+.nt-principles-statement {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: clamp(1.12rem, 1.7vw, 1.28rem);
+  line-height: 1.72;
+  color: rgba(242, 240, 237, 0.9);
+}
+
+.nt-principles-pillar-right-kpi {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  gap: 28px;
+  align-items: start;
+}
+
+.nt-principles-kpi-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.nt-principles-kpi-card {
+  position: relative;
+  overflow: hidden;
+  padding: 20px 18px 18px;
+  border: 1px solid rgba(183, 154, 97, 0.26);
+  background:
+    linear-gradient(180deg, rgba(183, 154, 97, 0.1), rgba(255, 255, 255, 0.015)),
+    rgba(21, 25, 31, 0.96);
+  border-radius: 20px;
+}
+
+.nt-principles-kpi-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--gold);
+}
+
+.nt-principles-kpi-value {
+  font-family: "Anton", sans-serif;
+  font-size: clamp(2.4rem, 4vw, 3rem);
+  line-height: 0.92;
+  color: var(--gold);
+}
+
+.nt-principles-kpi-label {
+  margin-top: 10px;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(242, 240, 237, 0.76);
+}
+
+.nt-principles-footer {
+  padding: 92px 0 12px;
+  border-top: 1px solid rgba(220, 38, 38, 0.18);
+}
+
+.nt-principles-chip-row {
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.nt-principles-chip-row .nt-chip {
+  padding: 10px 16px;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+}
+
 .austria-u18-theme .motto span,
 .austria-u18-theme .placeholder-title span,
 .austria-u18-theme .section,
@@ -1110,6 +1254,58 @@ body.austria-u18-theme::before {
 }
 
 @media (max-width: 768px) {
+  .nt-principles-page {
+    padding: 12px 20px 24px;
+  }
+
+  .nt-principles-hero-strip {
+    padding: 12px 0 56px;
+  }
+
+  .nt-principles-hero-copy {
+    font-size: 1.34rem;
+    line-height: 1.58;
+  }
+
+  .nt-principles-divider {
+    margin: 56px 0;
+  }
+
+  .nt-principles-pillar-grid,
+  .nt-principles-pillar-right-kpi {
+    grid-template-columns: 1fr;
+  }
+
+  .nt-principles-pillar-left {
+    gap: 12px;
+  }
+
+  .nt-principles-pillar-num {
+    font-size: clamp(4.8rem, 22vw, 6rem);
+  }
+
+  .nt-principles-pillar-name {
+    font-size: clamp(1.8rem, 8vw, 2.3rem);
+  }
+
+  .nt-principles-statement {
+    font-size: 1.08rem;
+    line-height: 1.7;
+  }
+
+  .nt-principles-kpi-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .nt-principles-footer {
+    padding-top: 64px;
+  }
+
+  .nt-principles-chip-row .nt-chip {
+    padding: 9px 14px;
+    font-size: 0.68rem;
+  }
+
   .austria-manifesto-overlay {
     padding: 0;
   }
