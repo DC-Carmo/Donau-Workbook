@@ -219,7 +219,7 @@ Object.assign(S, {
   // Selection model:
   // - selectedPlayerId: one player selected for editing at a time
   // - selectedObjectType/selectedAnnotationIdValue: non-player object selection
-  // - activePasserId/activeKickerId: pass/kick workflow only
+  // - activePasserId/activeKickerId/activeRunSourceId: armed workflow state
   // - highlightedPlayerIds: temporary workflow highlights only
   // S.selected and S.passFrom remain compatibility mirrors for older UI helpers.
   selected: null,
@@ -235,6 +235,7 @@ Object.assign(S, {
   passFrom: null,
   activePasserId: null,
   activeKickerId: null,
+  activeRunSourceId: null,
   highlightedPlayerIds: [],
   pendingGroupPlacement: null,
   history: [],          // undo stack (snapshots)
@@ -1010,6 +1011,12 @@ function clearPassKickState() {
   syncLegacySelectionState();
 }
 
+function clearArmedRunState() {
+  S.activeRunSourceId = null;
+  clearHighlightedPlayers();
+  syncLegacySelectionState();
+}
+
 function cancelArmedKick() {
   if (!S.activeKickerId) return false;
   clearPassKickState();
@@ -1017,6 +1024,19 @@ function cancelArmedKick() {
   clearDragPlayer();
   S.pointerTap = null;
   setHint(HINTS.kick || '');
+  refreshInteractionUI();
+  render();
+  return true;
+}
+
+function cancelArmedRun() {
+  if (!S.activeRunSourceId) return false;
+  clearArmedRunState();
+  clearSelectedObject();
+  clearDragPlayer();
+  S.drawing = null;
+  S.pointerTap = null;
+  setHint(HINTS.run || '');
   refreshInteractionUI();
   render();
   return true;
@@ -1144,6 +1164,15 @@ function setWorkflowSource(id, tool = S.tool) {
     S.activePasserId = id;
     S.activeKickerId = null;
   }
+  S.activeRunSourceId = null;
+  S.highlightedPlayerIds = id ? [id] : [];
+  syncLegacySelectionState();
+}
+
+function setArmedRunSource(id) {
+  S.activeRunSourceId = id;
+  S.activePasserId = null;
+  S.activeKickerId = null;
   S.highlightedPlayerIds = id ? [id] : [];
   syncLegacySelectionState();
 }
@@ -1878,6 +1907,7 @@ function deserializePlay(obj) {
     S.passFrom = null;
     S.activePasserId = null;
     S.activeKickerId = null;
+    S.activeRunSourceId = null;
     S.highlightedPlayerIds = [];
     S.pendingGroupPlacement = null;
     S.annotationDraft = null;
@@ -1972,6 +2002,7 @@ function deserializePlay(obj) {
   S.passFrom = null;
   S.activePasserId = null;
   S.activeKickerId = null;
+  S.activeRunSourceId = null;
   S.highlightedPlayerIds = [];
   S.pendingGroupPlacement = null;
   S.annotationDraft = null;
@@ -3391,7 +3422,7 @@ function render() {
   if (shouldRenderSequencePreview()) {
     const frame = buildSequenceFrame(S.animT);
     const playerLookup = new Map(frame.players.map(pl => [playerKey(pl), pl]));
-    const animatedActionBall = resolveAnimatedActionBall(frame, playerLookup);
+    const animatedKickBall = resolveAnimatedKickBall(frame, playerLookup);
     renderAnnotations('zones', frame.annotations);
     frame.passes.forEach(pass => {
       const from = playerLookup.get(playerKey({ num: pass.fromNum, team: pass.fromT }));
@@ -3411,7 +3442,7 @@ function render() {
     });
     renderAnnotations('lines', frame.annotations);
     frame.players.forEach(pl => drawPlayer(pl.x, pl.y, pl.num, pl.team, false, samePlayerRef(playerRef(pl), frame.ballOwner), playerColorPalette(pl)));
-    const frameBall = animatedActionBall || frame.ball;
+    const frameBall = animatedKickBall || frame.ball;
     if (frameBall) drawBall(frameBall.x, frameBall.y, false);
     frame.players.forEach(pl => {
       if (samePlayerRef(playerRef(pl), frame.ballOwner)) drawBallCarrierHighlight(pl.x, pl.y);
@@ -3782,17 +3813,40 @@ function handlePointerDown(e) {
 
   else if (S.tool === 'run') {
     const pl = hitPlayer(fp);
-    if (pl) {
+    if (S.activeRunSourceId) {
+      if (pl && pl.id === S.activeRunSourceId) {
+        cancelArmedRun();
+      } else {
+        const source = S.players.find(player => player.id === S.activeRunSourceId);
+        if (!source) {
+          cancelArmedRun();
+        } else {
+          clearDragPlayer();
+          clearPassKickState();
+          selectPlayer(source.id, { highlightedIds: [source.id] });
+          S.drawing = {
+            pid: source.id,
+            pts: [{ x: source.x, y: source.y }, { x: fp.x, y: fp.y }],
+            last: { x: fp.x, y: fp.y },
+          };
+          try { cv.setPointerCapture(e.pointerId); } catch(_) {}
+          setHint('Draw the run path, then release to finish.');
+          refreshInteractionUI();
+        }
+      }
+    } else if (pl) {
       clearDragPlayer();
       clearPassKickState();
-      selectPlayer(pl.id);
-      S.drawing = { pid:pl.id, pts:[{x:pl.x, y:pl.y}], last:{x:fp.x, y:fp.y} };
-      try { cv.setPointerCapture(e.pointerId); } catch(_) {}
-      setHint('Draw the run path, then release to finish.');
+      setArmedRunSource(pl.id);
+      selectPlayer(pl.id, { highlightedIds: [pl.id] });
+      const teamLabel = pl.team === 'A' ? 'Attack' : 'Defence';
+      setHint(`Run from ${teamLabel} #${pl.num}. Drag on the pitch to draw the path, or tap the same player again to cancel.`);
       refreshInteractionUI();
     } else {
       setHint('Click a player first to start their run path.');
+      refreshInteractionUI();
     }
+    render();
   }
 
   else if (S.tool === 'note') {
@@ -4240,6 +4294,8 @@ function finishDraw() {
     S.paths.push({ pid:S.drawing.pid, pts:simplified, color:col });
   }
   S.drawing = null;
+  clearArmedRunState();
+  clearSelectedObject();
   setHint('Run path saved. Choose the next action.');
   refreshInteractionUI();
   render();
@@ -4640,17 +4696,17 @@ function buildSequenceFrame(progress) {
   };
 }
 
-function resolveAnimatedActionBall(frame, playerLookup) {
+function resolveAnimatedKickBall(frame, playerLookup) {
   if (!frame?.passes?.length) return null;
-  const activePass = frame.passes[frame.passes.length - 1];
-  if (!activePass) return null;
-  const from = playerLookup.get(playerKey({ num: activePass.fromNum, team: activePass.fromT }));
+  const activeKick = frame.passes.find(pass => pass.style === 'kick');
+  if (!activeKick) return null;
+  const from = playerLookup.get(playerKey({ num: activeKick.fromNum, team: activeKick.fromT }));
   if (!from) return null;
   let target = null;
-  if (activePass.targetX !== undefined && activePass.targetY !== undefined) {
-    target = { x: activePass.targetX, y: activePass.targetY };
-  } else if (activePass.toNum !== undefined && activePass.toT !== undefined) {
-    target = playerLookup.get(playerKey({ num: activePass.toNum, team: activePass.toT })) || null;
+  if (activeKick.targetX !== undefined && activeKick.targetY !== undefined) {
+    target = { x: activeKick.targetX, y: activeKick.targetY };
+  } else if (activeKick.toNum !== undefined && activeKick.toT !== undefined) {
+    target = playerLookup.get(playerKey({ num: activeKick.toNum, team: activeKick.toT })) || null;
   }
   if (!target) return null;
   return {
@@ -5545,11 +5601,16 @@ function refreshInteractionUI() {
 }
 
 function setTool(t) {
+  const switchingAwayFromKick = t !== 'kick' && S.activeKickerId;
+  const switchingAwayFromRun = t !== 'run' && S.activeRunSourceId;
+  if (switchingAwayFromKick) cancelArmedKick();
+  if (switchingAwayFromRun) cancelArmedRun();
   S.tool = t;
   if (t !== 'run')           S.drawing = null;
   if (t !== 'arrow' && t !== 'zone' && t !== 'box') S.annotationDraft = null;
   if (t !== 'tele') teleDrawing = null;
   if (t !== 'pass' && t !== 'kick') clearPassKickState();
+  if (t !== 'run') clearArmedRunState();
   if (t !== 'move') clearDragPlayer();
   if (t !== 'move') clearPendingGroupPlacement();
   S.selectedPathPid = null;
@@ -5574,6 +5635,7 @@ function clearSelection() {
   S.dragging = null;
   clearDragPlayer();
   clearPassKickState();
+  clearArmedRunState();
   S.drawing = null;
   S.annotationDraft = null;
   setHint('Selection cleared. Choose the next action.');
@@ -5598,6 +5660,7 @@ function cancelActiveBoardInteraction() {
   }
   if (S.drawing) {
     S.drawing = null;
+    clearArmedRunState();
     S.dragging = null;
     S.pointerTap = null;
     setHint('Run path cancelled.');
@@ -5628,6 +5691,9 @@ function cancelActiveBoardInteraction() {
     render();
     return true;
   }
+  if (S.activeRunSourceId) {
+    return cancelArmedRun();
+  }
   if (S.selectedPlayerId !== null || S.selectedGroupId !== null || isBallSelected() || selectedAnnotationId() || S.selectedPassIdx !== null || S.selectedPathPid !== null) {
     clearSelection();
     return true;
@@ -5647,7 +5713,7 @@ function clearAll() {
   S.playMetadata = emptyPlayMetadata('New Play');
   S.projectPlayback = null;
   S.annotations = [];
-  S.drawing=null; S.passFrom=null; S.annotationDraft=null; S.selected=null; S.selectedPlayerId=null; S.selectedPlayerIds=[]; S.selectedGroupId=null; S.selectedAnnotationIdValue=null; S.selectedObjectType=null; S.dragPlayerId=null; S.activePasserId=null; S.activeKickerId=null; S.highlightedPlayerIds=[]; S.ballAssignCandidate=null; S.selectedPathPid=null; S.selectedPassIdx=null; S.pendingGroupPlacement=null;
+  S.drawing=null; S.passFrom=null; S.annotationDraft=null; S.selected=null; S.selectedPlayerId=null; S.selectedPlayerIds=[]; S.selectedGroupId=null; S.selectedAnnotationIdValue=null; S.selectedObjectType=null; S.dragPlayerId=null; S.activePasserId=null; S.activeKickerId=null; S.activeRunSourceId=null; S.highlightedPlayerIds=[]; S.ballAssignCandidate=null; S.selectedPathPid=null; S.selectedPassIdx=null; S.pendingGroupPlacement=null;
   S.animT=0; S.animating=false;
   S.animSpd=1; spdIdx=2;
   S.nextId=1;
