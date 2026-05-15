@@ -4285,7 +4285,7 @@ cv.addEventListener('touchcancel', e => onPointerUp(normEvent(e)),       { passi
 
 function finishDraw() {
   if (!S.drawing) return;
-  if (S.drawing.pts.length >= 3) {
+  if (S.drawing.pts.length >= 2) {
     snapshot();
     const simplified = dpSimplify(S.drawing.pts, 0.8);
     const pl  = S.players.find(p => p.id === S.drawing.pid);
@@ -4716,7 +4716,7 @@ function resolveAnimatedKickBall(frame, playerLookup) {
 }
 
 function shouldRenderSequencePreview() {
-  return currentPhaseHasPlayablePlayback() && (S.animating || S.animT > 0);
+  return currentPhaseHasPlayablePlayback() && S.animating;
 }
 
 function gotoStep(index, { snapshotBefore = false } = {}) {
@@ -5601,6 +5601,17 @@ function refreshInteractionUI() {
 }
 
 function setTool(t) {
+  if (t === S.tool) {
+    if (t === 'kick' && S.activeKickerId) { cancelArmedKick(); return; }
+    if (t === 'pass' && S.activePasserId) {
+      clearPassKickState();
+      clearSelectedObject();
+      refreshInteractionUI();
+      render();
+      return;
+    }
+    if (t === 'run' && S.activeRunSourceId) { cancelArmedRun(); return; }
+  }
   const switchingAwayFromKick = t !== 'kick' && S.activeKickerId;
   const switchingAwayFromRun = t !== 'run' && S.activeRunSourceId;
   if (switchingAwayFromKick) cancelArmedKick();
