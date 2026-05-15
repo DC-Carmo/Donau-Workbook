@@ -178,8 +178,13 @@ body.austria-u18-theme::before {
   display: none;
 }
 
+.austria-u18-theme #s2 {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 .nt-principles-page {
-  padding: 20px 24px 30px;
+  padding: 20px 24px 120px;
 }
 
 .nt-principles-hero-strip {
@@ -1255,7 +1260,7 @@ body.austria-u18-theme::before {
 
 @media (max-width: 768px) {
   .nt-principles-page {
-    padding: 12px 20px 24px;
+    padding: 12px 20px 120px;
   }
 
   .nt-principles-hero-strip {
