@@ -1853,6 +1853,171 @@ body.austria-u18-theme::before {
   color: rgba(255, 255, 255, 0.92);
 }
 
+/* Defensive System (s4) — typography, hierarchy, and mobile polish */
+.austria-u18-theme #s4 .nt-section-intro {
+  max-width: 980px;
+  margin: 0 0 24px;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: clamp(1.4rem, 2.25vw, 1.56rem);
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.austria-u18-theme #s4 .def-left {
+  padding: 18px 20px 24px;
+}
+
+.austria-u18-theme #s4 .def-right {
+  padding-bottom: 24px;
+}
+
+.austria-u18-theme #s4 .def-left > .nt-side-label,
+.austria-u18-theme #s4 .def-right > .nt-side-label,
+.austria-u18-theme #s4 .attitude-block h4 {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(184, 181, 176, 0.56);
+}
+
+.austria-u18-theme #s4 .attitude-block {
+  background: linear-gradient(180deg, rgba(15, 18, 22, 0.95), rgba(10, 12, 16, 0.96));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 24px 26px;
+  margin-bottom: 0;
+  box-shadow: none;
+}
+
+.austria-u18-theme #s4 .attitude-block h4 {
+  margin: 0 0 14px;
+}
+
+.austria-u18-theme #s4 .attitude-block ul {
+  gap: 10px;
+  margin: 0;
+}
+
+.austria-u18-theme #s4 .attitude-block ul li {
+  font-size: 0.98rem;
+  line-height: 1.72;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.austria-u18-theme #s4 .attitude-block ul li::before {
+  color: rgba(255, 255, 255, 0.34);
+}
+
+.austria-u18-theme #s4 .def-left > .nt-side-label {
+  padding-top: 0;
+  margin-top: 32px;
+  margin-bottom: 14px;
+  border-top: 0;
+}
+
+.austria-u18-theme #s4 .def-right > .nt-side-label {
+  padding: 0 20px 14px;
+  margin-top: 0;
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  color: rgba(184, 181, 176, 0.56);
+}
+
+.austria-u18-theme #s4 .role-grid {
+  gap: 16px;
+  margin-bottom: 0;
+}
+
+.austria-u18-theme #s4 .role-card,
+.austria-u18-theme #s4 .def-left .term-chip {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(15, 18, 22, 0.95), rgba(10, 12, 16, 0.96));
+  padding: 22px 24px;
+}
+
+.austria-u18-theme #s4 .role-card .rc-role,
+.austria-u18-theme #s4 .def-left .term-key {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 1.18rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.austria-u18-theme #s4 .role-card .rc-desc,
+.austria-u18-theme #s4 .def-left .term-val {
+  font-size: 0.94rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.austria-u18-theme #s4 .def-left .terminology-grid {
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.austria-u18-theme #s4 .def-right .zone-btns {
+  gap: 18px;
+  padding: 0 20px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.austria-u18-theme #s4 .zone-tab {
+  min-height: 44px;
+  padding: 10px 28px;
+  border-radius: 999px;
+  border-color: rgba(177, 31, 48, 0.22);
+  color: rgba(242, 240, 237, 0.82);
+  font-size: 0.92rem;
+  letter-spacing: 0.12em;
+}
+
+.austria-u18-theme #s4 .zone-tab:not(.active) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.austria-u18-theme #s4 #defContent {
+  padding: 8px 20px 0;
+}
+
+.austria-u18-theme #s4 .def-block {
+  border-radius: 14px;
+  padding: 22px 24px;
+  background: linear-gradient(180deg, rgba(15, 18, 22, 0.95), rgba(10, 12, 16, 0.96));
+  margin-bottom: 16px;
+}
+
+.austria-u18-theme #s4 .def-block h4 {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 1.06rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  line-height: 1.2;
+}
+
+.austria-u18-theme #s4 .def-block ul {
+  gap: 10px;
+  margin: 0;
+}
+
+.austria-u18-theme #s4 .def-block ul li {
+  font-size: 0.94rem;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.6;
+}
+
+.austria-u18-theme #s4 .def-block ul li::before {
+  color: rgba(255, 255, 255, 0.34);
+}
+
 @media (max-width: 960px) {
   .austria-u18-theme #s3 .zone-btns {
     gap: 12px;
@@ -1866,6 +2031,16 @@ body.austria-u18-theme::before {
 
   .austria-u18-theme #s3 .play-list-item {
     padding: 24px 0;
+  }
+
+  .austria-u18-theme #s4 .def-right .zone-btns {
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .austria-u18-theme #s4 .zone-tab {
+    padding: 9px 22px;
+    font-size: 0.86rem;
   }
 }
 
@@ -1898,6 +2073,101 @@ body.austria-u18-theme::before {
   .austria-u18-theme #s3 .module-list li,
   .austria-u18-theme #s3 .fa-body ul li {
     font-size: 0.9rem;
+  }
+
+  .austria-u18-theme #s4 .nt-section-intro {
+    font-size: 1.24rem;
+    line-height: 1.58;
+  }
+
+  .austria-u18-theme #s4 .def-left > .nt-side-label,
+  .austria-u18-theme #s4 .def-right > .nt-side-label,
+  .austria-u18-theme #s4 .attitude-block h4 {
+    font-size: 0.74rem;
+  }
+
+  .austria-u18-theme #s4 .role-grid,
+  .austria-u18-theme #s4 .def-left .terminology-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .austria-u18-theme #s4 .zone-tab {
+    padding: 8px 18px;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .austria-u18-theme #s4 .sl-body {
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .austria-u18-theme #s4 .def-left,
+  .austria-u18-theme #s4 .def-right {
+    width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .austria-u18-theme #s4 .def-left {
+    padding: 16px 18px 0;
+    border-right: 0;
+  }
+
+  .austria-u18-theme #s4 .def-right {
+    padding: 0 18px 20px;
+    overflow: visible;
+  }
+
+  .austria-u18-theme #s4 .attitude-block {
+    padding: 20px;
+  }
+
+  .austria-u18-theme #s4 .role-grid,
+  .austria-u18-theme #s4 .def-left .terminology-grid {
+    gap: 16px;
+  }
+
+  .austria-u18-theme #s4 .role-card,
+  .austria-u18-theme #s4 .def-left .term-chip,
+  .austria-u18-theme #s4 .def-block {
+    padding: 20px;
+  }
+
+  .austria-u18-theme #s4 .def-left > .nt-side-label {
+    margin-top: 24px;
+  }
+
+  .austria-u18-theme #s4 .def-right > .nt-side-label {
+    padding: 0 0 12px;
+  }
+
+  .austria-u18-theme #s4 .def-right .zone-btns {
+    padding: 0 0 16px;
+  }
+
+  .austria-u18-theme #s4 #defContent {
+    padding: 8px 0 0;
+  }
+}
+
+@media (max-width: 428px) {
+  .austria-u18-theme #s4 .role-card .rc-role,
+  .austria-u18-theme #s4 .def-left .term-key,
+  .austria-u18-theme #s4 .def-block h4 {
+    font-size: 1.08rem;
+  }
+
+  .austria-u18-theme #s4 .attitude-block ul li,
+  .austria-u18-theme #s4 .role-card .rc-desc,
+  .austria-u18-theme #s4 .def-left .term-val,
+  .austria-u18-theme #s4 .def-block ul li {
+    font-size: 1rem;
+  }
+
+  .austria-u18-theme #s4 .zone-tab {
+    min-height: 44px;
   }
 }
 
