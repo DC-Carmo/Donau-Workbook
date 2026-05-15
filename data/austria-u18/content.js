@@ -238,7 +238,7 @@
     defenceCalls: [
       { name: "WIN THE RACE",  action: "Line speed standard — arrive at the tackle picture first, connected." },
       { name: "READY / UP",    action: "Primary line call. Edge is set and connected before the ball is live." },
-      { name: "ICE",           action: "Counter-ruck trigger." },
+      { name: "ICE",           action: "Dead ruck - Leave" },
       { name: "RED",           action: "Emergency scramble or linebreak response." },
       { name: "GUARD B",       action: "First defender locks inside gate and reads the next action." },
       { name: "GUARD C",       action: "Second defender scans. Contest if clean, Back in game if not." },
