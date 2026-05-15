@@ -826,7 +826,9 @@ function createCarryForwardStep(step) {
 
   let ball = source.ball ? cloneData(source.ball) : null;
   const finalPass = source.passes[source.passes.length - 1];
-  if (finalPass && finalPass.toT !== undefined && finalPass.toNum !== undefined) {
+  if (finalPass?.style === 'kick' && finalPass.targetX !== undefined && finalPass.targetY !== undefined) {
+    ball = { x: finalPass.targetX, y: finalPass.targetY };
+  } else if (finalPass && finalPass.toT !== undefined && finalPass.toNum !== undefined) {
     const receiver = carriedPlayerByRef.get(playerKey({ team: finalPass.toT, num: finalPass.toNum }));
     if (receiver) {
       ball = { x: receiver.x, y: receiver.y };
@@ -1017,13 +1019,22 @@ function clearArmedRunState() {
   syncLegacySelectionState();
 }
 
+function returnInteractionToMoveTool() {
+  S.tool = 'move';
+  document.querySelectorAll('[data-tool]').forEach(button => {
+    button.classList.toggle('active', button.dataset.tool === 'move');
+  });
+  cv.style.cursor = 'default';
+  setHint(HINTS.move || '');
+}
+
 function cancelArmedKick() {
   if (!S.activeKickerId) return false;
   clearPassKickState();
   clearSelectedObject();
   clearDragPlayer();
   S.pointerTap = null;
-  setHint(HINTS.kick || '');
+  returnInteractionToMoveTool();
   refreshInteractionUI();
   render();
   return true;
@@ -1036,7 +1047,7 @@ function cancelArmedRun() {
   clearDragPlayer();
   S.drawing = null;
   S.pointerTap = null;
-  setHint(HINTS.run || '');
+  returnInteractionToMoveTool();
   refreshInteractionUI();
   render();
   return true;
@@ -3453,6 +3464,7 @@ function render() {
   }
 
   const t = S.animT;
+  const animatedKickBall = resolveLiveAnimatedKickBall(t);
   renderAnnotations('zones');
 
   S.passes.forEach((pass, passIdx) => {
@@ -3527,8 +3539,9 @@ function render() {
     const sel = isPlayerSelected(pl.id);
     drawPlayer(pos.x, pos.y, pl.num, pl.team, sel, pl.isBC, playerColorPalette(pl));
   });
-  if (S.ball) {
-    drawBall(S.ball.x, S.ball.y, isBallSelected());
+  const liveBall = animatedKickBall || S.ball;
+  if (liveBall) {
+    drawBall(liveBall.x, liveBall.y, isBallSelected());
   }
   S.players.forEach(pl => {
     if (pl.isBC) drawBallCarrierHighlight(pl.x, pl.y);
@@ -3949,6 +3962,16 @@ function handlePointerDown(e) {
         // Second click: complete the pass/kick
         const dup = S.passes.find(p => p.from === activeSourceId && p.to === pl.id);
         if (!dup) S.passes.push({ from: activeSourceId, to: pl.id, style: S.tool });
+        if (S.tool === 'kick') {
+          S.ball = { x: pl.x, y: pl.y };
+          S.ballOwner = playerRef(pl);
+          S.ballAttached = false;
+          applyBallOwnershipVisualState();
+        } else {
+          S.ballOwner = playerRef(pl);
+          S.ballAttached = true;
+          syncAttachedBallToOwner();
+        }
         clearPassKickState();
         clearSelectedObject();
         setHint(S.tool === 'pass' ? 'Pass added.' : 'Kick to player added.');
@@ -3960,7 +3983,9 @@ function handlePointerDown(e) {
         } else {
           clearPassKickState();
           clearSelectedObject();
-          setHint(HINTS[S.tool] || '');
+          clearDragPlayer();
+          S.pointerTap = null;
+          returnInteractionToMoveTool();
           refreshInteractionUI();
         }
       }
@@ -3968,6 +3993,10 @@ function handlePointerDown(e) {
     } else if (S.tool === 'kick' && activeWorkflowPlayerId() && isInsidePitch(fp)) {
       // Kick to field target (no receiver player)
       S.passes.push({ from: activeWorkflowPlayerId(), to: null, targetX: clampedFieldPoint.x, targetY: clampedFieldPoint.y, style: 'kick' });
+      S.ball = { x: clampedFieldPoint.x, y: clampedFieldPoint.y };
+      S.ballOwner = null;
+      S.ballAttached = false;
+      applyBallOwnershipVisualState();
       clearPassKickState();
       clearSelectedObject();
       setHint('Kick to field drawn.');
@@ -4698,7 +4727,7 @@ function buildSequenceFrame(progress) {
 
 function resolveAnimatedKickBall(frame, playerLookup) {
   if (!frame?.passes?.length) return null;
-  const activeKick = frame.passes.find(pass => pass.style === 'kick');
+  const activeKick = [...frame.passes].reverse().find(pass => pass.style === 'kick');
   if (!activeKick) return null;
   const from = playerLookup.get(playerKey({ num: activeKick.fromNum, team: activeKick.fromT }));
   if (!from) return null;
@@ -4712,6 +4741,27 @@ function resolveAnimatedKickBall(frame, playerLookup) {
   return {
     x: lerp(from.x, target.x, frame.localT),
     y: lerp(from.y, target.y, frame.localT),
+  };
+}
+
+function resolveLiveAnimatedKickBall(progress) {
+  if (!S.animating || !S.passes?.length) return null;
+  const activeKick = [...S.passes].reverse().find(pass => pass.style === 'kick');
+  if (!activeKick) return null;
+  const fromPlayer = S.players.find(player => player.id === activeKick.from);
+  if (!fromPlayer) return null;
+  const from = animPos(fromPlayer, progress);
+  let target = null;
+  if (activeKick.to === null && activeKick.targetX !== undefined && activeKick.targetY !== undefined) {
+    target = { x: activeKick.targetX, y: activeKick.targetY };
+  } else {
+    const toPlayer = S.players.find(player => player.id === activeKick.to);
+    if (!toPlayer) return null;
+    target = animPos(toPlayer, progress);
+  }
+  return {
+    x: lerp(from.x, target.x, progress),
+    y: lerp(from.y, target.y, progress),
   };
 }
 
@@ -5606,11 +5656,26 @@ function setTool(t) {
     if (t === 'pass' && S.activePasserId) {
       clearPassKickState();
       clearSelectedObject();
+      clearDragPlayer();
+      S.pointerTap = null;
+      returnInteractionToMoveTool();
       refreshInteractionUI();
       render();
       return;
     }
     if (t === 'run' && S.activeRunSourceId) { cancelArmedRun(); return; }
+    if (t === 'pass' || t === 'kick' || t === 'run') {
+      clearPassKickState();
+      clearArmedRunState();
+      clearSelectedObject();
+      clearDragPlayer();
+      S.drawing = null;
+      S.pointerTap = null;
+      returnInteractionToMoveTool();
+      refreshInteractionUI();
+      render();
+      return;
+    }
   }
   const switchingAwayFromKick = t !== 'kick' && S.activeKickerId;
   const switchingAwayFromRun = t !== 'run' && S.activeRunSourceId;
@@ -5697,13 +5762,25 @@ function cancelActiveBoardInteraction() {
     clearSelectedObject();
     clearDragPlayer();
     S.pointerTap = null;
-    setHint(`${MODE_LABELS[S.tool] || 'Tool'} cancelled.`);
+    returnInteractionToMoveTool();
     refreshInteractionUI();
     render();
     return true;
   }
   if (S.activeRunSourceId) {
     return cancelArmedRun();
+  }
+  if (S.tool === 'pass' || S.tool === 'kick' || S.tool === 'run') {
+    clearPassKickState();
+    clearArmedRunState();
+    clearSelectedObject();
+    clearDragPlayer();
+    S.drawing = null;
+    S.pointerTap = null;
+    returnInteractionToMoveTool();
+    refreshInteractionUI();
+    render();
+    return true;
   }
   if (S.selectedPlayerId !== null || S.selectedGroupId !== null || isBallSelected() || selectedAnnotationId() || S.selectedPassIdx !== null || S.selectedPathPid !== null) {
     clearSelection();
