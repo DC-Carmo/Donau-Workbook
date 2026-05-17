@@ -8,6 +8,8 @@
   const MOBILE_BREAKPOINT = 768;
   const MOBILE_ENVIRONMENT_LABEL = "Austria Youth";
   let mobileWorkspaceMenuOpen = false;
+  let overlayScrollLockCount = 0;
+  let lockedScrollY = 0;
 
   function isMobileViewport() {
     return window.innerWidth <= MOBILE_BREAKPOINT;
@@ -71,6 +73,45 @@
     }
   }
 
+  function lockBodyScroll() {
+    if (overlayScrollLockCount === 0) {
+      lockedScrollY = window.scrollY || window.pageYOffset || 0;
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${lockedScrollY}px`;
+      document.body.style.left = "0";
+      document.body.style.right = "0";
+      document.body.style.width = "100%";
+    }
+
+    overlayScrollLockCount += 1;
+    document.body.classList.add("overlay-active");
+  }
+
+  function unlockBodyScroll() {
+    if (overlayScrollLockCount > 0) {
+      overlayScrollLockCount -= 1;
+    }
+
+    if (overlayScrollLockCount > 0) {
+      return;
+    }
+
+    document.body.classList.remove("overlay-active");
+    document.body.style.position = "";
+    document.body.style.top = "";
+    document.body.style.left = "";
+    document.body.style.right = "";
+    document.body.style.width = "";
+    window.scrollTo(0, lockedScrollY);
+  }
+
+  function hasActiveOverlay() {
+    return Boolean(
+      document.querySelector(".overlay.open") ||
+      document.querySelector(".lineout-system-overlay.open")
+    );
+  }
+
   function openOverlay(id) {
     const el = document.getElementById(id);
     if (!el) {
@@ -78,7 +119,7 @@
     }
 
     el.classList.add("open");
-    document.body.classList.add("overlay-active");
+    lockBodyScroll();
     const closeButton = el.querySelector(".overlay-close");
     if (closeButton) {
       closeButton.focus();
@@ -93,8 +134,8 @@
     }
 
     el.classList.remove("open");
-    if (!document.querySelector(".overlay.open")) {
-      document.body.classList.remove("overlay-active");
+    if (!hasActiveOverlay()) {
+      unlockBodyScroll();
     }
 
     document.removeEventListener("keydown", overlayKeyHandler);
@@ -103,7 +144,7 @@
   function overlayKeyHandler(event) {
     if (event.key === "Escape") {
       document.querySelectorAll(".overlay.open").forEach((overlay) => overlay.classList.remove("open"));
-      document.body.classList.remove("overlay-active");
+      unlockBodyScroll();
       document.removeEventListener("keydown", overlayKeyHandler);
     }
   }
@@ -734,7 +775,7 @@
     if (titleEl) titleEl.textContent = LINEOUT_SYSTEM_TITLES[system] || "Lineout System";
     overlay.classList.add("open");
     overlay.removeAttribute("aria-hidden");
-    document.body.classList.add("overlay-active");
+    lockBodyScroll();
     document.addEventListener("keydown", lineoutSystemEsc);
     overlay.querySelector(".lso-close")?.focus();
   }
@@ -745,8 +786,8 @@
     if (!overlay) return;
     overlay.classList.remove("open");
     overlay.setAttribute("aria-hidden", "true");
-    if (!document.querySelector(".overlay.open")) {
-      document.body.classList.remove("overlay-active");
+    if (!hasActiveOverlay()) {
+      unlockBodyScroll();
     }
     if (frame) setTimeout(() => { frame.src = ""; }, 220);
     document.removeEventListener("keydown", lineoutSystemEsc);
