@@ -384,8 +384,9 @@ body.austria-u18-theme::before {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.78fr);
   gap: 22px;
-  padding: 24px;
-  overflow: hidden;
+  padding: 24px 24px 120px;
+  overflow: visible;
+  align-items: start;
 }
 
 .nt-cover-main,
@@ -393,9 +394,14 @@ body.austria-u18-theme::before {
   min-height: 0;
 }
 
+.austria-u18-theme #s1 {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 .nt-cover-main {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   border-radius: 30px;
   padding: 34px;
   border: 1px solid rgba(195, 34, 54, 0.2);
@@ -405,7 +411,8 @@ body.austria-u18-theme::before {
     linear-gradient(180deg, rgba(17, 20, 24, 0.98), rgba(10, 12, 16, 0.98));
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
+  min-height: clamp(420px, 58vh, 640px);
 }
 
 .nt-cover-main::after {
