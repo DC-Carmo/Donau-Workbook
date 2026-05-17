@@ -1199,39 +1199,47 @@
         return;
       }
 
-      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      if (event.key === "ArrowRight") {
         changeSlide(1);
-      } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      } else if (event.key === "ArrowLeft") {
         changeSlide(-1);
       }
     });
 
     let sx = null;
+    let sy = null;
     document.addEventListener("touchstart", (event) => {
       if (hasActiveOverlay()) {
         sx = null;
+        sy = null;
         return;
       }
 
       sx = event.touches[0].clientX;
+      sy = event.touches[0].clientY;
     });
 
     document.addEventListener("touchend", (event) => {
       if (hasActiveOverlay()) {
         sx = null;
+        sy = null;
         return;
       }
 
-      if (sx === null) {
+      if (sx === null || sy === null) {
         return;
       }
 
-      const diff = sx - event.changedTouches[0].clientX;
-      if (Math.abs(diff) > 50) {
-        changeSlide(diff > 0 ? 1 : -1);
+      const diffX = sx - event.changedTouches[0].clientX;
+      const diffY = sy - event.changedTouches[0].clientY;
+      const isHorizontalSwipe = Math.abs(diffX) > 70 && Math.abs(diffX) > Math.abs(diffY) * 1.35;
+
+      if (isHorizontalSwipe) {
+        changeSlide(diffX > 0 ? 1 : -1);
       }
 
       sx = null;
+      sy = null;
     });
 
     document.addEventListener("touchstart", handleOverlayTouchStart, { passive: true });
