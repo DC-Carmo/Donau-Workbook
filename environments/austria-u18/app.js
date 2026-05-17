@@ -12,8 +12,11 @@
   let lockedScrollY = 0;
   let overlayTouchStartY = 0;
   let overlayTouchStartX = 0;
-  let modalScrollTouchY = 0;
-  let modalScrollTouchTop = 0;
+  let modalScrollLastTouchY = 0;
+  let modalScrollLastTouchTime = 0;
+  let modalScrollVelocity = 0;
+  let modalScrollFrame = null;
+  let activeModalScrollContainer = null;
 
   function isMobileViewport() {
     return window.innerWidth <= MOBILE_BREAKPOINT;
@@ -124,14 +127,51 @@
     return target.closest(".overlay-body");
   }
 
+  function stopModalScrollMomentum() {
+    if (modalScrollFrame !== null) {
+      cancelAnimationFrame(modalScrollFrame);
+      modalScrollFrame = null;
+    }
+  }
+
+  function startModalScrollMomentum() {
+    if (!activeModalScrollContainer || Math.abs(modalScrollVelocity) < 0.1) {
+      return;
+    }
+
+    stopModalScrollMomentum();
+
+    const step = () => {
+      if (!activeModalScrollContainer) {
+        modalScrollFrame = null;
+        return;
+      }
+
+      activeModalScrollContainer.scrollTop += modalScrollVelocity;
+      modalScrollVelocity *= 0.95;
+
+      if (Math.abs(modalScrollVelocity) < 0.1) {
+        modalScrollFrame = null;
+        return;
+      }
+
+      modalScrollFrame = requestAnimationFrame(step);
+    };
+
+    modalScrollFrame = requestAnimationFrame(step);
+  }
+
   function handleModalScrollTouchStart(event) {
     const scrollContainer = getOverlayScrollContainer(event.target);
     if (!scrollContainer || !event.touches.length) {
       return;
     }
 
-    modalScrollTouchY = event.touches[0].clientY;
-    modalScrollTouchTop = scrollContainer.scrollTop;
+    stopModalScrollMomentum();
+    activeModalScrollContainer = scrollContainer;
+    modalScrollLastTouchY = event.touches[0].clientY;
+    modalScrollLastTouchTime = performance.now();
+    modalScrollVelocity = 0;
   }
 
   function handleModalScrollTouchMove(event) {
@@ -140,9 +180,20 @@
       return;
     }
 
-    const deltaY = event.touches[0].clientY - modalScrollTouchY;
-    scrollContainer.scrollTop = modalScrollTouchTop - deltaY;
+    const currentY = event.touches[0].clientY;
+    const currentTime = performance.now();
+    const deltaY = modalScrollLastTouchY - currentY;
+    const deltaTime = Math.max(1, currentTime - modalScrollLastTouchTime);
+
+    scrollContainer.scrollTop += deltaY;
+    modalScrollVelocity = (modalScrollVelocity * 0.7) + ((deltaY / deltaTime) * 16 * 0.3);
+    modalScrollLastTouchY = currentY;
+    modalScrollLastTouchTime = currentTime;
     event.preventDefault();
+  }
+
+  function handleModalScrollTouchEnd() {
+    startModalScrollMomentum();
   }
 
   function handleOverlayTouchStart(event) {
@@ -1180,6 +1231,7 @@
     document.addEventListener("touchmove", handleOverlayTouchMove, { passive: false });
     document.addEventListener("touchstart", handleModalScrollTouchStart, { passive: true });
     document.addEventListener("touchmove", handleModalScrollTouchMove, { passive: false });
+    document.addEventListener("touchend", handleModalScrollTouchEnd, { passive: true });
 
     document.addEventListener("click", (event) => {
       if (!mobileWorkspaceMenuOpen || !isMobileViewport()) {
