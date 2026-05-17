@@ -818,10 +818,26 @@ body.austria-u18-theme::before {
   border-color: rgba(177, 31, 48, 0.16);
 }
 
+.austria-u18-theme .overlay {
+  height: 100dvh;
+}
+
+.austria-u18-theme .overlay-topbar {
+  flex: 0 0 52px;
+}
+
 .austria-u18-theme .overlay-body {
+  flex: 1 1 auto;
   min-height: 0;
+  max-height: calc(100dvh - 52px);
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+}
+
+body.austria-u18-theme.overlay-active {
+  overflow: hidden;
 }
 
 .austria-u18-theme .overlay-close {
