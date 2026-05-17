@@ -820,19 +820,23 @@ body.austria-u18-theme::before {
 
 .austria-u18-theme .overlay {
   height: 100dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
 
 .austria-u18-theme .overlay-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   flex: 0 0 52px;
 }
 
 .austria-u18-theme .overlay-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  max-height: calc(100dvh - 52px);
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
+  flex: 0 0 auto;
+  min-height: calc(100dvh - 52px);
+  max-height: none;
+  overflow: visible;
   touch-action: pan-y;
 }
 
