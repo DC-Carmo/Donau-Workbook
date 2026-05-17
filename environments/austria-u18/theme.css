@@ -818,6 +818,12 @@ body.austria-u18-theme::before {
   border-color: rgba(177, 31, 48, 0.16);
 }
 
+.austria-u18-theme .overlay-body {
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
 .austria-u18-theme .overlay-close {
   color: var(--text);
 }
