@@ -148,7 +148,7 @@
       }
 
       activeModalScrollContainer.scrollTop += modalScrollVelocity;
-      modalScrollVelocity *= 0.95;
+      modalScrollVelocity *= 0.97;
 
       if (Math.abs(modalScrollVelocity) < 0.1) {
         modalScrollFrame = null;
@@ -186,7 +186,7 @@
     const deltaTime = Math.max(1, currentTime - modalScrollLastTouchTime);
 
     scrollContainer.scrollTop += deltaY;
-    modalScrollVelocity = (modalScrollVelocity * 0.7) + ((deltaY / deltaTime) * 16 * 0.3);
+    modalScrollVelocity = (modalScrollVelocity * 0.82) + ((deltaY / deltaTime) * 16 * 0.18);
     modalScrollLastTouchY = currentY;
     modalScrollLastTouchTime = currentTime;
     event.preventDefault();
