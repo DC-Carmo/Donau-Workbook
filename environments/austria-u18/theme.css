@@ -469,6 +469,46 @@ body.austria-u18-theme::before {
   gap: 16px;
 }
 
+@media (min-width: 1101px) and (max-width: 1500px) {
+  .nt-cover-shell {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 0.72fr);
+    gap: 18px;
+    padding-bottom: 132px;
+  }
+
+  .nt-cover-main {
+    min-height: clamp(460px, 54vh, 580px);
+    padding: 28px;
+  }
+
+  .nt-cover-main-inner {
+    gap: 10px;
+    max-width: 620px;
+  }
+
+  .austria-u18-theme .hero {
+    font-size: clamp(3.8rem, 5.6vw, 5.4rem);
+    letter-spacing: 2.5px;
+  }
+
+  .nt-cover-copy {
+    max-width: 500px;
+    font-size: 0.92rem;
+    line-height: 1.62;
+  }
+
+  .nt-cover-actions {
+    margin-top: 18px;
+    gap: 10px;
+  }
+
+  .coach-intro-btn {
+    padding: 10px 16px;
+    font-size: 0.72rem;
+    letter-spacing: 1.6px;
+  }
+}
+
 .nt-side-panel {
   position: relative;
   border-radius: 24px;
