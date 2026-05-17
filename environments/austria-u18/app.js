@@ -12,6 +12,8 @@
   let lockedScrollY = 0;
   let overlayTouchStartY = 0;
   let overlayTouchStartX = 0;
+  let modalScrollTouchY = 0;
+  let modalScrollTouchTop = 0;
 
   function isMobileViewport() {
     return window.innerWidth <= MOBILE_BREAKPOINT;
@@ -120,6 +122,27 @@
     }
 
     return target.closest(".overlay-body");
+  }
+
+  function handleModalScrollTouchStart(event) {
+    const scrollContainer = getOverlayScrollContainer(event.target);
+    if (!scrollContainer || !event.touches.length) {
+      return;
+    }
+
+    modalScrollTouchY = event.touches[0].clientY;
+    modalScrollTouchTop = scrollContainer.scrollTop;
+  }
+
+  function handleModalScrollTouchMove(event) {
+    const scrollContainer = getOverlayScrollContainer(event.target);
+    if (!scrollContainer || !event.touches.length) {
+      return;
+    }
+
+    const deltaY = event.touches[0].clientY - modalScrollTouchY;
+    scrollContainer.scrollTop = modalScrollTouchTop - deltaY;
+    event.preventDefault();
   }
 
   function handleOverlayTouchStart(event) {
@@ -1155,6 +1178,8 @@
 
     document.addEventListener("touchstart", handleOverlayTouchStart, { passive: true });
     document.addEventListener("touchmove", handleOverlayTouchMove, { passive: false });
+    document.addEventListener("touchstart", handleModalScrollTouchStart, { passive: true });
+    document.addEventListener("touchmove", handleModalScrollTouchMove, { passive: false });
 
     document.addEventListener("click", (event) => {
       if (!mobileWorkspaceMenuOpen || !isMobileViewport()) {
