@@ -10,6 +10,8 @@
   let mobileWorkspaceMenuOpen = false;
   let overlayScrollLockCount = 0;
   let lockedScrollY = 0;
+  let overlayTouchStartY = 0;
+  let overlayTouchStartX = 0;
 
   function isMobileViewport() {
     return window.innerWidth <= MOBILE_BREAKPOINT;
@@ -110,6 +112,56 @@
       document.querySelector(".overlay.open") ||
       document.querySelector(".lineout-system-overlay.open")
     );
+  }
+
+  function getOverlayScrollContainer(target) {
+    if (!(target instanceof Element)) {
+      return null;
+    }
+
+    return target.closest(".overlay-body");
+  }
+
+  function handleOverlayTouchStart(event) {
+    if (!hasActiveOverlay() || !event.touches.length) {
+      return;
+    }
+
+    overlayTouchStartY = event.touches[0].clientY;
+    overlayTouchStartX = event.touches[0].clientX;
+  }
+
+  function handleOverlayTouchMove(event) {
+    if (!hasActiveOverlay() || !event.touches.length) {
+      return;
+    }
+
+    const scrollContainer = getOverlayScrollContainer(event.target);
+
+    if (!scrollContainer) {
+      event.preventDefault();
+      return;
+    }
+
+    const currentY = event.touches[0].clientY;
+    const currentX = event.touches[0].clientX;
+    const deltaY = currentY - overlayTouchStartY;
+    const deltaX = currentX - overlayTouchStartX;
+    const isMostlyVertical = Math.abs(deltaY) >= Math.abs(deltaX);
+
+    if (!isMostlyVertical) {
+      event.preventDefault();
+      return;
+    }
+
+    const atTop = scrollContainer.scrollTop <= 0;
+    const atBottom =
+      Math.ceil(scrollContainer.scrollTop + scrollContainer.clientHeight) >=
+      scrollContainer.scrollHeight;
+
+    if ((atTop && deltaY > 0) || (atBottom && deltaY < 0)) {
+      event.preventDefault();
+    }
   }
 
   function openOverlay(id) {
@@ -1075,10 +1127,20 @@
 
     let sx = null;
     document.addEventListener("touchstart", (event) => {
+      if (hasActiveOverlay()) {
+        sx = null;
+        return;
+      }
+
       sx = event.touches[0].clientX;
     });
 
     document.addEventListener("touchend", (event) => {
+      if (hasActiveOverlay()) {
+        sx = null;
+        return;
+      }
+
       if (sx === null) {
         return;
       }
@@ -1090,6 +1152,9 @@
 
       sx = null;
     });
+
+    document.addEventListener("touchstart", handleOverlayTouchStart, { passive: true });
+    document.addEventListener("touchmove", handleOverlayTouchMove, { passive: false });
 
     document.addEventListener("click", (event) => {
       if (!mobileWorkspaceMenuOpen || !isMobileViewport()) {
