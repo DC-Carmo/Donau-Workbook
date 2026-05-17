@@ -181,6 +181,12 @@ body {
   display: none;
 }
 
+.mobile-app-header,
+.mobile-module-drawer,
+.mobile-bottom-nav {
+  display: none;
+}
+
 .progress {
   position: fixed;
   top: 66px;
