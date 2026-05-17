@@ -432,7 +432,7 @@
     const header = document.createElement("div");
     header.className = "mobile-app-header";
     header.innerHTML = `
-      <a class="mobile-app-portal-btn" href="../../index.html" aria-label="Back to portal">&#9664;</a>
+      <button class="mobile-app-portal-btn" type="button" aria-label="Return to Program Cover">&#9664;</button>
       <div class="mobile-app-meta">
         <span class="mobile-app-environment">${MOBILE_ENVIRONMENT_LABEL}</span>
         <span class="mobile-app-section">Program Cover</span>
@@ -471,6 +471,13 @@
     document.body.appendChild(drawer);
     document.body.appendChild(bottomNav);
 
+    header.querySelector(".mobile-app-portal-btn").addEventListener("click", () => {
+      if (hasActiveOverlay()) {
+        return;
+      }
+
+      goTo(1);
+    });
     header.querySelector(".mobile-app-menu-btn").addEventListener("click", () => toggleMobileWorkspaceMenu());
     drawer.querySelector(".mobile-drawer-close").addEventListener("click", () => setMobileWorkspaceMenu(false));
     drawer.querySelector(".mobile-module-drawer-backdrop").addEventListener("click", () => setMobileWorkspaceMenu(false));
