@@ -484,6 +484,8 @@
     drawer.className = "mobile-module-drawer";
     drawer.id = "mobileModuleDrawer";
     drawer.setAttribute("aria-hidden", "true");
+    drawer.style.display = "none";
+    drawer.style.visibility = "hidden";
     drawer.innerHTML = `
       <div class="mobile-module-drawer-backdrop"></div>
       <div class="mobile-module-drawer-sheet" role="dialog" aria-modal="true" aria-label="Module navigation">
@@ -572,16 +574,23 @@
     const drawer = document.getElementById("mobileModuleDrawer");
     if (drawer) {
       drawer.setAttribute("aria-hidden", mobileWorkspaceMenuOpen ? "false" : "true");
+      drawer.style.display = mobileWorkspaceMenuOpen ? "block" : "none";
+      drawer.style.visibility = mobileWorkspaceMenuOpen ? "visible" : "hidden";
+      drawer.style.zIndex = mobileWorkspaceMenuOpen ? "9998" : "";
       drawer.style.pointerEvents = mobileWorkspaceMenuOpen ? "auto" : "none";
 
       const backdrop = drawer.querySelector(".mobile-module-drawer-backdrop");
       const sheet = drawer.querySelector(".mobile-module-drawer-sheet");
 
       if (backdrop) {
+        backdrop.style.position = "absolute";
+        backdrop.style.inset = "0";
         backdrop.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
       }
 
       if (sheet) {
+        sheet.style.position = "absolute";
+        sheet.style.inset = "0";
         sheet.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
         sheet.style.transform = mobileWorkspaceMenuOpen ? "translateY(0)" : "translateY(18px)";
       }
