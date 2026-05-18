@@ -485,23 +485,27 @@
     drawer.id = "mobileModuleDrawer";
     drawer.setAttribute("aria-hidden", "true");
     drawer.style.position = "fixed";
-    drawer.style.inset = "0";
+    drawer.style.left = "12px";
+    drawer.style.right = "12px";
+    drawer.style.top = "64px";
     drawer.style.zIndex = "9998";
     drawer.style.display = "none";
     drawer.style.visibility = "hidden";
     drawer.style.pointerEvents = "none";
+    drawer.style.border = "1px solid rgba(177, 31, 48, 0.18)";
+    drawer.style.borderRadius = "18px";
+    drawer.style.background = "linear-gradient(180deg, rgba(15, 18, 22, 0.995), rgba(9, 11, 14, 0.995))";
+    drawer.style.boxShadow = "0 24px 48px rgba(0, 0, 0, 0.36)";
+    drawer.style.overflow = "hidden";
     drawer.innerHTML = `
-      <div class="mobile-module-drawer-backdrop"></div>
-      <div class="mobile-module-drawer-sheet" role="dialog" aria-modal="true" aria-label="Module navigation">
-        <div class="mobile-drawer-head">
-          <div>
-            <div class="mobile-drawer-kicker">${MOBILE_ENVIRONMENT_LABEL}</div>
-            <div class="mobile-drawer-title">Modules</div>
-          </div>
-          <button class="mobile-drawer-close" type="button" aria-label="Close module menu">&times;</button>
+      <div class="mobile-drawer-head">
+        <div>
+          <div class="mobile-drawer-kicker">${MOBILE_ENVIRONMENT_LABEL}</div>
+          <div class="mobile-drawer-title">Modules</div>
         </div>
-        <div class="mobile-drawer-list">${drawerItems}</div>
+        <button class="mobile-drawer-close" type="button" aria-label="Close module menu">&times;</button>
       </div>
+      <div class="mobile-drawer-list">${drawerItems}</div>
     `;
 
     const bottomNav = document.createElement("div");
@@ -519,7 +523,6 @@
 
     bindMobilePress(header.querySelector(".mobile-app-menu-btn"), () => toggleMobileWorkspaceMenu());
     bindMobilePress(drawer.querySelector(".mobile-drawer-close"), () => setMobileWorkspaceMenu(false));
-    bindMobilePress(drawer.querySelector(".mobile-module-drawer-backdrop"), () => setMobileWorkspaceMenu(false));
     drawer.querySelectorAll(".mobile-drawer-item").forEach((item) => {
       bindMobilePress(item, () => goTo(Number(item.dataset.slide)));
     });
@@ -581,34 +584,11 @@
       drawer.setAttribute("aria-hidden", mobileWorkspaceMenuOpen ? "false" : "true");
       drawer.style.display = mobileWorkspaceMenuOpen ? "block" : "none";
       drawer.style.visibility = mobileWorkspaceMenuOpen ? "visible" : "hidden";
+      drawer.style.top = `${Math.round(offset + 8)}px`;
+      drawer.style.bottom = "84px";
       drawer.style.pointerEvents = mobileWorkspaceMenuOpen ? "auto" : "none";
-      drawer.style.background = "transparent";
-
-      const backdrop = drawer.querySelector(".mobile-module-drawer-backdrop");
-      const sheet = drawer.querySelector(".mobile-module-drawer-sheet");
-
-      if (backdrop) {
-        backdrop.style.display = "none";
-      }
-
-      if (sheet) {
-        sheet.style.position = "fixed";
-        sheet.style.top = `${Math.round(offset + 8)}px`;
-        sheet.style.left = "12px";
-        sheet.style.right = "12px";
-        sheet.style.bottom = "84px";
-        sheet.style.inset = "auto 12px 84px 12px";
-        sheet.style.display = "flex";
-        sheet.style.flexDirection = "column";
-        sheet.style.background = "linear-gradient(180deg, rgba(15, 18, 22, 0.995), rgba(9, 11, 14, 0.995))";
-        sheet.style.zIndex = "9999";
-        sheet.style.border = "1px solid rgba(177, 31, 48, 0.18)";
-        sheet.style.borderRadius = "18px";
-        sheet.style.boxShadow = "0 24px 48px rgba(0, 0, 0, 0.36)";
-        sheet.style.overflow = "hidden";
-        sheet.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
-        sheet.style.transform = mobileWorkspaceMenuOpen ? "translateY(0)" : "translateY(10px)";
-      }
+      drawer.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
+      drawer.style.transform = mobileWorkspaceMenuOpen ? "translateY(0)" : "translateY(10px)";
     }
 
     document.querySelectorAll(".mobile-app-menu-btn, .mobile-bottom-modules").forEach((toggle) => {
