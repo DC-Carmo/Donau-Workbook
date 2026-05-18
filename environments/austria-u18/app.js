@@ -572,6 +572,19 @@
     const drawer = document.getElementById("mobileModuleDrawer");
     if (drawer) {
       drawer.setAttribute("aria-hidden", mobileWorkspaceMenuOpen ? "false" : "true");
+      drawer.style.pointerEvents = mobileWorkspaceMenuOpen ? "auto" : "none";
+
+      const backdrop = drawer.querySelector(".mobile-module-drawer-backdrop");
+      const sheet = drawer.querySelector(".mobile-module-drawer-sheet");
+
+      if (backdrop) {
+        backdrop.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
+      }
+
+      if (sheet) {
+        sheet.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
+        sheet.style.transform = mobileWorkspaceMenuOpen ? "translateY(0)" : "translateY(18px)";
+      }
     }
 
     document.querySelectorAll(".mobile-app-menu-btn, .mobile-bottom-modules").forEach((toggle) => {
