@@ -485,11 +485,11 @@
     panel.className = "mobile-module-panel";
     panel.id = "mobileModuleDrawer";
     panel.setAttribute("aria-hidden", "true");
-    panel.style.position = "absolute";
-    panel.style.top = "calc(100% + 8px)";
+    panel.style.position = "fixed";
     panel.style.left = "12px";
     panel.style.right = "12px";
-    panel.style.maxHeight = "calc(100vh - 148px)";
+    panel.style.top = "64px";
+    panel.style.bottom = "84px";
     panel.style.display = "none";
     panel.style.flexDirection = "column";
     panel.style.visibility = "hidden";
@@ -502,7 +502,7 @@
     panel.style.opacity = "0";
     panel.style.transform = "translateY(10px)";
     panel.style.transition = "opacity 180ms ease, transform 180ms ease";
-    panel.style.zIndex = "5";
+    panel.style.zIndex = "9998";
     panel.innerHTML = `
       <div class="mobile-drawer-head">
         <div>
@@ -513,7 +513,6 @@
       </div>
       <div class="mobile-drawer-list">${drawerItems}</div>
     `;
-    header.appendChild(panel);
 
     const bottomNav = document.createElement("div");
     bottomNav.className = "mobile-bottom-nav";
@@ -525,6 +524,7 @@
     `;
 
     document.body.appendChild(header);
+    document.body.appendChild(panel);
     document.body.appendChild(bottomNav);
 
     bindMobilePress(header.querySelector(".mobile-app-menu-btn"), () => toggleMobileWorkspaceMenu());
@@ -586,9 +586,12 @@
     document.body.classList.toggle("mobile-workspace-menu-open", mobileWorkspaceMenuOpen);
     const panel = document.getElementById("mobileModuleDrawer");
     if (panel) {
+      const offset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--mobile-workspace-offset")) || 56;
       panel.setAttribute("aria-hidden", mobileWorkspaceMenuOpen ? "false" : "true");
       panel.style.display = mobileWorkspaceMenuOpen ? "flex" : "none";
       panel.style.visibility = mobileWorkspaceMenuOpen ? "visible" : "hidden";
+      panel.style.top = `${Math.round(offset + 8)}px`;
+      panel.style.bottom = "84px";
       panel.style.pointerEvents = mobileWorkspaceMenuOpen ? "auto" : "none";
       panel.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
       panel.style.transform = mobileWorkspaceMenuOpen ? "translateY(0)" : "translateY(10px)";
