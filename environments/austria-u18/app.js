@@ -522,6 +522,8 @@
     bottomNav.querySelector('[data-mobile-nav="gameplan"]').addEventListener("click", () => goTo(2));
     bottomNav.querySelector('[data-mobile-nav="squad"]').addEventListener("click", () => goTo(6));
     bottomNav.querySelector('[data-mobile-nav="modules"]').addEventListener("click", () => toggleMobileWorkspaceMenu());
+
+    setMobileWorkspaceMenu(false);
   }
 
   function syncMobileWorkspaceOffset() {
@@ -542,6 +544,20 @@
     const drawer = document.getElementById("mobileModuleDrawer");
     if (drawer) {
       drawer.setAttribute("aria-hidden", mobileWorkspaceMenuOpen ? "false" : "true");
+      drawer.style.display = "block";
+      drawer.style.pointerEvents = mobileWorkspaceMenuOpen ? "auto" : "none";
+
+      const backdrop = drawer.querySelector(".mobile-module-drawer-backdrop");
+      const sheet = drawer.querySelector(".mobile-module-drawer-sheet");
+
+      if (backdrop) {
+        backdrop.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
+      }
+
+      if (sheet) {
+        sheet.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
+        sheet.style.transform = mobileWorkspaceMenuOpen ? "translateY(0)" : "translateY(18px)";
+      }
     }
 
     document.querySelectorAll(".mobile-app-menu-btn, .mobile-bottom-modules").forEach((toggle) => {
