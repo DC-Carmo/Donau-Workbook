@@ -577,31 +577,37 @@
     document.body.classList.toggle("mobile-workspace-menu-open", mobileWorkspaceMenuOpen);
     const drawer = document.getElementById("mobileModuleDrawer");
     if (drawer) {
+      const offset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--mobile-workspace-offset")) || 56;
       drawer.setAttribute("aria-hidden", mobileWorkspaceMenuOpen ? "false" : "true");
       drawer.style.display = mobileWorkspaceMenuOpen ? "block" : "none";
       drawer.style.visibility = mobileWorkspaceMenuOpen ? "visible" : "hidden";
       drawer.style.pointerEvents = mobileWorkspaceMenuOpen ? "auto" : "none";
-      drawer.style.background = mobileWorkspaceMenuOpen ? "rgba(4, 13, 22, 0.74)" : "transparent";
+      drawer.style.background = "transparent";
 
       const backdrop = drawer.querySelector(".mobile-module-drawer-backdrop");
       const sheet = drawer.querySelector(".mobile-module-drawer-sheet");
 
       if (backdrop) {
-        backdrop.style.position = "fixed";
-        backdrop.style.inset = "0";
-        backdrop.style.background = "rgba(4, 13, 22, 0.74)";
-        backdrop.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
+        backdrop.style.display = "none";
       }
 
       if (sheet) {
         sheet.style.position = "fixed";
-        sheet.style.inset = "0";
+        sheet.style.top = `${Math.round(offset + 8)}px`;
+        sheet.style.left = "12px";
+        sheet.style.right = "12px";
+        sheet.style.bottom = "84px";
+        sheet.style.inset = "auto 12px 84px 12px";
         sheet.style.display = "flex";
         sheet.style.flexDirection = "column";
         sheet.style.background = "linear-gradient(180deg, rgba(15, 18, 22, 0.995), rgba(9, 11, 14, 0.995))";
         sheet.style.zIndex = "9999";
+        sheet.style.border = "1px solid rgba(177, 31, 48, 0.18)";
+        sheet.style.borderRadius = "18px";
+        sheet.style.boxShadow = "0 24px 48px rgba(0, 0, 0, 0.36)";
+        sheet.style.overflow = "hidden";
         sheet.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
-        sheet.style.transform = mobileWorkspaceMenuOpen ? "translateY(0)" : "translateY(18px)";
+        sheet.style.transform = mobileWorkspaceMenuOpen ? "translateY(0)" : "translateY(10px)";
       }
     }
 
