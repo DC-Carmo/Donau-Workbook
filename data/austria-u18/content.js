@@ -99,7 +99,7 @@
             "Requires clear communication before the launch trigger.",
             "Support must be in position to carry the next action."
           ],
-          diagram: "../../assets/donau/images/special-nt.png"
+          diagram: "../../assets/donau/images/Special-NT.png"
         },
         {
           name: "O³",

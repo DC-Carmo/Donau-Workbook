@@ -471,7 +471,6 @@
 
     const header = document.createElement("div");
     header.className = "mobile-app-header";
-    header.style.overflow = "visible";
     header.innerHTML = `
       <a class="mobile-app-portal-btn" href="../../index.html" aria-label="Back to portal">&#9664;</a>
       <div class="mobile-app-meta">
@@ -481,34 +480,22 @@
       <button class="mobile-app-menu-btn" type="button" aria-expanded="false" aria-controls="mobileModuleDrawer" aria-label="Open module menu">Menu</button>
     `;
 
-    const panel = document.createElement("div");
-    panel.className = "mobile-module-panel";
-    panel.id = "mobileModuleDrawer";
-    panel.setAttribute("aria-hidden", "true");
-    panel.style.margin = "10px 16px 14px";
-    panel.style.display = "none";
-    panel.style.flexDirection = "column";
-    panel.style.visibility = "hidden";
-    panel.style.pointerEvents = "auto";
-    panel.style.border = "1px solid rgba(177, 31, 48, 0.18)";
-    panel.style.borderRadius = "18px";
-    panel.style.background = "linear-gradient(180deg, rgba(15, 18, 22, 0.995), rgba(9, 11, 14, 0.995))";
-    panel.style.boxShadow = "0 24px 48px rgba(0, 0, 0, 0.36)";
-    panel.style.maxHeight = "60vh";
-    panel.style.overflow = "hidden";
-    panel.style.opacity = "0";
-    panel.style.transform = "translateY(10px)";
-    panel.style.transition = "opacity 180ms ease, transform 180ms ease";
-    panel.style.zIndex = "9998";
-    panel.innerHTML = `
-      <div class="mobile-drawer-head">
-        <div>
-          <div class="mobile-drawer-kicker">${MOBILE_ENVIRONMENT_LABEL}</div>
-          <div class="mobile-drawer-title">Modules</div>
+    const drawer = document.createElement("div");
+    drawer.className = "mobile-module-drawer";
+    drawer.id = "mobileModuleDrawer";
+    drawer.setAttribute("aria-hidden", "true");
+    drawer.innerHTML = `
+      <div class="mobile-module-drawer-backdrop"></div>
+      <div class="mobile-module-drawer-sheet" role="dialog" aria-modal="true" aria-label="Module navigation">
+        <div class="mobile-drawer-head">
+          <div>
+            <div class="mobile-drawer-kicker">${MOBILE_ENVIRONMENT_LABEL}</div>
+            <div class="mobile-drawer-title">Modules</div>
+          </div>
+          <button class="mobile-drawer-close" type="button" aria-label="Close module menu">&times;</button>
         </div>
-        <button class="mobile-drawer-close" type="button" aria-label="Close module menu">&times;</button>
+        <div class="mobile-drawer-list">${drawerItems}</div>
       </div>
-      <div class="mobile-drawer-list">${drawerItems}</div>
     `;
 
     const bottomNav = document.createElement("div");
@@ -521,48 +508,20 @@
     `;
 
     document.body.appendChild(header);
+    document.body.appendChild(drawer);
     document.body.appendChild(bottomNav);
 
-    bindMobilePress(header.querySelector(".mobile-app-menu-btn"), () => toggleMobileWorkspaceMenu());
-    bindMobilePress(panel.querySelector(".mobile-drawer-close"), () => setMobileWorkspaceMenu(false));
-    panel.querySelectorAll(".mobile-drawer-item").forEach((item) => {
-      bindMobilePress(item, () => goTo(Number(item.dataset.slide)));
+    header.querySelector(".mobile-app-menu-btn").addEventListener("click", () => toggleMobileWorkspaceMenu());
+    drawer.querySelector(".mobile-drawer-close").addEventListener("click", () => setMobileWorkspaceMenu(false));
+    drawer.querySelector(".mobile-module-drawer-backdrop").addEventListener("click", () => setMobileWorkspaceMenu(false));
+    drawer.querySelectorAll(".mobile-drawer-item").forEach((item) => {
+      item.addEventListener("click", () => goTo(Number(item.dataset.slide)));
     });
 
-    bindMobilePress(bottomNav.querySelector('[data-mobile-nav="home"]'), () => goTo(1));
-    bindMobilePress(bottomNav.querySelector('[data-mobile-nav="gameplan"]'), () => goTo(2));
-    bindMobilePress(bottomNav.querySelector('[data-mobile-nav="squad"]'), () => goTo(6));
-    bindMobilePress(bottomNav.querySelector('[data-mobile-nav="modules"]'), () => toggleMobileWorkspaceMenu());
-  }
-
-  function bindMobilePress(element, handler) {
-    if (!element) {
-      return;
-    }
-
-    let touchHandled = false;
-
-    element.addEventListener("touchend", (event) => {
-      touchHandled = true;
-      event.preventDefault();
-      event.stopPropagation();
-      handler(event);
-
-      window.setTimeout(() => {
-        touchHandled = false;
-      }, 500);
-    }, { passive: false });
-
-    element.addEventListener("click", (event) => {
-      if (touchHandled) {
-        touchHandled = false;
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      handler(event);
-    });
+    bottomNav.querySelector('[data-mobile-nav="home"]').addEventListener("click", () => goTo(1));
+    bottomNav.querySelector('[data-mobile-nav="gameplan"]').addEventListener("click", () => goTo(2));
+    bottomNav.querySelector('[data-mobile-nav="squad"]').addEventListener("click", () => goTo(6));
+    bottomNav.querySelector('[data-mobile-nav="modules"]').addEventListener("click", () => toggleMobileWorkspaceMenu());
   }
 
   function syncMobileWorkspaceOffset() {
@@ -580,26 +539,9 @@
   function setMobileWorkspaceMenu(open) {
     mobileWorkspaceMenuOpen = Boolean(open) && isMobileViewport();
     document.body.classList.toggle("mobile-workspace-menu-open", mobileWorkspaceMenuOpen);
-    const panel = document.getElementById("mobileModuleDrawer");
-    if (panel) {
-      const activeSlide = document.getElementById(`s${cur}`);
-      if (activeSlide && panel.parentElement !== activeSlide) {
-        const insertionTarget =
-          activeSlide.querySelector(".sl-header") ||
-          activeSlide.querySelector(".nt-cover-shell") ||
-          activeSlide.firstElementChild;
-        if (insertionTarget) {
-          insertionTarget.insertAdjacentElement("afterend", panel);
-        } else {
-          activeSlide.appendChild(panel);
-        }
-      }
-
-      panel.setAttribute("aria-hidden", mobileWorkspaceMenuOpen ? "false" : "true");
-      panel.style.display = mobileWorkspaceMenuOpen ? "flex" : "none";
-      panel.style.visibility = mobileWorkspaceMenuOpen ? "visible" : "hidden";
-      panel.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
-      panel.style.transform = mobileWorkspaceMenuOpen ? "translateY(0)" : "translateY(10px)";
+    const drawer = document.getElementById("mobileModuleDrawer");
+    if (drawer) {
+      drawer.setAttribute("aria-hidden", mobileWorkspaceMenuOpen ? "false" : "true");
     }
 
     document.querySelectorAll(".mobile-app-menu-btn, .mobile-bottom-modules").forEach((toggle) => {
@@ -1319,9 +1261,9 @@
         return;
       }
 
-      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+      if (event.key === "ArrowRight") {
         changeSlide(1);
-      } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+      } else if (event.key === "ArrowLeft") {
         changeSlide(-1);
       }
     });
@@ -1366,7 +1308,7 @@
       }
 
       const appHeader = document.querySelector(".mobile-app-header");
-      const drawer = document.getElementById("mobileModuleDrawer");
+      const drawer = document.querySelector(".mobile-module-drawer-sheet");
       const bottomNav = document.querySelector(".mobile-bottom-nav");
       if (
         appHeader?.contains(event.target) ||

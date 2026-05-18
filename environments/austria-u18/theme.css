@@ -384,8 +384,9 @@ body.austria-u18-theme::before {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.78fr);
   gap: 22px;
-  padding: 24px;
-  overflow: hidden;
+  padding: 24px 24px 120px;
+  overflow: visible;
+  align-items: start;
 }
 
 .nt-cover-main,
@@ -393,9 +394,14 @@ body.austria-u18-theme::before {
   min-height: 0;
 }
 
+.austria-u18-theme #s1 {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 .nt-cover-main {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   border-radius: 30px;
   padding: 34px;
   border: 1px solid rgba(195, 34, 54, 0.2);
@@ -405,7 +411,8 @@ body.austria-u18-theme::before {
     linear-gradient(180deg, rgba(17, 20, 24, 0.98), rgba(10, 12, 16, 0.98));
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
+  min-height: clamp(420px, 58vh, 640px);
 }
 
 .nt-cover-main::after {
@@ -460,6 +467,46 @@ body.austria-u18-theme::before {
 .nt-cover-side {
   display: grid;
   gap: 16px;
+}
+
+@media (min-width: 1101px) and (max-width: 1500px) {
+  .nt-cover-shell {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 0.72fr);
+    gap: 18px;
+    padding-bottom: 132px;
+  }
+
+  .nt-cover-main {
+    min-height: clamp(460px, 54vh, 580px);
+    padding: 28px;
+  }
+
+  .nt-cover-main-inner {
+    gap: 10px;
+    max-width: 620px;
+  }
+
+  .austria-u18-theme .hero {
+    font-size: clamp(3.8rem, 5.6vw, 5.4rem);
+    letter-spacing: 2.5px;
+  }
+
+  .nt-cover-copy {
+    max-width: 500px;
+    font-size: 0.92rem;
+    line-height: 1.62;
+  }
+
+  .nt-cover-actions {
+    margin-top: 18px;
+    gap: 10px;
+  }
+
+  .coach-intro-btn {
+    padding: 10px 16px;
+    font-size: 0.72rem;
+    letter-spacing: 1.6px;
+  }
 }
 
 .nt-side-panel {
@@ -2291,7 +2338,6 @@ body.austria-u18-theme.overlay-active {
     text-align: left;
     white-space: normal;
   }
-
   .austria-u18-theme #s4 .role-card .rc-role,
   .austria-u18-theme #s4 .def-left .term-key,
   .austria-u18-theme #s4 .def-block h4 {
