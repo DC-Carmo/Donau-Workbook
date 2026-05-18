@@ -484,8 +484,12 @@
     drawer.className = "mobile-module-drawer";
     drawer.id = "mobileModuleDrawer";
     drawer.setAttribute("aria-hidden", "true");
+    drawer.style.position = "fixed";
+    drawer.style.inset = "0";
+    drawer.style.zIndex = "9998";
     drawer.style.display = "none";
     drawer.style.visibility = "hidden";
+    drawer.style.pointerEvents = "none";
     drawer.innerHTML = `
       <div class="mobile-module-drawer-backdrop"></div>
       <div class="mobile-module-drawer-sheet" role="dialog" aria-modal="true" aria-label="Module navigation">
@@ -576,21 +580,26 @@
       drawer.setAttribute("aria-hidden", mobileWorkspaceMenuOpen ? "false" : "true");
       drawer.style.display = mobileWorkspaceMenuOpen ? "block" : "none";
       drawer.style.visibility = mobileWorkspaceMenuOpen ? "visible" : "hidden";
-      drawer.style.zIndex = mobileWorkspaceMenuOpen ? "9998" : "";
       drawer.style.pointerEvents = mobileWorkspaceMenuOpen ? "auto" : "none";
+      drawer.style.background = mobileWorkspaceMenuOpen ? "rgba(4, 13, 22, 0.74)" : "transparent";
 
       const backdrop = drawer.querySelector(".mobile-module-drawer-backdrop");
       const sheet = drawer.querySelector(".mobile-module-drawer-sheet");
 
       if (backdrop) {
-        backdrop.style.position = "absolute";
+        backdrop.style.position = "fixed";
         backdrop.style.inset = "0";
+        backdrop.style.background = "rgba(4, 13, 22, 0.74)";
         backdrop.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
       }
 
       if (sheet) {
-        sheet.style.position = "absolute";
+        sheet.style.position = "fixed";
         sheet.style.inset = "0";
+        sheet.style.display = "flex";
+        sheet.style.flexDirection = "column";
+        sheet.style.background = "linear-gradient(180deg, rgba(15, 18, 22, 0.995), rgba(9, 11, 14, 0.995))";
+        sheet.style.zIndex = "9999";
         sheet.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
         sheet.style.transform = mobileWorkspaceMenuOpen ? "translateY(0)" : "translateY(18px)";
       }
