@@ -511,17 +511,47 @@
     document.body.appendChild(drawer);
     document.body.appendChild(bottomNav);
 
-    header.querySelector(".mobile-app-menu-btn").addEventListener("click", () => toggleMobileWorkspaceMenu());
-    drawer.querySelector(".mobile-drawer-close").addEventListener("click", () => setMobileWorkspaceMenu(false));
-    drawer.querySelector(".mobile-module-drawer-backdrop").addEventListener("click", () => setMobileWorkspaceMenu(false));
+    bindMobilePress(header.querySelector(".mobile-app-menu-btn"), () => toggleMobileWorkspaceMenu());
+    bindMobilePress(drawer.querySelector(".mobile-drawer-close"), () => setMobileWorkspaceMenu(false));
+    bindMobilePress(drawer.querySelector(".mobile-module-drawer-backdrop"), () => setMobileWorkspaceMenu(false));
     drawer.querySelectorAll(".mobile-drawer-item").forEach((item) => {
-      item.addEventListener("click", () => goTo(Number(item.dataset.slide)));
+      bindMobilePress(item, () => goTo(Number(item.dataset.slide)));
     });
 
-    bottomNav.querySelector('[data-mobile-nav="home"]').addEventListener("click", () => goTo(1));
-    bottomNav.querySelector('[data-mobile-nav="gameplan"]').addEventListener("click", () => goTo(2));
-    bottomNav.querySelector('[data-mobile-nav="squad"]').addEventListener("click", () => goTo(6));
-    bottomNav.querySelector('[data-mobile-nav="modules"]').addEventListener("click", () => toggleMobileWorkspaceMenu());
+    bindMobilePress(bottomNav.querySelector('[data-mobile-nav="home"]'), () => goTo(1));
+    bindMobilePress(bottomNav.querySelector('[data-mobile-nav="gameplan"]'), () => goTo(2));
+    bindMobilePress(bottomNav.querySelector('[data-mobile-nav="squad"]'), () => goTo(6));
+    bindMobilePress(bottomNav.querySelector('[data-mobile-nav="modules"]'), () => toggleMobileWorkspaceMenu());
+  }
+
+  function bindMobilePress(element, handler) {
+    if (!element) {
+      return;
+    }
+
+    let touchHandled = false;
+
+    element.addEventListener("touchend", (event) => {
+      touchHandled = true;
+      event.preventDefault();
+      event.stopPropagation();
+      handler(event);
+
+      window.setTimeout(() => {
+        touchHandled = false;
+      }, 500);
+    }, { passive: false });
+
+    element.addEventListener("click", (event) => {
+      if (touchHandled) {
+        touchHandled = false;
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      handler(event);
+    });
   }
 
   function syncMobileWorkspaceOffset() {
