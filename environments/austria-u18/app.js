@@ -471,6 +471,7 @@
 
     const header = document.createElement("div");
     header.className = "mobile-app-header";
+    header.style.overflow = "visible";
     header.innerHTML = `
       <a class="mobile-app-portal-btn" href="../../index.html" aria-label="Back to portal">&#9664;</a>
       <div class="mobile-app-meta">
@@ -480,24 +481,29 @@
       <button class="mobile-app-menu-btn" type="button" aria-expanded="false" aria-controls="mobileModuleDrawer" aria-label="Open module menu">Menu</button>
     `;
 
-    const drawer = document.createElement("div");
-    drawer.className = "mobile-module-drawer";
-    drawer.id = "mobileModuleDrawer";
-    drawer.setAttribute("aria-hidden", "true");
-    drawer.style.position = "fixed";
-    drawer.style.left = "12px";
-    drawer.style.right = "12px";
-    drawer.style.top = "64px";
-    drawer.style.zIndex = "9998";
-    drawer.style.display = "none";
-    drawer.style.visibility = "hidden";
-    drawer.style.pointerEvents = "none";
-    drawer.style.border = "1px solid rgba(177, 31, 48, 0.18)";
-    drawer.style.borderRadius = "18px";
-    drawer.style.background = "linear-gradient(180deg, rgba(15, 18, 22, 0.995), rgba(9, 11, 14, 0.995))";
-    drawer.style.boxShadow = "0 24px 48px rgba(0, 0, 0, 0.36)";
-    drawer.style.overflow = "hidden";
-    drawer.innerHTML = `
+    const panel = document.createElement("div");
+    panel.className = "mobile-module-panel";
+    panel.id = "mobileModuleDrawer";
+    panel.setAttribute("aria-hidden", "true");
+    panel.style.position = "absolute";
+    panel.style.top = "calc(100% + 8px)";
+    panel.style.left = "12px";
+    panel.style.right = "12px";
+    panel.style.maxHeight = "calc(100vh - 148px)";
+    panel.style.display = "none";
+    panel.style.flexDirection = "column";
+    panel.style.visibility = "hidden";
+    panel.style.pointerEvents = "none";
+    panel.style.border = "1px solid rgba(177, 31, 48, 0.18)";
+    panel.style.borderRadius = "18px";
+    panel.style.background = "linear-gradient(180deg, rgba(15, 18, 22, 0.995), rgba(9, 11, 14, 0.995))";
+    panel.style.boxShadow = "0 24px 48px rgba(0, 0, 0, 0.36)";
+    panel.style.overflow = "hidden";
+    panel.style.opacity = "0";
+    panel.style.transform = "translateY(10px)";
+    panel.style.transition = "opacity 180ms ease, transform 180ms ease";
+    panel.style.zIndex = "5";
+    panel.innerHTML = `
       <div class="mobile-drawer-head">
         <div>
           <div class="mobile-drawer-kicker">${MOBILE_ENVIRONMENT_LABEL}</div>
@@ -507,6 +513,7 @@
       </div>
       <div class="mobile-drawer-list">${drawerItems}</div>
     `;
+    header.appendChild(panel);
 
     const bottomNav = document.createElement("div");
     bottomNav.className = "mobile-bottom-nav";
@@ -518,12 +525,11 @@
     `;
 
     document.body.appendChild(header);
-    document.body.appendChild(drawer);
     document.body.appendChild(bottomNav);
 
     bindMobilePress(header.querySelector(".mobile-app-menu-btn"), () => toggleMobileWorkspaceMenu());
-    bindMobilePress(drawer.querySelector(".mobile-drawer-close"), () => setMobileWorkspaceMenu(false));
-    drawer.querySelectorAll(".mobile-drawer-item").forEach((item) => {
+    bindMobilePress(panel.querySelector(".mobile-drawer-close"), () => setMobileWorkspaceMenu(false));
+    panel.querySelectorAll(".mobile-drawer-item").forEach((item) => {
       bindMobilePress(item, () => goTo(Number(item.dataset.slide)));
     });
 
@@ -578,17 +584,14 @@
   function setMobileWorkspaceMenu(open) {
     mobileWorkspaceMenuOpen = Boolean(open) && isMobileViewport();
     document.body.classList.toggle("mobile-workspace-menu-open", mobileWorkspaceMenuOpen);
-    const drawer = document.getElementById("mobileModuleDrawer");
-    if (drawer) {
-      const offset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--mobile-workspace-offset")) || 56;
-      drawer.setAttribute("aria-hidden", mobileWorkspaceMenuOpen ? "false" : "true");
-      drawer.style.display = mobileWorkspaceMenuOpen ? "block" : "none";
-      drawer.style.visibility = mobileWorkspaceMenuOpen ? "visible" : "hidden";
-      drawer.style.top = `${Math.round(offset + 8)}px`;
-      drawer.style.bottom = "84px";
-      drawer.style.pointerEvents = mobileWorkspaceMenuOpen ? "auto" : "none";
-      drawer.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
-      drawer.style.transform = mobileWorkspaceMenuOpen ? "translateY(0)" : "translateY(10px)";
+    const panel = document.getElementById("mobileModuleDrawer");
+    if (panel) {
+      panel.setAttribute("aria-hidden", mobileWorkspaceMenuOpen ? "false" : "true");
+      panel.style.display = mobileWorkspaceMenuOpen ? "flex" : "none";
+      panel.style.visibility = mobileWorkspaceMenuOpen ? "visible" : "hidden";
+      panel.style.pointerEvents = mobileWorkspaceMenuOpen ? "auto" : "none";
+      panel.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
+      panel.style.transform = mobileWorkspaceMenuOpen ? "translateY(0)" : "translateY(10px)";
     }
 
     document.querySelectorAll(".mobile-app-menu-btn, .mobile-bottom-modules").forEach((toggle) => {
@@ -1355,7 +1358,7 @@
       }
 
       const appHeader = document.querySelector(".mobile-app-header");
-      const drawer = document.querySelector(".mobile-module-drawer-sheet");
+      const drawer = document.getElementById("mobileModuleDrawer");
       const bottomNav = document.querySelector(".mobile-bottom-nav");
       if (
         appHeader?.contains(event.target) ||
