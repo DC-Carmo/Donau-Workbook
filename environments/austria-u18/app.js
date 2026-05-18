@@ -1,6 +1,46 @@
 (function () {
   const data = window.AUSTRIA_U18_DATA || {};
   const { addMsg, removeTyping, showTyping } = window.DonauShared || {};
+  const FINAL_23_ROSTER = {
+    "Back Three": [
+      { position: "15", name: "—", club: "—", captain: false },
+      { position: "11", name: "—", club: "—", captain: false },
+      { position: "14", name: "—", club: "—", captain: false }
+    ],
+    "Inside Backs": [
+      { position: "9", name: "—", club: "—", captain: false },
+      { position: "10", name: "—", club: "—", captain: false },
+      { position: "12", name: "—", club: "—", captain: false },
+      { position: "13", name: "—", club: "—", captain: false }
+    ],
+    "Tight Five": [
+      { position: "1", name: "—", club: "—", captain: false },
+      { position: "2", name: "—", club: "—", captain: false },
+      { position: "3", name: "—", club: "—", captain: false },
+      { position: "4", name: "—", club: "—", captain: false },
+      { position: "5", name: "—", club: "—", captain: false }
+    ],
+    "Loose Forwards": [
+      { position: "6", name: "—", club: "—", captain: false },
+      { position: "7", name: "—", club: "—", captain: false },
+      { position: "8", name: "—", club: "—", captain: false }
+    ],
+    "Halfback Spine": [
+      { position: "9", name: "—", club: "—", captain: false },
+      { position: "10", name: "—", club: "—", captain: false },
+      { position: "15", name: "—", club: "—", captain: false }
+    ],
+    Finishers: [
+      { position: "BENCH 1", name: "—", club: "—", captain: false },
+      { position: "BENCH 2", name: "—", club: "—", captain: false },
+      { position: "BENCH 3", name: "—", club: "—", captain: false },
+      { position: "BENCH 4", name: "—", club: "—", captain: false },
+      { position: "BENCH 5", name: "—", club: "—", captain: false },
+      { position: "BENCH 6", name: "—", club: "—", captain: false },
+      { position: "BENCH 7", name: "—", club: "—", captain: false },
+      { position: "BENCH 8", name: "—", club: "—", captain: false }
+    ]
+  };
 
   const workspaceSections = data.workspaceSections || [];
   const total = document.querySelectorAll(".slide").length;
@@ -986,12 +1026,41 @@
           <div class="module-accordion-arrow">&#9660;</div>
         </button>
         <div class="module-accordion-body">
+          ${renderUnitRoster(unit.title)}
           ${renderUnitLane("Attack", unit.attack)}
           ${renderUnitLane("Defence", unit.defence)}
           ${renderUnitLane("Set Piece", unit.setPiece)}
         </div>
       </article>
     `).join("");
+  }
+
+  function renderUnitRoster(unitTitle) {
+    const roster = FINAL_23_ROSTER[unitTitle] || [];
+
+    return `
+      <section class="nt-unit-roster">
+        <div class="nt-unit-lane-label">Roster</div>
+        <div class="nt-roster-list">
+          ${roster.map((slot) => renderRosterSlot(slot)).join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderRosterSlot(slot) {
+    return `
+      <div class="nt-roster-slot">
+        <div class="nt-roster-position">${slot.position}</div>
+        <div class="nt-roster-identity">
+          <div class="nt-roster-name-row">
+            <div class="nt-roster-name">${slot.name}</div>
+            ${slot.captain ? '<span class="nt-captain-badge" aria-label="Captain">C</span>' : ""}
+          </div>
+        </div>
+        <div class="nt-roster-club">${slot.club}</div>
+      </div>
+    `;
   }
 
   function renderUnitLane(label, points) {

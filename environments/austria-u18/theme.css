@@ -726,6 +726,78 @@ body.austria-u18-theme::before {
   padding: 20px;
 }
 
+.nt-unit-roster {
+  padding-top: 12px;
+}
+
+.nt-roster-list {
+  display: grid;
+  gap: 10px;
+}
+
+.nt-roster-slot {
+  display: grid;
+  grid-template-columns: minmax(58px, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(177, 31, 48, 0.14);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
+}
+
+.nt-roster-position {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--red);
+}
+
+.nt-roster-identity {
+  min-width: 0;
+}
+
+.nt-roster-name-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.nt-roster-name {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: clamp(1.12rem, 1rem + 0.28vw, 1.25rem);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--text);
+  line-height: 1;
+}
+
+.nt-captain-badge {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--red);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.nt-roster-club {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
+}
+
 .nt-unit-lane {
   padding-top: 12px;
 }
@@ -2185,6 +2257,41 @@ body.austria-u18-theme.overlay-active {
 }
 
 @media (max-width: 428px) {
+  .nt-roster-slot {
+    grid-template-columns: minmax(52px, auto) minmax(0, 1fr);
+    align-items: start;
+    gap: 8px 12px;
+    padding: 11px 12px;
+  }
+
+  .nt-roster-identity,
+  .nt-roster-club {
+    grid-column: 2;
+  }
+
+  .nt-roster-identity {
+    margin-bottom: 2px;
+  }
+
+  .nt-roster-name-row {
+    flex-wrap: wrap;
+  }
+
+  .nt-roster-position {
+    font-size: 0.8rem;
+    letter-spacing: 1.4px;
+  }
+
+  .nt-roster-name {
+    font-size: 1.1rem;
+  }
+
+  .nt-roster-club {
+    font-size: 0.78rem;
+    text-align: left;
+    white-space: normal;
+  }
+
   .austria-u18-theme #s4 .role-card .rc-role,
   .austria-u18-theme #s4 .def-left .term-key,
   .austria-u18-theme #s4 .def-block h4 {
