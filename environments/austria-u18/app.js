@@ -485,19 +485,16 @@
     panel.className = "mobile-module-panel";
     panel.id = "mobileModuleDrawer";
     panel.setAttribute("aria-hidden", "true");
-    panel.style.position = "fixed";
-    panel.style.left = "12px";
-    panel.style.right = "12px";
-    panel.style.top = "64px";
-    panel.style.bottom = "84px";
+    panel.style.margin = "10px 16px 14px";
     panel.style.display = "none";
     panel.style.flexDirection = "column";
     panel.style.visibility = "hidden";
-    panel.style.pointerEvents = "none";
+    panel.style.pointerEvents = "auto";
     panel.style.border = "1px solid rgba(177, 31, 48, 0.18)";
     panel.style.borderRadius = "18px";
     panel.style.background = "linear-gradient(180deg, rgba(15, 18, 22, 0.995), rgba(9, 11, 14, 0.995))";
     panel.style.boxShadow = "0 24px 48px rgba(0, 0, 0, 0.36)";
+    panel.style.maxHeight = "60vh";
     panel.style.overflow = "hidden";
     panel.style.opacity = "0";
     panel.style.transform = "translateY(10px)";
@@ -524,7 +521,6 @@
     `;
 
     document.body.appendChild(header);
-    document.body.appendChild(panel);
     document.body.appendChild(bottomNav);
 
     bindMobilePress(header.querySelector(".mobile-app-menu-btn"), () => toggleMobileWorkspaceMenu());
@@ -586,13 +582,22 @@
     document.body.classList.toggle("mobile-workspace-menu-open", mobileWorkspaceMenuOpen);
     const panel = document.getElementById("mobileModuleDrawer");
     if (panel) {
-      const offset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--mobile-workspace-offset")) || 56;
+      const activeSlide = document.getElementById(`s${cur}`);
+      if (activeSlide && panel.parentElement !== activeSlide) {
+        const insertionTarget =
+          activeSlide.querySelector(".sl-header") ||
+          activeSlide.querySelector(".nt-cover-shell") ||
+          activeSlide.firstElementChild;
+        if (insertionTarget) {
+          insertionTarget.insertAdjacentElement("afterend", panel);
+        } else {
+          activeSlide.appendChild(panel);
+        }
+      }
+
       panel.setAttribute("aria-hidden", mobileWorkspaceMenuOpen ? "false" : "true");
       panel.style.display = mobileWorkspaceMenuOpen ? "flex" : "none";
       panel.style.visibility = mobileWorkspaceMenuOpen ? "visible" : "hidden";
-      panel.style.top = `${Math.round(offset + 8)}px`;
-      panel.style.bottom = "84px";
-      panel.style.pointerEvents = mobileWorkspaceMenuOpen ? "auto" : "none";
       panel.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
       panel.style.transform = mobileWorkspaceMenuOpen ? "translateY(0)" : "translateY(10px)";
     }
