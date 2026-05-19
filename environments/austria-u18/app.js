@@ -1036,19 +1036,37 @@
       <article class="module-accordion nt-unit-card active" aria-expanded="true">
         <button class="module-accordion-head" type="button" onclick="toggleUnitCard(this.closest('.nt-unit-card'))" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleUnitCard(this.closest('.nt-unit-card'));}">
           <div>
-            <h3>${unit.title}</h3>
+            <h3>${getUnitDisplayTitle(unit)}</h3>
             <div class="module-accordion-sub">${unit.subtitle}</div>
           </div>
           <div class="module-accordion-arrow">&#9660;</div>
         </button>
         <div class="module-accordion-body">
-          ${renderUnitRoster(unit.title)}
-          ${renderUnitLane("Attack", unit.attack)}
-          ${renderUnitLane("Defence", unit.defence)}
-          ${renderUnitLane("Set Piece", unit.setPiece)}
+          ${renderUnitBody(unit)}
         </div>
       </article>
     `).join("");
+  }
+
+  function getUnitDisplayTitle(unit) {
+    if (unit.title === "Halfback Spine") {
+      return "Game Management Spine";
+    }
+
+    return unit.title;
+  }
+
+  function renderUnitBody(unit) {
+    if (unit.title === "Halfback Spine") {
+      return renderHalfbackSpineConcept();
+    }
+
+    return `
+      ${renderUnitRoster(unit.title)}
+      ${renderUnitLane("Attack", unit.attack)}
+      ${renderUnitLane("Defence", unit.defence)}
+      ${renderUnitLane("Set Piece", unit.setPiece)}
+    `;
   }
 
   function renderUnitRoster(unitTitle) {
@@ -1065,6 +1083,40 @@
           ${roster.map((slot) => renderRosterSlot(slot)).join("")}
         </div>
       </section>
+    `;
+  }
+
+  function renderHalfbackSpineConcept() {
+    const conceptPlayers = [
+      { position: "9", name: "Nathan Zettl" },
+      { position: "10", name: "Pius Grüner" },
+      { position: "15", name: "Tedo Heller Hajdu" }
+    ];
+
+    const purposePoints = [
+      "Connect attack shape",
+      "Manage exit strategy",
+      "Backfield communication",
+      "Tempo and kick ownership"
+    ];
+
+    return `
+      <section class="nt-unit-roster">
+        <div class="nt-unit-lane-label">Connectors</div>
+        <div class="nt-roster-list">
+          ${conceptPlayers.map((slot) => `
+            <div class="nt-roster-slot">
+              <div class="nt-roster-position">${slot.position}</div>
+              <div class="nt-roster-identity">
+                <div class="nt-roster-name-row">
+                  <div class="nt-roster-name">${slot.name}</div>
+                </div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      </section>
+      ${renderUnitLane("Purpose", purposePoints)}
     `;
   }
 
