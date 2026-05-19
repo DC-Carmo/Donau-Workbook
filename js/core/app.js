@@ -384,7 +384,7 @@
     drawer.id = "mobileModuleDrawer";
     drawer.setAttribute("aria-hidden", "true");
     drawer.innerHTML = `
-      <div class="mobile-module-drawer-backdrop" data-close-drawer="true"></div>
+      <div class="mobile-module-drawer-backdrop"></div>
       <div class="mobile-module-drawer-sheet" role="dialog" aria-modal="true" aria-label="Module navigation">
         <div class="mobile-drawer-head">
           <div>
@@ -426,6 +426,8 @@
       });
     });
     bottomNav.querySelector('[data-mobile-nav="playbook"]').addEventListener("click", () => goTo(6));
+
+    setMobileWorkspaceMenu(false);
   }
 
   function buildMobileWorkspaceBar() {
@@ -470,6 +472,20 @@
     const drawer = document.getElementById("mobileModuleDrawer");
     if (drawer) {
       drawer.setAttribute("aria-hidden", mobileWorkspaceMenuOpen ? "false" : "true");
+      drawer.style.display = "block";
+      drawer.style.pointerEvents = mobileWorkspaceMenuOpen ? "auto" : "none";
+
+      const backdrop = drawer.querySelector(".mobile-module-drawer-backdrop");
+      const sheet = drawer.querySelector(".mobile-module-drawer-sheet");
+
+      if (backdrop) {
+        backdrop.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
+      }
+
+      if (sheet) {
+        sheet.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
+        sheet.style.transform = mobileWorkspaceMenuOpen ? "translateY(0)" : "translateY(18px)";
+      }
     }
 
     document.querySelectorAll(".mobile-workspace-toggle, .mobile-app-menu-btn, .mobile-bottom-modules").forEach((toggle) => {
