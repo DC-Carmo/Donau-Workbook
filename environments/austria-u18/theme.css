@@ -769,6 +769,10 @@ body.austria-u18-theme::before {
   gap: 14px;
 }
 
+.nt-final23-static {
+  display: none;
+}
+
 .nt-unit-card {
   padding: 20px;
 }
