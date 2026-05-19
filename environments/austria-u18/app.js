@@ -1046,6 +1046,10 @@
         </div>
       </article>
     `).join("");
+
+    document.querySelectorAll("#unitsGrid .module-accordion.active .module-accordion-body").forEach((body) => {
+      body.style.maxHeight = `${body.scrollHeight}px`;
+    });
   }
 
   function getUnitDisplayTitle(unit) {
