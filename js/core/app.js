@@ -493,23 +493,17 @@
       drawer.setAttribute("aria-hidden", mobileWorkspaceMenuOpen ? "false" : "true");
       drawer.style.display = "block";
       drawer.style.pointerEvents = mobileWorkspaceMenuOpen ? "auto" : "none";
-      drawer.style.visibility = mobileWorkspaceMenuOpen ? "visible" : "hidden";
 
       const backdrop = drawer.querySelector(".mobile-module-drawer-backdrop");
       const sheet = drawer.querySelector(".mobile-module-drawer-sheet");
 
       if (backdrop) {
-        backdrop.style.display = "block";
         backdrop.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
-        backdrop.style.pointerEvents = mobileWorkspaceMenuOpen ? "auto" : "none";
       }
 
       if (sheet) {
-        sheet.style.display = "flex";
         sheet.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
         sheet.style.transform = mobileWorkspaceMenuOpen ? "translateY(0)" : "translateY(18px)";
-        sheet.style.visibility = mobileWorkspaceMenuOpen ? "visible" : "hidden";
-        sheet.style.pointerEvents = mobileWorkspaceMenuOpen ? "auto" : "none";
       }
     }
 
