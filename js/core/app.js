@@ -124,10 +124,18 @@
   const MOBILE_ENVIRONMENT_LABEL = "Donau";
   let mobileWorkspaceMenuOpen = false;
   const DONAU_MOBILE_MODULE_ITEMS = [
-    { type: "slide", slide: 1, shortLabel: "Home", title: "Intro / Game Plan" },
-    { type: "slide", slide: 2, shortLabel: "Core", title: "Game Plan" },
+    { type: "slide", slide: 1, shortLabel: "Intro", title: "Intro" },
+    { type: "slide", slide: 2, shortLabel: "Standards", title: "Standards" },
+    { type: "slide", slide: 3, shortLabel: "Attack", title: "Attack" },
+    { type: "slide", slide: 4, shortLabel: "Lineout", title: "Lineout" },
+    { type: "slide", slide: 5, shortLabel: "Defence", title: "Defence" },
+    { type: "slide", slide: 6, shortLabel: "Playbook", title: "Ask the Playbook" },
     { type: "board", shortLabel: "Board", title: "Tactical Board" },
-    { type: "slide", slide: 6, shortLabel: "AI", title: "Playbook" }
+    { type: "slide", slide: 7, shortLabel: "Hub", title: "Development" },
+    { type: "slide", slide: 8, shortLabel: "Pathway", title: "Player Pathway" },
+    { type: "slide", slide: 9, shortLabel: "Fuel", title: "Fuel & Recovery" },
+    { type: "slide", slide: 10, shortLabel: "Athletic", title: "Athletic Development" },
+    { type: "slide", slide: 11, shortLabel: "Wellbeing", title: "Player Wellbeing" },
   ];
 
   function isMobileViewport() {
