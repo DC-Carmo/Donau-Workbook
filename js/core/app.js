@@ -123,6 +123,12 @@
   const MOBILE_BREAKPOINT = 768;
   const MOBILE_ENVIRONMENT_LABEL = "Donau";
   let mobileWorkspaceMenuOpen = false;
+  const DONAU_MOBILE_MODULE_ITEMS = [
+    { type: "slide", slide: 1, shortLabel: "Home", title: "Intro / Game Plan" },
+    { type: "slide", slide: 2, shortLabel: "Core", title: "Game Plan" },
+    { type: "board", shortLabel: "Board", title: "Tactical Board" },
+    { type: "slide", slide: 6, shortLabel: "AI", title: "Playbook" }
+  ];
 
   function isMobileViewport() {
     return window.innerWidth <= MOBILE_BREAKPOINT;
@@ -354,14 +360,14 @@
       return;
     }
 
-    const drawerItems = workspaceSections
+    const drawerItems = DONAU_MOBILE_MODULE_ITEMS
       .map(
-        (section) => `
-          <button class="mobile-drawer-item" type="button" data-slide="${section.slide}">
-            <span class="mobile-drawer-item-num">${String(section.slide).padStart(2, "0")}</span>
+        (item, index) => `
+          <button class="mobile-drawer-item" type="button" data-drawer-type="${item.type}"${item.slide ? ` data-slide="${item.slide}"` : ""}>
+            <span class="mobile-drawer-item-num">${String(index + 1).padStart(2, "0")}</span>
             <span class="mobile-drawer-item-copy">
-              <span class="mobile-drawer-item-short">${section.shortLabel}</span>
-              <span class="mobile-drawer-item-title">${section.title}</span>
+              <span class="mobile-drawer-item-short">${item.shortLabel}</span>
+              <span class="mobile-drawer-item-title">${item.title}</span>
             </span>
           </button>
         `,
@@ -414,7 +420,20 @@
     drawer.querySelector(".mobile-drawer-close").addEventListener("click", () => setMobileWorkspaceMenu(false));
     drawer.querySelector(".mobile-module-drawer-backdrop").addEventListener("click", () => setMobileWorkspaceMenu(false));
     drawer.querySelectorAll(".mobile-drawer-item").forEach((item) => {
-      item.addEventListener("click", () => goTo(Number(item.dataset.slide)));
+      item.addEventListener("click", (event) => {
+        const drawerType = item.dataset.drawerType;
+        setMobileWorkspaceMenu(false);
+
+        if (drawerType === "board") {
+          window.RDATacticalBoardAccess?.requestAccess({
+            targetUrl: "../../environments/animator/index.html",
+            trigger: event.currentTarget,
+          });
+          return;
+        }
+
+        goTo(Number(item.dataset.slide));
+      });
     });
 
     bottomNav.querySelector('[data-mobile-nav="home"]').addEventListener("click", () => goTo(1));
@@ -474,17 +493,23 @@
       drawer.setAttribute("aria-hidden", mobileWorkspaceMenuOpen ? "false" : "true");
       drawer.style.display = "block";
       drawer.style.pointerEvents = mobileWorkspaceMenuOpen ? "auto" : "none";
+      drawer.style.visibility = mobileWorkspaceMenuOpen ? "visible" : "hidden";
 
       const backdrop = drawer.querySelector(".mobile-module-drawer-backdrop");
       const sheet = drawer.querySelector(".mobile-module-drawer-sheet");
 
       if (backdrop) {
+        backdrop.style.display = "block";
         backdrop.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
+        backdrop.style.pointerEvents = mobileWorkspaceMenuOpen ? "auto" : "none";
       }
 
       if (sheet) {
+        sheet.style.display = "flex";
         sheet.style.opacity = mobileWorkspaceMenuOpen ? "1" : "0";
         sheet.style.transform = mobileWorkspaceMenuOpen ? "translateY(0)" : "translateY(18px)";
+        sheet.style.visibility = mobileWorkspaceMenuOpen ? "visible" : "hidden";
+        sheet.style.pointerEvents = mobileWorkspaceMenuOpen ? "auto" : "none";
       }
     }
 
@@ -576,7 +601,11 @@
     });
 
     document.querySelectorAll(".mobile-drawer-item").forEach((item) => {
-      const isActive = Number(item.dataset.slide) === cur;
+      const drawerType = item.dataset.drawerType;
+      const slide = Number(item.dataset.slide);
+      const isActive =
+        (drawerType === "slide" && slide === cur) ||
+        (drawerType === "board" && false);
       item.classList.toggle("active", isActive);
       item.setAttribute("aria-current", isActive ? "page" : "false");
     });
