@@ -164,15 +164,7 @@
   }
 
   function hasAccess() {
-    if (isDevUnlockEnabled()) {
-      return true;
-    }
-
-    if (!storageAvailable()) {
-      return false;
-    }
-
-    return window.sessionStorage.getItem(STORAGE_KEY) === "granted";
+    return true;
   }
 
   function grantAccess() {
@@ -308,25 +300,13 @@
   }
 
   function requestAccess(options) {
-    if (hasAccess()) {
-      if (options?.targetUrl) {
-        window.location.href = options.targetUrl;
-      }
-
-      return;
+    if (options?.targetUrl) {
+      window.location.href = options.targetUrl;
     }
-
-    openAccessModal(options);
   }
 
   function protectPage(options) {
-    if (hasAccess()) {
-      return true;
-    }
-
-    const redirectUrl = options?.redirectUrl || "../../index.html";
-    window.location.replace(redirectUrl);
-    return false;
+    return true;
   }
 
   window.RDATacticalBoardAccess = {

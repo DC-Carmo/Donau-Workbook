@@ -54,7 +54,8 @@
         <p class="hp-hero-tagline">Develop. Perform. Succeed.</p>
         <p class="hp-hero-body">Game plans, tactical boards, and coaching systems for rugby clubs and unions that want to operate like pros.</p>
         <div class="hp-hero-actions">
-          <a class="hp-hero-btn-primary" href="#product">Explore Platform</a>
+          <a class="hp-hero-btn-primary" href="environments/animator/index.html">Open Tactical Board</a>
+          <a class="hp-hero-btn-secondary" href="#product">Explore Platform</a>
           <a class="hp-hero-btn-secondary" href="#request-access" data-open-request-modal>Request Access</a>
           <a class="hp-hero-btn-support" href="https://ko-fi.com/rugbydevelopmentacademy" target="_blank" rel="noopener noreferrer">
             <span class="hp-hero-btn-support-title">Support RDA</span>
@@ -93,7 +94,7 @@
           </div>
           <h2 class="hp-section-title">Tactical Board</h2>
           <p class="hp-section-body">Build and present multi-phase plays. Place players, draw runs and passes, sequence the action, and play it back in real time.</p>
-          <a class="hp-btn hp-btn-outline" href="#request-access" data-open-request-modal>Request Access</a>
+          <a class="hp-btn hp-btn-outline" href="environments/animator/index.html">Open Tactical Board</a>
         </div>
         <div class="hp-tb-features">
           <div class="hp-tb-feature">
@@ -408,7 +409,9 @@
       });
 
       boardAccessButtons.forEach((button) => {
-        button.addEventListener("click", () => {
+        button.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
           window.RDATacticalBoardAccess?.requestAccess({
             onRequestAccess: () => openModal(button),
             targetUrl: "environments/animator/index.html",
