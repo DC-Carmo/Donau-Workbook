@@ -522,6 +522,47 @@
     ],
 
     // ── ANALYSIS HUB ────────────────────────────────────────────────────
+    final23Roster: {
+      "Back Three": [
+        { position: "15", name: "Tedo Heller Hajdu", club: "RC Union Donau Wien", captain: false },
+        { position: "11", name: "James Lindeque", club: "Rugby Club Anexia Tigers Klagenfurt", captain: false },
+        { position: "14", name: "Nicolai Makarius", club: "RC Union Donau Wien", captain: false }
+      ],
+      "Inside Backs": [
+        { position: "9", name: "Nathan Zettl", club: "Celtic Rugby Club", captain: false },
+        { position: "10", name: "Pius Grüner", club: "RC Union Donau Wien", captain: false },
+        { position: "12", name: "Julius Weder", club: "Celtic Rugby Club", captain: false },
+        { position: "13", name: "Jakob Pulker", club: "DSG Hargelsberg", captain: false }
+      ],
+      "Tight Five": [
+        { position: "1", name: "Alexander Mellek", club: "RC Union Donau Wien", captain: false },
+        { position: "2", name: "Theo Woschnagg", club: "RC Union Donau Wien", captain: false },
+        { position: "3", name: "Artur Paseka", club: "RC Union Donau Wien", captain: false },
+        { position: "4", name: "Theo Romberg", club: "RC Union Donau Wien", captain: false },
+        { position: "5", name: "Ferdinand Wailand", club: "RC Union Donau Wien", captain: false }
+      ],
+      "Loose Forwards": [
+        { position: "6", name: "Valentin Kühr", club: "DSG Hargelsberg", captain: true },
+        { position: "7", name: "Julius Erasim", club: "Radley College Rugby Club", captain: false },
+        { position: "8", name: "Charles Metcalf", club: "RC Union Donau Wien", captain: false }
+      ],
+      "Halfback Spine": [
+        { position: "9", name: "Nathan Zettl", club: "Celtic Rugby Club", captain: false },
+        { position: "10", name: "Pius Grüner", club: "RC Union Donau Wien", captain: false },
+        { position: "15", name: "Tedo Heller Hajdu", club: "RC Union Donau Wien", captain: false }
+      ],
+      Finishers: [
+        { position: "BENCH 1", name: "Michail Chatzikonstantinou", club: "Celtic Rugby Club", captain: false },
+        { position: "BENCH 2", name: "Miguel Surilla", club: "Celtic Rugby Club", captain: false },
+        { position: "BENCH 3", name: "Leonhard Poteschil", club: "Celtic Rugby Club", captain: false },
+        { position: "BENCH 4", name: "Paul Krassnitzer", club: "Celtic Rugby Club", captain: false },
+        { position: "BENCH 5", name: "Felix Nuckley", club: "Celtic Rugby Club", captain: false },
+        { position: "BENCH 6", name: "Stefan Kolar", club: "RC Union Donau Wien", captain: false },
+        { position: "BENCH 7", name: "Naim Lebegue", club: "Rugby Club Graz", captain: false },
+        { position: "BENCH 8", name: "Jakob Havranek", club: "RC Union Donau Wien", captain: false }
+      ]
+    },
+
     analysis: {
       cards: [
         {
