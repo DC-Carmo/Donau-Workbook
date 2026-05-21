@@ -5211,6 +5211,12 @@ function updateMobileUI() {
   const mobileAddStepBtn = document.getElementById('mobileAddStepBtn');
   const mobileAddAttackBtn = document.getElementById('mobileAddAttackBtn');
   const mobileAddDefenceBtn = document.getElementById('mobileAddDefenceBtn');
+  const mobileMorePlayBtn = document.getElementById('mobileMorePlayBtn');
+  const mobileMorePlayAllBtn = document.getElementById('mobileMorePlayAllBtn');
+  const mobileMorePrevBtn = document.getElementById('mobileMorePrevBtn');
+  const mobileMoreNextBtn = document.getElementById('mobileMoreNextBtn');
+  const mobileMoreAddStepBtn = document.getElementById('mobileMoreAddStepBtn');
+  const mobileMoreGainlineBtn = document.getElementById('mobileMoreGainlineBtn');
   const mobileBoardSummary = document.getElementById('mobileBoardSummary');
   const count = sequenceStepCount();
   const playable = currentPhaseHasPlayablePlayback();
@@ -5225,6 +5231,11 @@ function updateMobileUI() {
     mobilePlayBtn.textContent = S.animating ? 'Pause' : 'Play';
     mobilePlayBtn.disabled = !playable;
   }
+  if (mobileMorePlayBtn) {
+    mobileMorePlayBtn.textContent = S.animating ? 'PAUSE' : 'PLAY';
+    mobileMorePlayBtn.disabled = !playable;
+  }
+  if (mobileMorePlayAllBtn) mobileMorePlayAllBtn.disabled = !playable;
   if (mobileSequencePlayBtn) {
     mobileSequencePlayBtn.textContent = S.animating ? '⏸ Pause' : '▶ Play';
     mobileSequencePlayBtn.disabled = !playable;
@@ -5232,6 +5243,8 @@ function updateMobileUI() {
   [0.25, 0.5, 1, 2].forEach(v => {
     const chip = document.getElementById('mspd-' + v);
     if (chip) chip.classList.toggle('active', v === S.animSpd);
+    const mobileChip = document.getElementById('mqspd-' + v);
+    if (mobileChip) mobileChip.classList.toggle('active', v === S.animSpd);
   });
   if (mobileBoardSummary) {
     mobileBoardSummary.textContent = `Mode: ${MODE_LABELS[S.tool] || 'Board'} · Step ${S.currentStep + 1} of ${count} · ${ownerText}`;
@@ -5241,6 +5254,10 @@ function updateMobileUI() {
   if (mobileAddStepBtn) mobileAddStepBtn.disabled = false;
   if (mobileAddAttackBtn) mobileAddAttackBtn.disabled = S.atkUsed.size >= 15;
   if (mobileAddDefenceBtn) mobileAddDefenceBtn.disabled = S.defUsed.size >= 15;
+  if (mobileMorePrevBtn) mobileMorePrevBtn.disabled = S.currentStep === 0;
+  if (mobileMoreNextBtn) mobileMoreNextBtn.disabled = S.currentStep >= count - 1;
+  if (mobileMoreAddStepBtn) mobileMoreAddStepBtn.disabled = false;
+  if (mobileMoreGainlineBtn) mobileMoreGainlineBtn.classList.toggle('active', showGainline);
 
   ['move', 'run', 'pass', 'kick', 'tele', 'zone', 'box', 'erase', 'note', 'arrow'].forEach(tool => {
     const btn = document.getElementById(`mq-${tool}`);

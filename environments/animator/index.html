@@ -255,6 +255,41 @@
     </div>
 
     <div id="bottomPanel">
+      <div id="mobilePrimaryToolbar" class="mobile-primary-toolbar" aria-label="Primary mobile tools">
+        <button class="board-pill tool-btn active" id="mq-move" data-tool="move" type="button" onclick="setTool('move')">MOVE</button>
+        <button class="board-pill tool-btn" id="mq-run" data-tool="run" type="button" onclick="setTool('run')">RUN</button>
+        <button class="board-pill tool-btn" id="mq-pass" data-tool="pass" type="button" onclick="setTool('pass')">PASS</button>
+        <button class="board-pill tool-btn" id="mq-kick" data-tool="kick" type="button" onclick="setTool('kick')">KICK</button>
+        <button class="board-pill tool-btn" id="mq-erase" data-tool="erase" type="button" onclick="setTool('erase')">ERASE</button>
+        <button class="board-pill action-btn" id="mobileToolsBtn" type="button" onclick="toggleMobileToolsDropdown()" aria-expanded="false">MORE</button>
+      </div>
+
+      <div id="mobileToolsDropdown" class="mobile-tools-dropdown" aria-hidden="true">
+        <div class="mobile-tools-grid">
+          <button class="board-pill action-btn" type="button" onclick="addNextAvailablePlayer('A'); closeMobileToolsDropdown();">+ ATTACK</button>
+          <button class="board-pill action-btn" type="button" onclick="addNextAvailablePlayer('D'); closeMobileToolsDropdown();">+ DEFENCE</button>
+          <button class="board-pill ball-btn" type="button" onclick="addBall(); closeMobileToolsDropdown();">BALL</button>
+          <button class="board-pill action-btn" id="mobileMoreAddStepBtn" type="button" onclick="addStep(); closeMobileToolsDropdown();">+ STEP</button>
+          <button class="board-pill action-btn" id="mobileMorePrevBtn" type="button" onclick="prevStep(); closeMobileToolsDropdown();">&#10216;</button>
+          <button class="board-pill play-btn" id="mobileMorePlayBtn" type="button" onclick="togglePlay(); closeMobileToolsDropdown();">PLAY</button>
+          <button class="board-pill play-btn" id="mobileMorePlayAllBtn" type="button" onclick="togglePlayAll(); closeMobileToolsDropdown();">&#9654;&#9654; PLAY ALL</button>
+          <button class="board-pill action-btn" id="mobileMoreNextBtn" type="button" onclick="nextStep(); closeMobileToolsDropdown();">&#10217;</button>
+          <button class="board-pill speed-btn" id="mqspd-0.25" type="button" onclick="setMobileSpd(0.25); closeMobileToolsDropdown();">&#188;&#215;</button>
+          <button class="board-pill speed-btn" id="mqspd-0.5" type="button" onclick="setMobileSpd(0.5); closeMobileToolsDropdown();">&#189;&#215;</button>
+          <button class="board-pill speed-btn active" id="mqspd-1" type="button" onclick="setMobileSpd(1); closeMobileToolsDropdown();">1&#215;</button>
+          <button class="board-pill speed-btn" id="mqspd-2" type="button" onclick="setMobileSpd(2); closeMobileToolsDropdown();">2&#215;</button>
+          <button class="board-pill tool-btn" id="mq-tele" data-tool="tele" type="button" onclick="setTool('tele')">TELE</button>
+          <button class="board-pill action-btn" id="mobileMoreGainlineBtn" type="button" onclick="toggleGainline(); closeMobileToolsDropdown();">GAINLINE</button>
+          <button class="board-pill action-btn" type="button" onclick="undo(); closeMobileToolsDropdown();">UNDO</button>
+          <button class="board-pill action-btn" type="button" onclick="redo(); closeMobileToolsDropdown();">REDO</button>
+          <button class="board-pill tool-btn" id="mq-zone" data-tool="zone" type="button" disabled title="Coming soon">CIRCLE</button>
+          <button class="board-pill tool-btn" id="mq-box" data-tool="box" type="button" disabled title="Coming soon">BOX</button>
+          <button class="board-pill tool-btn" id="mq-arrow" data-tool="arrow" type="button" disabled title="Coming soon">ARROW</button>
+          <button class="board-pill tool-btn" id="mq-note" data-tool="note" type="button" disabled title="Coming soon">NOTE</button>
+          <button class="board-pill action-btn tb-clear-btn" type="button" onclick="clearAll(); closeMobileToolsDropdown();">CLEAR</button>
+        </div>
+      </div>
+
       <div id="compactToolbar" aria-label="Board controls">
 
         <!-- Group A: Players & objects -->
