@@ -36,6 +36,8 @@
       <div class="tb-phase-chip-strip" id="phaseChipStrip"></div>
     </div>
 
+    <div id="mobilePhaseCounter" class="mobile-phase-counter" aria-live="polite">Phase 1 / 1</div>
+
     <div class="tb-actions">
       <a class="c-btn tb-portal" href="../../index.html"><span>&#9664;</span> Portal</a>
       <button class="c-btn" id="mobileSaveBtn" onclick="saveCurrentPlay()">Save</button>
@@ -43,6 +45,17 @@
       <button class="c-btn desktop-only" onclick="exportCurrentPlay()">Export JSON</button>
       <button class="c-btn desktop-only" onclick="triggerImportPlay()">Import</button>
     </div>
+
+    <button id="mobileTopbarMenuBtn" class="mobile-topbar-menu-btn" type="button" onclick="toggleTopbarMenu()" aria-label="Open board actions" aria-expanded="false">&#9776;</button>
+  </div>
+
+  <div id="mobileTopbarMenuBackdrop" class="mobile-topbar-menu-backdrop" onclick="closeTopbarMenu()"></div>
+  <div id="mobileTopbarMenu" class="mobile-topbar-menu" aria-hidden="true">
+    <a class="c-btn tb-portal" href="../../index.html"><span>&#9664;</span> Portal</a>
+    <button class="c-btn" type="button" onclick="saveCurrentPlay(); closeTopbarMenu();">Save</button>
+    <button class="c-btn primary" type="button" onclick="exportPDF(); closeTopbarMenu();">Export PDF</button>
+    <button class="c-btn" type="button" onclick="exportCurrentPlay(); closeTopbarMenu();">Export JSON</button>
+    <button class="c-btn" type="button" onclick="triggerImportPlay(); closeTopbarMenu();">Import</button>
   </div>
 
   <div id="workspace">

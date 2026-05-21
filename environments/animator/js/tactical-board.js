@@ -5108,6 +5108,31 @@ function closeMobileToolsDropdown() {
 window.toggleMobileToolsDropdown = toggleMobileToolsDropdown;
 window.closeMobileToolsDropdown = closeMobileToolsDropdown;
 
+function setTopbarMenuOpen(open) {
+  const menu = document.getElementById('mobileTopbarMenu');
+  const backdrop = document.getElementById('mobileTopbarMenuBackdrop');
+  const menuBtn = document.getElementById('mobileTopbarMenuBtn');
+  if (!menu) return;
+  const isOpen = !!open && isMobileViewport();
+  menu.classList.toggle('is-open', isOpen);
+  menu.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+  if (backdrop) backdrop.classList.toggle('open', isOpen);
+  if (menuBtn) menuBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+}
+
+function toggleTopbarMenu() {
+  const menu = document.getElementById('mobileTopbarMenu');
+  if (!menu) return;
+  setTopbarMenuOpen(!menu.classList.contains('is-open'));
+}
+
+function closeTopbarMenu() {
+  setTopbarMenuOpen(false);
+}
+
+window.toggleTopbarMenu = toggleTopbarMenu;
+window.closeTopbarMenu = closeTopbarMenu;
+
 function setMobileSpd(val) {
   const idx = SPEEDS.indexOf(val);
   if (idx < 0) return;
@@ -5177,6 +5202,7 @@ function toggleMobileDrawer(id) {
 window.toggleMobileDrawer = toggleMobileDrawer;
 
 function updateMobileUI() {
+  const mobilePhaseCounter = document.getElementById('mobilePhaseCounter');
   const mobileBoardName = document.getElementById('mobileBoardName');
   const mobilePlayBtn = document.getElementById('mobilePlayBtn');
   const mobileSequencePlayBtn = document.getElementById('mobileSequencePlayBtn');
@@ -5193,6 +5219,7 @@ function updateMobileUI() {
 
   syncResponsiveToolbarLabels();
   syncPlayButtons();
+  if (mobilePhaseCounter) mobilePhaseCounter.textContent = `Phase ${GamePlan.currentPhase + 1} / ${GamePlan.phases.length}`;
   if (mobileBoardName) mobileBoardName.textContent = currentPlayTitle();
   if (mobilePlayBtn) {
     mobilePlayBtn.textContent = S.animating ? 'Pause' : 'Play';
@@ -5227,6 +5254,7 @@ function updateMobileUI() {
       section.classList.remove('is-open');
     }
   });
+  if (!isMobileViewport()) closeTopbarMenu();
   if (!isMobileViewport()) closeMobileToolsDropdown();
 }
 
@@ -6386,6 +6414,16 @@ document.addEventListener('pointerdown', e => {
   if (!dropdown || !dropdown.classList.contains('is-open')) return;
   if (!dropdown.contains(e.target) && e.target !== btn && !btn?.contains(e.target)) {
     closeMobileToolsDropdown();
+  }
+}, { capture: true });
+
+document.addEventListener('pointerdown', e => {
+  const menu = document.getElementById('mobileTopbarMenu');
+  const menuBtn = document.getElementById('mobileTopbarMenuBtn');
+  if (!menu || !menu.classList.contains('is-open')) return;
+  const onToggle = e.target === menuBtn || menuBtn?.contains(e.target);
+  if (!menu.contains(e.target) && !onToggle) {
+    closeTopbarMenu();
   }
 }, { capture: true });
 
