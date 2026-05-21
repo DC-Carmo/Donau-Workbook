@@ -38,6 +38,7 @@ const SCHEMA_VERSION = 2;
 // Canvas scaling
 const FIELD_X_STRETCH = 1.7;
 let cvW=0, cvH=0, sc=1, sx=1, sy=1, ox=0, oy=0;
+let MOBILE_PORTRAIT = false;
 const cv  = document.getElementById('field');
 
 function normEvent(e) {
@@ -143,11 +144,16 @@ function showRadial(pl, canvasX, canvasY) {
 
 function resize() {
   const wrap = document.getElementById('canvasWrap');
+  MOBILE_PORTRAIT = window.innerWidth <= 768 && window.innerHeight > window.innerWidth;
   cvW = cv.clientWidth || wrap.clientWidth;
   cvH = cv.clientHeight || wrap.clientHeight;
   cv.width = cvW; cv.height = cvH;
-  const padX = Math.max(6, Math.min(12, cvW * 0.008));
-  const padY = Math.max(8, Math.min(14, cvH * 0.01));
+  const padX = MOBILE_PORTRAIT
+    ? Math.max(4, Math.min(8, cvW * 0.006))
+    : Math.max(6, Math.min(12, cvW * 0.008));
+  const padY = MOBILE_PORTRAIT
+    ? Math.max(10, Math.min(18, cvH * 0.012))
+    : Math.max(8, Math.min(14, cvH * 0.01));
   const baseFromWidth = (cvW - padX * 2) / (FVW * FIELD_X_STRETCH);
   const baseFromHeight = (cvH - padY * 2) / FVH;
   sc = Math.min(baseFromWidth, baseFromHeight);
@@ -155,6 +161,7 @@ function resize() {
   sy = sc;
   ox = (cvW - FVW * sx) / 2;
   oy = (cvH - FVH * sy) / 2;
+  document.body.classList.toggle('mobile-portrait-board', MOBILE_PORTRAIT);
   updateMobileUI();
   render();
 }
@@ -360,6 +367,7 @@ const R = () => {
   const base = Math.max(15, Math.min(24, sc * 1.8));
   return isMobileBoardViewport() ? base * 0.88 : base;
 };
+const playerRenderRadius = () => isMobileBoardViewport() ? Math.max(R(), 16) : R();
 
 function nowIso() {
   return new Date().toISOString();
@@ -2709,7 +2717,7 @@ function playerColorPalette(player) {
 
 function drawPlayer(fx, fy, num, team, selected, isBallCarrier, palette = null) {
   const p = toC(fx, fy);
-  const r = R();
+  const r = playerRenderRadius();
   const fill = palette?.fill || (team === 'A' ? '#2563eb' : '#dc2626');
   const border = palette?.border || (team === 'A' ? '#93c5fd' : '#fca5a5');
   const glow = palette?.glow || (team === 'A' ? '#3b82f6' : '#ef4444');
@@ -2801,7 +2809,7 @@ function drawBall(fx, fy, selected) {
 
 function drawBallCarrierHighlight(fx, fy) {
   const p = toC(fx, fy);
-  const r = R();
+  const r = playerRenderRadius();
   ctx.save();
   const bx = p.x + r * 0.68;
   const by = p.y - r * 0.7;
@@ -3579,7 +3587,7 @@ function animPos(pl, t) {
 //  MOUSE HANDLING
 function getF(e)  { const r=cv.getBoundingClientRect(); return frC(e.clientX-r.left, e.clientY-r.top); }
 function getPx(e) { const r=cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
-const PRT = () => (R() + 1) / sc; // player hit radius in field units
+const PRT = () => (playerRenderRadius() + 1) / sc; // player hit radius in field units
 
 function hitPlayer(fp) {
   let nearest = null;
@@ -5101,6 +5109,31 @@ function closeMobileToolsDropdown() {
 window.toggleMobileToolsDropdown = toggleMobileToolsDropdown;
 window.closeMobileToolsDropdown = closeMobileToolsDropdown;
 
+function setTopbarMenuOpen(open) {
+  const menu = document.getElementById('mobileTopbarMenu');
+  const backdrop = document.getElementById('mobileTopbarMenuBackdrop');
+  const menuBtn = document.getElementById('mobileTopbarMenuBtn');
+  if (!menu) return;
+  const isOpen = !!open && isMobileViewport();
+  menu.classList.toggle('is-open', isOpen);
+  menu.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+  if (backdrop) backdrop.classList.toggle('open', isOpen);
+  if (menuBtn) menuBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+}
+
+function toggleTopbarMenu() {
+  const menu = document.getElementById('mobileTopbarMenu');
+  if (!menu) return;
+  setTopbarMenuOpen(!menu.classList.contains('is-open'));
+}
+
+function closeTopbarMenu() {
+  setTopbarMenuOpen(false);
+}
+
+window.toggleTopbarMenu = toggleTopbarMenu;
+window.closeTopbarMenu = closeTopbarMenu;
+
 function setMobileSpd(val) {
   const idx = SPEEDS.indexOf(val);
   if (idx < 0) return;
@@ -5170,6 +5203,7 @@ function toggleMobileDrawer(id) {
 window.toggleMobileDrawer = toggleMobileDrawer;
 
 function updateMobileUI() {
+  const mobilePhaseCounter = document.getElementById('mobilePhaseCounter');
   const mobileBoardName = document.getElementById('mobileBoardName');
   const mobilePlayBtn = document.getElementById('mobilePlayBtn');
   const mobileSequencePlayBtn = document.getElementById('mobileSequencePlayBtn');
@@ -5178,6 +5212,12 @@ function updateMobileUI() {
   const mobileAddStepBtn = document.getElementById('mobileAddStepBtn');
   const mobileAddAttackBtn = document.getElementById('mobileAddAttackBtn');
   const mobileAddDefenceBtn = document.getElementById('mobileAddDefenceBtn');
+  const mobileMorePlayBtn = document.getElementById('mobileMorePlayBtn');
+  const mobileMorePlayAllBtn = document.getElementById('mobileMorePlayAllBtn');
+  const mobileMorePrevBtn = document.getElementById('mobileMorePrevBtn');
+  const mobileMoreNextBtn = document.getElementById('mobileMoreNextBtn');
+  const mobileMoreAddStepBtn = document.getElementById('mobileMoreAddStepBtn');
+  const mobileMoreGainlineBtn = document.getElementById('mobileMoreGainlineBtn');
   const mobileBoardSummary = document.getElementById('mobileBoardSummary');
   const count = sequenceStepCount();
   const playable = currentPhaseHasPlayablePlayback();
@@ -5186,11 +5226,17 @@ function updateMobileUI() {
 
   syncResponsiveToolbarLabels();
   syncPlayButtons();
+  if (mobilePhaseCounter) mobilePhaseCounter.textContent = `Phase ${GamePlan.currentPhase + 1} / ${GamePlan.phases.length}`;
   if (mobileBoardName) mobileBoardName.textContent = currentPlayTitle();
   if (mobilePlayBtn) {
     mobilePlayBtn.textContent = S.animating ? 'Pause' : 'Play';
     mobilePlayBtn.disabled = !playable;
   }
+  if (mobileMorePlayBtn) {
+    mobileMorePlayBtn.textContent = S.animating ? 'PAUSE' : 'PLAY';
+    mobileMorePlayBtn.disabled = !playable;
+  }
+  if (mobileMorePlayAllBtn) mobileMorePlayAllBtn.disabled = !playable;
   if (mobileSequencePlayBtn) {
     mobileSequencePlayBtn.textContent = S.animating ? '⏸ Pause' : '▶ Play';
     mobileSequencePlayBtn.disabled = !playable;
@@ -5198,6 +5244,8 @@ function updateMobileUI() {
   [0.25, 0.5, 1, 2].forEach(v => {
     const chip = document.getElementById('mspd-' + v);
     if (chip) chip.classList.toggle('active', v === S.animSpd);
+    const mobileChip = document.getElementById('mqspd-' + v);
+    if (mobileChip) mobileChip.classList.toggle('active', v === S.animSpd);
   });
   if (mobileBoardSummary) {
     mobileBoardSummary.textContent = `Mode: ${MODE_LABELS[S.tool] || 'Board'} · Step ${S.currentStep + 1} of ${count} · ${ownerText}`;
@@ -5207,6 +5255,10 @@ function updateMobileUI() {
   if (mobileAddStepBtn) mobileAddStepBtn.disabled = false;
   if (mobileAddAttackBtn) mobileAddAttackBtn.disabled = S.atkUsed.size >= 15;
   if (mobileAddDefenceBtn) mobileAddDefenceBtn.disabled = S.defUsed.size >= 15;
+  if (mobileMorePrevBtn) mobileMorePrevBtn.disabled = S.currentStep === 0;
+  if (mobileMoreNextBtn) mobileMoreNextBtn.disabled = S.currentStep >= count - 1;
+  if (mobileMoreAddStepBtn) mobileMoreAddStepBtn.disabled = false;
+  if (mobileMoreGainlineBtn) mobileMoreGainlineBtn.classList.toggle('active', showGainline);
 
   ['move', 'run', 'pass', 'kick', 'tele', 'zone', 'box', 'erase', 'note', 'arrow'].forEach(tool => {
     const btn = document.getElementById(`mq-${tool}`);
@@ -5220,6 +5272,7 @@ function updateMobileUI() {
       section.classList.remove('is-open');
     }
   });
+  if (!isMobileViewport()) closeTopbarMenu();
   if (!isMobileViewport()) closeMobileToolsDropdown();
 }
 
@@ -6379,6 +6432,16 @@ document.addEventListener('pointerdown', e => {
   if (!dropdown || !dropdown.classList.contains('is-open')) return;
   if (!dropdown.contains(e.target) && e.target !== btn && !btn?.contains(e.target)) {
     closeMobileToolsDropdown();
+  }
+}, { capture: true });
+
+document.addEventListener('pointerdown', e => {
+  const menu = document.getElementById('mobileTopbarMenu');
+  const menuBtn = document.getElementById('mobileTopbarMenuBtn');
+  if (!menu || !menu.classList.contains('is-open')) return;
+  const onToggle = e.target === menuBtn || menuBtn?.contains(e.target);
+  if (!menu.contains(e.target) && !onToggle) {
+    closeTopbarMenu();
   }
 }, { capture: true });
 
