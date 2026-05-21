@@ -2302,6 +2302,18 @@ html, body {
 }
 
 @media (max-width: 768px) {
+  /* Keep the mobile workspace override after the desktop grid definition so it wins
+     the cascade without changing selector specificity or duplicating layout shells. */
+  #workspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  #canvasWrap,
+  #bottomPanel {
+    grid-column: 1;
+  }
+
   #topbar {
     padding: 6px 10px;
     gap: 8px;
