@@ -38,6 +38,7 @@ const SCHEMA_VERSION = 2;
 // Canvas scaling
 const FIELD_X_STRETCH = 1.7;
 let cvW=0, cvH=0, sc=1, sx=1, sy=1, ox=0, oy=0;
+let MOBILE_PORTRAIT = false;
 const cv  = document.getElementById('field');
 
 function normEvent(e) {
@@ -143,11 +144,16 @@ function showRadial(pl, canvasX, canvasY) {
 
 function resize() {
   const wrap = document.getElementById('canvasWrap');
+  MOBILE_PORTRAIT = window.innerWidth <= 768 && window.innerHeight > window.innerWidth;
   cvW = cv.clientWidth || wrap.clientWidth;
   cvH = cv.clientHeight || wrap.clientHeight;
   cv.width = cvW; cv.height = cvH;
-  const padX = Math.max(6, Math.min(12, cvW * 0.008));
-  const padY = Math.max(8, Math.min(14, cvH * 0.01));
+  const padX = MOBILE_PORTRAIT
+    ? Math.max(4, Math.min(8, cvW * 0.006))
+    : Math.max(6, Math.min(12, cvW * 0.008));
+  const padY = MOBILE_PORTRAIT
+    ? Math.max(10, Math.min(18, cvH * 0.012))
+    : Math.max(8, Math.min(14, cvH * 0.01));
   const baseFromWidth = (cvW - padX * 2) / (FVW * FIELD_X_STRETCH);
   const baseFromHeight = (cvH - padY * 2) / FVH;
   sc = Math.min(baseFromWidth, baseFromHeight);
@@ -155,6 +161,7 @@ function resize() {
   sy = sc;
   ox = (cvW - FVW * sx) / 2;
   oy = (cvH - FVH * sy) / 2;
+  document.body.classList.toggle('mobile-portrait-board', MOBILE_PORTRAIT);
   updateMobileUI();
   render();
 }
