@@ -367,6 +367,7 @@ const R = () => {
   const base = Math.max(15, Math.min(24, sc * 1.8));
   return isMobileBoardViewport() ? base * 0.88 : base;
 };
+const playerRenderRadius = () => isMobileBoardViewport() ? Math.max(R(), 16) : R();
 
 function nowIso() {
   return new Date().toISOString();
@@ -2716,7 +2717,7 @@ function playerColorPalette(player) {
 
 function drawPlayer(fx, fy, num, team, selected, isBallCarrier, palette = null) {
   const p = toC(fx, fy);
-  const r = R();
+  const r = playerRenderRadius();
   const fill = palette?.fill || (team === 'A' ? '#2563eb' : '#dc2626');
   const border = palette?.border || (team === 'A' ? '#93c5fd' : '#fca5a5');
   const glow = palette?.glow || (team === 'A' ? '#3b82f6' : '#ef4444');
@@ -2808,7 +2809,7 @@ function drawBall(fx, fy, selected) {
 
 function drawBallCarrierHighlight(fx, fy) {
   const p = toC(fx, fy);
-  const r = R();
+  const r = playerRenderRadius();
   ctx.save();
   const bx = p.x + r * 0.68;
   const by = p.y - r * 0.7;
@@ -3586,7 +3587,7 @@ function animPos(pl, t) {
 //  MOUSE HANDLING
 function getF(e)  { const r=cv.getBoundingClientRect(); return frC(e.clientX-r.left, e.clientY-r.top); }
 function getPx(e) { const r=cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
-const PRT = () => (R() + 1) / sc; // player hit radius in field units
+const PRT = () => (playerRenderRadius() + 1) / sc; // player hit radius in field units
 
 function hitPlayer(fp) {
   let nearest = null;
