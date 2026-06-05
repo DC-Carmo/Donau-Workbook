@@ -104,8 +104,8 @@ body.hp-mobile-menu-open {
   display: none;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   margin-left: auto;
   padding: 0;
   background: none;
@@ -132,8 +132,8 @@ body.hp-mobile-menu-open {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   background: none;
   border: none;
@@ -249,7 +249,7 @@ body.hp-mobile-menu-open {
 }
 
 .hp-eyebrow-text {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -527,7 +527,7 @@ body.hp-mobile-menu-open {
 }
 
 .hp-stat-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -705,7 +705,7 @@ body.hp-mobile-menu-open {
 
 .hp-env-num {
   font-family: "Barlow Condensed", sans-serif;
-  font-size: 0.62rem;
+  font-size: 0.75rem;
   letter-spacing: 3px;
   text-transform: uppercase;
   color: rgba(255,255,255,0.22);
@@ -737,6 +737,9 @@ body.hp-mobile-menu-open {
   color: var(--hp-gold);
   text-decoration: none;
   transition: color var(--hp-ease), opacity var(--hp-ease);
+  display: inline-block;
+  padding-block: 14px;
+  margin-block: -14px;
 }
 
 .hp-env-cta:hover { color: #F0C44E; }
@@ -1091,6 +1094,7 @@ body.hp-mobile-menu-open {
     min-width: 0;
     top: 35%;
     left: 50%;
+    transform: translateX(-50%);
     opacity: 0.05;
   }
 
@@ -1131,23 +1135,19 @@ body.hp-mobile-menu-open {
   }
 
   .hp-stats-inner {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 0;
     background: transparent;
   }
 
   .hp-stat {
     padding: 36px 24px;
-    border-right: 1px solid var(--hp-line);
+    border-right: none;
     border-bottom: 1px solid var(--hp-line);
   }
 
-  .hp-stat:nth-child(2n) {
-    border-right: none;
-  }
-
   .hp-stat:last-child {
-    border-right: none;
+    border-bottom: none;
   }
 
   .hp-section {

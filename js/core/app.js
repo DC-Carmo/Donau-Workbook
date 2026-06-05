@@ -148,6 +148,7 @@
     img.src = src;
     img.alt = alt || "";
     lb.classList.add("open");
+    document.removeEventListener("keydown", fieldLightboxEsc);
     document.addEventListener("keydown", fieldLightboxEsc);
   }
 
@@ -674,9 +675,29 @@
     }
 
     setMobileWorkspaceMenu(false);
-    document.getElementById(`s${cur}`).classList.remove("active");
+
+    const dir = n > cur ? 1 : -1;
+    const outEl = document.getElementById(`s${cur}`);
+    const inEl  = document.getElementById(`s${n}`);
+
+    // Remove any leftover transition classes
+    outEl.classList.remove("slide-enter-right", "slide-enter-left", "slide-exit-left", "slide-exit-right");
+    inEl.classList.remove("slide-enter-right", "slide-enter-left", "slide-exit-left", "slide-exit-right");
+
+    // Animate out the current slide
+    outEl.classList.remove("active");
+    outEl.classList.add(dir > 0 ? "slide-exit-left" : "slide-exit-right");
+    outEl.addEventListener("animationend", () => {
+      outEl.classList.remove("slide-exit-left", "slide-exit-right");
+    }, { once: true });
+
+    // Animate in the next slide
     cur = n;
-    document.getElementById(`s${cur}`).classList.add("active");
+    inEl.classList.add("active", dir > 0 ? "slide-enter-right" : "slide-enter-left");
+    inEl.addEventListener("animationend", () => {
+      inEl.classList.remove("slide-enter-right", "slide-enter-left");
+    }, { once: true });
+
     updateNav();
 
     if (isMobileViewport()) {
@@ -890,6 +911,63 @@
       el.classList.add("active");
       el.setAttribute("aria-expanded", "true");
     }
+  }
+
+  /* ── Lineout tab switcher ──────────────────────────────────────────────── */
+  function setLineoutTab(tab, btn) {
+    // Update tab buttons
+    document.querySelectorAll("#s4 .zone-btn").forEach((b) => {
+      b.classList.remove("active");
+      b.setAttribute("aria-selected", "false");
+    });
+    if (btn) {
+      btn.classList.add("active");
+      btn.setAttribute("aria-selected", "true");
+    }
+
+    // Show matching panel, hide others
+    document.querySelectorAll(".lo-tab-panel").forEach((panel) => {
+      panel.style.display = panel.id === `loPanel-${tab}` ? "" : "none";
+    });
+  }
+
+  /* ── Lineout system full-screen overlay ────────────────────────────────── */
+  const LINEOUT_SYSTEM_PATHS = {
+    tempo: "../../assets/donau/images/TEMPO_Lineout_System_Austria_Youth.html",
+    spark: "../../assets/donau/images/Spark-lineout_manual.html",
+  };
+
+  const LINEOUT_SYSTEM_TITLES = {
+    tempo: "TEMPO — Lineout System",
+    spark: "SPARK — Lineout System",
+  };
+
+  function lineoutSystemEsc(event) {
+    if (event.key === "Escape") closeLineoutSystem();
+  }
+
+  function openLineoutSystem(system) {
+    const overlay = document.getElementById("lineoutSystemOverlay");
+    const frame = document.getElementById("lineoutSystemFrame");
+    const titleEl = document.getElementById("lsoTitle");
+    if (!overlay || !frame) return;
+    frame.src = LINEOUT_SYSTEM_PATHS[system] || "";
+    if (titleEl) titleEl.textContent = LINEOUT_SYSTEM_TITLES[system] || "Lineout System";
+    overlay.classList.add("open");
+    overlay.removeAttribute("aria-hidden");
+    document.removeEventListener("keydown", lineoutSystemEsc);
+    document.addEventListener("keydown", lineoutSystemEsc);
+    overlay.querySelector(".lso-close")?.focus();
+  }
+
+  function closeLineoutSystem() {
+    const overlay = document.getElementById("lineoutSystemOverlay");
+    const frame = document.getElementById("lineoutSystemFrame");
+    if (!overlay) return;
+    overlay.classList.remove("open");
+    overlay.setAttribute("aria-hidden", "true");
+    document.removeEventListener("keydown", lineoutSystemEsc);
+    if (frame) setTimeout(() => { frame.src = ""; }, 220);
   }
 
   function buildLoCalls() {
@@ -1252,7 +1330,7 @@
     showTyping();
 
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch("/.netlify/functions/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1307,8 +1385,10 @@
     });
 
     let sx = null;
+    let sy = null;
     document.addEventListener("touchstart", (event) => {
       sx = event.touches[0].clientX;
+      sy = event.touches[0].clientY;
     });
 
     document.addEventListener("touchend", (event) => {
@@ -1316,12 +1396,15 @@
         return;
       }
 
-      const diff = sx - event.changedTouches[0].clientX;
-      if (Math.abs(diff) > 50) {
-        changeSlide(diff > 0 ? 1 : -1);
+      const dx = sx - event.changedTouches[0].clientX;
+      const dy = sy - event.changedTouches[0].clientY;
+      // Only trigger slide change when horizontal swipe dominates vertical movement
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+        changeSlide(dx > 0 ? 1 : -1);
       }
 
       sx = null;
+      sy = null;
     });
 
     document.addEventListener("click", (event) => {
@@ -1372,6 +1455,9 @@
 
   window.askQ = askQ;
   window.changeSlide = changeSlide;
+  window.closeLineoutSystem = closeLineoutSystem;
+  window.openLineoutSystem = openLineoutSystem;
+  window.setLineoutTab = setLineoutTab;
   window.closeFieldLightbox = closeFieldLightbox;
   window.closeOverlay = closeOverlay;
   window.goTo = goTo;

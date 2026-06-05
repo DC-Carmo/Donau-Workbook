@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TEMPO Lineout System — Austria Youth</title>
+<title>TEMPO Lineout System — Rugby Union Donau</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --r:#CE1126;--rd:rgba(206,17,38,.12);
+  --r:#2e8b57;--rd:rgba(46,139,87,.12);
   --bk:#080808;--dk:#0f0f12;--md:#191921;
   --bd:#252530;--tx:#e8e8ea;--mt:#5a5a68;--wh:#fff;
   --gd:#c9a227;--bl:#1545a8;--gr:#0f7040;--gb:#1fd670;
@@ -20,7 +20,7 @@ html,body{height:100vh;overflow:hidden;background:var(--bk);color:var(--tx);font
 /* ── TOPBAR ── */
 #topbar{display:flex;align-items:center;background:var(--dk);border-bottom:2px solid var(--r);height:60px;flex-shrink:0;overflow:hidden;}
 #brand{display:flex;align-items:center;gap:10px;padding:0 16px;border-right:1px solid var(--bd);height:100%;flex-shrink:0;min-width:200px;}
-#brand img{height:44px;width:auto;filter:drop-shadow(0 0 8px rgba(206,17,38,.35));}
+#brand img{height:44px;width:auto;filter:drop-shadow(0 0 8px rgba(46,139,87,.35));}
 #brand-t{line-height:1.25;}
 .bt{font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--wh);}
 .bp{font-family:'Barlow Condensed',sans-serif;font-size:.56rem;letter-spacing:.2em;text-transform:uppercase;color:var(--r);}
@@ -29,7 +29,7 @@ html,body{height:100vh;overflow:hidden;background:var(--bk);color:var(--tx);font
 .nb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:0 14px;background:none;border:none;border-bottom:3px solid transparent;color:var(--mt);font-family:'Barlow Condensed',sans-serif;font-size:.64rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;white-space:nowrap;flex-shrink:0;height:100%;transition:all .15s;}
 .nb .nn{font-family:'Bebas Neue',sans-serif;font-size:.8rem;color:var(--r);opacity:.5;line-height:1;}
 .nb:hover{color:var(--wh);background:var(--rd);}
-.nb.on{color:var(--wh);border-bottom-color:var(--r);background:rgba(206,17,38,.08);}
+.nb.on{color:var(--wh);border-bottom-color:var(--r);background:rgba(46,139,87,.08);}
 #creds{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding:0 16px;border-left:1px solid var(--bd);height:100%;flex-shrink:0;gap:3px;}
 .cr{font-family:'Barlow Condensed',sans-serif;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--mt);line-height:1;}
 .cr b{color:var(--wh);font-weight:700;}
@@ -42,9 +42,9 @@ main{flex:1;overflow:hidden;position:relative;}
 /* ── COVER ── */
 #cover-inner{min-height:100%;display:flex;flex-direction:column;justify-content:center;padding:56px 60px;position:relative;overflow:hidden;background:var(--bk);}
 .cphoto{position:absolute;top:0;right:0;bottom:0;width:min(52vw,52%);background-image:linear-gradient(90deg,rgba(0,0,0,.85) 0%,rgba(0,0,0,.62) 34%,rgba(0,0,0,.35) 100%),url("lineout-photo.jpg");background-position:center center;background-size:cover;background-repeat:no-repeat;pointer-events:none;}
-.cbg{position:absolute;inset:0;background:linear-gradient(135deg,rgba(206,17,38,.09) 0%,transparent 55%),repeating-linear-gradient(-45deg,transparent,transparent 38px,rgba(206,17,38,.02) 38px,rgba(206,17,38,.02) 39px);pointer-events:none;}
+.cbg{position:absolute;inset:0;background:linear-gradient(135deg,rgba(46,139,87,.09) 0%,transparent 55%),repeating-linear-gradient(-45deg,transparent,transparent 38px,rgba(46,139,87,.02) 38px,rgba(46,139,87,.02) 39px);pointer-events:none;}
 .crule{position:absolute;top:0;left:0;width:5px;height:100%;background:var(--r);}
-.cnum{position:absolute;right:-6px;bottom:10px;font-family:'Bebas Neue',sans-serif;font-size:clamp(7rem,16vw,13rem);line-height:.85;color:rgba(206,17,38,.11);pointer-events:none;user-select:none;z-index:2;text-shadow:0 12px 36px rgba(0,0,0,.35);}
+.cnum{position:absolute;right:-6px;bottom:10px;font-family:'Bebas Neue',sans-serif;font-size:clamp(7rem,16vw,13rem);line-height:.85;color:rgba(46,139,87,.11);pointer-events:none;user-select:none;z-index:2;text-shadow:0 12px 36px rgba(0,0,0,.35);}
 .ci{position:relative;z-index:2;max-width:min(46vw,620px);}
 .ctag{font-family:'Barlow Condensed',sans-serif;font-size:.62rem;letter-spacing:.38em;color:var(--r);text-transform:uppercase;margin-bottom:14px;}
 .ctit{font-family:'Barlow Condensed',sans-serif;font-size:clamp(2.6rem,5.5vw,4.8rem);font-weight:900;line-height:.9;text-transform:uppercase;color:var(--wh);}
@@ -79,7 +79,7 @@ p{font-size:.86rem;color:#a0a0b0;margin-bottom:.9rem;max-width:640px;line-height
 .pstrip{display:flex;gap:2px;overflow-x:auto;margin-bottom:18px;}
 .pstrip::-webkit-scrollbar{height:0;}
 .pill{padding:8px 13px;background:var(--md);border:1px solid var(--bd);color:var(--mt);font-family:'Barlow Condensed',sans-serif;font-size:.66rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;flex-shrink:0;transition:all .15s;border-bottom:3px solid transparent;}
-.pill.on{background:rgba(206,17,38,.1);border-color:var(--r);border-bottom-color:var(--r);color:var(--wh);}
+.pill.on{background:rgba(46,139,87,.1);border-color:var(--r);border-bottom-color:var(--r);color:var(--wh);}
 
 /* table */
 .ft{width:100%;max-width:700px;border-collapse:collapse;margin:16px 0;font-size:.78rem;}
@@ -206,7 +206,7 @@ p{font-size:.86rem;color:#a0a0b0;margin-bottom:.9rem;max-width:640px;line-height
   -webkit-tap-highlight-color:transparent;
 }
 #mob-overlay .mob-section-btn:active{background:var(--rd);}
-#mob-overlay .mob-section-btn.on{background:rgba(206,17,38,.12);border-left:4px solid var(--r);}
+#mob-overlay .mob-section-btn.on{background:rgba(46,139,87,.12);border-left:4px solid var(--r);}
 #mob-overlay .mob-section-btn .mbn{
   font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--r);
   opacity:.5;line-height:1;width:36px;flex-shrink:0;text-align:center;
@@ -258,12 +258,12 @@ p{font-size:.86rem;color:#a0a0b0;margin-bottom:.9rem;max-width:640px;line-height
 
 /* — override CSS variables to match Austria Youth palette — */
 :root {
-  --r: #c32236;
-  --rd: rgba(195, 34, 54, 0.11);
+  --r: #2e8b57;
+  --rd: rgba(46, 139, 87, 0.11);
   --bk: #050607;
   --dk: #0e1115;
   --md: #15191f;
-  --bd: rgba(195, 34, 54, 0.18);
+  --bd: rgba(46, 139, 87, 0.18);
   --tx: #f2f0ed;
   --mt: rgba(184, 181, 176, 0.68);
   --wh: #f2f0ed;
@@ -277,14 +277,14 @@ html, body {
 /* ── topbar ── */
 .tempo-system-embedded #topbar {
   background:
-    linear-gradient(90deg, rgba(195, 34, 54, 0.08), transparent 16%),
+    linear-gradient(90deg, rgba(46, 139, 87, 0.08), transparent 16%),
     linear-gradient(180deg, rgba(16, 19, 24, 0.98), rgba(10, 12, 16, 0.98));
-  border-bottom: 1px solid rgba(195, 34, 54, 0.2);
+  border-bottom: 1px solid rgba(46, 139, 87, 0.2);
   height: 52px;
 }
 
 .tempo-system-embedded #brand {
-  border-right-color: rgba(195, 34, 54, 0.14);
+  border-right-color: rgba(46, 139, 87, 0.14);
   min-width: 160px;
   padding: 0 14px;
 }
@@ -302,7 +302,7 @@ html, body {
 }
 
 .tempo-system-embedded #creds {
-  border-left-color: rgba(195, 34, 54, 0.14);
+  border-left-color: rgba(46, 139, 87, 0.14);
   padding: 0 14px;
 }
 
@@ -328,18 +328,18 @@ html, body {
 
 .tempo-system-embedded .nb .nn {
   font-size: 0.62rem;
-  color: rgba(195, 34, 54, 0.55);
+  color: rgba(46, 139, 87, 0.55);
 }
 
 .tempo-system-embedded .nb:hover {
   color: var(--tx);
-  background: rgba(195, 34, 54, 0.055);
-  border-bottom-color: rgba(195, 34, 54, 0.28);
+  background: rgba(46, 139, 87, 0.055);
+  border-bottom-color: rgba(46, 139, 87, 0.28);
 }
 
 .tempo-system-embedded .nb.on {
   color: var(--tx);
-  background: rgba(195, 34, 54, 0.1);
+  background: rgba(46, 139, 87, 0.1);
   border-bottom-color: var(--r);
 }
 
@@ -356,19 +356,19 @@ html, body {
 /* ── cover ── */
 .tempo-system-embedded #cover-inner {
   background:
-    radial-gradient(circle at top left, rgba(195, 34, 54, 0.12), transparent 32%),
+    radial-gradient(circle at top left, rgba(46, 139, 87, 0.12), transparent 32%),
     linear-gradient(150deg, #040506 0%, #0d1014 48%, #15191f 100%);
 }
 
 .tempo-system-embedded .cbg {
   background:
-    radial-gradient(circle at 14% 10%, rgba(195, 34, 54, 0.12), transparent 28%),
-    repeating-linear-gradient(-45deg, transparent, transparent 38px, rgba(195, 34, 54, 0.018) 38px, rgba(195, 34, 54, 0.018) 39px);
+    radial-gradient(circle at 14% 10%, rgba(46, 139, 87, 0.12), transparent 28%),
+    repeating-linear-gradient(-45deg, transparent, transparent 38px, rgba(46, 139, 87, 0.018) 38px, rgba(46, 139, 87, 0.018) 39px);
 }
 
 .tempo-system-embedded .crule {
   width: 4px;
-  background: linear-gradient(180deg, #c32236 0%, rgba(183, 154, 97, 0.5) 100%);
+  background: linear-gradient(180deg, #2e8b57 0%, rgba(183, 154, 97, 0.5) 100%);
 }
 
 .tempo-system-embedded .ctag {
@@ -378,7 +378,7 @@ html, body {
 
 /* ── section headers ── */
 .tempo-system-embedded .sh {
-  border-bottom-color: rgba(195, 34, 54, 0.16);
+  border-bottom-color: rgba(46, 139, 87, 0.16);
   margin-bottom: 22px;
   padding-bottom: 12px;
 }
@@ -404,26 +404,26 @@ html, body {
 /* ── cards ── */
 .tempo-system-embedded .card {
   border-radius: 10px;
-  border-color: rgba(195, 34, 54, 0.16);
+  border-color: rgba(46, 139, 87, 0.16);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.034), rgba(255, 255, 255, 0.018));
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .tempo-system-embedded .card:hover {
-  background: linear-gradient(180deg, rgba(195, 34, 54, 0.06), rgba(255, 255, 255, 0.02));
-  border-color: rgba(195, 34, 54, 0.32);
+  background: linear-gradient(180deg, rgba(46, 139, 87, 0.06), rgba(255, 255, 255, 0.02));
+  border-color: rgba(46, 139, 87, 0.32);
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
 }
 
 .tempo-system-embedded .card::before {
   border-radius: 10px 0 0 10px;
-  background: linear-gradient(180deg, rgba(195, 34, 54, 0.9), rgba(183, 154, 97, 0.42));
+  background: linear-gradient(180deg, rgba(46, 139, 87, 0.9), rgba(183, 154, 97, 0.42));
 }
 
 /* ── pill strip ── */
 .tempo-system-embedded .pill {
   border-radius: 8px;
-  border-color: rgba(195, 34, 54, 0.18);
+  border-color: rgba(46, 139, 87, 0.18);
   background: rgba(255, 255, 255, 0.03);
   color: rgba(184, 181, 176, 0.58);
   border-bottom-width: 2px;
@@ -431,37 +431,37 @@ html, body {
 }
 
 .tempo-system-embedded .pill:hover {
-  background: rgba(195, 34, 54, 0.06);
-  border-color: rgba(195, 34, 54, 0.32);
+  background: rgba(46, 139, 87, 0.06);
+  border-color: rgba(46, 139, 87, 0.32);
   color: var(--tx);
 }
 
 .tempo-system-embedded .pill.on {
-  background: rgba(195, 34, 54, 0.12);
-  border-color: rgba(195, 34, 54, 0.48);
+  background: rgba(46, 139, 87, 0.12);
+  border-color: rgba(46, 139, 87, 0.48);
   color: var(--tx);
 }
 
 /* ── subtab content ── */
 .tempo-system-embedded .subtab-content {
   border-radius: 12px;
-  border-color: rgba(195, 34, 54, 0.16);
+  border-color: rgba(46, 139, 87, 0.16);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0.014));
 }
 
 /* ── tables ── */
 .tempo-system-embedded .ft th {
-  background: linear-gradient(90deg, #7e1421, #b11f30);
+  background: linear-gradient(90deg, #0f5c2e, #1a6e3d);
   letter-spacing: 1.4px;
 }
 
 .tempo-system-embedded .ft td {
   background: rgba(255, 255, 255, 0.022);
-  border-bottom-color: rgba(195, 34, 54, 0.12);
+  border-bottom-color: rgba(46, 139, 87, 0.12);
 }
 
 .tempo-system-embedded .ft tr:hover td {
-  background: rgba(195, 34, 54, 0.06);
+  background: rgba(46, 139, 87, 0.06);
 }
 
 .tempo-system-embedded .ft td:first-child {
@@ -472,7 +472,7 @@ html, body {
 .tempo-system-embedded .co {
   border-radius: 10px;
   border-left-color: var(--r);
-  background: rgba(195, 34, 54, 0.07);
+  background: rgba(46, 139, 87, 0.07);
 }
 
 /* ── alert ── */
@@ -486,7 +486,7 @@ html, body {
 /* ── tempo code grid ── */
 .tempo-system-embedded .tbox {
   border-radius: 10px;
-  border-color: rgba(195, 34, 54, 0.16);
+  border-color: rgba(46, 139, 87, 0.16);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.034), rgba(255, 255, 255, 0.018));
 }
 
@@ -496,36 +496,36 @@ html, body {
 }
 
 .tempo-system-embedded .trow {
-  border-bottom-color: rgba(195, 34, 54, 0.12);
+  border-bottom-color: rgba(46, 139, 87, 0.12);
 }
 
 .tempo-system-embedded .tl {
   border-radius: 6px;
-  border-color: rgba(195, 34, 54, 0.2);
+  border-color: rgba(46, 139, 87, 0.2);
   background: rgba(255, 255, 255, 0.03);
 }
 
 /* ── position code ── */
 .tempo-system-embedded .pcode-banner {
   border-radius: 10px;
-  border-color: rgba(195, 34, 54, 0.16);
+  border-color: rgba(46, 139, 87, 0.16);
   background: rgba(255, 255, 255, 0.022);
 }
 
 .tempo-system-embedded .pcode-strip {
   border-radius: 8px;
-  border-color: rgba(195, 34, 54, 0.16);
+  border-color: rgba(46, 139, 87, 0.16);
   overflow: hidden;
 }
 
 .tempo-system-embedded .pcode-cell {
-  border-right-color: rgba(195, 34, 54, 0.14);
+  border-right-color: rgba(46, 139, 87, 0.14);
 }
 
 /* ── role cards ── */
 .tempo-system-embedded .rcard {
   border-radius: 10px;
-  border-color: rgba(195, 34, 54, 0.16);
+  border-color: rgba(46, 139, 87, 0.16);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.034), rgba(255, 255, 255, 0.018));
 }
 
@@ -545,14 +545,14 @@ html, body {
 /* ── mottos ── */
 .tempo-system-embedded .motto {
   border-radius: 10px;
-  border-color: rgba(195, 34, 54, 0.16);
+  border-color: rgba(46, 139, 87, 0.16);
   background: rgba(255, 255, 255, 0.022);
 }
 
 /* ── shape boxes ── */
 .tempo-system-embedded .shape-box {
   border-radius: 8px;
-  border-color: rgba(195, 34, 54, 0.14);
+  border-color: rgba(46, 139, 87, 0.14);
   background: rgba(255, 255, 255, 0.022);
 }
 
@@ -563,13 +563,13 @@ html, body {
 /* ── defence ── */
 .tempo-system-embedded .def-shape-box {
   border-radius: 10px;
-  border-color: rgba(195, 34, 54, 0.16);
+  border-color: rgba(46, 139, 87, 0.16);
   background: rgba(255, 255, 255, 0.022);
 }
 
 .tempo-system-embedded .def-call {
   border-radius: 8px;
-  border-color: rgba(195, 34, 54, 0.14);
+  border-color: rgba(46, 139, 87, 0.14);
   background: rgba(255, 255, 255, 0.022);
 }
 
@@ -608,21 +608,21 @@ html, body {
 /* ── mobile overlay ── */
 .tempo-system-embedded #mob-overlay {
   background:
-    radial-gradient(circle at 18% 10%, rgba(195, 34, 54, 0.1), transparent 22%),
+    radial-gradient(circle at 18% 10%, rgba(46, 139, 87, 0.1), transparent 22%),
     linear-gradient(180deg, rgba(14, 17, 21, 0.998), rgba(8, 10, 14, 0.998));
-  border-top-color: rgba(195, 34, 54, 0.28);
+  border-top-color: rgba(46, 139, 87, 0.28);
 }
 
 .tempo-system-embedded #mob-overlay .mob-section-btn {
-  border-bottom-color: rgba(195, 34, 54, 0.12);
+  border-bottom-color: rgba(46, 139, 87, 0.12);
 }
 
 .tempo-system-embedded #mob-overlay .mob-section-btn:active {
-  background: rgba(195, 34, 54, 0.08);
+  background: rgba(46, 139, 87, 0.08);
 }
 
 .tempo-system-embedded #mob-overlay .mob-section-btn.on {
-  background: rgba(195, 34, 54, 0.1);
+  background: rgba(46, 139, 87, 0.1);
   border-left: 3px solid var(--r);
 }
 
@@ -637,7 +637,7 @@ html, body {
 /* ── mobile menu button ── */
 .tempo-system-embedded #mob-menu-btn {
   border-radius: 8px;
-  border-color: rgba(195, 34, 54, 0.22);
+  border-color: rgba(46, 139, 87, 0.22);
   background: rgba(255, 255, 255, 0.03);
 }
 
@@ -653,12 +653,12 @@ html, body {
 }
 
 .tempo-system-embedded a#brand:hover {
-  background: rgba(195, 34, 54, 0.06);
-  border-right-color: rgba(195, 34, 54, 0.3);
+  background: rgba(46, 139, 87, 0.06);
+  border-right-color: rgba(46, 139, 87, 0.3);
 }
 
 .tempo-system-embedded a#brand:focus-visible {
-  outline: 2px solid rgba(195, 34, 54, 0.5);
+  outline: 2px solid rgba(46, 139, 87, 0.5);
   outline-offset: -2px;
 }
 
@@ -727,11 +727,11 @@ html, body {
 <div id="app" class="tempo-system-embedded">
 
 <header id="topbar">
-  <a id="brand" href="../../../environments/austria-u18/index.html" target="_top" aria-label="Back to Austria Youth">
-    <img src="../../../environments/austria-u18/assets/oesterreich-logo.png" alt="Austria Youth Rugby" class="brand-logo">
+  <a id="brand" href="../../../environments/donau/index.html" target="_top" aria-label="Back to Rugby Union Donau">
+    <img src="../../branding/RugbyUnionDonauLogo2024.svg" alt="Rugby Union Donau" class="brand-logo">
     <div id="brand-t">
-      <div class="bt">Austria National Team</div>
-      <div class="bp">Youth · TEMPO System</div>
+      <div class="bt">Rugby Union Donau</div>
+      <div class="bp">Donau · TEMPO System</div>
     </div>
   </a>
   <nav id="tnav">
@@ -776,9 +776,9 @@ html, body {
     <div class="crule"></div>
     <div class="cnum">TEMPO</div>
     <div class="ci">
-      <div class="ctag">Austria National Team · Youth · Lineout System</div>
+      <div class="ctag">Rugby Union Donau · Lineout System</div>
       <h1 class="ctit">The <em>TEMPO</em><br>Lineout<br>System</h1>
-      <p class="csub">A complete lineout framework for Austria Youth. Positions coded by TEMPO. Process-driven. Consistent. Built to win the source every time.</p>
+      <p class="csub">A complete lineout framework for Rugby Union Donau. Positions coded by TEMPO. Process-driven. Consistent. Built to win the source every time.</p>
       <div class="cmeta">
         <div class="cmi"><span>Head Coach</span><b>Diego Mato</b></div>
         <div class="cmi"><span>Forwards Coach</span><b>Christopher Böck</b></div>
@@ -1073,7 +1073,7 @@ html, body {
         <p style="margin:0;font-size:.8rem;line-height:1.6;">To increase power, "Rock Back" and come up on to toes if needed. Load the back leg, drive through the throw.</p>
       </div>
     </div>
-    <div style="background:rgba(206,17,38,.07);border:1px solid var(--bd);padding:12px 16px;max-width:560px;">
+    <div style="background:rgba(46,139,87,.07);border:1px solid var(--bd);padding:12px 16px;max-width:560px;">
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--r);margin-bottom:6px;">Key Cue</div>
       <p style="margin:0;font-size:.82rem;color:var(--tx);">Feel the ground. Stay connected from start to finish.</p>
     </div>
@@ -1292,7 +1292,7 @@ function switchPillById(stripId, targetId, btnIndex) {
 
 // ── SVG FIELD RENDERER
 var BC = 'Barlow Condensed,sans-serif';
-var COLORS = {gold:'#c9a227',blue:'#1545a8',green:'#0f7040',gb:'#1fd670',red:'#CE1126',wh:'#fff',bk:'#080808',fg:'#081a0e',mt:'#5a5a68'};
+var COLORS = {gold:'#c9a227',blue:'#1545a8',green:'#0f7040',gb:'#1fd670',red:'#2e8b57',wh:'#fff',bk:'#080808',fg:'#081a0e',mt:'#5a5a68'};
 
 function makeField(svgId, cfg) {
   var el = document.getElementById(svgId);

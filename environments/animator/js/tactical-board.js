@@ -3046,68 +3046,56 @@ function drawKickToTarget(x1, y1, x2, y2, progress = 1, selected = false) {
 }
 
 function drawArc(x1, y1, x2, y2, color, progress = 1, thick = false, selected = false) {
+  // PASS line: straight, solid, with shadow + clean arrowhead.
+  // Name kept; only used by passes in this file.
   const p1 = toC(x1, y1), p2 = toC(x2, y2);
-  const dist = Math.hypot(p2.x-p1.x, p2.y-p1.y);
-  const cpx  = (p1.x+p2.x)/2 - (p2.y-p1.y)*0.28;
-  const cpy  = (p1.y+p2.y)/2 + (p2.x-p1.x)*0.28;
-  const STEPS = 30;
+  const ex = p1.x + (p2.x - p1.x) * progress;
+  const ey = p1.y + (p2.y - p1.y) * progress;
+  const lineW = (thick ? 2.4 : 2.0) * (selected ? 1.25 : 1);
 
   ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // Selection halo
   if (selected) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.28)';
-    ctx.lineWidth = 10;
-    ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(p1.x, p1.y);
-    for (let i = 1; i <= Math.round(progress * STEPS); i++) {
-      const t = i / STEPS;
-      ctx.lineTo((1-t)*(1-t)*p1.x + 2*(1-t)*t*cpx + t*t*p2.x, (1-t)*(1-t)*p1.y + 2*(1-t)*t*cpy + t*t*p2.y);
-    }
+    ctx.strokeStyle = 'rgba(255,255,255,0.30)';
+    ctx.lineWidth = lineW + 8;
+    ctx.beginPath();
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(ex, ey);
     ctx.stroke();
   }
-  ctx.strokeStyle = 'rgba(7,16,24,0.42)';
-  ctx.lineWidth   = (thick ? 2.2 : 1.8) + 2.6;
-  ctx.setLineDash([sc*0.6, sc*0.35]);
-  ctx.lineCap = 'round';
 
-  ctx.beginPath(); ctx.moveTo(p1.x, p1.y);
-  for (let i = 1; i <= Math.round(progress * STEPS); i++) {
-    const t  = i / STEPS;
-    const bx = (1-t)*(1-t)*p1.x + 2*(1-t)*t*cpx + t*t*p2.x;
-    const by = (1-t)*(1-t)*p1.y + 2*(1-t)*t*cpy + t*t*p2.y;
-    ctx.lineTo(bx, by);
-  }
+  // Soft shadow under the line for contrast on green pitch
+  ctx.strokeStyle = 'rgba(7,16,24,0.45)';
+  ctx.lineWidth = lineW + 2.4;
+  ctx.beginPath();
+  ctx.moveTo(p1.x, p1.y);
+  ctx.lineTo(ex, ey);
   ctx.stroke();
 
+  // Main pass line (solid)
   ctx.strokeStyle = color;
-  ctx.lineWidth   = thick ? 2.2 : 1.8;
-  ctx.setLineDash([sc*0.6, sc*0.35]);
-  ctx.lineCap = 'round';
-
-  ctx.beginPath(); ctx.moveTo(p1.x, p1.y);
-  for (let i = 1; i <= Math.round(progress * STEPS); i++) {
-    const t  = i / STEPS;
-    const bx = (1-t)*(1-t)*p1.x + 2*(1-t)*t*cpx + t*t*p2.x;
-    const by = (1-t)*(1-t)*p1.y + 2*(1-t)*t*cpy + t*t*p2.y;
-    ctx.lineTo(bx, by);
-  }
+  ctx.lineWidth = lineW;
+  ctx.beginPath();
+  ctx.moveTo(p1.x, p1.y);
+  ctx.lineTo(ex, ey);
   ctx.stroke();
-  ctx.setLineDash([]);
 
-  // Arrowhead at end
+  // Arrowhead at destination
   if (progress > 0.85) {
-    const t2 = 0.95, t1 = 0.90;
-    const ax1 = (1-t1)*(1-t1)*p1.x + 2*(1-t1)*t1*cpx + t1*t1*p2.x;
-    const ay1 = (1-t1)*(1-t1)*p1.y + 2*(1-t1)*t1*cpy + t1*t1*p2.y;
-    const ax2 = (1-t2)*(1-t2)*p1.x + 2*(1-t2)*t2*cpx + t2*t2*p2.x;
-    const ay2 = (1-t2)*(1-t2)*p1.y + 2*(1-t2)*t2*cpy + t2*t2*p2.y;
-    const ang  = Math.atan2(ay2-ay1, ax2-ax1);
-    const as   = 8;
+    const ang = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+    const as = Math.max(8, lineW * 3.2);
     ctx.beginPath();
     ctx.moveTo(p2.x, p2.y);
-    ctx.lineTo(p2.x - as*Math.cos(ang-0.38), p2.y - as*Math.sin(ang-0.38));
-    ctx.lineTo(p2.x - as*Math.cos(ang+0.38), p2.y - as*Math.sin(ang+0.38));
-    ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+    ctx.lineTo(p2.x - as * Math.cos(ang - 0.38), p2.y - as * Math.sin(ang - 0.38));
+    ctx.lineTo(p2.x - as * Math.cos(ang + 0.38), p2.y - as * Math.sin(ang + 0.38));
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
   }
+
   ctx.restore();
 }
 
@@ -3444,7 +3432,7 @@ function render() {
       }
       const to = playerLookup.get(playerKey({ num: pass.toNum, team: pass.toT }));
       if (!to) return;
-      const col = pass.style === 'kick' ? '#f59e0b' : 'rgba(255,255,255,0.75)';
+      const col = pass.style === 'kick' ? '#f59e0b' : '#ffffff';
       drawArc(from.x, from.y, to.x, to.y, col, 1, pass.style === 'kick');
     });
     frame.paths.forEach(path => {
@@ -3482,7 +3470,7 @@ function render() {
     if (pass.style === 'kick') {
       drawKickLine(fa.x, fa.y, ta.x, ta.y, 1, isSelected);
     } else {
-      drawArc(fa.x, fa.y, ta.x, ta.y, 'rgba(255,255,255,0.75)', 1, false, isSelected);
+      drawArc(fa.x, fa.y, ta.x, ta.y, '#ffffff', 1, false, isSelected);
     }
   });
 

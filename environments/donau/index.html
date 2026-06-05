@@ -46,7 +46,7 @@
 
     <div class="topbar-right">
       <div class="motto">WORK ETHIC &middot; ATTACK &middot; BELIEF</div>
-      <div class="slide-num" id="slideNum">01 / 06</div>
+      <div class="slide-num" id="slideNum">01 / 11</div>
     </div>
 
   </div>
@@ -122,7 +122,7 @@
       <img src="../../assets/donau/branding/RugbyUnionDonauLogo2024.svg" style="height:30px;width:auto;object-fit:contain;" alt="Rugby Union Donau"/>
       <div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Game Plan &middot; Standards</div></div>
     </div>
-    <div class="topbar-right"><div class="motto">WORK ETHIC &middot; ATTACK &middot; BELIEF</div><div class="slide-num">02 / 06</div></div>
+    <div class="topbar-right"><div class="motto">WORK ETHIC &middot; ATTACK &middot; BELIEF</div><div class="slide-num">02 / 11</div></div>
   </div>
 
   <div class="sl-header fadeup">
@@ -215,10 +215,10 @@
 
     <div class="topbar-logo" onclick="goTo(1)">
       <img src="../../assets/donau/branding/RugbyUnionDonauLogo2024.svg" style="height:30px;width:auto;object-fit:contain;" alt="Rugby Union Donau"/>
-      <div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Game Plan ? Attack System</div></div>
+      <div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Game Plan &middot; Attack System</div></div>
     </div>
 
-    <div class="topbar-right"><div class="motto">WORK ETHIC ? <span>ATTACK</span> ? BELIEF</div><div class="slide-num">03 / 06</div></div> 
+    <div class="topbar-right"><div class="motto">WORK ETHIC &middot; <span>ATTACK</span> &middot; BELIEF</div><div class="slide-num">03 / 11</div></div> 
 
   </div> 
 
@@ -351,99 +351,106 @@
 
  
 
-<div class="slide" id="s4"> 
+<div class="slide" id="s4">
 
-  <div class="topbar"> 
+  <div class="topbar">
+    <div class="topbar-logo" onclick="goTo(1)"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Game Plan &middot; Lineout</div></div></div>
+    <div class="topbar-right"><div class="motto">WORK ETHIC &middot; <span>ATTACK</span> &middot; BELIEF</div><div class="slide-num">04 / 11</div></div>
+  </div>
 
-    <div class="topbar-logo" onclick="goTo(1)"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Game Plan ? Lineout</div></div></div> 
+  <div class="sl-header fadeup">
+    <h2 class="section">Lineout System</h2>
+    <div class="tag">TEMPO &middot; SPARK</div>
+  </div>
 
-    <div class="topbar-right"><div class="motto">WORK ETHIC ? <span>ATTACK</span> ? BELIEF</div><div class="slide-num">04 / 06</div></div> 
+  <div class="sl-body">
 
-  </div> 
+    <!-- LEFT: TEMPO + SPARK at equal weight, no tabs -->
+    <div class="lineout-left" style="padding:0;display:flex;flex-direction:column;">
+      <div class="lo-tab-content" style="overflow-y:auto;flex:1;">
+        <div class="lo-systems-grid">
 
-  <div class="sl-header fadeup"> 
+          <div class="lo-system-card lo-system-equal">
+            <div class="lo-system-header">
+              <div class="lo-system-badges">
+                <span class="lo-system-badge lo-system-badge-neutral">Lineout System</span>
+              </div>
+              <div class="lo-system-name">TEMPO</div>
+              <div class="lo-system-subtitle">Full-system lineout with structured call architecture</div>
+            </div>
+            <div class="lo-system-desc">
+              <p>Complete lineout language covering front, middle, and back of the line. Includes maul sequences, signal protocols, and the full call sheet.</p>
+            </div>
+            <div class="lo-system-meta">
+              <span class="lo-system-meta-chip">Throw Zones</span>
+              <span class="lo-system-meta-chip">Maul Sequences</span>
+              <span class="lo-system-meta-chip">Signal Library</span>
+            </div>
+            <button class="lo-system-btn lo-system-btn-equal"
+              onclick="openLineoutSystem('tempo')">Open System &#9654;</button>
+          </div>
 
-    <h2 class="section">Lineout System</h2> 
+          <div class="lo-system-card lo-system-equal">
+            <div class="lo-system-header">
+              <div class="lo-system-badges">
+                <span class="lo-system-badge lo-system-badge-neutral">Lineout System</span>
+              </div>
+              <div class="lo-system-name">SPARK</div>
+              <div class="lo-system-subtitle">Full-system lineout with structured call architecture</div>
+            </div>
+            <div class="lo-system-desc">
+              <p>Complete lineout language covering front, middle, and back of the line. Includes call variants, throw patterns, and opponent-read protocols.</p>
+            </div>
+            <div class="lo-system-meta">
+              <span class="lo-system-meta-chip">Call Variants</span>
+              <span class="lo-system-meta-chip">Throw Patterns</span>
+              <span class="lo-system-meta-chip">Signal Library</span>
+            </div>
+            <button class="lo-system-btn lo-system-btn-equal"
+              onclick="openLineoutSystem('spark')">Open System &#9654;</button>
+          </div>
 
-    <div class="tag">Click calls to expand</div> 
+        </div>
+      </div>
+    </div>
 
-  </div> 
+    <!-- RIGHT: KPIs + codes + calling structure (unchanged) -->
+    <div class="lineout-right">
 
-  <div class="sl-body"> 
+      <div class="success-block fadeup">
+        <h4>Success KPIs</h4>
+        <div class="success-metrics">
+          <div class="s-metric"><div class="sv">90%</div><div class="sl">Own throw success</div></div>
+          <div class="s-metric"><div class="sv">85%</div><div class="sl">Delivery quality</div></div>
+          <div class="s-metric"><div class="sv">20%</div><div class="sl">Opp turnover</div></div>
+          <div class="s-metric"><div class="sv">70%</div><div class="sl">Opp unwanted del.</div></div>
+        </div>
+      </div>
 
-    <div class="lineout-left"> 
+      <div class="formation-codes fadeup">
+        <div class="fc-title">Formation Codes</div>
+        <div class="code-row"><span class="code-key">40</span><span class="code-desc">4-man lineout, 9 at receiver &mdash; L-E-O</span></div>
+        <div class="code-row"><span class="code-key">50</span><span class="code-desc">5-man lineout, 9 at receiver &mdash; L-O-U-T</span></div>
+        <div class="code-row"><span class="code-key">70</span><span class="code-desc">Full lineout (inside our 40m) &mdash; L-I-N-E-O-U-T</span></div>
+        <div class="code-row"><span class="code-key">80</span><span class="code-desc">Full lineout (outside 40m) &mdash; L-I-N-E-O-U-T</span></div>
+        <div class="code-row"><span class="code-key">1</span><span class="code-desc">Ball delivery: Off the top</span></div>
+        <div class="code-row"><span class="code-key">2</span><span class="code-desc">Ball delivery: Down and feed</span></div>
+        <div class="code-row"><span class="code-key">3</span><span class="code-desc">Ball delivery: Drive</span></div>
+      </div>
 
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Attacking Calls ? 80/70 Formation</div>
+      <div class="formation-codes fadeup">
+        <div class="fc-title">Calling Structure</div>
+        <div class="technique-list">
+          <div class="tech-item"><div class="tech-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" aria-hidden="true"><path d="M3 11l18-5v12L3 13v-2z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></div><div class="tech-text"><strong>Pre-call</strong> made on the way to the lineout</div></div>
+          <div class="tech-item"><div class="tech-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></div><div class="tech-text"><strong>Front prop</strong> passes call onto hooker on the way to the lineout</div></div>
+          <div class="tech-item"><div class="tech-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><div class="tech-text"><strong>Pre-call activated</strong> by trigger. Alpha/Zulu off is called if can't use standard</div></div>
+          <div class="tech-item"><div class="tech-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" aria-hidden="true"><path d="M12 19V5"/><polyline points="5 12 12 5 19 12"/></svg></div><div class="tech-text"><strong>Execution keys:</strong> patience with triggers, clear gaps, effective delivery, speed of lift</div></div>
+        </div>
+      </div>
 
-      <div id="loCalls80"></div>
+    </div>
 
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-top:14px;margin-bottom:6px;">50 & 40 Man Formations</div> 
-
-      <div id="loCalls50"></div> 
-
-    </div> 
-
-    <div class="lineout-right"> 
-
-      <div class="success-block fadeup"> 
-
-        <h4>Success KPIs</h4> 
-
-        <div class="success-metrics"> 
-
-          <div class="s-metric"><div class="sv">90%</div><div class="sl">Own throw success</div></div> 
-
-          <div class="s-metric"><div class="sv">85%</div><div class="sl">Delivery quality</div></div> 
-
-          <div class="s-metric"><div class="sv">20%</div><div class="sl">Opp turnover</div></div> 
-
-          <div class="s-metric"><div class="sv">70%</div><div class="sl">Opp unwanted del.</div></div> 
-
-        </div> 
-
-      </div> 
-
-      <div class="formation-codes fadeup"> 
-
-        <div class="fc-title">Formation Codes</div> 
-
-        <div class="code-row"><span class="code-key">40</span><span class="code-desc">4-man lineout, 9 at receiver - L-E-O</span></div> 
-
-        <div class="code-row"><span class="code-key">50</span><span class="code-desc">5-man lineout, 9 at receiver - L-O-U-T</span></div> 
-
-        <div class="code-row"><span class="code-key">70</span><span class="code-desc">Full lineout (inside our 40m) - L-I-N-E-O-U-T</span></div> 
-
-        <div class="code-row"><span class="code-key">80</span><span class="code-desc">Full lineout (outside 40m) - L-I-N-E-O-U-T</span></div> 
-
-        <div class="code-row"><span class="code-key">1</span><span class="code-desc">Ball delivery: Off the top</span></div> 
-
-        <div class="code-row"><span class="code-key">2</span><span class="code-desc">Ball delivery: Down and feed</span></div> 
-
-        <div class="code-row"><span class="code-key">3</span><span class="code-desc">Ball delivery: Drive</span></div> 
-
-      </div> 
-
-      <div class="formation-codes fadeup"> 
-
-        <div class="fc-title">Calling Structure</div> 
-
-        <div class="technique-list"> 
-
-          <div class="tech-item"><div class="tech-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" aria-hidden="true"><path d="M3 11l18-5v12L3 13v-2z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></div><div class="tech-text"><strong>Pre-call</strong> made on the way to the lineout</div></div> 
-
-          <div class="tech-item"><div class="tech-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></div><div class="tech-text"><strong>Front prop</strong> passes call onto hooker on the way to the lineout</div></div> 
-
-          <div class="tech-item"><div class="tech-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><div class="tech-text"><strong>Pre-call activated</strong> by trigger. Alpha/Zulu off is called if can't use standard</div></div> 
-
-          <div class="tech-item"><div class="tech-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" aria-hidden="true"><path d="M12 19V5"/><polyline points="5 12 12 5 19 12"/></svg></div><div class="tech-text"><strong>Execution keys:</strong> patience with triggers, clear gaps, effective delivery, speed of lift</div></div> 
-
-        </div> 
-
-      </div> 
-
-    </div> 
-
-  </div> 
+  </div>
 
 </div> 
 
@@ -457,9 +464,9 @@
 
   <div class="topbar"> 
 
-    <div class="topbar-logo" onclick="goTo(1)"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Game Plan ? Defence</div></div></div> 
+    <div class="topbar-logo" onclick="goTo(1)"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Game Plan &middot; Defence</div></div></div> 
 
-    <div class="topbar-right"><div class="motto">WORK ETHIC ? <span>ATTACK</span> ? BELIEF</div><div class="slide-num">05 / 06</div></div> 
+    <div class="topbar-right"><div class="motto">WORK ETHIC &middot; <span>ATTACK</span> &middot; BELIEF</div><div class="slide-num">05 / 11</div></div> 
 
   </div> 
 
@@ -575,7 +582,7 @@
 
     <div class="topbar-logo" onclick="goTo(1)"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">AI Coaching Assistant</div></div></div> 
 
-    <div class="topbar-right"><div class="motto">WORK ETHIC ? <span>ATTACK</span> ? BELIEF</div><div class="slide-num">06 / 06</div></div> 
+    <div class="topbar-right"><div class="motto">WORK ETHIC &middot; <span>ATTACK</span> &middot; BELIEF</div><div class="slide-num">06 / 11</div></div> 
 
   </div> 
 
@@ -833,6 +840,7 @@
           <div class="ov-fact-item">
             <strong>My goal is to create an environment where every player:</strong>
             <ul>
+    
               <li>feels a strong sense of purpose</li>
               <li>understands their role</li>
               <li>supports one another</li>
@@ -907,7 +915,7 @@
 <script src="../../js/shared/ui-helpers.js"></script>
 <script src="../../js/shared/dev-access.js"></script>
 <script src="../../js/shared/tactical-board-access.js"></script>
-<script src="../../js/core/app.js?v=20260520-full-modules"></script> 
+<script src="../../js/core/app.js"></script> 
 
  
 
@@ -917,6 +925,16 @@
     <button class="field-lightbox-close" onclick="closeFieldLightbox()" aria-label="Close">&times;</button>
     <img id="fieldLightboxImg" src="" alt=""/>
   </div>
+</div>
+
+
+<!-- Lineout System full-screen overlay -->
+<div id="lineoutSystemOverlay" class="lineout-system-overlay" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Lineout System">
+  <div class="lso-topbar">
+    <div class="lso-title" id="lsoTitle">Lineout System</div>
+    <button class="lso-close" onclick="closeLineoutSystem()" aria-label="Close">&times;</button>
+  </div>
+  <iframe id="lineoutSystemFrame" class="lso-frame" src="" title="Lineout System"></iframe>
 </div>
 
 </body>

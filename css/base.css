@@ -17,6 +17,8 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  /* Remove iOS/Android tap flash on every element */
+  -webkit-tap-highlight-color: transparent;
 }
 
 html,
@@ -26,10 +28,16 @@ body {
   overflow: hidden;
   background: var(--dark);
   color: var(--text);
+  /* Prevent iOS pull-to-refresh / over-scroll from fighting swipe navigation */
+  overscroll-behavior: none;
 }
 
 body {
   font-family: "Barlow", sans-serif;
+  /* Sharper text rendering on retina displays */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 .slide {
@@ -971,6 +979,13 @@ h2.section {
   gap: 10px;
 }
 
+/* When lineout-left hosts tabs, reset padding/gap and let children control layout */
+#s4 .lineout-left {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
 .lineout-right {
   background: var(--panel);
   overflow-y: auto;
@@ -1533,6 +1548,44 @@ h2.section {
   }
 }
 
+/* ─── Touch UX improvements ─────────────────────────────────────────────────
+   touch-action: manipulation = faster tap (no 300ms delay) + no double-tap zoom
+   user-select: none          = no accidental text selection on press-hold
+   -webkit-overflow-scrolling = momentum scrolling on iOS for every scroll pane
+─────────────────────────────────────────────────────────────────────────── */
+.nav-btn,
+.zone-btn,
+.zone-tab,
+.dot,
+.play-list-item,
+.lo-call,
+.field-area,
+.fa-header,
+.suggest,
+.cover-expand-btn,
+.coach-intro-btn,
+.diagram-btn,
+.send-btn,
+.topbar-logo {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Momentum / inertia scrolling on every overflow panel (iOS Safari) */
+.attack-content,
+.attack-sidebar,
+.lineout-left,
+.lineout-right,
+.def-left,
+.def-right,
+.chat-msgs,
+.ai-panel,
+.mobile-drawer-list {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
 ::-webkit-scrollbar {
   width: 3px;
 }
@@ -1544,6 +1597,43 @@ h2.section {
 ::-webkit-scrollbar-thumb {
   background: rgba(46, 139, 87, 0.35);
   border-radius: 2px;
+}
+
+/* ─── Slide transition ───────────────────────────────────────────────────── */
+@keyframes slideInFromRight {
+  from { opacity: 0; transform: translateX(28px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideInFromLeft {
+  from { opacity: 0; transform: translateX(-28px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideOutToLeft {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(-28px); }
+}
+@keyframes slideOutToRight {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(28px); }
+}
+
+.slide.slide-enter-right {
+  display: flex;
+  animation: slideInFromRight 0.28s cubic-bezier(0.22, 0.8, 0.36, 1) both;
+}
+.slide.slide-enter-left {
+  display: flex;
+  animation: slideInFromLeft 0.28s cubic-bezier(0.22, 0.8, 0.36, 1) both;
+}
+.slide.slide-exit-left {
+  display: flex;
+  pointer-events: none;
+  animation: slideOutToLeft 0.18s ease forwards;
+}
+.slide.slide-exit-right {
+  display: flex;
+  pointer-events: none;
+  animation: slideOutToRight 0.18s ease forwards;
 }
 
 @keyframes fadeUp {
@@ -2366,10 +2456,12 @@ h2.section {
     justify-content: space-between;
     gap: 10px;
     min-height: 56px;
-    padding: 8px 16px;
+    /* Respect notch/status bar on iPhone */
+    padding: calc(8px + env(safe-area-inset-top, 0px)) 16px 8px;
     border-bottom: 1px solid var(--border);
     background: rgba(8, 25, 41, 0.98);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.24);
+    -webkit-backdrop-filter: blur(16px);
     backdrop-filter: blur(16px);
   }
 
@@ -2564,7 +2656,8 @@ h2.section {
     position: fixed;
     left: 12px;
     right: 12px;
-    bottom: 10px;
+    /* Respect iPhone home indicator */
+    bottom: max(10px, env(safe-area-inset-bottom, 10px));
     z-index: 85;
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2573,6 +2666,7 @@ h2.section {
     border: 1px solid rgba(46, 139, 87, 0.18);
     border-radius: 18px;
     background: rgba(8, 25, 41, 0.95);
+    -webkit-backdrop-filter: blur(16px);
     backdrop-filter: blur(16px);
     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.24);
   }
@@ -2623,146 +2717,4 @@ h2.section {
   #s2 .sl-body { display: grid; grid-template-columns: 1fr; grid-template-rows: auto; }
   #s3 .sl-body { display: flex; flex-direction: column; }
   #s4 .sl-body { display: grid; grid-template-columns: 1fr; grid-template-rows: auto; }
-  #s5 .sl-body { display: grid; grid-template-columns: 1fr; grid-template-rows: auto; }
-  #s6 .sl-body { display: flex; flex-direction: column; }
-
-  .workspace-shell-status {
-    display: none;
-  }
-
-  /* ── Attack (s3): show main content first, sidebar after ── */
-  .attack-main {
-    order: 1;
-    overflow: visible;
-    height: auto;
-    min-height: 0;
-  }
-
-  .attack-sidebar {
-    order: 2;
-    width: 100%;
-    max-height: none;
-    overflow: visible;
-    border-right: none;
-    border-top: 1px solid var(--border);
-    border-bottom: none;
-    padding: 14px 16px 20px;
-  }
-
-  /* Zone tabs stick below topbar so the category strip stays reachable */
-  .zone-btns {
-    position: sticky;
-    top: var(--mobile-workspace-offset, 104px);
-    z-index: 20;
-    background: rgba(8, 25, 41, 0.98);
-    backdrop-filter: blur(6px);
-    padding: 8px 16px;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    gap: 8px;
-    border-bottom: 1px solid var(--border);
-    scrollbar-width: none;
-  }
-  .zone-btns::-webkit-scrollbar { display: none; }
-
-  .zone-btn {
-    flex-shrink: 0;
-    min-height: 44px;
-    white-space: nowrap;
-    padding: 10px 14px;
-  }
-
-  .attack-content {
-    overflow: visible;
-    flex: none;
-    height: auto;
-    padding: 14px 16px;
-  }
-
-  /* ── Lineout (s4) ── */
-  .lineout-left,
-  .lineout-right {
-    overflow: visible;
-    height: auto;
-    padding: 14px 16px;
-    width: 100%;
-  }
-
-  /* ── Defence (s5) ── */
-  .def-left {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    overflow: visible;
-    height: auto;
-    padding: 14px 16px;
-    width: 100%;
-  }
-
-  .def-right {
-    overflow: visible;
-    height: auto;
-    padding: 14px 16px;
-    width: 100%;
-  }
-
-  /* Defence side tabs stick below topbar */
-  .zone-tabs {
-    position: sticky;
-    top: var(--mobile-workspace-offset, 104px);
-    z-index: 20;
-    background: rgba(8, 25, 41, 0.98);
-    backdrop-filter: blur(6px);
-    padding: 8px 0;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    gap: 8px;
-    margin-bottom: 12px;
-    scrollbar-width: none;
-  }
-  .zone-tabs::-webkit-scrollbar { display: none; }
-
-  .zone-tab {
-    flex-shrink: 0;
-    min-height: 44px;
-    white-space: nowrap;
-    padding: 10px 14px;
-  }
-
-  /* ── AI chat (s6) ── */
-  .chat-area {
-    height: auto;
-    overflow: visible;
-    flex: none;
-  }
-
-  .chat-msgs {
-    max-height: 260px;
-    padding: 12px 16px;
-  }
-
-  .chat-input-row { padding: 10px 16px 12px; }
-
-  .ai-panel {
-    max-height: none;
-    overflow: visible;
-    width: 100%;
-    border-left: none;
-    border-top: 1px solid var(--border);
-    padding: 14px 16px 20px;
-  }
-
-  /* ── Touch targets: minimum 48px ── */
-  .play-list-item,
-  .lo-call {
-    min-height: 48px;
-  }
-
-  .fa-header { min-height: 48px; padding: 12px 13px; }
-
-  /* ── Team standards: consistent padding ── */
-  .phil-zone { padding: 14px 16px; }
-
-  .slide.active .workspace-map {
-    transition: opacity 0.18s ease, transform 0.18s ease;
-  }
-}
+  #s5 .sl-body { display: grid; grid-template-c

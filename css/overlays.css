@@ -310,3 +310,291 @@
     width: 100%;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   LINEOUT SYSTEM CARDS  (Donau — green palette)
+   Adapted from Austria U18 theme. Replace --red (#b11f30) → --green (#2e8b57).
+───────────────────────────────────────────────────────────────────────────── */
+
+.lo-tab-bar {
+  display: flex;
+  gap: 6px;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.lo-tab-content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.lo-systems-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 20px;
+}
+
+.lo-system-card {
+  position: relative;
+  border-radius: 18px;
+  border: 1px solid rgba(46, 139, 87, 0.2);
+  background: linear-gradient(180deg, rgba(13, 32, 54, 0.96), rgba(8, 25, 41, 0.98));
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+  overflow: hidden;
+}
+
+.lo-system-primary {
+  border-color: rgba(46, 139, 87, 0.38);
+}
+
+.lo-system-primary::before,
+.lo-system-secondary::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  border-radius: 18px 18px 0 0;
+}
+
+.lo-system-primary::before {
+  height: 3px;
+  background: linear-gradient(90deg, #1a6e3d, #2e8b57, #d6b56f);
+}
+
+.lo-system-secondary::before {
+  height: 2px;
+  background: rgba(46, 139, 87, 0.35);
+}
+
+.lo-system-card:hover {
+  border-color: rgba(46, 139, 87, 0.52);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32);
+}
+
+.lo-system-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lo-system-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lo-system-badge {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.62rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.lo-system-badge-primary {
+  background: rgba(46, 139, 87, 0.14);
+  border: 1px solid rgba(46, 139, 87, 0.36);
+  color: var(--green);
+}
+
+.lo-system-badge-active {
+  background: rgba(214, 181, 111, 0.14);
+  border: 1px solid rgba(214, 181, 111, 0.34);
+  color: var(--gold);
+}
+
+.lo-system-badge-secondary {
+  background: rgba(160, 185, 200, 0.08);
+  border: 1px solid rgba(160, 185, 200, 0.18);
+  color: var(--muted);
+}
+
+.lo-system-name {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 1.9rem;
+  font-weight: 800;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--text);
+  line-height: 1;
+}
+
+.lo-system-primary .lo-system-name {
+  text-shadow: 0 0 28px rgba(46, 139, 87, 0.35);
+}
+
+.lo-system-subtitle {
+  font-size: 0.78rem;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+  line-height: 1.5;
+}
+
+.lo-system-desc {
+  flex: 1;
+}
+
+.lo-system-desc p {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--text-light);
+  line-height: 1.68;
+}
+
+.lo-system-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lo-system-meta-chip {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.64rem;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(46, 139, 87, 0.06);
+  border: 1px solid rgba(46, 139, 87, 0.14);
+  color: var(--green);
+}
+
+.lo-system-btn {
+  width: 100%;
+  padding: 11px 18px;
+  border-radius: 10px;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 180ms ease;
+  touch-action: manipulation;
+}
+
+.lo-system-btn-primary {
+  background: linear-gradient(90deg, #1a6e3d, #2e8b57);
+  border: 1px solid rgba(46, 139, 87, 0.5);
+  color: #fff;
+}
+
+.lo-system-btn-primary:hover {
+  background: linear-gradient(90deg, #22844a, #38a868);
+  box-shadow: 0 8px 20px rgba(46, 139, 87, 0.3);
+}
+
+.lo-system-btn-secondary {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(46, 139, 87, 0.22);
+  color: var(--text);
+}
+
+.lo-system-btn-secondary:hover {
+  background: rgba(46, 139, 87, 0.08);
+  border-color: rgba(46, 139, 87, 0.42);
+}
+
+/* ─── Lineout System Full-screen Overlay ────────────────────────────────── */
+
+.lineout-system-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(4, 8, 12, 0.97);
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease;
+}
+
+.lineout-system-overlay.open {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.lso-topbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: linear-gradient(180deg, rgba(8, 25, 41, 0.99), rgba(6, 18, 30, 0.98));
+  border-bottom: 1px solid rgba(46, 139, 87, 0.18);
+}
+
+.lso-title {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.lso-close {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(46, 139, 87, 0.28);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 180ms ease;
+  touch-action: manipulation;
+}
+
+.lso-close:hover {
+  background: rgba(46, 139, 87, 0.12);
+  border-color: rgba(46, 139, 87, 0.44);
+}
+
+.lso-frame {
+  flex: 1;
+  border: none;
+  background: #fff;
+  width: 100%;
+}
+
+@media (max-width: 560px) {
+  .lo-systems-grid {
+    grid-template-columns: 1fr;
+    padding: 14px;
+    gap: 14px;
+  }
+}
+
+.lo-system-equal {
+  border-color: rgba(46, 139, 87, 0.32);
+}
+.lo-system-equal::before {
+  height: 2px;
+  background: linear-gradient(90deg, #1a6e3d, #2e8b57);
+}
+.lo-system-badge-neutral {
+  background: rgba(46, 139, 87, 0.1);
+  border: 1px solid rgba(46, 139, 87, 0.26);
+  color: var(--green);
+}
+.lo-system-btn-equal {
+  background: linear-gradient(90deg, #1a6e3d, #2e8b57);
+  border: 1px solid rgba(46, 139, 87, 0.5);
+  color: #fff;
+}
+.lo-system-btn-equal:hover {
+  background: linear-gradient(90deg, #22844a, #38a868);
+  box-shadow: 0 8px 20px rgba(46, 139, 87, 0.3);
+}
