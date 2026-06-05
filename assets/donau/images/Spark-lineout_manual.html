@@ -198,7 +198,7 @@ p { font-size:.88rem; color:#b0b0b8; margin-bottom:1rem; max-width:640px; }
 .spark-caption { position:relative; margin-top:10px; font-size:.68rem; line-height:1.55; color:#8d9792; }
 
 /* maul defense diagrams */
-.maul-diagram-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px; max-width:980px; margin:18px 0 10px; }
+.maul-diagram-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; max-width:980px; margin:18px 0 10px; }
 .maul-diagram-card {
   background:linear-gradient(180deg,#13201c 0%, #101616 100%);
   border:1px solid rgba(15,112,64,0.24); border-radius:10px; padding:16px; position:relative; overflow:hidden;
@@ -210,143 +210,62 @@ p { font-size:.88rem; color:#b0b0b8; margin-bottom:1rem; max-width:640px; }
   pointer-events:none;
 }
 .maul-diagram-card h4 { position:relative; font-family:'Barlow Condensed',sans-serif; font-size:.96rem; font-weight:900; letter-spacing:.1em; text-transform:uppercase; color:var(--white); margin-bottom:4px; }
-.maul-diagram-note { position:relative; font-size:.74rem; color:#87948d; line-height:1.5; margin-bottom:12px; }
-.maul-legend { position:relative; display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
-.maul-legend-item { display:flex; align-items:center; gap:6px; font-size:.64rem; color:#98a39e; text-transform:uppercase; letter-spacing:.12em; font-family:'Barlow Condensed',sans-serif; }
-.maul-swatch { width:10px; height:10px; border-radius:50%; display:inline-block; }
-.maul-caption { position:relative; margin-top:10px; font-size:.68rem; line-height:1.55; color:#8d9792; }
-.maul-points { position:relative; margin:12px 0 0; padding-left:16px; color:#aab4ae; font-size:.72rem; line-height:1.5; }
-.maul-points li { margin:4px 0; }
-
+.maul-diagram-note { position:relative; font-size:.74rem; color:#9aa79f; line-height:1.5; margin-top:12px; }
 .maul-board {
-  position:relative; min-height:220px; border-radius:10px; overflow:hidden;
+  position:relative; min-height:180px; border-radius:10px; overflow:hidden;
   border:1px solid rgba(15,112,64,0.26);
   background:
     linear-gradient(180deg,rgba(15,112,64,0.14),rgba(15,112,64,0.04)),
-    repeating-linear-gradient(90deg,transparent,transparent 44px,rgba(255,255,255,0.025) 44px,rgba(255,255,255,0.025) 45px),
+    repeating-linear-gradient(90deg,transparent,transparent 52px,rgba(255,255,255,0.022) 52px,rgba(255,255,255,0.022) 53px),
     linear-gradient(180deg,#10211b 0%, #0c1715 100%);
 }
 .maul-board::before {
-  content:''; position:absolute; inset:14px 18px; border:1px solid rgba(255,255,255,0.07); border-radius:8px;
+  content:''; position:absolute; inset:14px 18px; border:1px solid rgba(255,255,255,0.06); border-radius:8px;
 }
-.maul-board-label {
-  position:absolute; font-family:'Barlow Condensed',sans-serif; font-size:.56rem; letter-spacing:.2em;
-  text-transform:uppercase; color:rgba(255,255,255,0.42); z-index:3;
-}
-.maul-board-label.top { top:10px; left:18px; }
-.maul-boundary {
-  position:absolute; top:18px; bottom:18px; width:2px; background:rgba(255,255,255,0.16); z-index:1;
-}
-.maul-boundary.five { left:18%; }
-.maul-boundary.fifteen { right:18%; }
-.maul-boundary-tag {
-  position:absolute; top:16px; transform:translateX(-50%);
-  padding:4px 6px; border-radius:999px; background:rgba(8,16,12,0.8); border:1px solid rgba(15,112,64,0.24);
-  font-family:'Barlow Condensed',sans-serif; font-size:.54rem; letter-spacing:.18em; color:var(--white); text-transform:uppercase; z-index:3;
-}
-.maul-boundary-tag.five { left:18%; }
-.maul-boundary-tag.fifteen { left:82%; }
-.maul-zone-band {
-  position:absolute; left:18%; right:18%; top:34px; height:18px; border-radius:999px;
-  background:rgba(15,112,64,0.14); border:1px solid rgba(15,112,64,0.18); z-index:1;
-}
-.maul-zone-band span {
-  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-  font-family:'Barlow Condensed',sans-serif; font-size:.54rem; letter-spacing:.18em; text-transform:uppercase; color:#b8c3bd;
+.maul-chip {
+  position:absolute; left:14px; bottom:12px; z-index:3; padding:4px 8px; border-radius:999px;
+  background:rgba(8,16,12,0.84); border:1px solid rgba(15,112,64,0.24);
+  font-family:'Barlow Condensed',sans-serif; font-size:.56rem; letter-spacing:.16em; text-transform:uppercase; color:var(--white);
 }
 .maul-pod {
-  position:absolute; left:50%; top:48%; width:88px; height:88px; transform:translate(-50%,-50%) rotate(45deg);
+  position:absolute; left:50%; top:54%; width:92px; height:64px; transform:translate(-50%,-50%);
   border-radius:18px; background:rgba(201,162,39,0.14); border:1px solid rgba(201,162,39,0.32); z-index:1;
 }
-.maul-pod-label {
-  position:absolute; left:50%; top:48%; transform:translate(-50%,-124%); z-index:3;
-  font-family:'Barlow Condensed',sans-serif; font-size:.56rem; letter-spacing:.18em; text-transform:uppercase; color:#d8c58c;
-}
 .maul-player {
-  position:absolute; left:var(--x); top:var(--y); width:30px; height:30px; margin-left:-15px; margin-top:-15px;
+  position:absolute; left:var(--x); top:var(--y); width:32px; height:32px; margin-left:-16px; margin-top:-16px;
   border-radius:50%; display:flex; align-items:center; justify-content:center; z-index:3;
-  font-family:'Barlow Condensed',sans-serif; font-size:.72rem; font-weight:700; color:var(--white);
+  font-family:'Barlow Condensed',sans-serif; font-size:.7rem; font-weight:700; color:var(--white);
   border:2px solid rgba(255,255,255,0.12); box-shadow:0 8px 18px rgba(0,0,0,0.24);
 }
 .maul-player.attack { background:#8e7740; border-color:rgba(216,197,140,0.3); }
-.maul-player.spear { background:var(--red); }
-.maul-player.net { background:#233029; border-color:rgba(154,176,163,0.26); }
-.maul-player.ball { background:#c9a227; color:#08100c; width:24px; height:24px; margin-left:-12px; margin-top:-12px; font-size:.62rem; }
-.maul-role-label {
-  position:absolute; padding:4px 7px; border-radius:999px; z-index:3;
-  background:rgba(8,16,12,0.84); border:1px solid rgba(15,112,64,0.24);
-  font-family:'Barlow Condensed',sans-serif; font-size:.54rem; letter-spacing:.16em; text-transform:uppercase; color:var(--white);
+.maul-player.defender { background:var(--red); }
+.maul-player.edge { background:#233029; border-color:rgba(154,176,163,0.26); }
+.maul-player.air { width:34px; height:34px; margin-left:-17px; margin-top:-17px; }
+.maul-lift {
+  position:absolute; left:50%; top:63%; width:36px; height:10px; transform:translateX(-50%);
+  border-radius:999px; background:rgba(255,255,255,0.1); z-index:2;
 }
-.maul-role-label.spears { left:50%; top:63%; transform:translateX(-50%); }
-.maul-role-label.nets-left { left:11%; top:58%; }
-.maul-role-label.nets-right { right:11%; top:58%; }
 .maul-arrow {
   position:absolute; width:44px; height:3px; background:var(--red); border-radius:999px; z-index:2;
-  transform-origin:left center;
 }
 .maul-arrow::after {
   content:''; position:absolute; right:-2px; top:50%; width:10px; height:10px; transform:translateY(-50%) rotate(45deg);
-  border-top:3px solid var(--red); border-right:3px solid var(--red);
+  border-top:3px solid currentColor; border-right:3px solid currentColor;
 }
-.maul-arrow.contain { background:#8aa291; }
-.maul-arrow.contain::after { border-top-color:#8aa291; border-right-color:#8aa291; }
-.maul-arrow.a1 { left:35%; top:48%; transform:rotate(0deg); }
-.maul-arrow.a2 { left:53%; top:48%; transform:rotate(180deg); }
-.maul-arrow.a3 { left:18%; top:56%; width:40px; transform:rotate(-28deg); }
-.maul-arrow.a4 { right:18%; top:56%; width:40px; transform:rotate(208deg); }
-
-.role-map {
-  position:relative; min-height:220px; border-radius:10px; overflow:hidden;
-  border:1px solid rgba(15,112,64,0.26);
-  background:
-    radial-gradient(circle at 50% 50%,rgba(15,112,64,0.12),transparent 55%),
-    linear-gradient(180deg,#10211b 0%, #0c1715 100%);
+.maul-arrow.up { left:50%; top:50%; width:3px; height:44px; transform:translateX(-50%); color:var(--red); background:var(--red); }
+.maul-arrow.up::after { right:auto; left:50%; top:-1px; transform:translateX(-50%) rotate(-45deg); border-top-color:var(--red); border-right-color:var(--red); }
+.maul-arrow.forward { left:39%; top:54%; transform:rotate(0deg); color:var(--red); background:var(--red); }
+.maul-curve {
+  position:absolute; width:36px; height:36px; border:3px solid #8aa291; border-left-color:transparent; border-bottom-color:transparent;
+  border-radius:50%; z-index:2;
 }
-.role-map::before {
-  content:''; position:absolute; left:50%; top:24px; bottom:24px; width:1px; transform:translateX(-50%);
-  background:linear-gradient(180deg,transparent,rgba(255,255,255,0.12),transparent);
+.maul-curve.left { left:16%; top:46%; transform:rotate(160deg); }
+.maul-curve.right { right:16%; top:46%; transform:rotate(-20deg); }
+.maul-block {
+  position:absolute; width:18px; height:4px; background:#d8c58c; border-radius:999px; z-index:3;
 }
-.role-cluster {
-  position:absolute; top:70px; width:38%;
-  padding:14px 14px 12px; border-radius:12px; z-index:2;
-  background:rgba(8,16,12,0.62); border:1px solid rgba(15,112,64,0.18);
-}
-.role-cluster h5 { font-family:'Barlow Condensed',sans-serif; font-size:.8rem; font-weight:900; letter-spacing:.12em; text-transform:uppercase; color:var(--white); margin-bottom:6px; }
-.role-cluster p { font-size:.7rem; color:#90a198; margin:0; line-height:1.5; max-width:none; }
-.role-cluster.spears { left:8%; }
-.role-cluster.nets { right:8%; }
-.role-badges { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
-.role-badge {
-  display:inline-flex; align-items:center; justify-content:center; min-width:32px; padding:4px 8px; border-radius:999px;
-  font-family:'Barlow Condensed',sans-serif; font-size:.62rem; letter-spacing:.12em; text-transform:uppercase;
-  color:var(--white); background:rgba(15,112,64,0.18); border:1px solid rgba(15,112,64,0.28);
-}
-.role-badge.net { background:rgba(138,162,145,0.12); border-color:rgba(138,162,145,0.22); }
-.role-map-core {
-  position:absolute; left:50%; top:54%; width:104px; height:104px; transform:translate(-50%,-50%);
-  border-radius:50%; border:1px solid rgba(15,112,64,0.24); background:rgba(15,112,64,0.08); z-index:1;
-}
-.role-map-core-label {
-  position:absolute; left:50%; top:54%; transform:translate(-50%,-50%); z-index:3;
-  font-family:'Barlow Condensed',sans-serif; font-size:.6rem; letter-spacing:.18em; text-transform:uppercase; color:#c3d1ca; text-align:center;
-}
-.role-map-arrow {
-  position:absolute; height:3px; border-radius:999px; z-index:2;
-}
-.role-map-arrow.spears {
-  left:37%; top:50%; width:60px; background:var(--red); transform:rotate(0deg);
-}
-.role-map-arrow.spears::after,
-.role-map-arrow.net::after {
-  content:''; position:absolute; right:-2px; top:50%; width:10px; height:10px; transform:translateY(-50%) rotate(45deg);
-}
-.role-map-arrow.spears::after { border-top:3px solid var(--red); border-right:3px solid var(--red); }
-.role-map-arrow.net {
-  width:54px; background:#8aa291;
-}
-.role-map-arrow.net.left { left:22%; top:46%; transform:rotate(-28deg); }
-.role-map-arrow.net.right { right:22%; top:58%; transform:rotate(208deg); }
-.role-map-arrow.net::after { border-top:3px solid #8aa291; border-right:3px solid #8aa291; }
+.maul-block.left { left:22%; top:61%; transform:rotate(-26deg); }
+.maul-block.right { right:22%; top:61%; transform:rotate(26deg); }
 
 /* defense */
 .dgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:2px; margin:18px 0; }
@@ -390,28 +309,14 @@ h3.sub { font-family:'Barlow Condensed',sans-serif; font-size:.9rem; font-weight
   .mrow,
   .rrow { grid-template-columns:1fr; display:grid; }
   .mrow { gap:10px; max-width:none; }
-  .maul-role-label.nets-left { left:8px; top:auto; bottom:10px; }
-  .maul-role-label.nets-right { right:8px; top:auto; bottom:10px; }
-  .role-cluster { position:relative; top:auto; left:auto; right:auto; width:auto; margin:14px 14px 0; }
-  .role-cluster.nets { margin-top:10px; }
-  .role-map-core,
-  .role-map-core-label { top:52px; transform:translate(-50%,0); }
-  .role-map-core { width:88px; height:88px; }
-  .role-map-arrow.spears { left:50%; top:96px; width:46px; transform:translateX(-50%) rotate(90deg); transform-origin:center; }
-  .role-map-arrow.net.left { left:50%; top:108px; width:42px; transform:translateX(-50%) rotate(145deg); transform-origin:center; }
-  .role-map-arrow.net.right { left:50%; right:auto; top:108px; width:42px; transform:translateX(-50%) rotate(35deg); transform-origin:center; }
-  .role-map { min-height:360px; }
 }
 
 @media (max-width:560px) {
-  .maul-board { min-height:240px; }
-  .maul-boundary-tag,
-  .maul-role-label,
-  .maul-board-label,
-  .maul-pod-label,
-  .role-map-core-label { letter-spacing:.1em; }
-  .maul-player { width:26px; height:26px; margin-left:-13px; margin-top:-13px; font-size:.64rem; }
-  .maul-player.ball { width:22px; height:22px; margin-left:-11px; margin-top:-11px; }
+  .maul-board { min-height:188px; }
+  .maul-chip { left:10px; bottom:10px; letter-spacing:.12em; }
+  .maul-player { width:28px; height:28px; margin-left:-14px; margin-top:-14px; font-size:.64rem; }
+  .maul-player.air { width:30px; height:30px; margin-left:-15px; margin-top:-15px; }
+  .maul-pod { width:84px; height:58px; }
 }
 </style>
 </head>
@@ -735,87 +640,52 @@ h3.sub { font-family:'Barlow Condensed',sans-serif; font-size:.9rem; font-weight
       <h3 class="sub">Defensive Maul Diagrams</h3>
       <div class="maul-diagram-grid">
         <div class="maul-diagram-card">
-          <h4>5m-15m Defensive Zone</h4>
-          <div class="maul-diagram-note">Donau's pressure picture inside the restricted maul corridor: contest the air first, then split the drive with central force while the edges stay alive.</div>
+          <h4>Air Pressure</h4>
           <div class="maul-board">
-            <div class="maul-board-label top">Lineout Corridor</div>
-            <div class="maul-boundary five"></div>
-            <div class="maul-boundary fifteen"></div>
-            <div class="maul-boundary-tag five">5m</div>
-            <div class="maul-boundary-tag fifteen">15m</div>
-            <div class="maul-zone-band"><span>Defensive Zone</span></div>
             <div class="maul-pod"></div>
-            <div class="maul-pod-label">Attacking Pod / Maul Start</div>
-            <div class="maul-player attack" style="--x:44%;--y:49%;">A1</div>
-            <div class="maul-player attack" style="--x:50%;--y:43%;">A2</div>
-            <div class="maul-player attack" style="--x:56%;--y:49%;">A3</div>
-            <div class="maul-player attack" style="--x:50%;--y:56%;">A4</div>
-            <div class="maul-player ball" style="--x:50%;--y:49%;">B</div>
-            <div class="maul-player spear" style="--x:36%;--y:49%;">P</div>
-            <div class="maul-player spear" style="--x:64%;--y:49%;">J</div>
-            <div class="maul-player net" style="--x:20%;--y:58%;">2</div>
-            <div class="maul-player net" style="--x:80%;--y:58%;">7</div>
-            <div class="maul-role-label spears">Spears: central pressure</div>
-            <div class="maul-role-label nets-left">Net: edge hold</div>
-            <div class="maul-role-label nets-right">Net: edge hold</div>
-            <div class="maul-arrow a1"></div>
-            <div class="maul-arrow a2"></div>
-            <div class="maul-arrow contain a3"></div>
-            <div class="maul-arrow contain a4"></div>
+            <div class="maul-player attack" style="--x:43%;--y:58%;">A</div>
+            <div class="maul-player attack" style="--x:50%;--y:50%;">A</div>
+            <div class="maul-player attack" style="--x:57%;--y:58%;">A</div>
+            <div class="maul-lift"></div>
+            <div class="maul-player defender air" style="--x:50%;--y:34%;">D</div>
+            <div class="maul-arrow up"></div>
+            <div class="maul-chip">Contest source</div>
           </div>
-          <div class="maul-legend">
-            <div class="maul-legend-item"><span class="maul-swatch" style="background:#c9a227;"></span>Attacking pod</div>
-            <div class="maul-legend-item"><span class="maul-swatch" style="background:#0f7040;"></span>Spears pressure</div>
-            <div class="maul-legend-item"><span class="maul-swatch" style="background:#233029;"></span>Nets containment</div>
-          </div>
-          <ul class="maul-points">
-            <li>Air pressure starts the picture: jumpers must contest or disrupt clean ball at source.</li>
-            <li>Spears attack the seam immediately to stop momentum before the maul can settle.</li>
-            <li>Nets hedge the breakout and keep the spin from escaping beyond the 5m-15m corridor.</li>
-          </ul>
-          <div class="maul-caption">Objective: disrupt or steal first, then kill momentum and prevent the maul from turning the corner.</div>
+          <div class="maul-diagram-note">Contest the ball or force poor delivery before the maul forms.</div>
         </div>
         <div class="maul-diagram-card">
-          <h4>Spears &amp; Nets Role Map</h4>
-          <div class="maul-diagram-note">A simple coaching map for role clarity: central core penetrates, edge players contain, and both movements stay connected to the same pressure picture.</div>
-          <div class="role-map">
-            <div class="maul-board-label top">Pressure Map</div>
-            <div class="role-map-core"></div>
-            <div class="role-map-core-label">Stop maul<br>momentum</div>
-            <div class="role-map-arrow spears"></div>
-            <div class="role-map-arrow net left"></div>
-            <div class="role-map-arrow net right"></div>
-            <div class="role-cluster spears">
-              <h5>Spears</h5>
-              <p>Props and jumpers form the central core. Their job is to penetrate the seam, split the body shape, and force the maul to stall on contact.</p>
-              <div class="role-badges">
-                <span class="role-badge">Prop</span>
-                <span class="role-badge">Prop</span>
-                <span class="role-badge">Jumper</span>
-                <span class="role-badge">Jumper</span>
-              </div>
-            </div>
-            <div class="role-cluster nets">
-              <h5>Nets</h5>
-              <p>Hooker and flanker guard the edges. Their job is to contain spin, close late seams, and catch any breakout runner before width appears.</p>
-              <div class="role-badges">
-                <span class="role-badge net">Hooker 2</span>
-                <span class="role-badge net">Flanker 7</span>
-              </div>
-            </div>
+          <h4>Seam Pressure</h4>
+          <div class="maul-board">
+            <div class="maul-pod"></div>
+            <div class="maul-player attack" style="--x:43%;--y:54%;">A</div>
+            <div class="maul-player attack" style="--x:50%;--y:54%;">A</div>
+            <div class="maul-player attack" style="--x:57%;--y:54%;">A</div>
+            <div class="maul-player defender" style="--x:35%;--y:54%;">P</div>
+            <div class="maul-player defender" style="--x:65%;--y:54%;">J</div>
+            <div class="maul-arrow forward"></div>
+            <div class="maul-chip">Stop momentum</div>
           </div>
-          <div class="maul-legend">
-            <div class="maul-legend-item"><span class="maul-swatch" style="background:#0f7040;"></span>Penetration line</div>
-            <div class="maul-legend-item"><span class="maul-swatch" style="background:#8aa291;"></span>Containment line</div>
+          <div class="maul-diagram-note">Spears hit the middle early and stop forward momentum.</div>
+        </div>
+        <div class="maul-diagram-card">
+          <h4>Edge Control</h4>
+          <div class="maul-board">
+            <div class="maul-pod"></div>
+            <div class="maul-player attack" style="--x:43%;--y:54%;">A</div>
+            <div class="maul-player attack" style="--x:50%;--y:54%;">A</div>
+            <div class="maul-player attack" style="--x:57%;--y:54%;">A</div>
+            <div class="maul-player edge" style="--x:23%;--y:56%;">2</div>
+            <div class="maul-player edge" style="--x:77%;--y:56%;">7</div>
+            <div class="maul-curve left"></div>
+            <div class="maul-curve right"></div>
+            <div class="maul-block left"></div>
+            <div class="maul-block right"></div>
+            <div class="maul-chip">No spin / no escape</div>
           </div>
-          <ul class="maul-points">
-            <li>Spears penetrate the seam and keep the ball carrier under pressure.</li>
-            <li>Nets contain edges and prevent spin or breakout.</li>
-            <li>Everyone works from the same objective: stop momentum, deny shape, and force messy ball.</li>
-          </ul>
-          <div class="maul-caption">Use this card as the quick coaching cue before live maul-defense reps or walkthrough work.</div>
+          <div class="maul-diagram-note">Nets hold the edges and prevent spin, leak, or breakout.</div>
         </div>
       </div>
+      <div class="co"><p><b>First-second rule:</b> Win the first second: contest source, hit the seam, control the edges.</p></div>
     </div>
 
     <!-- 06 -->
