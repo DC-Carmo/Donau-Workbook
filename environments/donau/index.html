@@ -19,6 +19,458 @@
 <link rel="stylesheet" href="../../css/components.css">
 <link rel="stylesheet" href="../../css/platform.css"> 
 
+<style>
+#s4 .sl-header .tag {
+  border-color: rgba(46, 139, 87, 0.34);
+  color: rgba(240, 244, 240, 0.84);
+  background: rgba(46, 139, 87, 0.08);
+}
+
+#s4 .sl-body {
+  gap: 16px;
+  background: transparent;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+}
+
+#s4 .lineout-left,
+#s4 .lineout-right {
+  position: relative;
+  border: 1px solid rgba(46, 139, 87, 0.16);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(13, 32, 54, 0.96), rgba(8, 25, 41, 0.98)),
+    radial-gradient(circle at top left, rgba(46, 139, 87, 0.12), transparent 28%);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.24);
+}
+
+#s4 .lineout-left::before,
+#s4 .lineout-right::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  pointer-events: none;
+  background:
+    linear-gradient(140deg, rgba(46, 139, 87, 0.08), transparent 36%, transparent 76%, rgba(214, 181, 111, 0.05)),
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: auto, 44px 44px, 44px 44px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.4));
+}
+
+#s4 .lineout-left {
+  padding: 24px;
+  gap: 14px;
+}
+
+#s4 .lineout-right {
+  padding: 22px;
+  gap: 16px;
+}
+
+#s4 .lineout-kicker {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 2.6px;
+  text-transform: uppercase;
+  color: rgba(160, 185, 200, 0.7);
+}
+
+#s4 .lo-system-card {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid rgba(46, 139, 87, 0.2);
+  padding: 22px 22px 20px;
+  background: linear-gradient(180deg, rgba(16, 37, 64, 0.96), rgba(11, 28, 47, 0.98));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 18px 42px rgba(0,0,0,0.18);
+}
+
+#s4 .lo-system-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(46, 139, 87, 0.12), transparent 34%, transparent 74%, rgba(214, 181, 111, 0.05));
+}
+
+#s4 .lo-system-card::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 20px;
+  bottom: 20px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: linear-gradient(180deg, rgba(46, 139, 87, 0.95), rgba(214, 181, 111, 0.5));
+}
+
+#s4 .lo-system-primary {
+  border-color: rgba(46, 139, 87, 0.3);
+  background: linear-gradient(180deg, rgba(18, 42, 68, 0.98), rgba(12, 30, 50, 0.99));
+}
+
+#s4 .lo-system-secondary {
+  border-color: rgba(214, 181, 111, 0.18);
+  background: linear-gradient(180deg, rgba(14, 32, 52, 0.98), rgba(10, 24, 41, 0.99));
+}
+
+#s4 .lo-system-header,
+#s4 .lo-system-desc,
+#s4 .lo-system-meta,
+#s4 .lo-system-btn {
+  position: relative;
+  z-index: 1;
+}
+
+#s4 .lo-system-badges,
+#s4 .lo-system-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#s4 .lo-system-badge,
+#s4 .lo-system-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(46, 139, 87, 0.26);
+  background: rgba(46, 139, 87, 0.08);
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+#s4 .lo-system-badge-secondary {
+  border-color: rgba(214, 181, 111, 0.28);
+  background: rgba(214, 181, 111, 0.08);
+}
+
+#s4 .lo-system-badge-active {
+  border-color: rgba(46, 139, 87, 0.4);
+  background: rgba(46, 139, 87, 0.16);
+}
+
+#s4 .lo-system-name {
+  margin-top: 12px;
+  font-family: "Anton", sans-serif;
+  font-size: clamp(2.2rem, 4vw, 3rem);
+  line-height: 0.95;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+#s4 .lo-system-subtitle {
+  margin-top: 8px;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.92rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(240, 244, 240, 0.8);
+}
+
+#s4 .lo-system-desc p {
+  margin: 14px 0 16px;
+  max-width: none;
+  color: rgba(240, 244, 240, 0.78);
+  font-size: 0.94rem;
+  line-height: 1.7;
+}
+
+#s4 .lo-system-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 18px;
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+#s4 .lo-system-btn:hover {
+  transform: translateY(-1px);
+}
+
+#s4 .lo-system-btn-primary {
+  border: 1px solid rgba(46, 139, 87, 0.36);
+  background: linear-gradient(180deg, rgba(46, 139, 87, 0.24), rgba(46, 139, 87, 0.14));
+  color: var(--text);
+  box-shadow: 0 12px 28px rgba(46, 139, 87, 0.14);
+}
+
+#s4 .lo-system-btn-primary:hover {
+  border-color: rgba(46, 139, 87, 0.5);
+  background: linear-gradient(180deg, rgba(46, 139, 87, 0.3), rgba(46, 139, 87, 0.18));
+}
+
+#s4 .lo-system-btn-secondary {
+  border: 1px solid rgba(214, 181, 111, 0.28);
+  background: linear-gradient(180deg, rgba(214, 181, 111, 0.16), rgba(214, 181, 111, 0.08));
+  color: var(--text);
+  box-shadow: 0 12px 28px rgba(214, 181, 111, 0.08);
+}
+
+#s4 .lo-system-btn-secondary:hover {
+  border-color: rgba(214, 181, 111, 0.42);
+  background: linear-gradient(180deg, rgba(214, 181, 111, 0.22), rgba(214, 181, 111, 0.1));
+}
+
+#s4 .lineout-panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(46, 139, 87, 0.18);
+  background: linear-gradient(180deg, rgba(15, 35, 57, 0.96), rgba(10, 25, 41, 0.98));
+  padding: 18px 18px 16px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02), 0 14px 32px rgba(0,0,0,0.16);
+}
+
+#s4 .lineout-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(140deg, rgba(46, 139, 87, 0.08), transparent 40%, rgba(255,255,255,0.02));
+}
+
+#s4 .success-block h4,
+#s4 .fc-title {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 14px;
+  color: rgba(160, 185, 200, 0.84);
+}
+
+#s4 .success-metrics {
+  position: relative;
+  z-index: 1;
+  gap: 12px;
+}
+
+#s4 .s-metric {
+  padding: 14px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(46, 139, 87, 0.14);
+  background: rgba(46, 139, 87, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+#s4 .s-metric .sv {
+  font-size: 2.15rem;
+  line-height: 1;
+  letter-spacing: 1px;
+  color: #4aba7a;
+}
+
+#s4 .s-metric .sl {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.66rem;
+  line-height: 1.45;
+  color: rgba(160, 185, 200, 0.72);
+}
+
+#s4 .code-list {
+  position: relative;
+  z-index: 1;
+}
+
+#s4 .code-row {
+  gap: 14px;
+  align-items: flex-start;
+  padding: 9px 0;
+}
+
+#s4 .code-key {
+  flex: 0 0 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(46, 139, 87, 0.22);
+  background: rgba(46, 139, 87, 0.12);
+  color: var(--text);
+  letter-spacing: 1.2px;
+}
+
+#s4 .code-desc {
+  flex: 1 1 auto;
+  text-align: left;
+  line-height: 1.55;
+  color: rgba(240, 244, 240, 0.74);
+}
+
+#s4 .technique-list {
+  position: relative;
+  z-index: 1;
+  counter-reset: lineout-steps;
+  gap: 10px;
+}
+
+#s4 .tech-item {
+  position: relative;
+  align-items: center;
+  gap: 14px;
+  min-height: 58px;
+  padding: 12px 14px 12px 56px;
+  border-radius: 14px;
+  background: rgba(46, 139, 87, 0.06);
+}
+
+#s4 .tech-item::before {
+  counter-increment: lineout-steps;
+  content: counter(lineout-steps);
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid rgba(46, 139, 87, 0.3);
+  background: rgba(46, 139, 87, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text);
+}
+
+#s4 .tech-icon {
+  width: 18px;
+  margin-top: 0;
+  opacity: 0.9;
+}
+
+#s4 .tech-text {
+  color: rgba(240, 244, 240, 0.76);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.lineout-system-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(4, 8, 12, 0.96);
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease;
+}
+
+.lineout-system-overlay.open {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.lso-topbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 20px;
+  background: linear-gradient(180deg, rgba(8, 25, 41, 0.98), rgba(6, 18, 30, 0.98));
+  border-bottom: 1px solid rgba(46, 139, 87, 0.22);
+}
+
+.lso-title {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 2.4px;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.lso-close {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(46, 139, 87, 0.24);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.lso-frame {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: #fff;
+}
+
+@media (max-width: 768px) {
+  #s4 .sl-body {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  #s4 .lineout-left,
+  #s4 .lineout-right {
+    padding: 18px 16px;
+    border-radius: 18px;
+  }
+
+  #s4 .lo-system-card {
+    padding: 18px 16px 16px;
+    border-radius: 18px;
+  }
+
+  #s4 .lo-system-name {
+    font-size: 2rem;
+  }
+
+  #s4 .success-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  #s4 .code-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  #s4 .code-key {
+    align-self: flex-start;
+  }
+
+  #s4 .tech-item {
+    padding: 12px 12px 12px 52px;
+  }
+
+  #s4 .lo-system-btn {
+    min-height: 50px;
+  }
+}
+</style>
+
  
 
 </head> 
@@ -365,7 +817,7 @@
 
     <h2 class="section">Lineout System</h2> 
 
-    <div class="tag">Click calls to expand</div> 
+    <div class="tag">System manuals &amp; coaching reference</div> 
 
   </div> 
 
@@ -373,11 +825,11 @@
 
     <div class="lineout-left"> 
 
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Attacking Calls ? 80/70 Formation</div>
+      <p class="lineout-kicker">Primary lineout manual</p>
 
       <div id="loCalls80"></div>
 
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-top:14px;margin-bottom:6px;">50 & 40 Man Formations</div> 
+      <p class="lineout-kicker">Companion lineout manual</p> 
 
       <div id="loCalls50"></div> 
 
@@ -385,7 +837,7 @@
 
     <div class="lineout-right"> 
 
-      <div class="success-block fadeup"> 
+      <div class="success-block lineout-panel fadeup"> 
 
         <h4>Success KPIs</h4> 
 
@@ -403,27 +855,22 @@
 
       </div> 
 
-      <div class="formation-codes fadeup"> 
+      <div class="formation-codes lineout-panel fadeup"> 
 
         <div class="fc-title">Formation Codes</div> 
-
-        <div class="code-row"><span class="code-key">40</span><span class="code-desc">4-man lineout, 9 at receiver - L-E-O</span></div> 
-
-        <div class="code-row"><span class="code-key">50</span><span class="code-desc">5-man lineout, 9 at receiver - L-O-U-T</span></div> 
-
-        <div class="code-row"><span class="code-key">70</span><span class="code-desc">Full lineout (inside our 40m) - L-I-N-E-O-U-T</span></div> 
-
-        <div class="code-row"><span class="code-key">80</span><span class="code-desc">Full lineout (outside 40m) - L-I-N-E-O-U-T</span></div> 
-
-        <div class="code-row"><span class="code-key">1</span><span class="code-desc">Ball delivery: Off the top</span></div> 
-
-        <div class="code-row"><span class="code-key">2</span><span class="code-desc">Ball delivery: Down and feed</span></div> 
-
-        <div class="code-row"><span class="code-key">3</span><span class="code-desc">Ball delivery: Drive</span></div> 
+        <div class="code-list">
+          <div class="code-row"><span class="code-key">40</span><span class="code-desc">4-man lineout, 9 at receiver - L-E-O</span></div> 
+          <div class="code-row"><span class="code-key">50</span><span class="code-desc">5-man lineout, 9 at receiver - L-O-U-T</span></div> 
+          <div class="code-row"><span class="code-key">70</span><span class="code-desc">Full lineout (inside our 40m) - L-I-N-E-O-U-T</span></div> 
+          <div class="code-row"><span class="code-key">80</span><span class="code-desc">Full lineout (outside 40m) - L-I-N-E-O-U-T</span></div> 
+          <div class="code-row"><span class="code-key">1</span><span class="code-desc">Ball delivery: Off the top</span></div> 
+          <div class="code-row"><span class="code-key">2</span><span class="code-desc">Ball delivery: Down and feed</span></div> 
+          <div class="code-row"><span class="code-key">3</span><span class="code-desc">Ball delivery: Drive</span></div> 
+        </div>
 
       </div> 
 
-      <div class="formation-codes fadeup"> 
+      <div class="formation-codes lineout-panel fadeup"> 
 
         <div class="fc-title">Calling Structure</div> 
 
@@ -909,6 +1356,13 @@
 <script src="../../js/shared/tactical-board-access.js"></script>
 <script src="../../js/core/app.js?v=20260520-full-modules"></script> 
 
+<script>
+window.DONAU_LINEOUT_SYSTEMS = {
+  tempo: "../../assets/donau/images/TEMPO_Lineout_System_Austria_Youth.html",
+  spark: "../../assets/donau/images/Spark-lineout_manual.html"
+};
+</script>
+
  
 
 <!-- Field Image Lightbox -->
@@ -918,6 +1372,106 @@
     <img id="fieldLightboxImg" src="" alt=""/>
   </div>
 </div>
+
+<div id="lineoutSystemOverlay" class="lineout-system-overlay" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Lineout System">
+  <div class="lso-topbar">
+    <div class="lso-title" id="lsoTitle">Lineout System</div>
+    <button class="lso-close" onclick="closeLineoutSystem()" aria-label="Close">&times;</button>
+  </div>
+  <iframe id="lineoutSystemFrame" class="lso-frame" src="" title="Lineout System"></iframe>
+</div>
+
+<script>
+function renderDonauLineoutCards() {
+  var tempo = document.getElementById('loCalls80');
+  var spark = document.getElementById('loCalls50');
+  if (!tempo || !spark) return;
+
+  tempo.innerHTML = `
+    <article class="lo-system-card lo-system-primary">
+      <div class="lo-system-header">
+        <div class="lo-system-badges">
+          <span class="lo-system-badge">Primary Manual</span>
+          <span class="lo-system-badge lo-system-badge-active">Core System</span>
+        </div>
+        <div class="lo-system-name">TEMPO</div>
+        <div class="lo-system-subtitle">Full lineout architecture for weekly detail, calls, and maul integration</div>
+      </div>
+      <div class="lo-system-desc">
+        <p>Use TEMPO as the main Donau reference for formation language, delivery codes, movement triggers, and the core attacking lineout picture.</p>
+      </div>
+      <div class="lo-system-meta">
+        <span class="lo-system-meta-chip">Formations</span>
+        <span class="lo-system-meta-chip">Call Codes</span>
+        <span class="lo-system-meta-chip">Maul Detail</span>
+      </div>
+      <button class="lo-system-btn lo-system-btn-primary" onclick="openLineoutSystem('tempo')">Open TEMPO &#9654;</button>
+    </article>
+  `;
+
+  spark.innerHTML = `
+    <article class="lo-system-card lo-system-secondary">
+      <div class="lo-system-header">
+        <div class="lo-system-badges">
+          <span class="lo-system-badge lo-system-badge-secondary">Reference Manual</span>
+        </div>
+        <div class="lo-system-name">SPARK</div>
+        <div class="lo-system-subtitle">Companion manual for principles, source detail, and coaching progression</div>
+      </div>
+      <div class="lo-system-desc">
+        <p>Use SPARK as the supporting manual for technical fundamentals, formation visuals, defensive ideas, and session implementation around the source.</p>
+      </div>
+      <div class="lo-system-meta">
+        <span class="lo-system-meta-chip">Fundamentals</span>
+        <span class="lo-system-meta-chip">SPARK Shapes</span>
+        <span class="lo-system-meta-chip">Session Work</span>
+      </div>
+      <button class="lo-system-btn lo-system-btn-secondary" onclick="openLineoutSystem('spark')">Open SPARK &#9654;</button>
+    </article>
+  `;
+}
+
+function openLineoutSystem(system) {
+  var overlay = document.getElementById('lineoutSystemOverlay');
+  var frame = document.getElementById('lineoutSystemFrame');
+  var title = document.getElementById('lsoTitle');
+  var path = window.DONAU_LINEOUT_SYSTEMS && window.DONAU_LINEOUT_SYSTEMS[system];
+  if (!overlay || !frame || !path) return;
+  frame.src = path;
+  title.textContent = system === 'tempo' ? 'TEMPO - Lineout System' : 'SPARK - Lineout Manual';
+  overlay.classList.add('open');
+  overlay.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('overlay-active');
+}
+
+function closeLineoutSystem() {
+  var overlay = document.getElementById('lineoutSystemOverlay');
+  var frame = document.getElementById('lineoutSystemFrame');
+  if (!overlay) return;
+  overlay.classList.remove('open');
+  overlay.setAttribute('aria-hidden', 'true');
+  if (frame) {
+    setTimeout(function() { frame.src = ''; }, 180);
+  }
+  if (!document.querySelector('.overlay.open')) {
+    document.body.classList.remove('overlay-active');
+  }
+}
+
+document.addEventListener('keydown', function(event) {
+  if (event.key === 'Escape') {
+    closeLineoutSystem();
+  }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  renderDonauLineoutCards();
+});
+
+if (document.readyState !== 'loading') {
+  renderDonauLineoutCards();
+}
+</script>
 
 </body>
 
