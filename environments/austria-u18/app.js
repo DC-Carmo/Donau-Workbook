@@ -3,42 +3,42 @@
   const { addMsg, removeTyping, showTyping } = window.DonauShared || {};
   const FINAL_23_ROSTER = {
     "Back Three": [
-      { position: "15", name: "Tedo Heller Hajdu", club: "RC Union Donau Wien", captain: false },
-      { position: "11", name: "James Lindeque", club: "Rugby Club Anexia Tigers Klagenfurt", captain: false },
-      { position: "14", name: "Nicolai Makarius", club: "RC Union Donau Wien", captain: false }
+      { position: "15", name: "—", club: "—", captain: false },
+      { position: "11", name: "—", club: "—", captain: false },
+      { position: "14", name: "—", club: "—", captain: false }
     ],
     "Inside Backs": [
-      { position: "9", name: "Nathan Zettl", club: "Celtic Rugby Club", captain: false },
-      { position: "10", name: "Pius Grüner", club: "RC Union Donau Wien", captain: false },
-      { position: "12", name: "Julius Weder", club: "Celtic Rugby Club", captain: false },
-      { position: "13", name: "Jakob Pulker", club: "DSG Hargelsberg", captain: false }
+      { position: "9", name: "—", club: "—", captain: false },
+      { position: "10", name: "—", club: "—", captain: false },
+      { position: "12", name: "—", club: "—", captain: false },
+      { position: "13", name: "—", club: "—", captain: false }
     ],
     "Tight Five": [
-      { position: "1", name: "Alexander Mellek", club: "RC Union Donau Wien", captain: false },
-      { position: "2", name: "Theo Woschnagg", club: "RC Union Donau Wien", captain: false },
-      { position: "3", name: "Artur Paseka", club: "RC Union Donau Wien", captain: false },
-      { position: "4", name: "Theo Romberg", club: "RC Union Donau Wien", captain: false },
-      { position: "5", name: "Ferdinand Wailand", club: "RC Union Donau Wien", captain: false }
+      { position: "1", name: "—", club: "—", captain: false },
+      { position: "2", name: "—", club: "—", captain: false },
+      { position: "3", name: "—", club: "—", captain: false },
+      { position: "4", name: "—", club: "—", captain: false },
+      { position: "5", name: "—", club: "—", captain: false }
     ],
     "Loose Forwards": [
-      { position: "6", name: "Valentin Kühr", club: "DSG Hargelsberg", captain: true },
-      { position: "7", name: "Julius Erasim", club: "Radley College Rugby Club", captain: false },
-      { position: "8", name: "Charles Metcalf", club: "RC Union Donau Wien", captain: false }
+      { position: "6", name: "—", club: "—", captain: false },
+      { position: "7", name: "—", club: "—", captain: false },
+      { position: "8", name: "—", club: "—", captain: false }
     ],
     "Halfback Spine": [
-      { position: "9", name: "Nathan Zettl", club: "Celtic Rugby Club", captain: false },
-      { position: "10", name: "Pius Grüner", club: "RC Union Donau Wien", captain: false },
-      { position: "15", name: "Tedo Heller Hajdu", club: "RC Union Donau Wien", captain: false }
+      { position: "9", name: "—", club: "—", captain: false },
+      { position: "10", name: "—", club: "—", captain: false },
+      { position: "15", name: "—", club: "—", captain: false }
     ],
     Finishers: [
-      { position: "BENCH 1", name: "Michail Chatzikonstantinou", club: "Celtic Rugby Club", captain: false },
-      { position: "BENCH 2", name: "Miguel Surilla", club: "Celtic Rugby Club", captain: false },
-      { position: "BENCH 3", name: "Leonhard Poteschil", club: "Celtic Rugby Club", captain: false },
-      { position: "BENCH 4", name: "Paul Krassnitzer", club: "Celtic Rugby Club", captain: false },
-      { position: "BENCH 5", name: "Felix Nuckley", club: "Celtic Rugby Club", captain: false },
-      { position: "BENCH 6", name: "Stefan Kolar", club: "RC Union Donau Wien", captain: false },
-      { position: "BENCH 7", name: "Naim Lebegue", club: "Rugby Club Graz", captain: false },
-      { position: "BENCH 8", name: "Jakob Havranek", club: "RC Union Donau Wien", captain: false }
+      { position: "BENCH 1", name: "—", club: "—", captain: false },
+      { position: "BENCH 2", name: "—", club: "—", captain: false },
+      { position: "BENCH 3", name: "—", club: "—", captain: false },
+      { position: "BENCH 4", name: "—", club: "—", captain: false },
+      { position: "BENCH 5", name: "—", club: "—", captain: false },
+      { position: "BENCH 6", name: "—", club: "—", captain: false },
+      { position: "BENCH 7", name: "—", club: "—", captain: false },
+      { position: "BENCH 8", name: "—", club: "—", captain: false }
     ]
   };
 
@@ -1033,7 +1033,7 @@
 
   function renderUnits() {
     document.getElementById("unitsGrid").innerHTML = (data.units || []).map((unit) => `
-      <article class="module-accordion nt-unit-card active" aria-expanded="true">
+      <article class="module-accordion nt-unit-card" aria-expanded="false">
         <button class="module-accordion-head" type="button" onclick="toggleUnitCard(this.closest('.nt-unit-card'))" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleUnitCard(this.closest('.nt-unit-card'));}">
           <div>
             <h3>${getUnitDisplayTitle(unit)}</h3>
@@ -1042,14 +1042,13 @@
           <div class="module-accordion-arrow">&#9660;</div>
         </button>
         <div class="module-accordion-body">
-          ${renderUnitBody(unit)}
+          ${renderUnitRoster(unit.title)}
+          ${renderUnitLane("Attack", unit.attack)}
+          ${renderUnitLane("Defence", unit.defence)}
+          ${renderUnitLane("Set Piece", unit.setPiece)}
         </div>
       </article>
     `).join("");
-
-    document.querySelectorAll("#unitsGrid .module-accordion.active .module-accordion-body").forEach((body) => {
-      body.style.maxHeight = `${body.scrollHeight}px`;
-    });
   }
 
   function getUnitDisplayTitle(unit) {
@@ -1058,19 +1057,6 @@
     }
 
     return unit.title;
-  }
-
-  function renderUnitBody(unit) {
-    if (unit.title === "Halfback Spine") {
-      return renderHalfbackSpineConcept();
-    }
-
-    return `
-      ${renderUnitRoster(unit.title)}
-      ${renderUnitLane("Attack", unit.attack)}
-      ${renderUnitLane("Defence", unit.defence)}
-      ${renderUnitLane("Set Piece", unit.setPiece)}
-    `;
   }
 
   function renderUnitRoster(unitTitle) {
@@ -1087,40 +1073,6 @@
           ${roster.map((slot) => renderRosterSlot(slot)).join("")}
         </div>
       </section>
-    `;
-  }
-
-  function renderHalfbackSpineConcept() {
-    const conceptPlayers = [
-      { position: "9", name: "Nathan Zettl" },
-      { position: "10", name: "Pius Grüner" },
-      { position: "15", name: "Tedo Heller Hajdu" }
-    ];
-
-    const purposePoints = [
-      "Connect attack shape",
-      "Manage exit strategy",
-      "Backfield communication",
-      "Tempo and kick ownership"
-    ];
-
-    return `
-      <section class="nt-unit-roster">
-        <div class="nt-unit-lane-label">Connectors</div>
-        <div class="nt-roster-list">
-          ${conceptPlayers.map((slot) => `
-            <div class="nt-roster-slot">
-              <div class="nt-roster-position">${slot.position}</div>
-              <div class="nt-roster-identity">
-                <div class="nt-roster-name-row">
-                  <div class="nt-roster-name">${slot.name}</div>
-                </div>
-              </div>
-            </div>
-          `).join("")}
-        </div>
-      </section>
-      ${renderUnitLane("Purpose", purposePoints)}
     `;
   }
 
