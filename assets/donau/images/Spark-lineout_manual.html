@@ -135,6 +135,68 @@ p { font-size:.88rem; color:#b0b0b8; margin-bottom:1rem; max-width:640px; }
 .ft td:first-child { font-family:'Barlow Condensed',sans-serif; font-weight:700; color:var(--white); font-size:.82rem; white-space:nowrap; }
 .tag { display:inline-block; padding:1px 6px; border:1px solid var(--red); color:var(--red); font-family:'Barlow Condensed',sans-serif; font-size:.58rem; letter-spacing:.1em; text-transform:uppercase; font-weight:700; border-radius:2px; margin:2px; }
 
+/* formation diagrams */
+.diagram-switch { display:flex; gap:2px; margin:18px 0 16px; flex-wrap:wrap; }
+.diagram-switch button {
+  padding:8px 14px; background:var(--mid); border:1px solid var(--border); border-bottom:3px solid transparent;
+  color:var(--muted); font-family:'Barlow Condensed',sans-serif; font-size:.66rem; font-weight:700; letter-spacing:.14em;
+  text-transform:uppercase; cursor:pointer; transition:all .15s;
+}
+.diagram-switch button.on { color:var(--white); border-color:var(--red); border-bottom-color:var(--red); background:var(--red-dim); }
+.diagram-panel { display:none; }
+.diagram-panel.on { display:block; }
+.diagram-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; max-width:960px; }
+.diagram-card {
+  background:linear-gradient(180deg,#13201c 0%, #101616 100%);
+  border:1px solid rgba(15,112,64,0.24); border-radius:10px; padding:16px; position:relative; overflow:hidden;
+  box-shadow:0 14px 36px rgba(0,0,0,0.18);
+}
+.diagram-card::before {
+  content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(15,112,64,0.08),transparent 45%,rgba(255,255,255,0.02));
+  pointer-events:none;
+}
+.diagram-card h4 { position:relative; font-family:'Barlow Condensed',sans-serif; font-size:.96rem; font-weight:900; letter-spacing:.1em; text-transform:uppercase; color:var(--white); margin-bottom:4px; }
+.diagram-note { position:relative; font-size:.74rem; color:#87948d; line-height:1.5; margin-bottom:12px; min-height:34px; }
+.spark-lane {
+  position:relative; height:138px; border-radius:10px; border:1px solid rgba(15,112,64,0.26);
+  background:
+    linear-gradient(180deg,rgba(15,112,64,0.14),rgba(15,112,64,0.04)),
+    repeating-linear-gradient(90deg,transparent,transparent 42px,rgba(255,255,255,0.028) 42px,rgba(255,255,255,0.028) 43px),
+    linear-gradient(180deg,#10211b 0%, #0c1715 100%);
+  overflow:hidden;
+}
+.spark-lane::before,
+.spark-lane::after { content:''; position:absolute; top:14px; bottom:14px; width:2px; background:rgba(255,255,255,0.18); }
+.spark-lane::before { left:18px; }
+.spark-lane::after { right:18px; }
+.spark-throw {
+  position:absolute; top:50%; left:24px; right:24px; height:2px; transform:translateY(-50%);
+  background:linear-gradient(90deg,rgba(255,255,255,0.08),rgba(255,255,255,0.18),rgba(255,255,255,0.08));
+}
+.spark-channel-label {
+  position:absolute; top:10px; left:50%; transform:translateX(-50%);
+  font-family:'Barlow Condensed',sans-serif; font-size:.54rem; letter-spacing:.24em; text-transform:uppercase; color:rgba(255,255,255,0.42);
+}
+.spark-player {
+  position:absolute; left:var(--x); top:var(--y); width:34px; height:34px; margin-left:-17px; margin-top:-17px;
+  border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-family:'Barlow Condensed',sans-serif; font-size:.86rem; font-weight:700; color:var(--white);
+  border:2px solid rgba(255,255,255,0.14); z-index:2; box-shadow:0 8px 18px rgba(0,0,0,0.24);
+}
+.spark-player.support { background:#1545a8; }
+.spark-player.lifter { background:#0f7040; }
+.spark-player.jumper { background:#c9a227; color:#08100c; }
+.spark-player.hooker,
+.spark-player.scrumhalf {
+  width:30px; height:30px; margin-left:-15px; margin-top:-15px; font-size:.78rem; background:#272a30; color:#f0f0f2;
+}
+.spark-player.hooker { border-color:rgba(201,162,39,0.42); }
+.spark-player.scrumhalf { border-color:rgba(21,69,168,0.42); }
+.spark-legend { position:relative; display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
+.spark-legend-item { display:flex; align-items:center; gap:6px; font-size:.64rem; color:#98a39e; text-transform:uppercase; letter-spacing:.12em; font-family:'Barlow Condensed',sans-serif; }
+.spark-dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
+.spark-caption { position:relative; margin-top:10px; font-size:.68rem; line-height:1.55; color:#8d9792; }
+
 /* defense */
 .dgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:2px; margin:18px 0; }
 .dc { background:var(--mid); border:1px solid var(--border); padding:18px 16px; position:relative; overflow:hidden; }
@@ -285,6 +347,164 @@ h3.sub { font-family:'Barlow Condensed',sans-serif; font-size:.9rem; font-weight
           <tr><td>4-Person</td><td><span class="tag">3-1</span><span class="tag">1-3</span><span class="tag">Spread</span></td><td>1-3 = rapid movement. 3-1 = front-loaded pressure for quick-ball exits.</td></tr>
         </tbody>
       </table>
+      <h3 class="sub">Formation Diagrams</h3>
+      <p>Visual coaching layouts for the core SPARK shapes. The caller and jumper picture remains stable while spacing and support distribution change around P.</p>
+      <div class="diagram-switch" id="sparkDiagramSwitch">
+        <button class="on" onclick="showSparkDiagrams('spark5',this)">5-Person</button>
+        <button onclick="showSparkDiagrams('spark4',this)">4-Person</button>
+      </div>
+      <div id="spark5" class="diagram-panel on">
+        <div class="diagram-grid">
+          <div class="diagram-card">
+            <h4>5-Person SPARK · 3-2</h4>
+            <div class="diagram-note">Front-loaded picture with three bodies early and a two-player pocket sitting behind the caller.</div>
+            <div class="spark-lane">
+              <div class="spark-channel-label">3-2 Shape</div>
+              <div class="spark-throw"></div>
+              <div class="spark-player hooker" style="--x:9%;--y:50%;">2</div>
+              <div class="spark-player lifter" style="--x:28%;--y:50%;">1</div>
+              <div class="spark-player jumper" style="--x:42%;--y:50%;">P</div>
+              <div class="spark-player support" style="--x:56%;--y:50%;">5</div>
+              <div class="spark-player lifter" style="--x:70%;--y:50%;">7</div>
+              <div class="spark-player support" style="--x:82%;--y:50%;">8</div>
+              <div class="spark-player scrumhalf" style="--x:92%;--y:50%;">9</div>
+            </div>
+            <div class="spark-legend">
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#c9a227;"></span>Jumper / Caller</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#0f7040;"></span>Lifters</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#1545a8;"></span>Support</div>
+            </div>
+            <div class="spark-caption">Use when we want early pressure at the front of the lane while keeping a cleaner tail extension behind P.</div>
+          </div>
+          <div class="diagram-card">
+            <h4>5-Person SPARK · 1-3-1</h4>
+            <div class="diagram-note">Balanced power shape with a central three-player cluster and isolated edge workers on both ends.</div>
+            <div class="spark-lane">
+              <div class="spark-channel-label">1-3-1 Shape</div>
+              <div class="spark-throw"></div>
+              <div class="spark-player hooker" style="--x:9%;--y:50%;">2</div>
+              <div class="spark-player support" style="--x:26%;--y:50%;">1</div>
+              <div class="spark-player lifter" style="--x:40%;--y:50%;">4</div>
+              <div class="spark-player jumper" style="--x:52%;--y:50%;">P</div>
+              <div class="spark-player lifter" style="--x:64%;--y:50%;">5</div>
+              <div class="spark-player support" style="--x:80%;--y:50%;">8</div>
+              <div class="spark-player scrumhalf" style="--x:92%;--y:50%;">9</div>
+            </div>
+            <div class="spark-legend">
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#272a30;"></span>Hooker / 9 fixed</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#c9a227;"></span>P target</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#0f7040;"></span>Lift spine</div>
+            </div>
+            <div class="spark-caption">Best premium maul-entry picture: central control through P with balanced lift structure and edge support.</div>
+          </div>
+          <div class="diagram-card">
+            <h4>5-Person SPARK · 1-1-3</h4>
+            <div class="diagram-note">Back-biased variation that keeps tempo alive while shifting mass late toward the tail.</div>
+            <div class="spark-lane">
+              <div class="spark-channel-label">1-1-3 Shape</div>
+              <div class="spark-throw"></div>
+              <div class="spark-player hooker" style="--x:9%;--y:50%;">2</div>
+              <div class="spark-player support" style="--x:26%;--y:50%;">1</div>
+              <div class="spark-player support" style="--x:42%;--y:50%;">4</div>
+              <div class="spark-player jumper" style="--x:58%;--y:50%;">P</div>
+              <div class="spark-player lifter" style="--x:70%;--y:50%;">5</div>
+              <div class="spark-player lifter" style="--x:80%;--y:50%;">7</div>
+              <div class="spark-player scrumhalf" style="--x:92%;--y:50%;">9</div>
+            </div>
+            <div class="spark-legend">
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#1545a8;"></span>Early support</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#0f7040;"></span>Tail lift pressure</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#c9a227;"></span>P launch point</div>
+            </div>
+            <div class="spark-caption">Ideal when the defence is overplaying the middle and we want a stronger late picture behind the caller.</div>
+          </div>
+          <div class="diagram-card">
+            <h4>5-Person SPARK · Spread</h4>
+            <div class="diagram-note">Default spacing with clean separation between roles, giving P the clearest read of the defensive structure.</div>
+            <div class="spark-lane">
+              <div class="spark-channel-label">Spread Shape</div>
+              <div class="spark-throw"></div>
+              <div class="spark-player hooker" style="--x:9%;--y:50%;">2</div>
+              <div class="spark-player lifter" style="--x:24%;--y:50%;">1</div>
+              <div class="spark-player support" style="--x:38%;--y:50%;">4</div>
+              <div class="spark-player jumper" style="--x:52%;--y:50%;">P</div>
+              <div class="spark-player support" style="--x:66%;--y:50%;">5</div>
+              <div class="spark-player lifter" style="--x:80%;--y:50%;">7</div>
+              <div class="spark-player scrumhalf" style="--x:92%;--y:50%;">9</div>
+            </div>
+            <div class="spark-legend">
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#c9a227;"></span>Central caller</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#0f7040;"></span>Lift options</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#1545a8;"></span>Spacing support</div>
+            </div>
+            <div class="spark-caption">The cleanest default reference shape whenever the lineout needs maximum clarity and tempo control.</div>
+          </div>
+        </div>
+      </div>
+      <div id="spark4" class="diagram-panel">
+        <div class="diagram-grid">
+          <div class="diagram-card">
+            <h4>4-Person SPARK · 3-1</h4>
+            <div class="diagram-note">Three early bodies with one late outlet. Useful for quick pressure and front-loaded exits.</div>
+            <div class="spark-lane">
+              <div class="spark-channel-label">3-1 Shape</div>
+              <div class="spark-throw"></div>
+              <div class="spark-player hooker" style="--x:9%;--y:50%;">2</div>
+              <div class="spark-player lifter" style="--x:30%;--y:50%;">1</div>
+              <div class="spark-player jumper" style="--x:46%;--y:50%;">P</div>
+              <div class="spark-player support" style="--x:62%;--y:50%;">5</div>
+              <div class="spark-player support" style="--x:80%;--y:50%;">8</div>
+              <div class="spark-player scrumhalf" style="--x:92%;--y:50%;">9</div>
+            </div>
+            <div class="spark-legend">
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#c9a227;"></span>P target</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#0f7040;"></span>Lead lift</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#1545a8;"></span>Exit support</div>
+            </div>
+            <div class="spark-caption">Favors a sharp front picture with one cleaner late distributor behind the action.</div>
+          </div>
+          <div class="diagram-card">
+            <h4>4-Person SPARK · 1-3</h4>
+            <div class="diagram-note">Single early worker with three connected bodies behind the caller for fast movement and reactive tempo.</div>
+            <div class="spark-lane">
+              <div class="spark-channel-label">1-3 Shape</div>
+              <div class="spark-throw"></div>
+              <div class="spark-player hooker" style="--x:9%;--y:50%;">2</div>
+              <div class="spark-player support" style="--x:28%;--y:50%;">1</div>
+              <div class="spark-player jumper" style="--x:46%;--y:50%;">P</div>
+              <div class="spark-player lifter" style="--x:62%;--y:50%;">5</div>
+              <div class="spark-player support" style="--x:76%;--y:50%;">7</div>
+              <div class="spark-player scrumhalf" style="--x:92%;--y:50%;">9</div>
+            </div>
+            <div class="spark-legend">
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#272a30;"></span>2 and 9 fixed</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#0f7040;"></span>Late lift action</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#1545a8;"></span>Fast support lane</div>
+            </div>
+            <div class="spark-caption">Best for rapid movement when we want the shape to look light early and load behind P late.</div>
+          </div>
+          <div class="diagram-card">
+            <h4>4-Person SPARK · Spread</h4>
+            <div class="diagram-note">Simple four-man spacing with even separation and a clear read lane for the hooker and caller.</div>
+            <div class="spark-lane">
+              <div class="spark-channel-label">Spread Shape</div>
+              <div class="spark-throw"></div>
+              <div class="spark-player hooker" style="--x:9%;--y:50%;">2</div>
+              <div class="spark-player lifter" style="--x:30%;--y:50%;">1</div>
+              <div class="spark-player jumper" style="--x:48%;--y:50%;">P</div>
+              <div class="spark-player support" style="--x:66%;--y:50%;">5</div>
+              <div class="spark-player support" style="--x:84%;--y:50%;">8</div>
+              <div class="spark-player scrumhalf" style="--x:92%;--y:50%;">9</div>
+            </div>
+            <div class="spark-legend">
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#c9a227;"></span>Caller / jumper</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#0f7040;"></span>Primary lift picture</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#1545a8;"></span>Even support spacing</div>
+            </div>
+            <div class="spark-caption">The clean default for four-man source play when the goal is clarity, shape retention, and a fast decision by P.</div>
+          </div>
+        </div>
+      </div>
       <h3 class="sub">The Squeeze Series</h3>
       <div class="pgrid">
         <div class="pillar"><div class="pi">SN</div><h3>Squeeze Nod</h3><ul>
@@ -378,6 +598,17 @@ function go(id, btn) {
   document.getElementById('content').scrollTop = 0;
   // update buttons
   document.querySelectorAll('#topnav button').forEach(function(b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+}
+
+function showSparkDiagrams(id, btn) {
+  document.querySelectorAll('.diagram-panel').forEach(function(panel) {
+    panel.classList.remove('on');
+  });
+  document.querySelectorAll('#sparkDiagramSwitch button').forEach(function(button) {
+    button.classList.remove('on');
+  });
+  document.getElementById(id).classList.add('on');
   btn.classList.add('on');
 }
 
