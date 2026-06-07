@@ -924,6 +924,9 @@ function updatePhaseUI() {
   if (!strip) return;
   strip.innerHTML = '';
   GamePlan.phases.forEach((phase, index) => {
+    const wrap = document.createElement('span');
+    wrap.className = 'seq-chip-wrap';
+
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = `tb-phase-chip${index === cur ? ' active' : ''}`;
@@ -932,7 +935,17 @@ function updatePhaseUI() {
     btn.setAttribute('aria-label', `Go to ${phase?.label || `Phase ${index + 1}`}`);
     btn.setAttribute('aria-current', index === cur ? 'step' : 'false');
     btn.onclick = () => goToPhase(index);
-    strip.appendChild(btn);
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'seq-chip-del';
+    del.textContent = '×';
+    del.title = `Delete Step ${index + 1}`;
+    del.onclick = (e) => { e.stopPropagation(); deleteStepAt(index); };
+
+    wrap.appendChild(btn);
+    wrap.appendChild(del);
+    strip.appendChild(wrap);
   });
   const addBtn = document.createElement('button');
   addBtn.type = 'button';
@@ -942,16 +955,6 @@ function updatePhaseUI() {
   addBtn.setAttribute('aria-label', 'Add phase');
   addBtn.onclick = () => addPhase();
   strip.appendChild(addBtn);
-
-  // Delete current step button - only show when there is something to remove
-  const delBtn = document.createElement('button');
-  delBtn.type = 'button';
-  delBtn.className = 'tb-phase-chip tb-phase-chip-del';
-  delBtn.textContent = '-';
-  delBtn.title = 'Delete current step';
-  delBtn.setAttribute('aria-label', 'Delete current step');
-  delBtn.onclick = () => deleteStep();
-  strip.appendChild(delBtn);
 }
 
 function createCarryForwardStep(step) {
@@ -1875,7 +1878,6 @@ const PLAYS = [
   scrumPreset('scrum_centre', 'Scrum Centre Launch', 'Scrum Centre', 34, 'centre'),
   scrumPreset('scrum_right', 'Scrum Right Launch', 'Scrum Right', 50, 'right'),
   scrumAttackFivePreset(),
-  lineoutDefenceFivePreset(),
   lineoutPreset('lineout_5_attack', 'Lineout 5-Man Attack', 5, true),
   lineoutPreset('lineout_5_defence', 'Lineout 5-Man Defence', 5, false),
   lineoutAttackSevenPreset(),
@@ -2449,6 +2451,7 @@ function undo() {
   rebuildPalette(); refreshInteractionUI();
   render();
 }
+window.undo = undo;
 function redo() {
   if (!S.future.length) return;
   persistCurrentPhase();
@@ -5041,42 +5044,75 @@ function deleteStep() {
   render();
 }
 
+function deleteStepAt(idx) {
+  ensureSteps();
+  if (S.steps.length === 1) {
+    // Only one step - clear it rather than remove
+    snapshot();
+    S.steps = [emptyStepState()];
+    S.currentStep = 0;
+    setLiveBoardFromStep(S.steps[0]);
+    stopPlayback(true);
+    setHint('Step cleared. Board is empty.');
+  } else {
+    snapshot();
+    S.steps.splice(idx, 1);
+    // If we deleted a step before or at the current position, adjust currentStep
+    S.currentStep = clamp(
+      idx < S.currentStep ? S.currentStep - 1 : S.currentStep,
+      0, S.steps.length - 1
+    );
+    stopPlayback(true);
+    setLiveBoardFromStep(S.steps[S.currentStep]);
+    setHint(`Step ${idx + 1} deleted. Now on Step ${S.currentStep + 1}.`);
+  }
+  rebuildPalette();
+  refreshInteractionUI();
+  updateTL();
+  render();
+}
+window.deleteStepAt = deleteStepAt;
+
 function updateSequenceUI() {
-  const stepStatus = document.getElementById('stepStatus');
-  const stepStatusCopy = document.getElementById('stepStatusCopy');
   const prevBtn = document.getElementById('seqPrevBtn');
   const nextBtn = document.getElementById('seqNextBtn');
-  const deleteBtn = document.getElementById('seqDeleteBtn');
+  const seqBarPrev = document.getElementById('seqBarPrev');
+  const seqBarNext = document.getElementById('seqBarNext');
+  const playIcon  = document.getElementById('seqBarPlayIcon');
+  const playLabel = document.getElementById('seqBarPlayLabel');
   const playBtn = document.getElementById('playBtn');
   const tlPlayBtn = document.getElementById('tlPlayBtn');
-  const rail = document.getElementById('stepRail');
   const count = sequenceStepCount();
   const playable = currentPhaseHasPlayablePlayback();
-  const owner = normalizePlayerRef(S.ballOwner);
-  if (stepStatus) stepStatus.textContent = `Step ${S.currentStep + 1} of ${count}`;
-  if (stepStatusCopy) {
-    const ownerText = owner ? `Ball: ${owner.team === 'A' ? 'A' : 'D'} #${owner.num}` : (S.ball ? 'Ball: Loose' : 'Ball: Off board');
-    stepStatusCopy.textContent = `${ownerText} • ${count < STEP_MIN_COUNT ? `Build toward ${STEP_MIN_COUNT}+ phases` : 'Sequence ready'}`;
-  }
   if (prevBtn) prevBtn.disabled = S.currentStep === 0;
   if (nextBtn) nextBtn.disabled = S.currentStep >= count - 1;
-  if (deleteBtn) deleteBtn.disabled = count <= 1 && !S.players.length && !S.ball && !S.annotations.length;
+  if (seqBarPrev) seqBarPrev.disabled = S.currentStep === 0;
+  if (seqBarNext) seqBarNext.disabled = S.currentStep >= sequenceStepCount() - 1;
+  if (playIcon)  playIcon.innerHTML = S.animating ? '&#9208;' : '&#9654;';
+  if (playLabel) playLabel.textContent = S.animating ? 'PAUSE' : 'PLAY';
   if (playBtn) playBtn.disabled = !playable;
   if (tlPlayBtn) tlPlayBtn.disabled = !playable;
-  if (rail) {
-    rail.innerHTML = '';
-    for (let i = 0; i < count; i++) {
-      const btn = document.createElement('button');
-      btn.className = `seq-chip${i === S.currentStep ? ' active' : ''}`;
-      btn.textContent = String(i + 1);
-      btn.title = `Go to Step ${i + 1}`;
-      btn.onclick = () => gotoStep(i);
-      rail.appendChild(btn);
-    }
-  }
 }
 
 //  ANIMATION
+function toggleSmartPlay() {
+  // If currently playing, pause
+  if (S.animating) {
+    stopPlayback(false);
+    return;
+  }
+  // If on last step or only 1 step, restart from step 0 then play
+  const count = sequenceStepCount();
+  if (count <= 1 || S.currentStep >= count - 1) {
+    S.currentStep = 0;
+    setLiveBoardFromStep(S.steps[0]);
+    refreshInteractionUI();
+  }
+  // Play from current position
+  togglePlay();
+}
+window.toggleSmartPlay = toggleSmartPlay;
+
 function togglePlay() {
   if (S.animating) {
     S.animating = false;
@@ -5085,6 +5121,10 @@ function togglePlay() {
     refreshInteractionUI();
     updateTL();
     render();
+    return;
+  }
+  if (sequenceStepCount() <= 1 || S.currentStep >= sequenceStepCount() - 1) {
+    togglePlayAll();
     return;
   }
   S.playAll = false;
@@ -5325,6 +5365,7 @@ function syncPlayButtons() {
   const playable = currentPhaseHasPlayablePlayback();
   const playBtn = document.getElementById('playBtn');
   const playAllBtn = document.getElementById('playAllBtn');
+  const mobPlayBtn = document.getElementById('mobPlayBtn');
   const tlPlayBtn = document.getElementById('tlPlayBtn');
   const singlePlayActive = S.animating && !S.playAll;
   const playAllLocked = S.playAll;
@@ -5341,6 +5382,10 @@ function syncPlayButtons() {
   if (tlPlayBtn) {
     tlPlayBtn.textContent = singlePlayActive ? 'Pause' : 'Play';
     tlPlayBtn.disabled = !playable || playAllLocked;
+  }
+  if (mobPlayBtn) {
+    mobPlayBtn.textContent = S.animating ? '\u23f8 PAUSE' : '\u25b6 PLAY';
+    mobPlayBtn.disabled = !playable;
   }
 }
 
@@ -5367,7 +5412,6 @@ function updateMobileUI() {
   const mobileSequencePlayBtn = document.getElementById('mobileSequencePlayBtn');
   const mobilePrevStepBtn = document.getElementById('mobilePrevStepBtn');
   const mobileNextStepBtn = document.getElementById('mobileNextStepBtn');
-  const mobileAddStepBtn = document.getElementById('mobileAddStepBtn');
   const mobileAddAttackBtn = document.getElementById('mobileAddAttackBtn');
   const mobileAddDefenceBtn = document.getElementById('mobileAddDefenceBtn');
   const mobileBoardSummary = document.getElementById('mobileBoardSummary');
@@ -5396,7 +5440,6 @@ function updateMobileUI() {
   }
   if (mobilePrevStepBtn) mobilePrevStepBtn.disabled = S.currentStep === 0;
   if (mobileNextStepBtn) mobileNextStepBtn.disabled = S.currentStep >= count - 1;
-  if (mobileAddStepBtn) mobileAddStepBtn.disabled = false;
   if (mobileAddAttackBtn) mobileAddAttackBtn.disabled = S.atkUsed.size >= 15;
   if (mobileAddDefenceBtn) mobileAddDefenceBtn.disabled = S.defUsed.size >= 15;
 
@@ -5580,6 +5623,8 @@ function updateBoardStatus() {
   const empty = document.getElementById('emptyState');
   const toolbarMode = document.getElementById('toolbarModeInline');
   const gainlineBtn = document.getElementById('gainlineToggleBtn');
+  const mobGainlineBtn = document.getElementById('mobGainlineBtn');
+  const mobBallBtn = document.querySelector('#mobileMoreDrawer .mob-more-btn[onclick*="addBall"]');
   const count = sequenceStepCount();
   const owner = normalizePlayerRef(S.ballOwner);
   const ownerText = owner ? `Ball: ${owner.team === 'A' ? 'A' : 'D'} #${owner.num}` : (S.ball ? 'Ball: Loose' : 'Ball: Off board');
@@ -5588,6 +5633,8 @@ function updateBoardStatus() {
   if (text) text.textContent = summary;
   if (toolbarMode) toolbarMode.textContent = `Mode: ${MODE_LABELS[S.tool] || 'Board'}`;
   if (gainlineBtn) gainlineBtn.classList.toggle('active', showGainline);
+  if (mobGainlineBtn) mobGainlineBtn.classList.toggle('active', showGainline);
+  if (mobBallBtn) mobBallBtn.disabled = !!S.ball;
   if (empty) empty.classList.toggle('hidden', !!S.players.length || !!S.ball || !!S.annotations.length);
   if (shouldShowFirstUseTutorial() && !_tourActive) {
     startTour();
@@ -5993,6 +6040,7 @@ function cancelActiveBoardInteraction() {
   return false;
 }
 function clearAll() {
+  if (!confirm('Clear all players and paths? This cannot be undone.')) return;
   snapshot();
   currentPresetId = null;
   GamePlan.name = 'New Play';
@@ -6344,46 +6392,4 @@ async function exportPDF() {
   doc.rect(0, 0, W, H, 'F');
 
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(22);
-  doc.text('RDA TACTICAL BOARD', 14, 14);
-  doc.setFontSize(14);
-  doc.setTextColor(251, 191, 36);
-  doc.text(playName, 14, 22);
-
-  const imgData = cv.toDataURL('image/png');
-  doc.addImage(imgData, 'PNG', 14, 28, 110, 155);
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(10);
-  let noteY = 32;
-  noteFields.forEach(([label, val]) => {
-    if (!val) return;
-    doc.setTextColor(251, 191, 36);
-    doc.setFontSize(8);
-    doc.text(label, 135, noteY);
-    noteY += 5;
-    doc.setTextColor(220, 220, 220);
-    doc.setFontSize(9);
-    const lines = doc.splitTextToSize(val, 75);
-    doc.text(lines, 135, noteY);
-    noteY += lines.length * 5 + 4;
-  });
-
-  const qr = qrcode(0, 'M');
-  qr.addData(window.location.href);
-  qr.make();
-  const qrImg = qr.createDataURL(4);
-  doc.addImage(qrImg, 'PNG', 255, 160, 30, 30);
-  doc.setTextColor(150, 150, 150);
-  doc.setFontSize(7);
-  doc.text('Scan to open live board', 256, 194);
-
-  doc.save(`${playName || 'play'}.pdf`);
-  setHint(`Exported "${playName}" as PDF.`);
-  refreshInteractionUI();
-}
-window.exportPDF = exportPDF;
-
-function exportCurrentPlay() {
-  const play = serializePlay();
-  const blob = new Blob([JSON.stringify(play, null, 2)], { type: 'application/json
+  doc
