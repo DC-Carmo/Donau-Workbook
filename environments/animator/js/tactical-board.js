@@ -3195,8 +3195,8 @@ function drawKickToTarget(x1, y1, x2, y2, progress = 1, selected = false) {
 function drawArc(x1, y1, x2, y2, color, progress = 1, thick = false, selected = false) {
   const p1 = toC(x1, y1), p2 = toC(x2, y2);
   const dist = Math.hypot(p2.x-p1.x, p2.y-p1.y);
-  const cpx  = (p1.x+p2.x)/2 - (p2.y-p1.y)*0.28;
-  const cpy  = (p1.y+p2.y)/2 + (p2.x-p1.x)*0.28;
+  const cpx  = (p1.x+p2.x)/2 + (p2.y-p1.y)*0.28;
+  const cpy  = (p1.y+p2.y)/2 - (p2.x-p1.x)*0.28;
   const STEPS = 30;
 
   ctx.save();
@@ -4216,17 +4216,23 @@ function handlePointerMove(e) {
         }
         pl.x = clamp(fp.x - S.dragOff.x, -2, 70);
         pl.y = clamp(fp.y - S.dragOff.y, -11, 111);
-        if (pl.isBC && S.ball) {
-          S.ball.x = pl.x;
-          S.ball.y = pl.y;
-        }
         const path = S.paths.find(p => p.pid === pl.id);
         if (path && path.pts.length) path.pts[0] = {x:pl.x, y:pl.y};
-        if (S.ballAttached && samePlayerRef(playerRef(pl), S.ballOwner)) {
+        if (samePlayerRef(playerRef(pl), S.ballOwner) && S.ball) {
+          // Ball magnet: this player owns the ball - always drag it along, regardless of ballAttached state
           S.ball = attachedBallPositionForPlayer(pl);
+          S.ballAttached = true;
           applyBallOwnershipVisualState();
-        } else if (samePlayerRef(playerRef(pl), S.ballOwner)) {
-          updateBallOwnerFromPosition();
+        } else if (!S.ballOwner && S.ball) {
+          // Loose ball snap: ball has no owner - if player drags within SNAP_RADIUS, they pick it up
+          const dist = d2({ x: pl.x, y: pl.y }, S.ball);
+          if (dist <= SNAP_RADIUS) {
+            S.ballOwner = playerRef(pl);
+            S.ballAttached = true;
+            S.ball = attachedBallPositionForPlayer(pl);
+            pl.isBC = true;
+            applyBallOwnershipVisualState();
+          }
         }
         if (pl.isBC) {
           updateGainDisplayForY(pl.y);
@@ -6392,17 +6398,4 @@ document.addEventListener('keydown', e => {
   if (k==='z'&&(e.ctrlKey||e.metaKey)&&e.shiftKey) { e.preventDefault(); redo(); return; }
   if (k==='z'&&(e.ctrlKey||e.metaKey)) { e.preventDefault(); undo(); }
   if (k==='delete'||k==='backspace') {
-    if (S.selectedPlayerId !== null || S.selectedGroupId !== null || isBallSelected() || selectedAnnotationId() || S.selectedPassIdx !== null || S.selectedPathPid !== null) {
-      e.preventDefault();
-      deleteSelected();
-    }
-  }
-});
-
-let trackDrag = false;
-const _trackThumb = document.getElementById('trackThumb');
-_trackThumb.addEventListener('pointerdown', e => {
-  trackDrag = true;
-  _trackThumb.setPointerCapture(e.pointerId);
-});
-_trackThumb.addEventLis
+    if (S.selectedPlayerId !== null || S.selectedGroupId !== null || isBallSelected() || selectedAnnota
