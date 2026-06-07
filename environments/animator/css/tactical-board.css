@@ -2474,14 +2474,22 @@ html, body {
   }
 
   #topbar {
-    padding: 6px 10px;
+    min-height: auto;
+    padding: 6px 10px 8px;
     gap: 8px;
+    flex-wrap: wrap;
+    align-items: flex-start;
   }
 
   .desktop-only,
   .tb-title-label,
   .tb-brand-sub {
     display: none !important;
+  }
+
+  .tb-brand {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .tb-brand-copy {
@@ -2492,20 +2500,35 @@ html, body {
     font-size: 0.88rem;
   }
 
+  .tb-title-shell {
+    order: 2;
+    flex: 1 0 100%;
+    min-width: 0;
+  }
+
   #playName {
     height: 34px;
     font-size: 0.82rem;
     padding-inline: 10px;
   }
 
+  .tb-actions {
+    order: 1;
+    margin-left: auto;
+    flex: 0 0 auto;
+    gap: 6px;
+  }
+
   .tb-actions .c-btn {
     min-width: 44px;
     padding: 0 10px;
+    font-size: 0.62rem;
   }
 
   .seq-bar {
     width: 100%;
     order: 3;
+    flex: 1 0 100%;
     gap: 4px;
     padding: 3px 5px;
   }
@@ -2687,7 +2710,7 @@ html, body {
 
 @media (max-width: 480px) {
   #topbar {
-    min-height: 48px;
+    padding-inline: 8px;
   }
 
   .tb-brand {
@@ -2704,7 +2727,9 @@ html, body {
   }
 
   .tb-actions .c-btn {
-    font-size: 0.62rem;
+    min-height: 32px;
+    padding-inline: 8px;
+    font-size: 0.58rem;
   }
 
   #field {

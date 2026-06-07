@@ -123,6 +123,8 @@
   const MOBILE_BREAKPOINT = 768;
   const MOBILE_ENVIRONMENT_LABEL = "Donau";
   let mobileWorkspaceMenuOpen = false;
+  let mobileWorkspaceHistory = [];
+  let mobileScrollLockY = 0;
   const DONAU_MOBILE_MODULE_ITEMS = [
     { type: "slide", slide: 1, shortLabel: "Intro", title: "Intro" },
     { type: "slide", slide: 2, shortLabel: "Standards", title: "Standards" },
@@ -329,7 +331,15 @@
       const link = document.createElement("a");
       link.className = "portal-return portal-inline";
       link.href = "../../index.html";
-      link.innerHTML = "<span>&#9664;</span> Back to Portal";
+      link.innerHTML = "<span>&#8249;&#xFE0E;</span> Back to Portal";
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        if (history.length > 1) {
+          history.back();
+        } else {
+          location.href = "../../index.html";
+        }
+      });
 
       const topbarRight = topbar.querySelector(".topbar-right");
       if (topbarRight) {
@@ -363,6 +373,40 @@
     });
   }
 
+  function lockMobileBodyScroll() {
+    if (!isMobileViewport() || document.body.classList.contains("mobile-scroll-locked")) {
+      return;
+    }
+
+    mobileScrollLockY = window.scrollY || window.pageYOffset || 0;
+    document.body.classList.add("mobile-scroll-locked");
+    document.body.style.top = `-${mobileScrollLockY}px`;
+  }
+
+  function unlockMobileBodyScroll() {
+    if (!document.body.classList.contains("mobile-scroll-locked")) {
+      return;
+    }
+
+    document.body.classList.remove("mobile-scroll-locked");
+    document.body.style.removeProperty("top");
+    window.scrollTo(0, mobileScrollLockY);
+  }
+
+  function goBackInWorkspace(event) {
+    event?.preventDefault?.();
+
+    while (mobileWorkspaceHistory.length) {
+      const previousSlide = mobileWorkspaceHistory.pop();
+      if (previousSlide !== cur && previousSlide >= 1 && previousSlide <= total) {
+        goTo(previousSlide, { fromHistory: true });
+        return;
+      }
+    }
+
+    goTo(1, { fromHistory: true });
+  }
+
   function buildMobileAppChrome() {
     if (document.querySelector(".mobile-app-header")) {
       return;
@@ -385,7 +429,7 @@
     const header = document.createElement("div");
     header.className = "mobile-app-header";
     header.innerHTML = `
-      <a class="mobile-app-portal-btn" href="../../index.html" aria-label="Back to portal">&#9664;</a>
+      <button class="mobile-app-portal-btn mobile-app-back-btn" type="button" aria-label="Go to previous section">&#8249;&#xFE0E;</button>
       <div class="mobile-app-meta">
         <span class="mobile-app-environment">${MOBILE_ENVIRONMENT_LABEL}</span>
         <span class="mobile-app-section">Intro</span>
@@ -424,11 +468,48 @@
     document.body.appendChild(drawer);
     document.body.appendChild(bottomNav);
 
+    header.querySelector(".mobile-app-back-btn").addEventListener("click", (event) => goBackInWorkspace(event));
     header.querySelector(".mobile-app-menu-btn").addEventListener("click", () => toggleMobileWorkspaceMenu());
     drawer.querySelector(".mobile-drawer-close").addEventListener("click", () => setMobileWorkspaceMenu(false));
     drawer.querySelector(".mobile-module-drawer-backdrop").addEventListener("click", () => setMobileWorkspaceMenu(false));
+    const drawerList = drawer.querySelector(".mobile-drawer-list");
+    let drawerStartX = 0;
+    let drawerStartY = 0;
+    let suppressDrawerClicksUntil = 0;
+    drawerList.addEventListener(
+      "touchstart",
+      (event) => {
+        const touch = event.touches[0];
+        if (!touch) {
+          return;
+        }
+        drawerStartX = touch.clientX;
+        drawerStartY = touch.clientY;
+      },
+      { passive: true },
+    );
+    drawerList.addEventListener(
+      "touchmove",
+      (event) => {
+        const touch = event.touches[0];
+        if (!touch) {
+          return;
+        }
+        const dx = Math.abs(touch.clientX - drawerStartX);
+        const dy = Math.abs(touch.clientY - drawerStartY);
+        if (dx > 8 || dy > 8) {
+          suppressDrawerClicksUntil = Date.now() + 220;
+        }
+      },
+      { passive: true },
+    );
     drawer.querySelectorAll(".mobile-drawer-item").forEach((item) => {
       item.addEventListener("click", (event) => {
+        if (Date.now() < suppressDrawerClicksUntil) {
+          event.preventDefault();
+          return;
+        }
+
         const drawerType = item.dataset.drawerType;
         setMobileWorkspaceMenu(false);
 
@@ -496,6 +577,11 @@
   function setMobileWorkspaceMenu(open) {
     mobileWorkspaceMenuOpen = Boolean(open) && isMobileViewport();
     document.body.classList.toggle("mobile-workspace-menu-open", mobileWorkspaceMenuOpen);
+    if (mobileWorkspaceMenuOpen) {
+      lockMobileBodyScroll();
+    } else {
+      unlockMobileBodyScroll();
+    }
     const drawer = document.getElementById("mobileModuleDrawer");
     if (drawer) {
       drawer.setAttribute("aria-hidden", mobileWorkspaceMenuOpen ? "false" : "true");
@@ -668,12 +754,27 @@
     }
   }
 
-  function goTo(n) {
+  function goTo(n, options = {}) {
     if (document.body.classList.contains("overlay-active")) {
       return;
     }
 
+    if (typeof n !== "number" || n < 1 || n > total) {
+      return;
+    }
+
+    const { fromHistory = false, behavior = "smooth" } = options;
+    if (n !== cur && !fromHistory) {
+      mobileWorkspaceHistory.push(cur);
+      if (mobileWorkspaceHistory.length > 40) {
+        mobileWorkspaceHistory = mobileWorkspaceHistory.slice(-40);
+      }
+    }
+
     setMobileWorkspaceMenu(false);
+    if (n === cur) {
+      return;
+    }
     document.getElementById(`s${cur}`).classList.remove("active");
     cur = n;
     document.getElementById(`s${cur}`).classList.add("active");
@@ -682,7 +783,7 @@
     if (isMobileViewport()) {
       requestAnimationFrame(() => {
         syncMobileWorkspaceOffset();
-        requestAnimationFrame(() => scrollActiveSlideIntoView());
+        requestAnimationFrame(() => scrollActiveSlideIntoView(behavior));
       });
     }
   }
@@ -1310,22 +1411,85 @@
     });
 
     let sx = null;
-    document.addEventListener("touchstart", (event) => {
-      sx = event.touches[0].clientX;
-    });
+    let sy = null;
+    let swipeEligible = false;
+    document.addEventListener(
+      "touchstart",
+      (event) => {
+        const touch = event.touches[0];
+        const target = event.target;
+        const ignoreSwipe =
+          mobileWorkspaceMenuOpen ||
+          event.touches.length !== 1 ||
+          target.closest(
+            ".mobile-module-drawer-sheet, .mobile-bottom-nav, .mobile-app-header, .mobile-workspace-bar, .workspace-map, button, a, input, textarea, select, label",
+          );
 
-    document.addEventListener("touchend", (event) => {
-      if (sx === null) {
-        return;
-      }
+        if (!touch || ignoreSwipe) {
+          sx = null;
+          sy = null;
+          swipeEligible = false;
+          return;
+        }
 
-      const diff = sx - event.changedTouches[0].clientX;
-      if (Math.abs(diff) > 50) {
-        changeSlide(diff > 0 ? 1 : -1);
-      }
+        sx = touch.clientX;
+        sy = touch.clientY;
+        swipeEligible = true;
+      },
+      { passive: true },
+    );
 
-      sx = null;
-    });
+    document.addEventListener(
+      "touchmove",
+      (event) => {
+        if (!swipeEligible || sx === null || sy === null) {
+          return;
+        }
+
+        const touch = event.touches[0];
+        if (!touch) {
+          swipeEligible = false;
+          return;
+        }
+
+        const dx = touch.clientX - sx;
+        const dy = touch.clientY - sy;
+        if (Math.abs(dy) > 16 && Math.abs(dy) >= Math.abs(dx)) {
+          swipeEligible = false;
+        }
+      },
+      { passive: true },
+    );
+
+    document.addEventListener(
+      "touchend",
+      (event) => {
+        if (!swipeEligible || sx === null || sy === null) {
+          sx = null;
+          sy = null;
+          swipeEligible = false;
+          return;
+        }
+
+        const touch = event.changedTouches[0];
+        if (!touch) {
+          sx = null;
+          sy = null;
+          swipeEligible = false;
+          return;
+        }
+
+        const dx = sx - touch.clientX;
+        const dy = sy - touch.clientY;
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 55) {
+          changeSlide(dx > 0 ? 1 : -1);
+        }
+        sx = null;
+        sy = null;
+        swipeEligible = false;
+      },
+      { passive: true },
+    );
 
     document.addEventListener("click", (event) => {
       if (!mobileWorkspaceMenuOpen || !isMobileViewport()) {
@@ -1354,6 +1518,7 @@
     window.addEventListener("resize", () => {
       if (!isMobileViewport()) {
         setMobileWorkspaceMenu(false);
+        mobileWorkspaceHistory = [];
       }
       syncMobileWorkspaceOffset();
     });
@@ -1377,6 +1542,7 @@
   window.changeSlide = changeSlide;
   window.closeFieldLightbox = closeFieldLightbox;
   window.closeOverlay = closeOverlay;
+  window.goBackInWorkspace = goBackInWorkspace;
   window.goTo = goTo;
   window.openFieldLightbox = openFieldLightbox;
   window.openOverlay = openOverlay;
