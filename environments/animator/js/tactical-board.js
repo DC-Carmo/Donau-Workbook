@@ -325,36 +325,183 @@ function isMobileBoardViewport() {
 }
 
 function hasSeenFirstUseTutorial() {
-  try {
-    return localStorage.getItem(FIRST_USE_TUTORIAL_KEY) === '1';
-  } catch {
-    return false;
-  }
+  try { return localStorage.getItem(FIRST_USE_TUTORIAL_KEY) === '1'; } catch(e) { return false; }
 }
 
 function markFirstUseTutorialSeen() {
   firstUseTutorialDismissed = true;
-  try {
-    localStorage.setItem(FIRST_USE_TUTORIAL_KEY, '1');
-  } catch {}
+  try { localStorage.setItem(FIRST_USE_TUTORIAL_KEY, '1'); } catch(e) {}
 }
 
 function shouldShowFirstUseTutorial() {
   return !firstUseTutorialDismissed && !S.players.length && !S.ball && !S.annotations.length;
 }
 
-function dismissFirstUseTutorial() {
+// Guided Onboarding Tour
+let _tourCurrentStep = 0;
+let _tourSpotlit = null;
+let _tourActive = false;
+
+const TOUR_STEPS = [
+  {
+    targetId: 'mobileAddAttackBtn',
+    position: 'above',
+    title: 'Add players',
+    body: 'Tap <strong>+ ATTACK</strong> or <strong>+ DEFENCE</strong> to drop numbered players onto the board. Add as many as you need.',
+  },
+  {
+    targetId: 'mobileBallBtn',
+    position: 'above',
+    title: 'Place the ball',
+    body: 'Tap <strong>BALL</strong> to add the ball, then drag it to the starting position for your play.',
+  },
+  {
+    targetId: null,
+    position: 'centre',
+    title: 'Drag & arrange',
+    body: 'With <strong>MOVE</strong> active, drag any player or the ball to set up your starting formation.',
+  },
+  {
+    targetId: 'bottomPanel',
+    position: 'above',
+    title: 'Draw movement',
+    body: 'Select <strong>RUN</strong>, <strong>PASS</strong>, or <strong>KICK</strong> from the toolbar, then drag from a player to draw the action.',
+  },
+  {
+    targetId: 'phaseChipStrip',
+    position: 'below',
+    title: 'Build phases',
+    body: 'Tap <strong>+ STEP</strong> to add the next phase of play. Each chip represents one phase - scrub through them to review the sequence.',
+  },
+  {
+    targetId: 'playBtn',
+    position: 'above',
+    title: 'Play it back',
+    body: 'Tap <strong>PLAY</strong> to animate the whole sequence. Use <strong>PLAY ALL</strong> to run through every phase automatically. You\'re ready to coach!',
+  },
+];
+
+function _tourClearSpotlight() {
+  if (_tourSpotlit) {
+    _tourSpotlit.classList.remove('tour-spotlight');
+    _tourSpotlit = null;
+  }
+}
+
+function _tourPositionTooltip(tooltip, targetEl, position) {
+  const pad = 12;
+  tooltip.style.left = '';
+  tooltip.style.right = '';
+  tooltip.style.top = '';
+  tooltip.style.bottom = '';
+  tooltip.style.transform = '';
+
+  if (!targetEl || position === 'centre') {
+    tooltip.style.left = '50%';
+    tooltip.style.top = '50%';
+    tooltip.style.transform = 'translate(-50%,-50%)';
+    return;
+  }
+
+  const tr = targetEl.getBoundingClientRect();
+  const tw = tooltip.offsetWidth || 280;
+  const th = tooltip.offsetHeight || 160;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  let left = tr.left + tr.width / 2 - tw / 2;
+  left = Math.max(pad, Math.min(left, vw - tw - pad));
+
+  if (position === 'above') {
+    const top = tr.top - th - 14;
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = Math.max(pad, top) + 'px';
+  } else {
+    const top = tr.bottom + 14;
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = Math.min(top, vh - th - pad) + 'px';
+  }
+}
+
+function _tourShowStep(index) {
+  const backdrop = document.getElementById('tourBackdrop');
+  const tooltip  = document.getElementById('tourTooltip');
+  const counter  = document.getElementById('tourCounter');
+  const title    = document.getElementById('tourTitle');
+  const body     = document.getElementById('tourBody');
+  const nextBtn  = document.getElementById('tourNext');
+  const skipBtn  = document.getElementById('tourSkip');
+  if (!tooltip) return;
+
+  _tourClearSpotlight();
+
+  const step = TOUR_STEPS[index];
+  const isLast = index === TOUR_STEPS.length - 1;
+
+  counter.textContent = `Step ${index + 1} of ${TOUR_STEPS.length}`;
+  title.textContent = step.title;
+  body.innerHTML = step.body;
+  nextBtn.textContent = isLast ? 'Done ✓' : 'Next →';
+
+  const targetEl = step.targetId ? document.getElementById(step.targetId) : null;
+  if (targetEl) {
+    targetEl.classList.add('tour-spotlight');
+    _tourSpotlit = targetEl;
+  }
+
+  if (backdrop) backdrop.classList.add('active');
+  tooltip.classList.add('active');
+
+  requestAnimationFrame(() => {
+    _tourPositionTooltip(tooltip, targetEl, step.position);
+  });
+
+  nextBtn.onclick = () => {
+    if (isLast) {
+      endTour();
+    } else {
+      _tourCurrentStep++;
+      _tourShowStep(_tourCurrentStep);
+    }
+  };
+  skipBtn.onclick = () => endTour();
+}
+
+function startTour() {
+  if (_tourActive) return;
+  _tourActive = true;
+  _tourCurrentStep = 0;
+  _tourShowStep(0);
+}
+
+function endTour() {
+  if (!_tourActive && firstUseTutorialDismissed) return;
+  _tourActive = false;
+  _tourClearSpotlight();
+  const backdrop = document.getElementById('tourBackdrop');
+  const tooltip  = document.getElementById('tourTooltip');
+  if (backdrop) backdrop.classList.remove('active');
+  if (tooltip) tooltip.classList.remove('active');
   markFirstUseTutorialSeen();
   updateBoardStatus();
 }
 
+function dismissFirstUseTutorial() {
+  endTour();
+}
+
 function completeFirstUseTutorial() {
   if (firstUseTutorialDismissed) return;
+  if (_tourActive) {
+    endTour();
+    return;
+  }
   markFirstUseTutorialSeen();
   updateBoardStatus();
 }
 
 window.dismissFirstUseTutorial = dismissFirstUseTutorial;
+window.startTour = startTour;
 
 const R = () => {
   const base = Math.max(15, Math.min(24, sc * 1.8));
@@ -5386,7 +5533,6 @@ function updateBoardStatus() {
   const mode = document.getElementById('boardModeLabel');
   const text = document.getElementById('boardStatusText');
   const empty = document.getElementById('emptyState');
-  const tutorial = document.getElementById('firstUseTutorial');
   const toolbarMode = document.getElementById('toolbarModeInline');
   const gainlineBtn = document.getElementById('gainlineToggleBtn');
   const count = sequenceStepCount();
@@ -5398,7 +5544,9 @@ function updateBoardStatus() {
   if (toolbarMode) toolbarMode.textContent = `Mode: ${MODE_LABELS[S.tool] || 'Board'}`;
   if (gainlineBtn) gainlineBtn.classList.toggle('active', showGainline);
   if (empty) empty.classList.toggle('hidden', !!S.players.length || !!S.ball || !!S.annotations.length);
-  if (tutorial) tutorial.classList.toggle('hidden', !shouldShowFirstUseTutorial());
+  if (shouldShowFirstUseTutorial() && !_tourActive) {
+    startTour();
+  }
 }
 
 function toggleGainline() {
@@ -6257,128 +6405,4 @@ _trackThumb.addEventListener('pointerdown', e => {
   trackDrag = true;
   _trackThumb.setPointerCapture(e.pointerId);
 });
-_trackThumb.addEventListener('pointermove', e => {
-  if (!trackDrag) return;
-  const r = document.getElementById('track').getBoundingClientRect();
-  const raw = clamp((e.clientX - r.left) / r.width, 0, 1);
-  if (!S.animating && sequenceStepCount() > 1) {
-    gotoStep(Math.round(raw * (sequenceStepCount() - 1)));
-    return;
-  }
-  S.animT = raw;
-  updateTL(); render();
-});
-_trackThumb.addEventListener('pointerup', () => trackDrag = false);
-_trackThumb.addEventListener('pointercancel', () => trackDrag = false);
-_trackThumb.addEventListener('touchstart', e => { e.preventDefault(); trackDrag = true; }, { passive: false });
-_trackThumb.addEventListener('touchmove', e => {
-  if (!trackDrag) return;
-  const ne = normEvent(e);
-  const r = document.getElementById('track').getBoundingClientRect();
-  const raw = clamp((ne.clientX - r.left) / r.width, 0, 1);
-  if (!S.animating && sequenceStepCount() > 1) {
-    gotoStep(Math.round(raw * (sequenceStepCount() - 1)));
-    return;
-  }
-  S.animT = raw;
-  updateTL(); render();
-}, { passive: false });
-_trackThumb.addEventListener('touchend',    () => trackDrag = false, { passive: false });
-_trackThumb.addEventListener('touchcancel', () => trackDrag = false, { passive: false });
-
-//  INIT
-GamePlan.phases = GamePlan.phases.map((phase, index) => normalizePhaseState(phase, index));
-buildPlayList();
-updatePresetOptionsUI();
-rebuildPalette();
-refreshSavedPlayList();
-S.playMetadata = emptyPlayMetadata('New Play');
-GamePlan.name = 'New Play';
-GamePlan.currentPhase = 0;
-S.steps = [emptyStepState()];
-S.currentStep = 0;
-firstUseTutorialDismissed = hasSeenFirstUseTutorial();
-updateAnnotationPanel();
-updatePhaseUI();
-updatePlayMetadataPanel();
-document.getElementById('playName').addEventListener('input', () => {
-  GamePlan.name = currentPlayTitle();
-  syncPlayMetadataTitle();
-  refreshInteractionUI();
-});
-window.serializePlay = serializePlay;
-window.deserializePlay = deserializePlay;
-window.migratePlay = migratePlay;
-
-document.addEventListener('pointerdown', e => {
-  if (!radialMenu) return;
-  const menu = document.getElementById('radialMenu');
-  if (menu && !menu.contains(e.target)) {
-    closeRadialMenu();
-    render();
-  }
-});
-[
-  'metaPurpose',
-  'metaCoachingPoint1',
-  'metaCoachingPoint2',
-  'metaCoachingPoint3',
-  'metaDecisionCue',
-  'metaCommonMistake1',
-  'metaCommonMistake2',
-  'metaCommonMistake3',
-].forEach(id => {
-  document.getElementById(id).addEventListener('input', updatePlayMetadataFromInputs);
-});
-document.getElementById('selNoteInput').addEventListener('input', e => updateSelectedNoteText(e.target.value));
-document.getElementById('selNoteInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    e.target.blur();
-  }
-  if (e.key === 'Escape') {
-    const ann = selectedAnnotation();
-    if (ann?.type === 'note') {
-      e.target.value = ann.text;
-    }
-    e.target.blur();
-  }
-});
-document.getElementById('importPlayInput').addEventListener('change', e => {
-  importPlayFromFile(e.target.files?.[0]);
-  e.target.value = '';
-});
-document.getElementById('spKickStep1')?.addEventListener('click', e => {
-  e.preventDefault();
-  if (S.tool === 'kick') cancelArmedKick();
-});
-window.addEventListener('resize', resize);
-resize();
-loadPlay('scrum_left');
-setHint('MOVE - drag the scrum pack as one unit, or switch to individual edits when you need detail.');
-refreshInteractionUI();
-
-(function initAccordions() {
-  ['accPurpose', 'accDecision', 'accCoaching', 'accMistakes'].forEach(function(id) {
-    try {
-      if (localStorage.getItem('sp-acc-' + id) === '1') {
-        var section = document.getElementById(id);
-        if (section) {
-          section.classList.add('sp-acc-open');
-          var trigger = section.querySelector('.sp-acc-trigger');
-          if (trigger) trigger.setAttribute('aria-expanded', 'true');
-        }
-      }
-    } catch(e) {}
-  });
-})();
-
-document.addEventListener('pointerdown', e => {
-  const dropdown = document.getElementById('mobileToolsDropdown');
-  const btn = document.getElementById('mobileToolsBtn');
-  if (!dropdown || !dropdown.classList.contains('is-open')) return;
-  if (!dropdown.contains(e.target) && e.target !== btn && !btn?.contains(e.target)) {
-    closeMobileToolsDropdown();
-  }
-}, { capture: true });
-
+_trackThumb.addEventLis

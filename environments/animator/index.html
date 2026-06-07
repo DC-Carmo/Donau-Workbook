@@ -220,17 +220,6 @@
         <span></span>
       </div>
 
-      <div id="firstUseTutorial" class="first-use-tutorial" role="status" aria-live="polite">
-        <div class="first-use-kicker">Quick Start</div>
-        <div class="first-use-title">Set the picture in three moves</div>
-        <div class="first-use-steps">
-          <div class="first-use-step"><span>1</span> Add players from the bottom rail.</div>
-          <div class="first-use-step"><span>2</span> Place the ball, then drag items into shape.</div>
-          <div class="first-use-step"><span>3</span> Use Run, Pass, or Kick to build the action.</div>
-        </div>
-        <button class="first-use-dismiss" type="button" onclick="dismissFirstUseTutorial(); this.closest('.first-use-tutorial').style.display='none'">Got it</button>
-      </div>
-
       <div id="emptyState" class="empty-state">
         <div class="empty-state-kicker">Start Here</div>
         <div class="empty-state-title">Build your first board state</div>
@@ -344,7 +333,19 @@
     <span id="tlTime">0.0 / 5.0s</span>
     <span id="spdLabel">1×</span>
   </div>
+  <!-- Guided onboarding tour -->
+  <div id="tourBackdrop" class="tour-backdrop" aria-hidden="true"></div>
+  <div id="tourTooltip" class="tour-tooltip" role="dialog" aria-modal="true" aria-label="Onboarding tour">
+    <div class="tour-step-counter" id="tourCounter">Step 1 of 6</div>
+    <div class="tour-title" id="tourTitle"></div>
+    <div class="tour-body" id="tourBody"></div>
+    <div class="tour-actions">
+      <button class="tour-skip" id="tourSkip" type="button">Skip tour</button>
+      <button class="tour-next" id="tourNext" type="button">Next &#8594;</button>
+    </div>
+  </div>
 </div>
 <script src="js/tactical-board.js"></script>
 </body>
 </html>
+                                                                                                                                                                                  
