@@ -22,6 +22,7 @@ const FVW = F.DX1 - F.DX0;
 const FVH = F.DY1 - F.DY0;
 const BALL_CARRY_OFFSET = { x: 1.45, y: -1.05 };
 const MOBILE_TAP_TOGGLE_PX = 5;
+const PENDING_GROUP_DRAG_PX = 8;
 const SNAP_RADIUS = 4; // field units (~4m)
 let GAINLINE_Y = 50;      // default: halfway
 let showGainline = true;
@@ -249,6 +250,7 @@ Object.assign(S, {
   nextId: 1,
   ballAssignCandidate: null,
   pointerTap: null,
+  draggingPendingGroup: false,
   selectedPassIdx: null,
   selectedPathPid: null,
 });
@@ -1076,6 +1078,7 @@ function groupMembers(group) {
 
 function clearPendingGroupPlacement() {
   S.pendingGroupPlacement = null;
+  S.draggingPendingGroup = false;
 }
 
 function buildGroupPlacementState(group, anchorPlayerId = null) {
@@ -1093,7 +1096,49 @@ function buildGroupPlacementState(group, anchorPlayerId = null) {
     center,
     startPositions: members.map(member => ({ id: member.id, x: member.x, y: member.y })),
     startBall: S.ball ? { x: S.ball.x, y: S.ball.y } : null,
+    anchorStart: null,
+    lastFp: null,
   };
+}
+
+function movePendingGroupTo(pending, fp) {
+  if (!pending?.startPositions?.length || !fp) return;
+  const members = pending.startPositions
+    .map(member => {
+      const pl = S.players.find(player => player.id === member.id);
+      return pl ? { live: pl, start: member } : null;
+    })
+    .filter(Boolean);
+  if (!members.length) return;
+  if (!pending.anchorStart) pending.anchorStart = { x: fp.x, y: fp.y };
+  if (!pending.lastFp) {
+    pending.lastFp = { x: fp.x, y: fp.y };
+    return;
+  }
+  const dxRaw = fp.x - pending.lastFp.x;
+  const dyRaw = fp.y - pending.lastFp.y;
+  const dxMin = Math.max(...members.map(({ live }) => F.XMIN - live.x));
+  const dxMax = Math.min(...members.map(({ live }) => F.XMAX - live.x));
+  const dyMin = Math.max(...members.map(({ live }) => F.YMIN - live.y));
+  const dyMax = Math.min(...members.map(({ live }) => F.YMAX - live.y));
+  const dx = clamp(dxRaw, dxMin, dxMax);
+  const dy = clamp(dyRaw, dyMin, dyMax);
+  members.forEach(({ live }) => {
+    live.x += dx;
+    live.y += dy;
+    const path = S.paths.find(pathItem => pathItem.pid === live.id);
+    if (path && path.pts.length) path.pts[0] = { x: live.x, y: live.y };
+    if (live.isBC && S.ball) {
+      if (S.ballAttached && samePlayerRef(playerRef(live), S.ballOwner)) {
+        S.ball = attachedBallPositionForPlayer(live);
+      } else if (pending.startBall) {
+        S.ball.x = clamp(S.ball.x + dx, F.XMIN, F.XMAX);
+        S.ball.y = clamp(S.ball.y + dy, F.YMIN, F.YMAX);
+      }
+      updateGainDisplayForY(live.y);
+    }
+  });
+  pending.lastFp = { x: fp.x, y: fp.y };
 }
 
 function placeGroupAtPoint(placement, point) {
@@ -1857,14 +1902,14 @@ function lineoutPreset(id, name, count, attacking) {
     id,
     name,
     cat: 'Lineouts',
-    desc: 'Lineout pods load horizontally across the field and stay editable after setup.',
+    desc: 'Lineout pod loads as a draggable block. Click the pack to move it, or use Edit Individuals to adjust positions.',
     defaultGroupId: attacking ? 'atk_lineout_pack' : 'def_lineout_pack',
     focusTeam: attacking ? 'A' : 'D',
     players: [
-      ...lineoutChain('A', count, 8, 84),
-      ...attackLineoutSupport(84),
-      ...lineoutChain('D', count, 10, 80),
-      ...defenceLineoutSupport(80),
+      ...lineoutChain('A', count, 8, 50),
+      ...attackLineoutSupport(50),
+      ...lineoutChain('D', count, 10, 46),
+      ...defenceLineoutSupport(46),
     ],
     groups: [
       makeGroup('atk_lineout_pack', count === 5 ? 'Attack 5-Man Lineout' : 'Attack 7-Man Lineout', 'A', nums, PRESET_GROUP_ATTACK),
@@ -1874,10 +1919,62 @@ function lineoutPreset(id, name, count, attacking) {
 }
 
 const PLAYS = [
-  scrumPreset('scrum_left', 'Scrum Left Launch', 'Scrum Left', 18, 'left'),
-  scrumPreset('scrum_centre', 'Scrum Centre Launch', 'Scrum Centre', 34, 'centre'),
-  scrumPreset('scrum_right', 'Scrum Right Launch', 'Scrum Right', 50, 'right'),
-  scrumAttackFivePreset(),
+  {
+    id: 'scrum_attack',
+    name: 'Scrum — Attack',
+    cat: 'Scrum',
+    desc: 'Attack 8-man scrum pack + backline. Drag the pack to position.',
+    defaultGroupId: 'atk_scrum_pack',
+    focusTeam: 'A',
+    players: [
+      { num: 1, team: 'A', x: 30.5, y: 50.5 },
+      { num: 2, team: 'A', x: 33,   y: 49.8 },
+      { num: 3, team: 'A', x: 35.5, y: 50.5 },
+      { num: 4, team: 'A', x: 31.5, y: 48.5 },
+      { num: 5, team: 'A', x: 34,   y: 48.0 },
+      { num: 6, team: 'A', x: 30,   y: 46.5 },
+      { num: 7, team: 'A', x: 36.5, y: 46.5 },
+      { num: 8, team: 'A', x: 33,   y: 45.0 },
+      { num: 9,  team: 'A', x: 29,  y: 43.5 },
+      { num: 10, team: 'A', x: 25,  y: 40.0 },
+      { num: 12, team: 'A', x: 20,  y: 38.0 },
+      { num: 13, team: 'A', x: 14,  y: 36.5 },
+      { num: 11, team: 'A', x: 6,   y: 34.0 },
+      { num: 14, team: 'A', x: 62,  y: 34.0 },
+      { num: 15, team: 'A', x: 34,  y: 28.0 },
+    ],
+    groups: [
+      makeGroup('atk_scrum_pack', 'Attack Scrum Pack', 'A', [1,2,3,4,5,6,7,8], PRESET_GROUP_ATTACK),
+    ],
+  },
+  {
+    id: 'scrum_defence',
+    name: 'Scrum — Defence',
+    cat: 'Scrum',
+    desc: 'Defence 8-man scrum pack + defensive shape. Drag the pack to position.',
+    defaultGroupId: 'def_scrum_pack',
+    focusTeam: 'D',
+    players: [
+      { num: 1, team: 'D', x: 30.5, y: 53.5 },
+      { num: 2, team: 'D', x: 33,   y: 54.2 },
+      { num: 3, team: 'D', x: 35.5, y: 53.5 },
+      { num: 4, team: 'D', x: 31.5, y: 55.5 },
+      { num: 5, team: 'D', x: 34,   y: 56.0 },
+      { num: 6, team: 'D', x: 30,   y: 57.5 },
+      { num: 7, team: 'D', x: 36.5, y: 57.5 },
+      { num: 8, team: 'D', x: 33,   y: 59.0 },
+      { num: 9,  team: 'D', x: 37,  y: 61.0 },
+      { num: 10, team: 'D', x: 42,  y: 64.0 },
+      { num: 12, team: 'D', x: 48,  y: 66.0 },
+      { num: 13, team: 'D', x: 54,  y: 67.5 },
+      { num: 11, team: 'D', x: 62,  y: 69.5 },
+      { num: 14, team: 'D', x: 6,   y: 69.5 },
+      { num: 15, team: 'D', x: 34,  y: 75.0 },
+    ],
+    groups: [
+      makeGroup('def_scrum_pack', 'Defence Scrum Pack', 'D', [1,2,3,4,5,6,7,8], PRESET_GROUP_DEFENCE),
+    ],
+  },
   lineoutPreset('lineout_5_attack', 'Lineout 5-Man Attack', 5, true),
   lineoutPreset('lineout_5_defence', 'Lineout 5-Man Defence', 5, false),
   lineoutAttackSevenPreset(),
@@ -1980,6 +2077,11 @@ function buildPlayList() {
     groups.get(play.cat).push(play);
   });
   groups.forEach((plays, cat) => {
+    const visiblePlays = cat === 'Kickoffs'
+      ? plays.filter(play => Array.isArray(play?.players) && play.players.length)
+      : plays;
+    if (!visiblePlays.length) return;
+
     const section = document.createElement('div');
     section.className = 'play-category-section';
 
@@ -1994,7 +2096,7 @@ function buildPlayList() {
     list.className = 'play-category-list';
     list.hidden = true;
 
-    plays.forEach(play => {
+    visiblePlays.forEach(play => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'play-preset-btn';
@@ -2027,7 +2129,7 @@ function loadPlay(id) {
     document.getElementById('playName').value = play.name;
     syncPlayMetadataTitle();
     setHint(defaultGroup
-      ? `Loaded preset "${play.name}". Click the pack, then click again to place it, or unlock it for individual edits.`
+      ? `Loaded preset "${play.name}". Click the pack, then drag or tap to place it, or unlock it for individual edits.`
       : `Loaded preset "${play.name}".`);
     refreshInteractionUI();
   }
@@ -3874,12 +3976,12 @@ function handlePointerDown(e) {
       ? S.pendingGroupPlacement.startPositions?.some(member => member.id === pl.id)
       : false;
     if (S.pendingGroupPlacement && !clickedPendingMember && !annHit) {
-      snapshot();
-      placeGroupAtPoint(S.pendingGroupPlacement, clampedFieldPoint);
-      const group = selectedGroup() || S.groups.find(item => item.id === S.pendingGroupPlacement?.id) || null;
-      clearPendingGroupPlacement();
-      updateBallOwnerFromPosition();
-      setHint(group ? `${group.label} placed. Click the pack again to reposition it.` : 'Pack placed.');
+      S.draggingPendingGroup = false;
+      S.pendingGroupPlacement.anchorStart = { x: clampedFieldPoint.x, y: clampedFieldPoint.y };
+      S.pendingGroupPlacement.lastFp = { x: clampedFieldPoint.x, y: clampedFieldPoint.y };
+      beginPointerTap(e.pointerId, { type:'pending-group-place' }, e);
+      try { cv.setPointerCapture(e.pointerId); } catch(_) {}
+      setHint('Drag to place the pack, or tap to drop it on that spot.');
       refreshInteractionUI();
       render();
       return;
@@ -4238,6 +4340,24 @@ function handlePointerMove(e) {
   const fieldPoint = clampFieldPoint(fp);
   updatePointerTapMovement(e);
 
+  if (
+    S.pendingGroupPlacement &&
+    S.dragging === null &&
+    S.pointerTap?.payload?.type === 'pending-group-place' &&
+    S.pointerTap.pointerId === e.pointerId
+  ) {
+    const dx = e.clientX - S.pointerTap.startClientX;
+    const dy = e.clientY - S.pointerTap.startClientY;
+    if (Math.hypot(dx, dy) > PENDING_GROUP_DRAG_PX) {
+      S.draggingPendingGroup = true;
+    }
+    if (S.draggingPendingGroup) {
+      movePendingGroupTo(S.pendingGroupPlacement, fieldPoint);
+      render();
+      return;
+    }
+  }
+
   // Drag
   if (S.dragging) {
     cv.style.cursor = 'grabbing';
@@ -4445,7 +4565,19 @@ function handlePointerMove(e) {
 cv.addEventListener('pointermove', handlePointerMove);
 
 function onPointerUp(e) {
+  const clampedFieldPoint = clampFieldPoint(getF(e));
   const tap = consumePointerTap(e?.pointerId);
+  if (tap?.payload?.type === 'pending-group-place') {
+    const group = selectedGroup() || S.groups.find(item => item.id === S.pendingGroupPlacement?.id) || null;
+    snapshot();
+    placeGroupAtPoint(S.pendingGroupPlacement, clampedFieldPoint);
+    clearPendingGroupPlacement();
+    updateBallOwnerFromPosition();
+    setHint(group ? `${group.label} placed. Click the pack again to reposition it.` : 'Pack placed.');
+    refreshInteractionUI();
+    render();
+    return;
+  }
   if (tap && !tap.moved && S.tool === 'move') {
     if (tap.payload.type === 'player' && isPlayerSelected(tap.payload.id)) {
       S.dragging = null;
@@ -4473,7 +4605,7 @@ function onPointerUp(e) {
     if (tap.payload.type === 'group') {
       const group = selectedGroup() || S.groups.find(item => item.id === tap.payload.id) || null;
       if (group && S.pendingGroupPlacement?.id === group.id) {
-        setHint(`${group.label} selected. Click again on the field to place the pack.`);
+        setHint(`${group.label} selected. Drag on the field to place the pack, or tap to drop it.`);
       }
       refreshInteractionUI();
       render();
@@ -6251,145 +6383,4 @@ function applyBoardData(play, { snapshotBefore = true } = {}) {
   updatePresetOptionsUI();
   updatePhaseUI();
   rebuildPalette();
-  refreshInteractionUI();
-  updateTL();
-  render();
-  setTool('move');
-  completeFirstUseTutorial();
-  return true;
-}
-
-function getSavedPlays() {
-  try {
-    const raw = localStorage.getItem(SAVED_PLAYS_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(parsed)) return [];
-    return parsed.map(item => normalizeProjectRecord(item)).filter(Boolean);
-  } catch {
-    return [];
-  }
-}
-
-function setSavedPlays(plays) {
-  localStorage.setItem(SAVED_PLAYS_KEY, JSON.stringify(plays));
-}
-
-function saveCurrentPlay() {
-  const board = makeBoardData();
-  const saved = getSavedPlays();
-  const stamp = nowIso();
-  const entry = {
-    ...board,
-    metadata: {
-      ...board.metadata,
-      updatedAt: stamp,
-    },
-    savedAt: stamp,
-  };
-  S.projectId = entry.id;
-  S.projectMeta = entry.metadata;
-  S.playMetadata = entry.metadata;
-  S.projectPlayback = entry.playback;
-  const withoutSameProject = saved.filter(item => item.id !== entry.id);
-  const withoutSameName = withoutSameProject.filter(item => item.name !== entry.name);
-  withoutSameName.unshift(entry);
-  setSavedPlays(withoutSameName.slice(0, 20));
-  refreshSavedPlayList();
-  setHint(`Saved "${entry.name}" locally.`);
-  refreshInteractionUI();
-}
-
-function refreshSavedPlayList() {
-  const wrap = document.getElementById('savedPlayList');
-  if (!wrap) return;
-  const saved = getSavedPlays();
-  wrap.innerHTML = '';
-  if (!saved.length) {
-    wrap.innerHTML = '<div class="saved-play-empty">No local saves yet. Save the current board to keep building from it later.</div>';
-    return;
-  }
-  saved.forEach(item => {
-    const card = document.createElement('div');
-    card.className = 'saved-play-card';
-    const savedDate = item.savedAt ? new Date(item.savedAt).toLocaleString() : 'Saved locally';
-    card.innerHTML = `<div class="saved-play-main">
-      <div>
-        <div class="saved-play-name">${item.name}</div>
-        <div class="saved-play-meta">${savedDate}<br>${item.steps?.length || 1} step${(item.steps?.length || 1) === 1 ? '' : 's'} · ${item.players?.length || 0} players · ${(item.paths||[]).length} paths · ${(item.passes||[]).length} passes</div>
-      </div>
-    </div>
-    <div class="saved-play-actions">
-      <button class="saved-play-btn" data-action="load">Load</button>
-      <button class="saved-play-btn" data-action="export">Export</button>
-      <button class="saved-play-btn danger" data-action="delete">Delete</button>
-    </div>`;
-    card.querySelector('[data-action="load"]').onclick = () => {
-      if (applyBoardData(item)) {
-        setHint(`Loaded "${item.name}".`);
-        refreshInteractionUI();
-      }
-    };
-    card.querySelector('[data-action="export"]').onclick = () => exportPlayData(item);
-    card.querySelector('[data-action="delete"]').onclick = () => deleteSavedPlay(item.id, item.name);
-    wrap.appendChild(card);
-  });
-}
-
-function deleteSavedPlay(id, name) {
-  const saved = getSavedPlays().filter(item => item.id !== id);
-  setSavedPlays(saved);
-  refreshSavedPlayList();
-  setHint(`Deleted local save "${name}".`);
-  refreshInteractionUI();
-}
-
-function exportPlayData(play) {
-  const project = normalizeProjectRecord(play) || makeBoardData();
-  const payload = {
-    schemaVersion: PROJECT_SCHEMA_VERSION,
-    projectType: PROJECT_TYPE,
-    exportedAt: nowIso(),
-    project: {
-      name: project.name,
-      currentPhase: project.currentPhase,
-      phases: project.phases,
-    },
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  const safeName = (project.name || 'untitled-play').replace(/[^\w-]+/g, '_');
-  link.href = url;
-  link.download = `${safeName}.json`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-  setHint(`Exported "${project.name}" as JSON.`);
-  refreshInteractionUI();
-}
-
-async function exportPDF() {
-  updatePlayMetadataFromInputs();
-  if (!window.jspdf?.jsPDF || typeof window.qrcode !== 'function') {
-    setHint('PDF export is unavailable right now. Reload the board and try again.');
-    refreshInteractionUI();
-    return;
-  }
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  const W = 297, H = 210;
-  const playName = document.getElementById('playName').value || 'Play';
-  const noteFields = [
-    ['PHASE PURPOSE', document.getElementById('metaPurpose')?.value?.trim() || ''],
-    ['DECISION CUE', document.getElementById('metaDecisionCue')?.value?.trim() || ''],
-    ['COACHING POINTS', readMetaList(['metaCoachingPoint1', 'metaCoachingPoint2', 'metaCoachingPoint3'], 3).join('\n')],
-    ['COMMON MISTAKES', readMetaList(['metaCommonMistake1', 'metaCommonMistake2', 'metaCommonMistake3'], 3).join('\n')],
-  ];
-
-  doc.setFillColor(10, 19, 16);
-  doc.rect(0, 0, W, H, 'F');
-
-  doc.setTextColor(255, 255, 255);
-  doc
+  refreshInteractionUI();
