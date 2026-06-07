@@ -1902,7 +1902,7 @@ function lineoutPreset(id, name, count, attacking) {
     id,
     name,
     cat: 'Lineouts',
-    desc: 'Lineout pod loads as a draggable block. Click the pack to move it, or use Edit Individuals to adjust positions.',
+    desc: 'Lineout pods load as a draggable block. Click the pack to move it, or unlock to edit individuals.',
     defaultGroupId: attacking ? 'atk_lineout_pack' : 'def_lineout_pack',
     focusTeam: attacking ? 'A' : 'D',
     players: [
@@ -2129,8 +2129,8 @@ function loadPlay(id) {
     document.getElementById('playName').value = play.name;
     syncPlayMetadataTitle();
     setHint(defaultGroup
-      ? `Loaded preset "${play.name}". Click the pack, then drag or tap to place it, or unlock it for individual edits.`
-      : `Loaded preset "${play.name}".`);
+      ? `"${play.name}" loaded. Drag the pack to position it, or tap to select then use Edit Individuals.`
+      : `Loaded "${play.name}".`);
     refreshInteractionUI();
   }
 }
@@ -4638,6 +4638,26 @@ cv.addEventListener('touchmove',   e => handlePointerMove(normEvent(e)), { passi
 cv.addEventListener('touchend',    e => onPointerUp(normEvent(e)),       { passive: false });
 cv.addEventListener('touchcancel', e => onPointerUp(normEvent(e)),       { passive: false });
 
+// Canva-style keyboard shortcuts: Delete/Backspace = delete selected, Escape = deselect
+document.addEventListener('keydown', (e) => {
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+  if (e.key === 'Escape') {
+    clearSelection();
+    refreshInteractionUI();
+    render();
+    e.preventDefault();
+  }
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    const hasSelection = !!S.selectedPlayerId || !!selectedAnnotationId() ||
+      isBallSelected() || S.selectedPassIdx !== null || S.selectedPathPid !== null;
+    if (hasSelection) {
+      deleteSelected();
+      e.preventDefault();
+    }
+  }
+});
+
 function finishDraw() {
   if (!S.drawing) return;
   if (S.drawing.pts.length >= 2) {
@@ -6299,6 +6319,13 @@ function updateSelInfo() {
   const carrier = S.players.find(p => p.isBC);
   if (carrier) updateGainDisplayForY(carrier.y);
   else updateGainDisplayForY(GAINLINE_Y);
+
+  // Floating delete bar — show when annotation selected (Canva-style, works on touch)
+  const floatBar = document.getElementById('floatDeleteBar');
+  if (floatBar) {
+    const annSelected = !!selectedAnnotationId();
+    floatBar.hidden = !annSelected;
+  }
 }
 
 // Palette --------------------------------------------------
@@ -6360,27 +6387,4 @@ function applyBoardData(play, { snapshotBefore = true } = {}) {
   GamePlan.phases = Array.isArray(p.phases) && p.phases.length
     ? p.phases.map((phase, index) => normalizePhaseState(phase, index))
     : [normalizePhaseState(p, 0)];
-  const activePhase = GamePlan.phases[GamePlan.currentPhase] || GamePlan.phases[0];
-  setLiveBoardFromStep(activePhase.steps[activePhase.currentStep] || emptyStepState());
-  S.animT = 0;
-  S.animating = false;
-  clearSelectedObject();
-  S.selectedPlayerIds = [];
-  S.drawing = null;
-  S.annotationDraft = null;
-  clearPassKickState();
-  S.projectId = p.id;
-  S.projectMeta = p.metadata;
-  S.playMetadata = normalizeProjectMetadata({ name: p.name }, p.metadata);
-  S.projectPlayback = p.playback;
-  S.animSpd = S.projectPlayback?.currentSpeed || 1;
-  spdIdx = Math.max(0, SPEEDS.indexOf(S.animSpd));
-  if (p.metadata?.source !== 'preset') currentPresetId = null;
-  document.getElementById('playName').value = GamePlan.name || 'Untitled Play';
-  syncPlayMetadataTitle();
-  setPlayBtnState();
-  document.getElementById('spdLabel').textContent = fmtSpd(S.animSpd);
-  updatePresetOptionsUI();
-  updatePhaseUI();
-  rebuildPalette();
-  refreshInteractionUI();
+  const activePhase = GamePlan.phases[GamePlan.curr

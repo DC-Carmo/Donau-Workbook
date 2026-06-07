@@ -32,12 +32,19 @@
       <input id="playName" placeholder="Play name..." value="New Play" autocomplete="off">
     </div>
 
-    <div class="tb-phase-nav" aria-label="Phase navigation">
-      <div class="tb-phase-chip-strip" id="phaseChipStrip"></div>
+    <div class="seq-bar" aria-label="Sequence controls">
+      <button class="seq-bar-nav" id="seqBarPrev" onclick="prevStep()" aria-label="Previous step">&#8249;</button>
+      <div class="seq-bar-chips" id="phaseChipStrip"></div>
+      <button class="seq-bar-nav" id="seqBarNext" onclick="nextStep()" aria-label="Next step">&#8250;</button>
+      <button class="seq-bar-play" id="seqBarPlay" onclick="toggleSmartPlay()" aria-label="Play sequence">
+        <span class="seq-bar-play-icon" id="seqBarPlayIcon">&#9654;</span>
+        <span class="seq-bar-play-label" id="seqBarPlayLabel">PLAY</span>
+      </button>
     </div>
 
     <div class="tb-actions">
-      <a class="c-btn tb-portal" href="../../index.html"><span>&#9664;</span> Portal</a>
+      <a class="c-btn tb-portal" href="../../index.html"
+         onclick="event.preventDefault(); history.length > 1 ? history.back() : location.href='../../index.html'"><span>&#8249;</span> Portal</a>
       <button class="c-btn" id="mobileSaveBtn" onclick="saveCurrentPlay()">Save</button>
       <button class="c-btn primary desktop-only" onclick="exportPDF()">Export PDF</button>
       <button class="c-btn desktop-only" onclick="exportCurrentPlay()">Export JSON</button>
@@ -209,6 +216,12 @@
       <canvas id="field"></canvas>
       <div id="radialMenu" aria-hidden="true"></div>
 
+      <!-- Floating delete/deselect bar — appears when annotation is selected -->
+      <div id="floatDeleteBar" hidden>
+        <button id="floatDeleteBtn" onclick="deleteSelected()">&#10005; Delete</button>
+        <button id="floatDeselectBtn" onclick="clearSelection()">Deselect</button>
+      </div>
+
       <div id="boardStatus" class="board-status">
         <span class="board-status-mode" id="boardModeLabel">Move</span>
         <span class="board-status-copy" id="boardStatusText">Mode: Move · Step 1 of 1 · Ball: Off board</span>
@@ -237,7 +250,7 @@
         <button class="mob-more-btn" onclick="addNextAvailablePlayer('A')">+ATK</button>
         <button class="mob-more-btn" onclick="addNextAvailablePlayer('D')">+DEF</button>
         <button class="mob-more-btn" onclick="addBall()">BALL</button>
-        <button class="mob-more-btn" onclick="addStep()">+STEP</button>
+        <button class="mob-more-btn" onclick="toggleGainline()" id="mobGainlineBtn">GAINLINE</button>
         <button class="mob-more-btn mob-play-btn" id="mobPlayBtn" onclick="togglePlay()">&#9654; PLAY</button>
         <button class="mob-more-btn" onclick="undo()">&#8617; UNDO</button>
       </div>
@@ -247,7 +260,12 @@
         <button class="mob-tool-btn" data-tool="pass" onclick="setTool('pass')">PASS</button>
         <button class="mob-tool-btn" data-tool="kick" onclick="setTool('kick')">KICK</button>
         <button class="mob-tool-btn" data-tool="erase" onclick="setTool('erase')">ERASE</button>
-        <button class="mob-tool-btn mob-tool-more" id="mobMoreBtn" onclick="toggleMobileMoreDrawer()">MORE &#9652;</button>
+        <button class="mob-tool-btn mob-tool-more" id="mobMoreBtn" onclick="toggleMobileMoreDrawer()">MORE &#9652;&#xFE0E;</button>
+        <div class="mob-nav-row">
+          <button class="mob-more-btn" onclick="prevStep()">&#9665; PREV</button>
+          <button class="mob-more-btn mob-step-btn" onclick="addStep()">&#65291; STEP</button>
+          <button class="mob-more-btn" onclick="nextStep()">NEXT &#9655;</button>
+        </div>
       </div>
 
       <div id="compactToolbar" aria-label="Board controls">
@@ -263,11 +281,6 @@
 
         <!-- Group B: Sequence & playback -->
         <div class="tb-group tb-group-b">
-          <button class="board-pill action-btn toolbar-hidden" id="mobileAddStepBtn" onclick="addStep()" data-label-desktop="+ STEP" data-label-mobile="+STEP">+ STEP</button>
-          <button class="board-pill action-btn" id="seqPrevBtn" onclick="prevStep()" data-label-desktop="&#10216;" data-label-mobile="&#10216;">&#10216;</button>
-          <button class="board-pill play-btn" id="playBtn" onclick="togglePlay()">PLAY</button>
-          <button class="board-pill play-btn" id="playAllBtn" onclick="togglePlayAll()">&#9654;&#9654; PLAY ALL</button>
-          <button class="board-pill action-btn" id="seqNextBtn" onclick="nextStep()" data-label-desktop="&#10217;" data-label-mobile="&#10217;">&#10217;</button>
           <div id="spdGroup" class="spd-group">
             <span class="spd-group-label">Speed</span>
             <button class="board-pill speed-btn" id="mspd-0.25" onclick="setMobileSpd(0.25)">¼×</button>
@@ -297,10 +310,10 @@
 
         <!-- Group D: Annotation tools (coming soon) -->
         <div class="tb-group tb-group-d">
-          <button class="board-pill tool-btn" data-tool="zone" disabled title="Coming soon" data-label-desktop="CIRCLE" data-label-mobile="O">CIRCLE</button>
-          <button class="board-pill tool-btn" data-tool="box" disabled title="Coming soon" data-label-desktop="BOX" data-label-mobile="BOX">BOX</button>
-          <button class="board-pill tool-btn" data-tool="arrow" disabled title="Coming soon" data-label-desktop="ARROW" data-label-mobile="ARR">ARROW</button>
-          <button class="board-pill tool-btn" data-tool="note" disabled title="Coming soon" data-label-desktop="NOTE" data-label-mobile="NOTE">NOTE</button>
+          <button class="board-pill tool-btn" data-tool="zone" onclick="setTool('zone')" data-label-desktop="CIRCLE" data-label-mobile="O">CIRCLE</button>
+          <button class="board-pill tool-btn" data-tool="box" onclick="setTool('box')" data-label-desktop="BOX" data-label-mobile="BOX">BOX</button>
+          <button class="board-pill tool-btn" data-tool="arrow" onclick="setTool('arrow')" data-label-desktop="ARROW" data-label-mobile="ARR">ARROW</button>
+          <button class="board-pill tool-btn" data-tool="note" onclick="setTool('note')" data-label-desktop="NOTE" data-label-mobile="NOTE">NOTE</button>
         </div>
 
         <!-- CLEAR: destructive action, far right -->
@@ -325,18 +338,4 @@
 
   <div id="supportDock" aria-hidden="true">
     <button class="pal-tab atk" id="tab-atk" type="button" onclick="setTab('atk')">
-      <span id="tab-atk-count">0 / 15</span>
-    </button>
-    <button class="pal-tab def" id="tab-def" type="button" onclick="setTab('def')">
-      <span id="tab-def-count">0 / 15</span>
-    </button>
-    <div id="palOnBoard">0 / 15</div>
-    <div id="palAvailable">15</div>
-    <div id="palBallStatus">Not Placed</div>
-    <div id="palCopy">Click a number to place it on the field.</div>
-    <div id="palGrid"></div>
-
-    <input type="file" id="importPlayInput" accept=".json,application/json" hidden>
-    <div id="savedPlayList"></div>
-
-    <div id="stepStatus">
+      <span id="tab-atk-count">0 / 15<
