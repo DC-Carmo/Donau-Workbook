@@ -30,10 +30,10 @@ html,body { height:100vh; overflow:hidden; background:var(--black); color:var(--
   padding:0 18px; border-right:1px solid var(--border);
   height:100%; min-width:220px; flex-shrink:0;
 }
+#brand img { height:44px; max-height:44px; width:auto; max-width:140px; display:block; object-fit:contain; object-position:center; filter:drop-shadow(0 0 6px rgba(15,112,64,0.3)); }
 a#brand { color:inherit; text-decoration:none; }
 a#brand:hover { text-decoration:none; }
 a#brand:focus-visible { outline:2px solid rgba(15,112,64,0.45); outline-offset:-2px; }
-#brand img { height:44px; max-height:44px; width:auto; max-width:140px; display:block; object-fit:contain; object-position:center; filter:drop-shadow(0 0 6px rgba(15,112,64,0.3)); }
 #brand-text .team { font-family:'Barlow Condensed',sans-serif; font-size:.7rem; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:var(--white); line-height:1; }
 #brand-text .prog { font-family:'Barlow Condensed',sans-serif; font-size:.58rem; letter-spacing:.2em; text-transform:uppercase; color:var(--red); line-height:1; margin-top:2px; }
 
@@ -78,13 +78,13 @@ a#brand:focus-visible { outline:2px solid rgba(15,112,64,0.45); outline-offset:-
 .cover-bg {
   position:absolute; inset:0;
   background:
-    linear-gradient(90deg,rgba(0,0,0,0.84) 0%,rgba(0,0,0,0.56) 34%,rgba(0,0,0,0.26) 100%),
-    url("lineout-donau1.jpg"),
     linear-gradient(135deg,rgba(15,112,64,0.09) 0%,transparent 55%),
-    repeating-linear-gradient(-45deg,transparent,transparent 40px,rgba(15,112,64,0.022) 40px,rgba(15,112,64,0.022) 41px);
-  background-position:center center,72% center,center center,center center;
-  background-size:cover,cover,auto,auto;
-  background-repeat:no-repeat,no-repeat,repeat,repeat;
+    repeating-linear-gradient(-45deg,transparent,transparent 40px,rgba(15,112,64,0.022) 40px,rgba(15,112,64,0.022) 41px),
+    linear-gradient(90deg,rgba(0,0,0,0.84) 0%,rgba(0,0,0,0.56) 34%,rgba(0,0,0,0.26) 100%),
+    url("lineout-donau1.jpg");
+  background-position:center center, center center, center center, 72% center;
+  background-size:auto, auto, cover, cover;
+  background-repeat:repeat, repeat, no-repeat, no-repeat;
   pointer-events:none;
 }
 .cover-rule { position:absolute; top:0; left:0; width:5px; height:100%; background:var(--red); }
@@ -423,4 +423,343 @@ h3.sub { font-family:'Barlow Condensed',sans-serif; font-size:.9rem; font-weight
         <div class="pr"><div class="prn">2</div><div class="prb"><h4>SET — Same Every Time</h4><p>Total process consistency to ensure flawless execution under fatigue and pressure.</p></div></div>
         <div class="pr"><div class="prn">3</div><div class="prb"><h4>Weekly Iteration</h4><p>One New Item rule per week to maintain technical clarity and avoid overload.</p></div></div>
         <div class="pr"><div class="prn">4</div><div class="prb"><h4>Numbers Low on Own Goal Line</h4><p>Prioritize secure exit strategies. Minimize numbers near our own line.</p></div></div>
-        <div class="pr"><div
+        <div class="pr"><div class="prn">5</div><div class="prb"><h4>Hooker-centric Design</h4><p>Tailor the system to the specific range, tempo, and accuracy of the hooker.</p></div></div>
+      </div>
+      <h3 class="sub">SPARK Key</h3>
+      <p>The universal language for all jumpers. Jumper 2 (P) owns the lineout — reads the defensive structure and dictates tempo.</p>
+      <div class="sgrid">
+        <div class="sc"><div class="sl">S</div><div class="sr">Jumper 1</div></div>
+        <div class="sc"><div class="sl">P</div><div class="sr">Jumper 2 · Caller</div></div>
+        <div class="sc"><div class="sl">A</div><div class="sr">Jumper 3</div></div>
+        <div class="sc"><div class="sl">R</div><div class="sr">Jumper 4</div></div>
+        <div class="sc"><div class="sl">K</div><div class="sr">Jumper 5</div></div>
+      </div>
+      <div class="co"><p><b>Call = 50 System:</b> Utilized for all 5-person formations. Players must attach to the option immediately upon Pre-Call. P is sole caller and owns all tempo decisions.</p></div>
+    </div>
+
+    <!-- 03 -->
+    <div id="s3" class="panel sec">
+      <div class="sh"><div class="snum">03</div><div class="stit"><h2>Formation Systems</h2><div class="sub">4-Person vs. 5-Person</div></div></div>
+      <p>Tactical selection is dictated by the required balance between ball security and backline distribution.</p>
+      <table class="ft">
+        <thead><tr><th>Type</th><th>Configurations</th><th>Tactical Utility</th></tr></thead>
+        <tbody>
+          <tr><td>5-Person</td><td><span class="tag">3-2</span><span class="tag">1-3-1</span><span class="tag">1-1-3</span><span class="tag">Spread</span></td><td>Spread = default shape. 1-3-1 = power setup for maul initiation.</td></tr>
+          <tr><td>4-Person</td><td><span class="tag">3-1</span><span class="tag">1-3</span><span class="tag">Spread</span></td><td>1-3 = rapid movement. 3-1 = front-loaded pressure for quick-ball exits.</td></tr>
+        </tbody>
+      </table>
+      <h3 class="sub">Formation Diagrams</h3>
+      <p>Visual coaching layouts for the core SPARK shapes. The caller and jumper picture remains stable while spacing and support distribution change around P.</p>
+      <div class="diagram-switch" id="sparkDiagramSwitch">
+        <button class="on" onclick="showSparkDiagrams('spark5',this)">5-Person</button>
+        <button onclick="showSparkDiagrams('spark4',this)">4-Person</button>
+      </div>
+      <div id="spark5" class="diagram-panel on">
+        <div class="diagram-grid">
+          <div class="diagram-card">
+            <h4>5-Person SPARK · 3-2</h4>
+            <div class="diagram-note">Front-loaded picture with three bodies early and a two-player pocket sitting behind the caller.</div>
+            <div class="spark-lane">
+              <div class="spark-channel-label">3-2 Shape</div>
+              <div class="spark-throw"></div>
+              <div class="spark-player hooker" style="--x:9%;--y:50%;">2</div>
+              <div class="spark-player lifter" style="--x:28%;--y:50%;">1</div>
+              <div class="spark-player jumper" style="--x:42%;--y:50%;">P</div>
+              <div class="spark-player support" style="--x:56%;--y:50%;">5</div>
+              <div class="spark-player lifter" style="--x:70%;--y:50%;">7</div>
+              <div class="spark-player support" style="--x:82%;--y:50%;">8</div>
+              <div class="spark-player scrumhalf" style="--x:92%;--y:50%;">9</div>
+            </div>
+            <div class="spark-legend">
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#c9a227;"></span>Jumper / Caller</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#0f7040;"></span>Lifters</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#1545a8;"></span>Support</div>
+            </div>
+            <div class="spark-caption">Use when we want early pressure at the front of the lane while keeping a cleaner tail extension behind P.</div>
+          </div>
+          <div class="diagram-card">
+            <h4>5-Person SPARK · 1-3-1</h4>
+            <div class="diagram-note">Balanced power shape with a central three-player cluster and isolated edge workers on both ends.</div>
+            <div class="spark-lane">
+              <div class="spark-channel-label">1-3-1 Shape</div>
+              <div class="spark-throw"></div>
+              <div class="spark-player hooker" style="--x:9%;--y:50%;">2</div>
+              <div class="spark-player support" style="--x:26%;--y:50%;">1</div>
+              <div class="spark-player lifter" style="--x:40%;--y:50%;">4</div>
+              <div class="spark-player jumper" style="--x:52%;--y:50%;">P</div>
+              <div class="spark-player lifter" style="--x:64%;--y:50%;">5</div>
+              <div class="spark-player support" style="--x:80%;--y:50%;">8</div>
+              <div class="spark-player scrumhalf" style="--x:92%;--y:50%;">9</div>
+            </div>
+            <div class="spark-legend">
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#272a30;"></span>Hooker / 9 fixed</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#c9a227;"></span>P target</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#0f7040;"></span>Lift spine</div>
+            </div>
+            <div class="spark-caption">Best premium maul-entry picture: central control through P with balanced lift structure and edge support.</div>
+          </div>
+          <div class="diagram-card">
+            <h4>5-Person SPARK · 1-1-3</h4>
+            <div class="diagram-note">Back-biased variation that keeps tempo alive while shifting mass late toward the tail.</div>
+            <div class="spark-lane">
+              <div class="spark-channel-label">1-1-3 Shape</div>
+              <div class="spark-throw"></div>
+              <div class="spark-player hooker" style="--x:9%;--y:50%;">2</div>
+              <div class="spark-player support" style="--x:26%;--y:50%;">1</div>
+              <div class="spark-player support" style="--x:42%;--y:50%;">4</div>
+              <div class="spark-player jumper" style="--x:58%;--y:50%;">P</div>
+              <div class="spark-player lifter" style="--x:70%;--y:50%;">5</div>
+              <div class="spark-player lifter" style="--x:80%;--y:50%;">7</div>
+              <div class="spark-player scrumhalf" style="--x:92%;--y:50%;">9</div>
+            </div>
+            <div class="spark-legend">
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#1545a8;"></span>Early support</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#0f7040;"></span>Tail lift pressure</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#c9a227;"></span>P launch point</div>
+            </div>
+            <div class="spark-caption">Ideal when the defence is overplaying the middle and we want a stronger late picture behind the caller.</div>
+          </div>
+          <div class="diagram-card">
+            <h4>5-Person SPARK · Spread</h4>
+            <div class="diagram-note">Default spacing with clean separation between roles, giving P the clearest read of the defensive structure.</div>
+            <div class="spark-lane">
+              <div class="spark-channel-label">Spread Shape</div>
+              <div class="spark-throw"></div>
+              <div class="spark-player hooker" style="--x:9%;--y:50%;">2</div>
+              <div class="spark-player lifter" style="--x:24%;--y:50%;">1</div>
+              <div class="spark-player support" style="--x:38%;--y:50%;">4</div>
+              <div class="spark-player jumper" style="--x:52%;--y:50%;">P</div>
+              <div class="spark-player support" style="--x:66%;--y:50%;">5</div>
+              <div class="spark-player lifter" style="--x:80%;--y:50%;">7</div>
+              <div class="spark-player scrumhalf" style="--x:92%;--y:50%;">9</div>
+            </div>
+            <div class="spark-legend">
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#c9a227;"></span>Central caller</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#0f7040;"></span>Lift options</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#1545a8;"></span>Spacing support</div>
+            </div>
+            <div class="spark-caption">The cleanest default reference shape whenever the lineout needs maximum clarity and tempo control.</div>
+          </div>
+        </div>
+      </div>
+      <div id="spark4" class="diagram-panel">
+        <div class="diagram-grid">
+          <div class="diagram-card">
+            <h4>4-Person SPARK · 3-1</h4>
+            <div class="diagram-note">Three early bodies with one late outlet. Useful for quick pressure and front-loaded exits.</div>
+            <div class="spark-lane">
+              <div class="spark-channel-label">3-1 Shape</div>
+              <div class="spark-throw"></div>
+              <div class="spark-player hooker" style="--x:9%;--y:50%;">2</div>
+              <div class="spark-player lifter" style="--x:30%;--y:50%;">1</div>
+              <div class="spark-player jumper" style="--x:46%;--y:50%;">P</div>
+              <div class="spark-player support" style="--x:62%;--y:50%;">5</div>
+              <div class="spark-player support" style="--x:80%;--y:50%;">8</div>
+              <div class="spark-player scrumhalf" style="--x:92%;--y:50%;">9</div>
+            </div>
+            <div class="spark-legend">
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#c9a227;"></span>P target</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#0f7040;"></span>Lead lift</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#1545a8;"></span>Exit support</div>
+            </div>
+            <div class="spark-caption">Favors a sharp front picture with one cleaner late distributor behind the action.</div>
+          </div>
+          <div class="diagram-card">
+            <h4>4-Person SPARK · 1-3</h4>
+            <div class="diagram-note">Single early worker with three connected bodies behind the caller for fast movement and reactive tempo.</div>
+            <div class="spark-lane">
+              <div class="spark-channel-label">1-3 Shape</div>
+              <div class="spark-throw"></div>
+              <div class="spark-player hooker" style="--x:9%;--y:50%;">2</div>
+              <div class="spark-player support" style="--x:28%;--y:50%;">1</div>
+              <div class="spark-player jumper" style="--x:46%;--y:50%;">P</div>
+              <div class="spark-player lifter" style="--x:62%;--y:50%;">5</div>
+              <div class="spark-player support" style="--x:76%;--y:50%;">7</div>
+              <div class="spark-player scrumhalf" style="--x:92%;--y:50%;">9</div>
+            </div>
+            <div class="spark-legend">
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#272a30;"></span>2 and 9 fixed</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#0f7040;"></span>Late lift action</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#1545a8;"></span>Fast support lane</div>
+            </div>
+            <div class="spark-caption">Best for rapid movement when we want the shape to look light early and load behind P late.</div>
+          </div>
+          <div class="diagram-card">
+            <h4>4-Person SPARK · Spread</h4>
+            <div class="diagram-note">Simple four-man spacing with even separation and a clear read lane for the hooker and caller.</div>
+            <div class="spark-lane">
+              <div class="spark-channel-label">Spread Shape</div>
+              <div class="spark-throw"></div>
+              <div class="spark-player hooker" style="--x:9%;--y:50%;">2</div>
+              <div class="spark-player lifter" style="--x:30%;--y:50%;">1</div>
+              <div class="spark-player jumper" style="--x:48%;--y:50%;">P</div>
+              <div class="spark-player support" style="--x:66%;--y:50%;">5</div>
+              <div class="spark-player support" style="--x:84%;--y:50%;">8</div>
+              <div class="spark-player scrumhalf" style="--x:92%;--y:50%;">9</div>
+            </div>
+            <div class="spark-legend">
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#c9a227;"></span>Caller / jumper</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#0f7040;"></span>Primary lift picture</div>
+              <div class="spark-legend-item"><span class="spark-dot" style="background:#1545a8;"></span>Even support spacing</div>
+            </div>
+            <div class="spark-caption">The clean default for four-man source play when the goal is clarity, shape retention, and a fast decision by P.</div>
+          </div>
+        </div>
+      </div>
+      <h3 class="sub">The Squeeze Series</h3>
+      <div class="pgrid">
+        <div class="pillar"><div class="pi">SN</div><h3>Squeeze Nod</h3><ul>
+          <li>Dictated by <b>P</b></li>
+          <li>P nods to the hooker on "Squeeze" call</li>
+          <li>Triggers immediate tempo throw to P</li>
+        </ul></div>
+        <div class="pillar"><div class="pi">SB</div><h3>Squeeze Black</h3><ul>
+          <li>S takes one explosive step forward</li>
+          <li>S jumps — caught in "sandwich" lift by FL and P</li>
+          <li style="color:var(--red);font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.88rem;">FL → S ← P</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <!-- 04 -->
+    <div id="s4" class="panel sec">
+      <div class="sh"><div class="snum">04</div><div class="stit"><h2>Defensive Systems</h2><div class="sub">Concepts &amp; Frameworks</div></div></div>
+      <p>Three non-negotiable principles and three structural responses govern every defensive lineout.</p>
+      <h3 class="sub">Three Pillars of Defense</h3>
+      <div class="dgrid">
+        <div class="dc" data-l="Air"><h3>Air Pressure</h3><p>Bodies in the air to challenge every throw and deny clean possession at source.</p></div>
+        <div class="dc" data-l="Hedge"><h3>Hedge Your Bets</h3><p>Split focus between two options at 50% — never commit 100% to one and leave the other vacant.</p></div>
+        <div class="dc" data-l="Steal"><h3>Disruption / Steal</h3><p>Aggressive targeting of the ball to force turnovers or messy deliveries. Highest reward, highest risk.</p></div>
+      </div>
+      <h3 class="sub">System Definitions</h3>
+      <div class="plist">
+        <div class="pr"><div class="prn" style="font-size:.75rem;padding-top:8px;letter-spacing:.04em;">MIR</div><div class="prb"><h4>Mirror</h4><p>"Nose-to-nose" reactivity. Match the opposition's movement step-for-step.</p></div></div>
+        <div class="pr"><div class="prn" style="font-size:.75rem;padding-top:8px;letter-spacing:.04em;">POD</div><div class="prb"><h4>Pod</h4><p>Pre-defined jumping blocks to shut down specific zones regardless of opposition movement.</p></div></div>
+        <div class="pr"><div class="prn" style="font-size:.75rem;padding-top:8px;letter-spacing:.04em;">HNG</div><div class="prb"><h4>Hinge</h4><p>Reactive pivot on a fixed point (front or middle) to adjust jump block to "long" or "short" movement.</p></div></div>
+      </div>
+    </div>
+
+    <!-- 05 -->
+    <div id="s5" class="panel sec">
+      <div class="sh"><div class="snum">05</div><div class="stit"><h2>Maul Defence</h2><div class="sub">Spears &amp; Nets Framework · 5m–15m Zone Only</div></div></div>
+      <p>Specialized structure employed strictly between the 5m and 15m lines. Defenders distributed horizontally to create a defensive wedge targeting every maul seam.</p>
+      <div class="co"><p><b>Zone restriction:</b> Spears &amp; Nets applies only between <b>5m and 15m lines</b>. Outside this corridor, revert to standard defensive lineout structures.</p></div>
+      <div class="rrow">
+        <div class="rc sp"><h3>Spears</h3><div class="rp">Props (P) + Jumpers (J) — Central Core</div><p>Objective: <b style="color:var(--text);">Penetration.</b> Drive into the maul seam, splitting the attacking formation at contact to kill forward momentum.</p></div>
+        <div class="rc nt"><h3>Nets</h3><div class="rp" style="color:#888;">Hooker (2) + Flanker (7) — Flanks</div><p>Objective: <b style="color:var(--text);">Containment.</b> Wrap the edges to catch horizontal leakage or breakout runners. Prevents the maul from being spun wide.</p></div>
+      </div>
+      <table class="ft" style="max-width:390px;">
+        <thead><tr><th>Role</th><th>Personnel</th><th>Primary Job</th></tr></thead>
+        <tbody>
+          <tr><td>SPEARS</td><td style="color:#aaa;">Props + Jumpers</td><td style="color:#aaa;">Penetrate seam</td></tr>
+          <tr><td>NETS</td><td style="color:#aaa;">Hooker + Flanker</td><td style="color:#aaa;">Contain edges</td></tr>
+        </tbody>
+      </table>
+      <h3 class="sub">Defensive Maul Diagrams</h3>
+      <div class="maul-diagram-grid">
+        <div class="maul-diagram-card">
+          <h4>Air Pressure</h4>
+          <div class="maul-board">
+            <div class="maul-pod"></div>
+            <div class="maul-player attack" style="--x:43%;--y:58%;">A</div>
+            <div class="maul-player attack" style="--x:50%;--y:50%;">A</div>
+            <div class="maul-player attack" style="--x:57%;--y:58%;">A</div>
+            <div class="maul-lift"></div>
+            <div class="maul-player defender air" style="--x:50%;--y:34%;">D</div>
+            <div class="maul-arrow up"></div>
+            <div class="maul-chip">Contest source</div>
+          </div>
+          <div class="maul-diagram-note">Contest the ball or force poor delivery before the maul forms.</div>
+        </div>
+        <div class="maul-diagram-card">
+          <h4>Seam Pressure</h4>
+          <div class="maul-board">
+            <div class="maul-pod"></div>
+            <div class="maul-player attack" style="--x:43%;--y:54%;">A</div>
+            <div class="maul-player attack" style="--x:50%;--y:54%;">A</div>
+            <div class="maul-player attack" style="--x:57%;--y:54%;">A</div>
+            <div class="maul-player defender" style="--x:35%;--y:54%;">P</div>
+            <div class="maul-player defender" style="--x:65%;--y:54%;">J</div>
+            <div class="maul-arrow forward"></div>
+            <div class="maul-chip">Stop momentum</div>
+          </div>
+          <div class="maul-diagram-note">Spears hit the middle early and stop forward momentum.</div>
+        </div>
+        <div class="maul-diagram-card">
+          <h4>Edge Control</h4>
+          <div class="maul-board">
+            <div class="maul-pod"></div>
+            <div class="maul-player attack" style="--x:43%;--y:54%;">A</div>
+            <div class="maul-player attack" style="--x:50%;--y:54%;">A</div>
+            <div class="maul-player attack" style="--x:57%;--y:54%;">A</div>
+            <div class="maul-player edge" style="--x:23%;--y:56%;">2</div>
+            <div class="maul-player edge" style="--x:77%;--y:56%;">7</div>
+            <div class="maul-curve left"></div>
+            <div class="maul-curve right"></div>
+            <div class="maul-block left"></div>
+            <div class="maul-block right"></div>
+            <div class="maul-chip">No spin / no escape</div>
+          </div>
+          <div class="maul-diagram-note">Nets hold the edges and prevent spin, leak, or breakout.</div>
+        </div>
+      </div>
+      <div class="co"><p><b>First-second rule:</b> Win the first second: contest source, hit the seam, control the edges.</p></div>
+    </div>
+
+    <!-- 06 -->
+    <div id="s6" class="panel sec">
+      <div class="sh"><div class="snum">06</div><div class="stit"><h2>Attacking Maul</h2><div class="sub">Principles of the Feared Maul</div></div></div>
+      <p>An effective maul is a psychological weapon. Three non-negotiable physical attributes define a "Feared" maul.</p>
+      <div class="mrow">
+        <div class="ma"><span class="mw">Narrow</span><p>Maximum tightness to deny defensive "swimmers" access to the ball carrier. Zero gaps in the pod.</p></div>
+        <div class="ma"><span class="mw">Low</span><p>Win the leverage battle by keeping collective CoG below the defense's hands.</p></div>
+        <div class="ma"><span class="mw">Long</span><p>Extend maul depth to keep the ball as far from defensive Spears as possible. Distance = time.</p></div>
+      </div>
+      <div class="co"><p><b>Tactical objective:</b> A constant scoring threat that forces the defense to over-commit personnel — creating space for the backs or driving directly to the line. A maul that does not threaten the line is not feared.</p></div>
+    </div>
+
+    <!-- 07 -->
+      <div class="co" style="margin-top:24px;"><p><b>Coaching Note:</b> Rotate between Coaching Lead (execution) and Observer (technical correction / audit) roles throughout each activity block.</p></div>
+    </div>
+
+  </div><!-- end #content -->
+</div><!-- end #app -->
+
+<script>
+function go(id, btn) {
+  // hide all
+  document.querySelectorAll('.panel').forEach(function(p) {
+    p.classList.remove('on');
+    p.style.display = 'none';
+  });
+  // show target
+  var target = document.getElementById(id);
+  target.classList.add('on');
+  target.style.display = '';
+  // scroll content area to top
+  document.getElementById('content').scrollTop = 0;
+  // update buttons
+  document.querySelectorAll('#topnav button').forEach(function(b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+}
+
+function showSparkDiagrams(id, btn) {
+  document.querySelectorAll('.diagram-panel').forEach(function(panel) {
+    panel.classList.remove('on');
+  });
+  document.querySelectorAll('#sparkDiagramSwitch button').forEach(function(button) {
+    button.classList.remove('on');
+  });
+  document.getElementById(id).classList.add('on');
+  btn.classList.add('on');
+}
+
+// Init: hide all panels except cover on load
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.panel').forEach(function(p) {
+    if (!p.classList.contains('on')) p.style.display = 'none';
+  });
+});
+</script>
+</body>
+</html>
