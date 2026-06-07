@@ -484,6 +484,7 @@
   flex: 1;
   min-height: 0;
   align-items: stretch;
+  order: 2;
 }
 
 /* Card base */
@@ -694,11 +695,17 @@
 /* KPI bar */
 .lo-kpi-bar {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  padding: 14px 28px 18px;
+  padding: 10px 28px;
   flex-shrink: 0;
   gap: 0;
+  order: 1; /* sit between sl-header and cards */
+  margin: 0 0 4px;
+  background: rgba(46,139,87,0.06);
+  border: 1px solid rgba(46,139,87,0.14);
+  border-radius: 14px;
+  margin: 0 28px 8px;
 }
 
 .lo-kpi-item {
@@ -706,29 +713,32 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 0;
 }
 
 .lo-kpi-num {
   font-family: "Bebas Neue", "Anton", sans-serif;
-  font-size: 1.7rem;
+  font-size: 2rem;
   line-height: 1;
   letter-spacing: 1px;
-  color: rgba(90,195,130,0.88);
+  color: rgba(90,210,140,1);
 }
 
 .lo-kpi-lbl {
   font-family: "Barlow Condensed", sans-serif;
-  font-size: 0.57rem;
-  letter-spacing: 1.4px;
+  font-size: 0.6rem;
+  letter-spacing: 1.6px;
   text-transform: uppercase;
-  color: rgba(160,185,168,0.4);
+  color: rgba(170,210,185,0.75);
 }
 
 .lo-kpi-sep {
   width: 1px;
-  height: 36px;
-  background: rgba(46,139,87,0.16);
+  align-self: stretch;
+  margin: 8px 0;
+  background: rgba(46,139,87,0.22);
   flex-shrink: 0;
 }
 
@@ -777,14 +787,16 @@
   .lo-chip-row { gap: 5px; margin-bottom: 12px; }
   .lo-chip { font-size: 0.56rem; padding: 3px 8px; }
   .lo-btn { min-height: 44px; font-size: 0.76rem; letter-spacing: 1.8px; }
-  .lo-kpi-bar { padding: 8px 14px 10px; }
-  .lo-kpi-num { font-size: 1.2rem; }
-  .lo-kpi-lbl { font-size: 0.5rem; }
+  .lo-kpi-bar { margin: 0 14px 8px; padding: 8px 0; }
+  .lo-kpi-num { font-size: 1.3rem; }
+  .lo-kpi-lbl { font-size: 0.52rem; }
 }
 
-/* Very small screens: hide KPI bar to maximise card space */
+/* Very small screens: compact KPI bar */
 @media (max-width: 430px) {
-  .lo-kpi-bar { display: none; }
+  .lo-kpi-bar { margin: 0 10px 6px; padding: 6px 0; }
+  .lo-kpi-num { font-size: 1.1rem; }
+  .lo-kpi-lbl { font-size: 0.48rem; letter-spacing: 1px; }
 }
 
 @media (min-width: 769px) and (max-width: 900px) {
@@ -1761,25 +1773,4 @@ function closeLineoutSystem() {
     setTimeout(function() { frame.src = ''; }, 180);
   }
   if (!document.querySelector('.overlay.open')) {
-    document.body.classList.remove('overlay-active');
-  }
-}
-
-document.addEventListener('keydown', function(event) {
-  if (event.key === 'Escape') {
-    closeLineoutSystem();
-  }
-});
-
-document.addEventListener('DOMContentLoaded', function() {
-  renderDonauLineoutCards();
-});
-
-if (document.readyState !== 'loading') {
-  renderDonauLineoutCards();
-}
-</script>
-
-</body>
-
-</html>  
+    
