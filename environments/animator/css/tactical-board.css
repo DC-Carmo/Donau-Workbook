@@ -203,6 +203,75 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
   background: rgba(248,113,113,0.12);
   color: #f87171;
 }
+.seq-bar {
+  flex: 1 1 320px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.seq-bar-nav,
+.seq-bar-play {
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.03);
+  color: var(--text);
+  font-family: 'Barlow Condensed',sans-serif;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.seq-bar-nav {
+  flex: 0 0 34px;
+  font-size: 1rem;
+}
+.seq-bar-nav:hover:not(:disabled),
+.seq-bar-play:hover:not(:disabled) {
+  border-color: var(--muted2);
+  color: #fff;
+  background: rgba(255,255,255,0.06);
+}
+.seq-bar-nav:disabled,
+.seq-bar-play:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+.seq-bar-chips {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.seq-bar-chips::-webkit-scrollbar {
+  display: none;
+}
+.seq-bar-play {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 12px;
+}
+.seq-bar-play-icon {
+  font-size: .92rem;
+  line-height: 1;
+}
+.seq-bar-play-label {
+  line-height: 1;
+}
 .tb-label {
   font-family:'Barlow Condensed',sans-serif;
   font-size:.62rem;
@@ -347,6 +416,40 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
   border-color:rgba(108,168,139,0.5);
   background:rgba(108,168,139,0.12);
   color:var(--accent);
+}
+.seq-chip-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.seq-chip-del {
+  display: none;
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid rgba(239,68,68,0.6);
+  background: rgba(15,10,10,0.9);
+  color: #ef4444;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  z-index: 2;
+}
+.seq-chip-wrap:hover .seq-chip-del {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+@media (hover: none) {
+  .seq-chip-del {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 .seq-rail {
   flex-wrap:wrap;
@@ -2140,21 +2243,17 @@ html, body {
   margin-right: 2px;
 }
 
-/* Step button — primary gold action */
-#mobileAddStepBtn {
-  background: rgba(183, 154, 97, 0.14);
-  border-color: rgba(227, 178, 60, 0.42);
-  color: #E3B23C;
-  font-weight: 700;
+#stepStatusArea,
+#stepStatusRow,
+#stepStatusBar,
+#stepMeta,
+#stepStatus,
+#stepStatusCopy,
+#stepRail,
+#seqDeleteBtn,
+.field-first-seq-shell {
+  display: none !important;
 }
-#mobileAddStepBtn:hover,
-#mobileAddStepBtn:focus-visible {
-  background: rgba(227, 178, 60, 0.22);
-  border-color: rgba(227, 178, 60, 0.72);
-  color: #f0c84a;
-  box-shadow: 0 6px 16px rgba(227,178,60,0.18);
-}
-
 /* Toolbar groups */
 .tb-group {
   display: flex;
@@ -2329,6 +2428,11 @@ html, body {
 }
 
 @media (max-width: 768px) {
+  html, body {
+    overscroll-behavior: contain;
+    overscroll-behavior-y: contain;
+  }
+
   #topbar {
     padding: 6px 10px;
     gap: 8px;
@@ -2357,6 +2461,25 @@ html, body {
   .tb-actions .c-btn {
     min-width: 44px;
     padding: 0 10px;
+  }
+
+  .seq-bar {
+    width: 100%;
+    order: 3;
+    gap: 4px;
+    padding: 3px 5px;
+  }
+  .seq-bar-play-label {
+    display: none;
+  }
+  .seq-bar-play {
+    width: 30px;
+    padding: 0;
+  }
+  .seq-bar-nav {
+    flex: 0 0 24px;
+    height: 24px;
+    font-size: 0.85rem;
   }
 
   #canvasWrap {
@@ -2408,12 +2531,16 @@ html, body {
      ghost 220px void.  Force a single-column layout to fill the screen. */
   #workspace {
     grid-template-columns: minmax(0, 1fr) !important;
+    overflow: hidden;
   }
   #canvasWrap {
     grid-column: 1 !important;
   }
   #bottomPanel {
     grid-column: 1 !important;
+  }
+  #app {
+    overflow: hidden;
   }
 
   /* Hide the dense compact toolbar on mobile */
@@ -2439,6 +2566,27 @@ html, body {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
     padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+  }
+  .mob-nav-row {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 6px;
+  }
+  .mob-nav-row .mob-more-btn {
+    flex: 1 1 0;
+  }
+  .mob-nav-row .mob-more-btn:nth-child(2) {
+    background: rgba(16,185,129,0.18);
+    border-color: rgba(16,185,129,0.45);
+    color: #10b981;
+  }
+  .board-status {
+    display: flex !important;
+    position: relative;
+    left: auto;
+    bottom: auto;
+    margin: 4px 8px 0;
+    padding: 0;
   }
 }
 
@@ -2984,231 +3132,4 @@ html, body {
 .sp-acc-section {
   border-bottom: 1px solid rgba(255,255,255,0.05);
 }
-.sp-acc-trigger {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: rgba(255,255,255,0.52);
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  text-align: left;
-  transition: color 0.15s, background 0.15s;
-}
-.sp-acc-trigger:hover {
-  color: rgba(255,255,255,0.82);
-  background: rgba(255,255,255,0.03);
-}
-.sp-acc-section.sp-acc-open .sp-acc-trigger {
-  color: rgba(255,255,255,0.82);
-}
-.sp-acc-chevron {
-  flex-shrink: 0;
-  font-size: 0.9rem;
-  line-height: 1;
-  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
-  display: inline-block;
-}
-.sp-acc-section.sp-acc-open .sp-acc-chevron {
-  transform: rotate(90deg);
-}
-.sp-acc-body {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.24s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.sp-acc-section.sp-acc-open .sp-acc-body {
-  max-height: 300px;
-}
-.sp-acc-body-inner {
-  padding: 2px 12px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-/* Shared field elements */
-.sp-field-group {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-.sp-field-label {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.34);
-}
-.sp-field-input {
-  width: 100%;
-  padding: 7px 9px;
-  border-radius: 7px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.03);
-  color: var(--text);
-  font-family: 'Barlow', sans-serif;
-  font-size: 0.77rem;
-  line-height: 1.4;
-  outline: none;
-  box-sizing: border-box;
-  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
-  -webkit-user-select: text;
-  user-select: text;
-}
-.sp-field-input::placeholder {
-  color: rgba(255,255,255,0.2);
-}
-.sp-field-input:focus {
-  border-color: rgba(183,154,97,0.38);
-  background: rgba(255,255,255,0.05);
-  box-shadow: 0 0 0 3px rgba(183,154,97,0.07);
-}
-.sp-field-textarea {
-  resize: none;
-  min-height: 50px;
-}
-
-/* Mobile floating toggle */
-.sp-mobile-toggle {
-  display: none;
-}
-/* Mobile backdrop */
-.sp-mobile-backdrop {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.52);
-  z-index: 149;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-}
-.sp-mobile-backdrop.open {
-  display: block;
-}
-
-/* Mobile: drawer */
-@media (max-width: 768px) {
-  #smartPanel {
-    position: fixed;
-    left: -290px;
-    top: 0;
-    bottom: 0;
-    width: 280px;
-    z-index: 150;
-    transition: left 0.24s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: none;
-  }
-  #smartPanel.sp-drawer-open {
-    left: 0;
-    box-shadow: 4px 0 28px rgba(0,0,0,0.55);
-  }
-  .sp-mobile-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: fixed;
-    left: 10px;
-    bottom: 74px;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    border: 1px solid rgba(183,154,97,0.32);
-    background: rgba(11,19,25,0.92);
-    color: var(--gold);
-    font-size: 1.05rem;
-    cursor: pointer;
-    z-index: 148;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    transition: border-color 0.15s, background 0.15s;
-  }
-  .sp-mobile-toggle:hover,
-  .sp-mobile-toggle[aria-expanded="true"] {
-    border-color: rgba(183,154,97,0.6);
-    background: rgba(11,19,25,0.96);
-  }
-}
-
-/* Medium desktops */
-@media (min-width: 769px) and (max-width: 1080px) {
-  #workspace {
-    grid-template-columns: 180px minmax(0, 1fr);
-  }
-  #smartPanel {
-    width: 180px;
-  }
-}
-
-/* ═══════════════════════════════════════════
-   CONTEXT HUD — always visible, no toggle
-   ═══════════════════════════════════════════ */
-
-/* guide text hidden — board status bar on canvas covers it */
-.sp-guide-text {
-  display: none !important;
-}
-
-/* ═══════════════════════════════════════════
-   COACHING DRAWER — slides up from canvas
-   ═══════════════════════════════════════════ */
-
-#coachingDrawer {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 15;
-  background: rgba(7, 15, 24, 0.96);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-top: 1px solid rgba(255,255,255,0.10);
-  transform: translateY(100%);
-  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-  max-height: 300px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.08) transparent;
-}
-#coachingDrawer::-webkit-scrollbar { width: 3px; }
-#coachingDrawer::-webkit-scrollbar-track { background: transparent; }
-#coachingDrawer::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 999px; }
-
-#coachingDrawer.cd-open {
-  transform: translateY(0);
-}
-
-.coaching-drawer-hdr {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px 9px;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
-  position: sticky;
-  top: 0;
-  background: rgba(7, 15, 24, 0.98);
-  z-index: 1;
-}
-.coaching-drawer-hdr-inner {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-.coaching-drawer-label {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.36);
-}
-.coaching-drawer-play-name 
+.sp-acc-t
