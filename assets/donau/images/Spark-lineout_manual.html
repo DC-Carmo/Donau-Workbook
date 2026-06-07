@@ -326,6 +326,17 @@ h3.sub { font-family:'Barlow Condensed',sans-serif; font-size:.9rem; font-weight
   .maul-player.air { width:30px; height:30px; margin-left:-15px; margin-top:-15px; }
   .maul-pod { width:84px; height:58px; }
 }
+
+/* Mobile nav — logo icon-only so nav buttons get full width */
+@media (max-width:700px) {
+  #topbar { overflow: visible; }
+  #brand { min-width: auto; padding: 0 10px; gap: 6px; border-right: none; flex-shrink: 0; }
+  #brand img { height: 30px; max-width: 30px; }
+  #brand-text { display: none; }
+  #topnav { overflow-x: auto; -webkit-overflow-scrolling: touch; flex: 1; }
+  #topnav button { padding: 0 10px; font-size: .6rem; min-width: 52px; }
+  #topnav button .n { font-size: .55rem; }
+}
 </style>
 </head>
 <body>

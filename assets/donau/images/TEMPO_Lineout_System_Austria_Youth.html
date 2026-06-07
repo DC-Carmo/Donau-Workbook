@@ -233,11 +233,16 @@ p{font-size:.86rem;color:#a0a0b0;margin-bottom:.9rem;max-width:640px;line-height
   .cphoto{inset:0;width:auto;background-image:linear-gradient(180deg,rgba(0,0,0,.44) 0%,rgba(0,0,0,.62) 36%,rgba(0,0,0,.84) 100%),linear-gradient(90deg,rgba(0,0,0,.76) 0%,rgba(0,0,0,.46) 100%),url("lineout-donau.jpg");background-position:68% center;}
   .ci{max-width:none;}
   .cmeta{flex-wrap:wrap;gap:14px;}
-  #brand{min-width:auto;padding:0 12px;}
-  #brand img{height:36px;}
+  /* Logo: icon only — frees space for nav */
+  #brand{min-width:auto;padding:0 10px;gap:6px;border-right:none;}
+  #brand-t{display:none;}
+  #brand img{height:30px;}
   #creds{display:none;}
-  #tnav{display:none;}
-  #mob-menu-btn{display:flex;}
+  /* Show desktop nav as scrollable strip — no hamburger needed */
+  #tnav{display:flex;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  #mob-menu-btn{display:none;}
+  .nb{padding:0 10px;font-size:.6rem;min-width:52px;}
+  .nn{font-size:.55rem;}
   .rcards{flex-direction:column;}
   .maul-attrs,.mottos{flex-direction:column;}
   .pgrid{grid-template-columns:1fr 1fr;}
