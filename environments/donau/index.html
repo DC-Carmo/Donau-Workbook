@@ -479,11 +479,11 @@
 .lo-shell {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  gap: 18px;
   padding: 0 28px;
-  flex: 1;
+  flex: 0 0 auto;
   min-height: 0;
-  align-items: stretch;
+  align-items: start;
   order: 2;
 }
 
@@ -492,13 +492,15 @@
   position: relative;
   display: flex;
   flex-direction: column;
+  min-height: 360px;
+  max-height: 430px;
   border-radius: 20px;
-  border: 1px solid rgba(46,139,87,0.18);
+  border: 1px solid rgba(86,127,108,0.22);
   background:
-    linear-gradient(160deg, rgba(12,28,18,0.99) 0%, rgba(6,16,10,0.99) 100%);
+    linear-gradient(160deg, rgba(10,18,29,0.99) 0%, rgba(8,14,24,0.99) 54%, rgba(7,17,14,0.98) 100%);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.04),
-    0 28px 56px rgba(0,0,0,0.45),
+    0 22px 44px rgba(0,0,0,0.38),
     0 4px 8px rgba(0,0,0,0.25);
   overflow: hidden;
   transition: border-color 220ms ease, box-shadow 220ms ease, transform 200ms ease;
@@ -509,31 +511,31 @@
   content: "";
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 3px;
+  height: 2px;
   background: linear-gradient(90deg,
-    rgba(20,90,50,0.6) 0%,
-    rgba(46,139,87,1) 45%,
-    rgba(100,210,140,0.7) 100%);
+    rgba(32,78,60,0.38) 0%,
+    rgba(82,156,118,0.72) 48%,
+    rgba(167,185,135,0.42) 100%);
   border-radius: 20px 20px 0 0;
 }
 
 .lo-card:hover {
-  border-color: rgba(46,139,87,0.38);
+  border-color: rgba(110,160,134,0.3);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.06),
-    0 36px 72px rgba(0,0,0,0.5),
-    0 0 48px rgba(46,139,87,0.1);
+    0 28px 52px rgba(0,0,0,0.42),
+    0 0 28px rgba(67,126,98,0.08);
   transform: translateY(-2px);
 }
 
 /* Ambient glow */
 .lo-card-glow {
   position: absolute;
-  top: -80px; left: -80px;
-  width: 280px; height: 280px;
+  top: -72px; left: -72px;
+  width: 240px; height: 240px;
   border-radius: 50%;
   background: radial-gradient(circle,
-    rgba(46,139,87,0.14) 0%,
+    rgba(52,112,85,0.12) 0%,
     transparent 68%);
   pointer-events: none;
 }
@@ -543,10 +545,10 @@
   position: absolute;
   right: -10px; bottom: -20px;
   font-family: "Bebas Neue", "Anton", sans-serif;
-  font-size: clamp(7rem,12vw,10rem);
+  font-size: clamp(5.8rem,9vw,8.6rem);
   line-height: 1;
   letter-spacing: -4px;
-  color: rgba(46,139,87,0.06);
+  color: rgba(94,148,116,0.055);
   pointer-events: none;
   user-select: none;
 }
@@ -558,7 +560,7 @@
   display: flex;
   flex-direction: column;
   flex: 1;
-  padding: 24px 26px 22px;
+  padding: 22px 22px 18px;
 }
 
 /* Badge row */
@@ -566,7 +568,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .lo-tag {
@@ -582,49 +584,68 @@
 }
 
 .lo-tag-green {
-  border: 1px solid rgba(46,139,87,0.42);
-  background: rgba(46,139,87,0.1);
-  color: rgba(110,210,150,0.9);
+  border: 1px solid rgba(90,145,119,0.36);
+  background: rgba(64,116,93,0.14);
+  color: rgba(172,214,191,0.84);
 }
 
 .lo-tag-dim {
   border: 1px solid rgba(255,255,255,0.09);
-  background: rgba(255,255,255,0.03);
-  color: rgba(180,195,185,0.45);
+  background: rgba(255,255,255,0.025);
+  color: rgba(180,195,185,0.52);
 }
 
 /* System name */
 .lo-card-name {
   font-family: "Bebas Neue", "Anton", sans-serif;
-  font-size: clamp(3.2rem,5.5vw,4.6rem);
+  font-size: clamp(2.8rem,4.2vw,3.85rem);
   line-height: 0.9;
-  letter-spacing: 3px;
+  letter-spacing: 2.4px;
   text-transform: uppercase;
   background: linear-gradient(130deg,
-    #ffffff 0%,
-    rgba(195,240,215,0.92) 55%,
-    rgba(46,139,87,0.85) 100%);
+    rgba(255,255,255,0.98) 0%,
+    rgba(215,228,221,0.92) 52%,
+    rgba(120,173,146,0.78) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  margin-bottom: 9px;
+  margin-bottom: 7px;
 }
 
 .lo-card-sub {
   font-family: "Barlow Condensed", sans-serif;
-  font-size: 0.75rem;
-  letter-spacing: 1.9px;
+  font-size: 0.7rem;
+  letter-spacing: 1.8px;
   text-transform: uppercase;
-  color: rgba(110,195,145,0.65);
-  margin-bottom: 14px;
+  color: rgba(144,183,165,0.7);
+  margin-bottom: 12px;
 }
 
 .lo-card-desc {
-  font-size: 0.84rem;
-  line-height: 1.68;
-  color: rgba(190,210,198,0.58);
-  margin-bottom: 18px;
-  flex: 1;
+  font-size: 0.82rem;
+  line-height: 1.58;
+  color: rgba(198,212,206,0.7);
+  margin-bottom: 14px;
+}
+
+.lo-card-role {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.68rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(170,196,182,0.74);
+}
+
+.lo-card-role::before {
+  content: "";
+  width: 18px;
+  height: 1px;
+  background: rgba(102,146,123,0.44);
+  flex: 0 0 auto;
 }
 
 /* Chips */
@@ -632,7 +653,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .lo-chip {
@@ -640,14 +661,14 @@
   align-items: center;
   padding: 4px 10px;
   border-radius: 7px;
-  border: 1px solid rgba(46,139,87,0.22);
-  background: rgba(46,139,87,0.07);
+  border: 1px solid rgba(100,133,118,0.2);
+  background: rgba(255,255,255,0.03);
   font-family: "Barlow Condensed", sans-serif;
   font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 1.4px;
   text-transform: uppercase;
-  color: rgba(130,210,165,0.75);
+  color: rgba(184,205,194,0.76);
 }
 
 /* CTA button */
@@ -657,36 +678,33 @@
   justify-content: center;
   gap: 10px;
   width: 100%;
-  min-height: 52px;
+  min-height: 46px;
   border-radius: 13px;
-  border: 1px solid rgba(46,139,87,0.55);
-  background: linear-gradient(140deg,
-    rgba(22,95,54,0.95) 0%,
-    rgba(46,139,87,0.9) 48%,
-    rgba(28,108,62,0.95) 100%);
-  color: rgba(215,255,232,0.96);
+  border: 1px solid rgba(102,143,121,0.32);
+  background: linear-gradient(180deg,
+    rgba(24,41,36,0.92) 0%,
+    rgba(18,31,28,0.94) 100%);
+  color: rgba(225,236,230,0.94);
   font-family: "Barlow Condensed", sans-serif;
-  font-size: 0.84rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 2.4px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   cursor: pointer;
   box-shadow:
-    0 10px 28px rgba(46,139,87,0.28),
-    inset 0 1px 0 rgba(255,255,255,0.12),
-    inset 0 -1px 0 rgba(0,0,0,0.15);
+    0 8px 18px rgba(0,0,0,0.22),
+    inset 0 1px 0 rgba(255,255,255,0.06);
   transition: box-shadow 180ms ease, transform 180ms ease, background 180ms ease;
+  margin-top: auto;
 }
 
 .lo-btn:hover {
-  background: linear-gradient(140deg,
-    rgba(30,115,66,1) 0%,
-    rgba(58,168,104,0.98) 48%,
-    rgba(36,130,75,1) 100%);
+  background: linear-gradient(180deg,
+    rgba(27,47,40,0.96) 0%,
+    rgba(21,36,32,0.98) 100%);
   box-shadow:
-    0 16px 40px rgba(46,139,87,0.38),
-    inset 0 1px 0 rgba(255,255,255,0.18),
-    inset 0 -1px 0 rgba(0,0,0,0.1);
+    0 12px 22px rgba(0,0,0,0.24),
+    0 0 0 1px rgba(111,162,135,0.12);
   transform: translateY(-1px);
 }
 
@@ -697,15 +715,15 @@
   display: flex;
   align-items: stretch;
   justify-content: center;
-  padding: 10px 28px;
+  padding: 8px 18px;
   flex-shrink: 0;
   gap: 0;
   order: 1; /* sit between sl-header and cards */
   margin: 0 0 4px;
-  background: rgba(46,139,87,0.06);
-  border: 1px solid rgba(46,139,87,0.14);
+  background: rgba(31,61,49,0.18);
+  border: 1px solid rgba(90,126,108,0.16);
   border-radius: 14px;
-  margin: 0 28px 8px;
+  margin: 0 28px 10px;
 }
 
 .lo-kpi-item {
@@ -720,10 +738,10 @@
 
 .lo-kpi-num {
   font-family: "Bebas Neue", "Anton", sans-serif;
-  font-size: 2rem;
+  font-size: 1.74rem;
   line-height: 1;
   letter-spacing: 1px;
-  color: rgba(90,210,140,1);
+  color: rgba(182,220,198,0.92);
 }
 
 .lo-kpi-lbl {
@@ -731,7 +749,7 @@
   font-size: 0.6rem;
   letter-spacing: 1.6px;
   text-transform: uppercase;
-  color: rgba(170,210,185,0.75);
+  color: rgba(174,198,188,0.68);
 }
 
 .lo-kpi-sep {
@@ -776,14 +794,17 @@
     grid-template-columns: 1fr;
     padding: 0 14px;
     gap: 10px;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+  }
+  .lo-card {
+    min-height: 0;
+    max-height: none;
   }
   .lo-card-content { padding: 16px 16px 14px; }
   .lo-card-tags { margin-bottom: 10px; }
   .lo-card-name { font-size: 2.2rem; margin-bottom: 6px; }
   .lo-card-sub { font-size: 0.68rem; margin-bottom: 10px; }
   .lo-card-desc { font-size: 0.78rem; margin-bottom: 10px; line-height: 1.55; }
+  .lo-card-role { font-size: 0.62rem; margin-bottom: 10px; }
   .lo-chip-row { gap: 5px; margin-bottom: 12px; }
   .lo-chip { font-size: 0.56rem; padding: 3px 8px; }
   .lo-btn { min-height: 44px; font-size: 0.76rem; letter-spacing: 1.8px; }
@@ -1162,6 +1183,7 @@
         <div class="lo-card-name">TEMPO</div>
         <div class="lo-card-sub">Structured calling architecture</div>
         <div class="lo-card-desc">Full-system lineout framework. Positions coded by TEMPO. Process-driven and consistent — built to win the source every time.</div>
+        <div class="lo-card-role">Best for: weekly calling structure and source ownership</div>
         <div class="lo-chip-row">
           <span class="lo-chip">Throw Zones</span>
           <span class="lo-chip">Maul Sequences</span>
@@ -1185,7 +1207,8 @@
         </div>
         <div class="lo-card-name">SPARK</div>
         <div class="lo-card-sub">Adaptive identification system</div>
-        <div class="lo-card-desc">Prescriptive coaching framework for reliability under pressure. Five principles govern all lineout decisions from source to delivery.</div>
+        <div class="lo-card-desc">Reference framework for source detail, variation, formations, maul defence, and throwing principles.</div>
+        <div class="lo-card-role">Best for: companion detail, variation, and coaching clarity</div>
         <div class="lo-chip-row">
           <span class="lo-chip">Attack Shapes</span>
           <span class="lo-chip">Formations</span>
@@ -1773,4 +1796,25 @@ function closeLineoutSystem() {
     setTimeout(function() { frame.src = ''; }, 180);
   }
   if (!document.querySelector('.overlay.open')) {
-    
+    document.body.classList.remove('overlay-active');
+  }
+}
+
+document.addEventListener('keydown', function(event) {
+  if (event.key === 'Escape') {
+    closeLineoutSystem();
+  }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  renderDonauLineoutCards();
+});
+
+if (document.readyState !== 'loading') {
+  renderDonauLineoutCards();
+}
+</script>
+
+</body>
+
+</html>  
