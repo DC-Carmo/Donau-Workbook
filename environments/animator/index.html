@@ -231,6 +231,25 @@
     </div>
 
     <div id="bottomPanel">
+
+      <!-- Mobile 2-row tool grid (CSS hides this on desktop) -->
+      <div id="mobileMoreDrawer" aria-hidden="true">
+        <button class="mob-more-btn" onclick="addNextAvailablePlayer('A')">+ATK</button>
+        <button class="mob-more-btn" onclick="addNextAvailablePlayer('D')">+DEF</button>
+        <button class="mob-more-btn" onclick="addBall()">BALL</button>
+        <button class="mob-more-btn" onclick="addStep()">+STEP</button>
+        <button class="mob-more-btn mob-play-btn" id="mobPlayBtn" onclick="togglePlay()">&#9654; PLAY</button>
+        <button class="mob-more-btn" onclick="undo()">&#8617; UNDO</button>
+      </div>
+      <div id="mobileToolGrid">
+        <button class="mob-tool-btn active" data-tool="move" onclick="setTool('move')">MOVE</button>
+        <button class="mob-tool-btn" data-tool="run" onclick="setTool('run')">RUN</button>
+        <button class="mob-tool-btn" data-tool="pass" onclick="setTool('pass')">PASS</button>
+        <button class="mob-tool-btn" data-tool="kick" onclick="setTool('kick')">KICK</button>
+        <button class="mob-tool-btn" data-tool="erase" onclick="setTool('erase')">ERASE</button>
+        <button class="mob-tool-btn mob-tool-more" id="mobMoreBtn" onclick="toggleMobileMoreDrawer()">MORE &#9652;</button>
+      </div>
+
       <div id="compactToolbar" aria-label="Board controls">
 
         <!-- Group A: Players & objects -->
@@ -320,32 +339,4 @@
     <input type="file" id="importPlayInput" accept=".json,application/json" hidden>
     <div id="savedPlayList"></div>
 
-    <div id="stepStatus">Step 1 of 1</div>
-    <div id="stepStatusCopy">Build toward 3+ phases</div>
-    <button id="seqDeleteBtn" onclick="deleteStep()">Delete Step</button>
-    <div id="stepRail"></div>
-
-    <button id="tlPlayBtn" onclick="togglePlay()">Play</button>
-    <div id="track" onclick="seekTrack(event)">
-      <div id="trackFill"></div>
-      <div id="trackThumb"></div>
-    </div>
-    <span id="tlTime">0.0 / 5.0s</span>
-    <span id="spdLabel">1×</span>
-  </div>
-  <!-- Guided onboarding tour -->
-  <div id="tourBackdrop" class="tour-backdrop" aria-hidden="true"></div>
-  <div id="tourTooltip" class="tour-tooltip" role="dialog" aria-modal="true" aria-label="Onboarding tour">
-    <div class="tour-step-counter" id="tourCounter">Step 1 of 6</div>
-    <div class="tour-title" id="tourTitle"></div>
-    <div class="tour-body" id="tourBody"></div>
-    <div class="tour-actions">
-      <button class="tour-skip" id="tourSkip" type="button">Skip tour</button>
-      <button class="tour-next" id="tourNext" type="button">Next &#8594;</button>
-    </div>
-  </div>
-</div>
-<script src="js/tactical-board.js"></script>
-</body>
-</html>
-                                                                                                                                                                                  
+    <div id="stepStatus">

@@ -942,6 +942,16 @@ function updatePhaseUI() {
   addBtn.setAttribute('aria-label', 'Add phase');
   addBtn.onclick = () => addPhase();
   strip.appendChild(addBtn);
+
+  // Delete current step button - only show when there is something to remove
+  const delBtn = document.createElement('button');
+  delBtn.type = 'button';
+  delBtn.className = 'tb-phase-chip tb-phase-chip-del';
+  delBtn.textContent = '-';
+  delBtn.title = 'Delete current step';
+  delBtn.setAttribute('aria-label', 'Delete current step');
+  delBtn.onclick = () => deleteStep();
+  strip.appendChild(delBtn);
 }
 
 function createCarryForwardStep(step) {
@@ -1968,17 +1978,38 @@ function buildPlayList() {
     groups.get(play.cat).push(play);
   });
   groups.forEach((plays, cat) => {
-    const label = document.createElement('div');
-    label.className = 'play-category-label';
-    label.textContent = cat;
-    c.appendChild(label);
+    const section = document.createElement('div');
+    section.className = 'play-category-section';
+
+    const label = document.createElement('button');
+    label.type = 'button';
+    label.className = 'play-category-label play-category-toggle';
+    label.setAttribute('aria-expanded', 'false');
+    label.innerHTML = `<span>${cat}</span><span class="play-cat-chevron">&#8250;</span>`;
+    section.appendChild(label);
+
+    const list = document.createElement('div');
+    list.className = 'play-category-list';
+    list.hidden = true;
+
     plays.forEach(play => {
       const btn = document.createElement('button');
+      btn.type = 'button';
       btn.className = 'play-preset-btn';
       btn.innerHTML = `<div class="play-preset-name">${play.name}</div><div class="play-preset-copy">${play.desc || 'Load a clean coaching picture.'}</div>`;
       btn.onclick = () => loadPlay(play.id);
-      c.appendChild(btn);
+      list.appendChild(btn);
     });
+
+    label.onclick = () => {
+      const isOpen = !list.hidden;
+      list.hidden = isOpen;
+      label.setAttribute('aria-expanded', String(!isOpen));
+      label.querySelector('.play-cat-chevron').style.transform = isOpen ? '' : 'rotate(90deg)';
+    };
+
+    section.appendChild(list);
+    c.appendChild(section);
   });
 }
 
@@ -4216,6 +4247,13 @@ function handlePointerMove(e) {
         }
         pl.x = clamp(fp.x - S.dragOff.x, -2, 70);
         pl.y = clamp(fp.y - S.dragOff.y, -11, 111);
+
+        // Warn if this player has a pass drawn from them - moving after drawing distorts the arc
+        if (!S.dragging._passWarnShown && S.passes.some(p => p.from === pl.id)) {
+          S.dragging._passWarnShown = true;
+          setHint('Pass already drawn from this player. Hit + STEP before repositioning to keep the arc accurate.');
+        }
+
         const path = S.paths.find(p => p.pid === pl.id);
         if (path && path.pts.length) path.pts[0] = {x:pl.x, y:pl.y};
         if (samePlayerRef(playerRef(pl), S.ballOwner) && S.ball) {
@@ -5119,6 +5157,7 @@ function togglePlayAll() {
   requestAnimationFrame(animLoop);
 }
 window.togglePlayAll = togglePlayAll;
+window.deleteStep = deleteStep;
 
 function animLoop(ts) {
   if (!S.animating) return;
@@ -5855,6 +5894,16 @@ function setTool(t) {
 }
 function setHint(txt) { document.getElementById('hint').textContent = txt; }
 
+function toggleMobileMoreDrawer() {
+  const drawer = document.getElementById('mobileMoreDrawer');
+  const btn    = document.getElementById('mobMoreBtn');
+  if (!drawer) return;
+  const isOpen = drawer.classList.toggle('open');
+  drawer.setAttribute('aria-hidden', String(!isOpen));
+  if (btn) btn.textContent = isOpen ? 'MORE ▾' : 'MORE ▴';
+}
+window.toggleMobileMoreDrawer = toggleMobileMoreDrawer;
+
 function clearPaths()  { snapshot(); S.paths=[]; S.passes=[]; S.drawing=null; setHint('Paths cleared. Choose the next action.'); refreshInteractionUI(); render(); }
 function clearSelection() {
   clearSelectedObject();
@@ -6337,65 +6386,4 @@ window.exportPDF = exportPDF;
 
 function exportCurrentPlay() {
   const play = serializePlay();
-  const blob = new Blob([JSON.stringify(play, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  const safeName = (play.meta.name || 'untitled-play').replace(/[^\w-]+/g, '_');
-  link.href = url;
-  link.download = `${safeName}.json`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-  setHint(`Exported "${play.meta.name}" as JSON.`);
-  refreshInteractionUI();
-}
-
-function triggerImportPlay() {
-  const input = document.getElementById('importPlayInput');
-  if (input) input.click();
-}
-
-function importPlayFromFile(file) {
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const raw = JSON.parse(reader.result);
-      const play = migratePlay(raw);
-      deserializePlay(play);
-      setTool('move');
-      setHint(`Imported "${play.meta?.name || 'Untitled Play'}" from JSON.`);
-      refreshInteractionUI();
-    } catch (err) {
-      console.error('Import failed:', err);
-      setHint(`Import failed: ${err.message}`);
-      refreshInteractionUI();
-    }
-  };
-  reader.readAsText(file);
-}
-
-
-document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-  const k = e.key.toLowerCase();
-  const map = {v:'move',r:'run',p:'pass',k:'kick',e:'erase',t:'tele',c:'zone',b:'box'};
-  if (map[k])           { setTool(map[k]); return; }
-  if (k===' ')          { e.preventDefault(); togglePlay(); return; }
-  if (k === 'arrowleft') { e.preventDefault(); goToPhase(GamePlan.currentPhase - 1); return; }
-  if (k === 'arrowright') { e.preventDefault(); goToPhase(GamePlan.currentPhase + 1); return; }
-  if (k==='escape')     {
-    e.preventDefault();
-    if (radialMenu) {
-      closeRadialMenu();
-      render();
-      return;
-    }
-    cancelActiveBoardInteraction();
-    return;
-  }
-  if (k==='z'&&(e.ctrlKey||e.metaKey)&&e.shiftKey) { e.preventDefault(); redo(); return; }
-  if (k==='z'&&(e.ctrlKey||e.metaKey)) { e.preventDefault(); undo(); }
-  if (k==='delete'||k==='backspace') {
-    if (S.selectedPlayerId !== null || S.selectedGroupId !== null || isBallSelected() || selectedAnnota
+  const blob = new Blob([JSON.stringify(play, null, 2)], { type: 'application/json
