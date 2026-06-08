@@ -2055,21 +2055,23 @@ h2.section {
 
 @media (max-width: 900px) {
   /* Base rule has html,body { height:100vh; overflow:hidden } for the desktop canvas layout.
-     On mobile we must fully reset html so the body can scroll:
-     - height:auto   removes the 100vh clamp
-     - overflow:visible is the CSS initial value, supported in ALL Safari/iOS versions.
-                     It does NOT create a scroll container, so body's overflow-y:auto drives viewport scroll.
-                     (overflow:clip was previously used but silently ignored on Safari/iOS < 16) */
+     On mobile we fully unlock the viewport scroll:
+     - html/body get height:auto to remove the 100vh clamp
+     - Neither html nor body sets overflow-y — we let the VIEWPORT scroll naturally.
+       Setting overflow-y:auto on body with height:auto creates a broken scroll container
+       (no bounded height) that blocks iOS Safari's native viewport scroll.
+     - overflow-x:hidden on body prevents horizontal bleed.
+     - .slide becomes relative/auto so it stacks in normal flow and the viewport scrolls. */
   html {
     height: auto;
-    overflow: visible; /* Safari-safe: supported everywhere, no scroll container */
+    overflow: visible; /* initial value — no scroll container on html */
   }
 
   body {
     height: auto;
     min-height: 100vh;
     overflow-x: hidden;
-    overflow-y: auto;
+    /* intentionally NO overflow-y — let overflow propagate to viewport (iOS-safe) */
   }
 
   .slide {
@@ -2100,12 +2102,14 @@ h2.section {
     flex-direction: column;
   }
 
-  /* Allow sl-body to scroll on mobile — base rule has overflow:hidden which clips content */
+  /* On mobile, viewport scroll drives the page. The sl-body sits in normal flow
+     inside the .slide (position:relative; height:auto; overflow:visible).
+     We do NOT set overflow-y here — doing so (even with height:auto) can create
+     a ghost scroll layer on iOS that intercepts touch events and blocks viewport scroll.
+     overflow-x:hidden prevents horizontal bleed from any wide child elements. */
   .sl-body {
-    overflow-y: auto;
     overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain;
+    overflow-y: visible; /* explicit: let content flow into viewport scroll */
   }
 
   #s2 .sl-body {
@@ -2635,25 +2639,6 @@ h2.section {
     background: rgba(8, 25, 41, 0.95);
     backdrop-filter: blur(16px);
     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.24);
-  }
-
-  .mobile-bottom-nav-btn {
-    min-height: 48px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 8px;
-    border: 0;
-    border-radius: 12px;
-    background: transparent;
-    color: var(--muted);
-    font-family: "Barlow Condensed", sans-serif;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 1.6px;
-    text-transform: uppercase;
-    text-decoration: none;
-    cursor: pointer;
   }
 
   .mobil
