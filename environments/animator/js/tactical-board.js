@@ -6387,4 +6387,441 @@ function applyBoardData(play, { snapshotBefore = true } = {}) {
   GamePlan.phases = Array.isArray(p.phases) && p.phases.length
     ? p.phases.map((phase, index) => normalizePhaseState(phase, index))
     : [normalizePhaseState(p, 0)];
-  const activePhase = GamePlan.phases[GamePlan.curr
+  const activePhase = GamePlan.phases[GamePlan.currentPhase] || GamePlan.phases[0];
+  setLiveBoardFromStep(activePhase.steps[activePhase.currentStep] || emptyStepState());
+  S.animT = 0;
+  S.animating = false;
+  clearSelectedObject();
+  S.selectedPlayerIds = [];
+  S.drawing = null;
+  S.annotationDraft = null;
+  clearPassKickState();
+  S.projectId = p.id;
+  S.projectMeta = p.metadata;
+  S.playMetadata = normalizeProjectMetadata({ name: p.name }, p.metadata);
+  S.projectPlayback = p.playback;
+  S.animSpd = S.projectPlayback?.currentSpeed || 1;
+  spdIdx = Math.max(0, SPEEDS.indexOf(S.animSpd));
+  if (p.metadata?.source !== 'preset') currentPresetId = null;
+  document.getElementById('playName').value = GamePlan.name || 'Untitled Play';
+  syncPlayMetadataTitle();
+  setPlayBtnState();
+  document.getElementById('spdLabel').textContent = fmtSpd(S.animSpd);
+  updatePresetOptionsUI();
+  updatePhaseUI();
+  rebuildPalette();
+  refreshInteractionUI();
+  updateTL();
+  render();
+  setTool('move');
+  completeFirstUseTutorial();
+  return true;
+}
+
+function getSavedPlays() {
+  try {
+    const raw = localStorage.getItem(SAVED_PLAYS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(item => normalizeProjectRecord(item)).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function setSavedPlays(plays) {
+  localStorage.setItem(SAVED_PLAYS_KEY, JSON.stringify(plays));
+}
+
+function saveCurrentPlay() {
+  const board = makeBoardData();
+  const saved = getSavedPlays();
+  const stamp = nowIso();
+  const entry = {
+    ...board,
+    metadata: {
+      ...board.metadata,
+      updatedAt: stamp,
+    },
+    savedAt: stamp,
+  };
+  S.projectId = entry.id;
+  S.projectMeta = entry.metadata;
+  S.playMetadata = entry.metadata;
+  S.projectPlayback = entry.playback;
+  const withoutSameProject = saved.filter(item => item.id !== entry.id);
+  const withoutSameName = withoutSameProject.filter(item => item.name !== entry.name);
+  withoutSameName.unshift(entry);
+  setSavedPlays(withoutSameName.slice(0, 20));
+  refreshSavedPlayList();
+  setHint(`Saved "${entry.name}" locally.`);
+  refreshInteractionUI();
+}
+
+function refreshSavedPlayList() {
+  const wrap = document.getElementById('savedPlayList');
+  if (!wrap) return;
+  const saved = getSavedPlays();
+  wrap.innerHTML = '';
+  if (!saved.length) {
+    wrap.innerHTML = '<div class="saved-play-empty">No local saves yet. Save the current board to keep building from it later.</div>';
+    return;
+  }
+  saved.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'saved-play-card';
+    const savedDate = item.savedAt ? new Date(item.savedAt).toLocaleString() : 'Saved locally';
+    card.innerHTML = `<div class="saved-play-main">
+      <div>
+        <div class="saved-play-name">${item.name}</div>
+        <div class="saved-play-meta">${savedDate}<br>${item.steps?.length || 1} step${(item.steps?.length || 1) === 1 ? '' : 's'} · ${item.players?.length || 0} players · ${(item.paths||[]).length} paths · ${(item.passes||[]).length} passes</div>
+      </div>
+    </div>
+    <div class="saved-play-actions">
+      <button class="saved-play-btn" data-action="load">Load</button>
+      <button class="saved-play-btn" data-action="export">Export</button>
+      <button class="saved-play-btn danger" data-action="delete">Delete</button>
+    </div>`;
+    card.querySelector('[data-action="load"]').onclick = () => {
+      if (applyBoardData(item)) {
+        setHint(`Loaded "${item.name}".`);
+        refreshInteractionUI();
+      }
+    };
+    card.querySelector('[data-action="export"]').onclick = () => exportPlayData(item);
+    card.querySelector('[data-action="delete"]').onclick = () => deleteSavedPlay(item.id, item.name);
+    wrap.appendChild(card);
+  });
+}
+
+function deleteSavedPlay(id, name) {
+  const saved = getSavedPlays().filter(item => item.id !== id);
+  setSavedPlays(saved);
+  refreshSavedPlayList();
+  setHint(`Deleted local save "${name}".`);
+  refreshInteractionUI();
+}
+
+function exportPlayData(play) {
+  const project = normalizeProjectRecord(play) || makeBoardData();
+  const payload = {
+    schemaVersion: PROJECT_SCHEMA_VERSION,
+    projectType: PROJECT_TYPE,
+    exportedAt: nowIso(),
+    project: {
+      name: project.name,
+      currentPhase: project.currentPhase,
+      phases: project.phases,
+    },
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const safeName = (project.name || 'untitled-play').replace(/[^\w-]+/g, '_');
+  link.href = url;
+  link.download = `${safeName}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  setHint(`Exported "${project.name}" as JSON.`);
+  refreshInteractionUI();
+}
+
+async function exportPDF() {
+  updatePlayMetadataFromInputs();
+  if (!window.jspdf?.jsPDF || typeof window.qrcode !== 'function') {
+    setHint('PDF export is unavailable right now. Reload the board and try again.');
+    refreshInteractionUI();
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const W = 297, H = 210;
+  const playName = document.getElementById('playName').value || 'Play';
+  const noteFields = [
+    ['PHASE PURPOSE', document.getElementById('metaPurpose')?.value?.trim() || ''],
+    ['DECISION CUE', document.getElementById('metaDecisionCue')?.value?.trim() || ''],
+    ['COACHING POINTS', readMetaList(['metaCoachingPoint1', 'metaCoachingPoint2', 'metaCoachingPoint3'], 3).join('\n')],
+    ['COMMON MISTAKES', readMetaList(['metaCommonMistake1', 'metaCommonMistake2', 'metaCommonMistake3'], 3).join('\n')],
+  ];
+
+  doc.setFillColor(10, 19, 16);
+  doc.rect(0, 0, W, H, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(22);
+  doc.text('RDA TACTICAL BOARD', 14, 14);
+  doc.setFontSize(14);
+  doc.setTextColor(251, 191, 36);
+  doc.text(playName, 14, 22);
+
+  const imgData = cv.toDataURL('image/png');
+  doc.addImage(imgData, 'PNG', 14, 28, 110, 155);
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10);
+  let noteY = 32;
+  noteFields.forEach(([label, val]) => {
+    if (!val) return;
+    doc.setTextColor(251, 191, 36);
+    doc.setFontSize(8);
+    doc.text(label, 135, noteY);
+    noteY += 5;
+    doc.setTextColor(220, 220, 220);
+    doc.setFontSize(9);
+    const lines = doc.splitTextToSize(val, 75);
+    doc.text(lines, 135, noteY);
+    noteY += lines.length * 5 + 4;
+  });
+
+  const qr = qrcode(0, 'M');
+  qr.addData(window.location.href);
+  qr.make();
+  const qrImg = qr.createDataURL(4);
+  doc.addImage(qrImg, 'PNG', 255, 160, 30, 30);
+  doc.setTextColor(150, 150, 150);
+  doc.setFontSize(7);
+  doc.text('Scan to open live board', 256, 194);
+
+  doc.save(`${playName || 'play'}.pdf`);
+  setHint(`Exported "${playName}" as PDF.`);
+  refreshInteractionUI();
+}
+window.exportPDF = exportPDF;
+
+function exportCurrentPlay() {
+  const play = serializePlay();
+  const blob = new Blob([JSON.stringify(play, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const safeName = (play.meta.name || 'untitled-play').replace(/[^\w-]+/g, '_');
+  link.href = url;
+  link.download = `${safeName}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  setHint(`Exported "${play.meta.name}" as JSON.`);
+  refreshInteractionUI();
+}
+
+function triggerImportPlay() {
+  const input = document.getElementById('importPlayInput');
+  if (input) input.click();
+}
+
+function importPlayFromFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const raw = JSON.parse(reader.result);
+      const play = migratePlay(raw);
+      deserializePlay(play);
+      setTool('move');
+      setHint(`Imported "${play.meta?.name || 'Untitled Play'}" from JSON.`);
+      refreshInteractionUI();
+    } catch (err) {
+      console.error('Import failed:', err);
+      setHint(`Import failed: ${err.message}`);
+      refreshInteractionUI();
+    }
+  };
+  reader.readAsText(file);
+}
+
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  const k = e.key.toLowerCase();
+  const map = {v:'move',r:'run',p:'pass',k:'kick',e:'erase',t:'tele',c:'zone',b:'box'};
+  if (map[k])           { setTool(map[k]); return; }
+  if (k===' ')          { e.preventDefault(); togglePlay(); return; }
+  if (k === 'arrowleft') { e.preventDefault(); goToPhase(GamePlan.currentPhase - 1); return; }
+  if (k === 'arrowright') { e.preventDefault(); goToPhase(GamePlan.currentPhase + 1); return; }
+  if (k==='escape')     {
+    e.preventDefault();
+    if (radialMenu) {
+      closeRadialMenu();
+      render();
+      return;
+    }
+    cancelActiveBoardInteraction();
+    return;
+  }
+  if (k==='z'&&(e.ctrlKey||e.metaKey)&&e.shiftKey) { e.preventDefault(); redo(); return; }
+  if (k==='z'&&(e.ctrlKey||e.metaKey)) { e.preventDefault(); undo(); }
+  if (k==='delete'||k==='backspace') {
+    if (S.selectedPlayerId !== null || S.selectedGroupId !== null || isBallSelected() || selectedAnnotationId() || S.selectedPassIdx !== null || S.selectedPathPid !== null) {
+      e.preventDefault();
+      deleteSelected();
+    }
+  }
+});
+
+let trackDrag = false;
+const _trackThumb = document.getElementById('trackThumb');
+_trackThumb.addEventListener('pointerdown', e => {
+  trackDrag = true;
+  _trackThumb.setPointerCapture(e.pointerId);
+});
+_trackThumb.addEventListener('pointermove', e => {
+  if (!trackDrag) return;
+  const r = document.getElementById('track').getBoundingClientRect();
+  const raw = clamp((e.clientX - r.left) / r.width, 0, 1);
+  if (!S.animating && sequenceStepCount() > 1) {
+    gotoStep(Math.round(raw * (sequenceStepCount() - 1)));
+    return;
+  }
+  S.animT = raw;
+  updateTL(); render();
+});
+_trackThumb.addEventListener('pointerup', () => trackDrag = false);
+_trackThumb.addEventListener('pointercancel', () => trackDrag = false);
+_trackThumb.addEventListener('touchstart', e => { e.preventDefault(); trackDrag = true; }, { passive: false });
+_trackThumb.addEventListener('touchmove', e => {
+  if (!trackDrag) return;
+  const ne = normEvent(e);
+  const r = document.getElementById('track').getBoundingClientRect();
+  const raw = clamp((ne.clientX - r.left) / r.width, 0, 1);
+  if (!S.animating && sequenceStepCount() > 1) {
+    gotoStep(Math.round(raw * (sequenceStepCount() - 1)));
+    return;
+  }
+  S.animT = raw;
+  updateTL(); render();
+}, { passive: false });
+_trackThumb.addEventListener('touchend',    () => trackDrag = false, { passive: false });
+_trackThumb.addEventListener('touchcancel', () => trackDrag = false, { passive: false });
+
+//  INIT
+GamePlan.phases = GamePlan.phases.map((phase, index) => normalizePhaseState(phase, index));
+buildPlayList();
+updatePresetOptionsUI();
+rebuildPalette();
+refreshSavedPlayList();
+S.playMetadata = emptyPlayMetadata('New Play');
+GamePlan.name = 'New Play';
+GamePlan.currentPhase = 0;
+S.steps = [emptyStepState()];
+S.currentStep = 0;
+firstUseTutorialDismissed = hasSeenFirstUseTutorial();
+updateAnnotationPanel();
+updatePhaseUI();
+updatePlayMetadataPanel();
+document.getElementById('playName').addEventListener('input', () => {
+  GamePlan.name = currentPlayTitle();
+  syncPlayMetadataTitle();
+  refreshInteractionUI();
+});
+window.serializePlay = serializePlay;
+window.deserializePlay = deserializePlay;
+window.migratePlay = migratePlay;
+
+document.addEventListener('pointerdown', e => {
+  if (!radialMenu) return;
+  const menu = document.getElementById('radialMenu');
+  if (menu && !menu.contains(e.target)) {
+    closeRadialMenu();
+    render();
+  }
+});
+[
+  'metaPurpose',
+  'metaCoachingPoint1',
+  'metaCoachingPoint2',
+  'metaCoachingPoint3',
+  'metaDecisionCue',
+  'metaCommonMistake1',
+  'metaCommonMistake2',
+  'metaCommonMistake3',
+].forEach(id => {
+  document.getElementById(id).addEventListener('input', updatePlayMetadataFromInputs);
+});
+document.getElementById('selNoteInput').addEventListener('input', e => updateSelectedNoteText(e.target.value));
+document.getElementById('selNoteInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    e.target.blur();
+  }
+  if (e.key === 'Escape') {
+    const ann = selectedAnnotation();
+    if (ann?.type === 'note') {
+      e.target.value = ann.text;
+    }
+    e.target.blur();
+  }
+});
+document.getElementById('importPlayInput').addEventListener('change', e => {
+  importPlayFromFile(e.target.files?.[0]);
+  e.target.value = '';
+});
+document.getElementById('spKickStep1')?.addEventListener('click', e => {
+  e.preventDefault();
+  if (S.tool === 'kick') cancelArmedKick();
+});
+
+// ── App bootstrap ────────────────────────────────────────────────────────
+let _boardBootstrapped = false;
+function _initBoard() {
+  if (_boardBootstrapped) return;
+  _boardBootstrapped = true;
+  resize();
+  ensureSteps();
+  currentPresetId = null;
+  GamePlan.name = 'New Play';
+  GamePlan.currentPhase = 0;
+  document.getElementById('playName').value = 'New Play';
+  setLiveBoardFromStep(emptyStepState());
+  render();
+  refreshInteractionUI();
+  updateBoardStatus();
+  updateSequenceUI();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _initBoard);
+} else {
+  // Script loaded after DOM is ready (defer/bottom of body)
+  requestAnimationFrame(() => {
+    _initBoard();
+  });
+}
+
+window.addEventListener('resize', () => {
+  resize();
+  render();
+});
+
+// On iOS, orientation change fires before new dimensions are ready
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => { resize(); render(); }, 120);
+});
+
+(function initAccordions() {
+  ['accPurpose', 'accDecision', 'accCoaching', 'accMistakes'].forEach(function(id) {
+    try {
+      if (localStorage.getItem('sp-acc-' + id) === '1') {
+        var section = document.getElementById(id);
+        if (section) {
+          section.classList.add('sp-acc-open');
+          var trigger = section.querySelector('.sp-acc-trigger');
+          if (trigger) trigger.setAttribute('aria-expanded', 'true');
+        }
+      }
+    } catch(e) {}
+  });
+})();
+
+document.addEventListener('pointerdown', e => {
+  const dropdown = document.getElementById('mobileToolsDropdown');
+  const btn = document.getElementById('mobileToolsBtn');
+  if (!dropdown || !dropdown.classList.contains('is-open')) return;
+  if (!dropdown.contains(e.target) && e.target !== btn && !btn?.contains(e.target)) {
+    closeMobileToolsDropdown();
+  }
+}, { capture: true });
+
+

@@ -33,9 +33,9 @@
     </div>
 
     <div class="seq-bar" aria-label="Sequence controls">
-      <button class="seq-bar-nav" id="seqBarPrev" onclick="prevStep()" aria-label="Previous step">&#8249;</button>
+      <button class="seq-bar-nav" id="seqBarPrev" onclick="prevStep()" aria-label="Previous step">&#8249;&#xFE0E;</button>
       <div class="seq-bar-chips" id="phaseChipStrip"></div>
-      <button class="seq-bar-nav" id="seqBarNext" onclick="nextStep()" aria-label="Next step">&#8250;</button>
+      <button class="seq-bar-nav" id="seqBarNext" onclick="nextStep()" aria-label="Next step">&#8250;&#xFE0E;</button>
       <button class="seq-bar-play" id="seqBarPlay" onclick="toggleSmartPlay()" aria-label="Play sequence">
         <span class="seq-bar-play-icon" id="seqBarPlayIcon">&#9654;</span>
         <span class="seq-bar-play-label" id="seqBarPlayLabel">PLAY</span>
@@ -262,9 +262,9 @@
         <button class="mob-tool-btn" data-tool="erase" onclick="setTool('erase')">ERASE</button>
         <button class="mob-tool-btn mob-tool-more" id="mobMoreBtn" onclick="toggleMobileMoreDrawer()">MORE &#9652;&#xFE0E;</button>
         <div class="mob-nav-row">
-          <button class="mob-more-btn" onclick="prevStep()">&#9665; PREV</button>
+          <button class="mob-more-btn" onclick="prevStep()">&#9665;&#xFE0E; PREV</button>
           <button class="mob-more-btn mob-step-btn" onclick="addStep()">&#65291; STEP</button>
-          <button class="mob-more-btn" onclick="nextStep()">NEXT &#9655;</button>
+          <button class="mob-more-btn" onclick="nextStep()">NEXT &#9655;&#xFE0E;</button>
         </div>
       </div>
 
@@ -338,4 +338,39 @@
 
   <div id="supportDock" aria-hidden="true">
     <button class="pal-tab atk" id="tab-atk" type="button" onclick="setTab('atk')">
-      <span id="tab-atk-count">0 / 15<
+      <span id="tab-atk-count">0 / 15</span>
+    </button>
+    <button class="pal-tab def" id="tab-def" type="button" onclick="setTab('def')">
+      <span id="tab-def-count">0 / 15</span>
+    </button>
+    <div id="palOnBoard">0 / 15</div>
+    <div id="palAvailable">15</div>
+    <div id="palBallStatus">Not Placed</div>
+    <div id="palCopy">Click a number to place it on the field.</div>
+    <div id="palGrid"></div>
+
+    <input type="file" id="importPlayInput" accept=".json,application/json" hidden>
+    <div id="savedPlayList"></div>
+    <button id="tlPlayBtn" onclick="togglePlay()">Play</button>
+    <div id="track" onclick="seekTrack(event)">
+      <div id="trackFill"></div>
+      <div id="trackThumb"></div>
+    </div>
+    <span id="tlTime">0.0 / 5.0s</span>
+    <span id="spdLabel">1×</span>
+  </div>
+  <!-- Guided onboarding tour -->
+  <div id="tourBackdrop" class="tour-backdrop" aria-hidden="true"></div>
+  <div id="tourTooltip" class="tour-tooltip" role="dialog" aria-modal="true" aria-label="Onboarding tour">
+    <div class="tour-step-counter" id="tourCounter">Step 1 of 6</div>
+    <div class="tour-title" id="tourTitle"></div>
+    <div class="tour-body" id="tourBody"></div>
+    <div class="tour-actions">
+      <button class="tour-skip" id="tourSkip" type="button">Skip tour</button>
+      <button class="tour-next" id="tourNext" type="button">Next &#8594;</button>
+    </div>
+  </div>
+</div>
+<script src="js/tactical-board.js"></script>
+</body>
+</html>
