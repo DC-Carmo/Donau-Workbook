@@ -566,6 +566,20 @@
     window.scrollTo(0, mobileScrollLockY);
   }
 
+  function clearMobileScrollLock({ restoreScroll = false } = {}) {
+    if (restoreScroll && document.body.classList.contains("mobile-scroll-locked")) {
+      unlockMobileBodyScroll();
+    } else {
+      if (document.body.classList.contains("mobile-scroll-locked")) {
+        mobileScrollLockY = getLockedMobileScrollY();
+      }
+      document.body.classList.remove("mobile-scroll-locked");
+      document.body.style.removeProperty("top");
+    }
+
+    document.body.classList.remove("mobile-workspace-menu-open");
+  }
+
   function syncMobileViewportState({ restoreScroll = false } = {}) {
     const drawer = document.getElementById("mobileModuleDrawer");
     const shouldLockBody =
@@ -580,15 +594,7 @@
       return;
     }
 
-    if (document.body.classList.contains("mobile-scroll-locked")) {
-      if (restoreScroll) {
-        unlockMobileBodyScroll();
-      } else {
-        mobileScrollLockY = getLockedMobileScrollY();
-        document.body.classList.remove("mobile-scroll-locked");
-        document.body.style.removeProperty("top");
-      }
-    }
+    clearMobileScrollLock({ restoreScroll });
   }
 
   function setMobileWorkspaceMenu(open) {
@@ -643,7 +649,7 @@
     );
   }
 
-  function scrollActiveSlideIntoView(behavior = "smooth") {
+  function scrollActiveSlideIntoView(behavior = "auto") {
     if (!isMobileViewport()) {
       return;
     }
@@ -759,7 +765,7 @@
       return;
     }
 
-    const { behavior = "smooth" } = options;
+    const { behavior = "auto" } = options;
     setMobileWorkspaceMenu(false);
     document.getElementById(`s${cur}`).classList.remove("active");
     cur = n;
@@ -1359,11 +1365,13 @@
     let sx = null;
     let sy = null;
     let swipeEligible = false;
+    let swipeAxis = null;
     document.addEventListener("touchstart", (event) => {
       if (hasActiveOverlay()) {
         sx = null;
         sy = null;
         swipeEligible = false;
+        swipeAxis = null;
         return;
       }
 
@@ -1380,12 +1388,14 @@
         sx = null;
         sy = null;
         swipeEligible = false;
+        swipeAxis = null;
         return;
       }
 
       sx = touch.clientX;
       sy = touch.clientY;
       swipeEligible = true;
+      swipeAxis = null;
     }, { passive: true });
 
     document.addEventListener("touchmove", (event) => {
@@ -1396,12 +1406,24 @@
       const touch = event.touches[0];
       if (!touch) {
         swipeEligible = false;
+        swipeAxis = null;
         return;
       }
 
       const dx = touch.clientX - sx;
       const dy = touch.clientY - sy;
-      if (Math.abs(dy) > 16 && Math.abs(dy) >= Math.abs(dx)) {
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+
+      if (swipeAxis === null) {
+        if (absDy > 12 && absDy >= absDx * 1.2) {
+          swipeAxis = "vertical";
+        } else if (absDx > 24 && absDx >= absDy * 1.5) {
+          swipeAxis = "horizontal";
+        }
+      }
+
+      if (swipeAxis === "vertical") {
         swipeEligible = false;
       }
     }, { passive: true });
@@ -1411,6 +1433,7 @@
         sx = null;
         sy = null;
         swipeEligible = false;
+        swipeAxis = null;
         return;
       }
 
@@ -1419,17 +1442,22 @@
         sx = null;
         sy = null;
         swipeEligible = false;
+        swipeAxis = null;
         return;
       }
 
-      const diff = sx - touch.clientX;
-      if (Math.abs(diff) > 50) {
-        changeSlide(diff > 0 ? 1 : -1);
+      const dx = sx - touch.clientX;
+      const dy = sy - touch.clientY;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+      if (swipeAxis === "horizontal" && absDx > 72 && absDx >= absDy * 1.5) {
+        changeSlide(dx > 0 ? 1 : -1);
       }
 
       sx = null;
       sy = null;
       swipeEligible = false;
+      swipeAxis = null;
     }, { passive: true });
 
     document.addEventListener("touchstart", handleOverlayTouchStart, { passive: true });
@@ -1467,6 +1495,13 @@
         return;
       }
       syncMobileViewportState({ restoreScroll: true });
+      syncMobileWorkspaceOffset();
+    });
+
+    window.addEventListener("orientationchange", () => {
+      if (!mobileWorkspaceMenuOpen) {
+        clearMobileScrollLock({ restoreScroll: true });
+      }
       syncMobileWorkspaceOffset();
     });
 

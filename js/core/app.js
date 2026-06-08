@@ -399,6 +399,20 @@
     window.scrollTo(0, mobileScrollLockY);
   }
 
+  function clearMobileScrollLock({ restoreScroll = false } = {}) {
+    if (restoreScroll && document.body.classList.contains("mobile-scroll-locked")) {
+      unlockMobileBodyScroll();
+    } else {
+      if (document.body.classList.contains("mobile-scroll-locked")) {
+        mobileScrollLockY = getLockedMobileScrollY();
+      }
+      document.body.classList.remove("mobile-scroll-locked");
+      document.body.style.removeProperty("top");
+    }
+
+    document.body.classList.remove("mobile-workspace-menu-open");
+  }
+
   function syncMobileViewportState({ restoreScroll = false } = {}) {
     const drawer = document.getElementById("mobileModuleDrawer");
     const shouldLockBody =
@@ -413,15 +427,7 @@
       return;
     }
 
-    if (document.body.classList.contains("mobile-scroll-locked")) {
-      if (restoreScroll) {
-        unlockMobileBodyScroll();
-      } else {
-        mobileScrollLockY = getLockedMobileScrollY();
-        document.body.classList.remove("mobile-scroll-locked");
-        document.body.style.removeProperty("top");
-      }
-    }
+    clearMobileScrollLock({ restoreScroll });
   }
 
   function goBackInWorkspace(event) {
@@ -662,7 +668,7 @@
     );
   }
 
-  function scrollActiveSlideIntoView(behavior = "smooth") {
+  function scrollActiveSlideIntoView(behavior = "auto") {
     if (!isMobileViewport()) {
       return;
     }
@@ -791,7 +797,7 @@
       return;
     }
 
-    const { fromHistory = false, behavior = "smooth" } = options;
+    const { fromHistory = false, behavior = "auto" } = options;
     if (n !== cur && !fromHistory) {
       mobileWorkspaceHistory.push(cur);
       if (mobileWorkspaceHistory.length > 40) {
@@ -891,14 +897,6 @@
       )
       .join("");
 
-    if (window.innerWidth <= 768) {
-      requestAnimationFrame(() => {
-        const el = document.getElementById('attackContent');
-        if (!el) return;
-        const top = el.getBoundingClientRect().top + window.scrollY - 108;
-        window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
-      });
-    }
   }
 
   function renderAttackInfoBlock(label, body) {
@@ -1081,14 +1079,6 @@
       <div class="def-block"><h4 class="${sideData.red.color}"><span class="sr-only">High Risk: </span>${sideData.red.title}</h4><ul>${sideData.red.points.map((point) => `<li>${point}</li>`).join("")}</ul></div>
     `;
 
-    if (window.innerWidth <= 768) {
-      requestAnimationFrame(() => {
-        const el = document.getElementById('defContent');
-        if (!el) return;
-        const top = el.getBoundingClientRect().top + window.scrollY - 108;
-        window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
-      });
-    }
   }
 
   function renderDevelopmentHub() {
@@ -1441,6 +1431,7 @@
     let sx = null;
     let sy = null;
     let swipeEligible = false;
+    let swipeAxis = null;
     document.addEventListener(
       "touchstart",
       (event) => {
@@ -1457,12 +1448,14 @@
           sx = null;
           sy = null;
           swipeEligible = false;
+          swipeAxis = null;
           return;
         }
 
         sx = touch.clientX;
         sy = touch.clientY;
         swipeEligible = true;
+        swipeAxis = null;
       },
       { passive: true },
     );
@@ -1477,12 +1470,24 @@
         const touch = event.touches[0];
         if (!touch) {
           swipeEligible = false;
+          swipeAxis = null;
           return;
         }
 
         const dx = touch.clientX - sx;
         const dy = touch.clientY - sy;
-        if (Math.abs(dy) > 16 && Math.abs(dy) >= Math.abs(dx)) {
+        const absDx = Math.abs(dx);
+        const absDy = Math.abs(dy);
+
+        if (swipeAxis === null) {
+          if (absDy > 12 && absDy >= absDx * 1.2) {
+            swipeAxis = "vertical";
+          } else if (absDx > 24 && absDx >= absDy * 1.5) {
+            swipeAxis = "horizontal";
+          }
+        }
+
+        if (swipeAxis === "vertical") {
           swipeEligible = false;
         }
       },
@@ -1496,6 +1501,7 @@
           sx = null;
           sy = null;
           swipeEligible = false;
+          swipeAxis = null;
           return;
         }
 
@@ -1504,12 +1510,16 @@
           sx = null;
           sy = null;
           swipeEligible = false;
+          swipeAxis = null;
           return;
         }
 
         const dx = sx - touch.clientX;
         const dy = sy - touch.clientY;
-        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 55) {
+        const absDx = Math.abs(dx);
+        const absDy = Math.abs(dy);
+
+        if (swipeAxis === "horizontal" && absDx > 72 && absDx >= absDy * 1.5) {
           if (dx > 0) {
             changeSlide(1);          // swipe left  → next slide
           } else {
@@ -1519,6 +1529,7 @@
         sx = null;
         sy = null;
         swipeEligible = false;
+        swipeAxis = null;
       },
       { passive: true },
     );
@@ -1557,6 +1568,13 @@
         return;
       }
       syncMobileViewportState({ restoreScroll: true });
+      syncMobileWorkspaceOffset();
+    });
+
+    window.addEventListener("orientationchange", () => {
+      if (!mobileWorkspaceMenuOpen) {
+        clearMobileScrollLock({ restoreScroll: true });
+      }
       syncMobileWorkspaceOffset();
     });
 
