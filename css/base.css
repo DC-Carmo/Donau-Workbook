@@ -2057,11 +2057,12 @@ h2.section {
   /* Base rule has html,body { height:100vh; overflow:hidden } for the desktop canvas layout.
      On mobile we must fully reset html so the body can scroll:
      - height:auto   removes the 100vh clamp
-     - overflow:clip visually clips overflow BUT does NOT create a scroll container
-                     (unlike hidden/auto which do), so body's overflow-y:auto drives viewport scroll */
+     - overflow:visible is the CSS initial value, supported in ALL Safari/iOS versions.
+                     It does NOT create a scroll container, so body's overflow-y:auto drives viewport scroll.
+                     (overflow:clip was previously used but silently ignored on Safari/iOS < 16) */
   html {
     height: auto;
-    overflow: clip;
+    overflow: visible; /* Safari-safe: supported everywhere, no scroll container */
   }
 
   body {
@@ -2336,7 +2337,7 @@ h2.section {
   /* Reset the desktop canvas lock: html,body { height:100vh; overflow:hidden } */
   html {
     height: auto;
-    overflow: clip; /* no scroll container; body drives viewport scroll */
+    overflow: visible; /* Safari-safe: initial value, no scroll container on any iOS version */
   }
 
   html, body {
@@ -2655,12 +2656,4 @@ h2.section {
     cursor: pointer;
   }
 
-  .mobile-bottom-nav-btn.active {
-    background: rgba(46, 139, 87, 0.12);
-    color: var(--text);
-  }
-
-  /* ── Compact section header ── */
-  .sl-header {
-    padding: 10px 16px 8px;
-    
+  .mobil
