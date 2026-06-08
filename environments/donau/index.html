@@ -14,10 +14,10 @@
 
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"> 
 
-<link rel="stylesheet" href="../../css/base.css?v=20260608">
-<link rel="stylesheet" href="../../css/overlays.css?v=20260608">
-<link rel="stylesheet" href="../../css/components.css?v=20260608">
-<link rel="stylesheet" href="../../css/platform.css?v=20260608">
+<link rel="stylesheet" href="../../css/base.css?v=20260609">
+<link rel="stylesheet" href="../../css/overlays.css?v=20260609">
+<link rel="stylesheet" href="../../css/components.css?v=20260609">
+<link rel="stylesheet" href="../../css/platform.css?v=20260609">
 
 <style>
 #s4 .sl-header .tag {
@@ -1732,4 +1732,45 @@ function renderDonauLineoutCards() {
     <article class="lo-system-card lo-system-secondary">
       <div class="lo-system-header">
         <div class="lo-system-badges">
-          <span class="lo-system-badge lo-system-badge-seconda
+          <span class="lo-system-badge lo-system-badge-secondary">Reference Manual</span>
+        </div>
+        <div class="lo-system-name">SPARK</div>
+        <div class="lo-system-subtitle">Companion manual for principles, source detail, and coaching progression</div>
+      </div>
+      <div class="lo-system-desc">
+        <p>Use SPARK as the supporting manual for technical fundamentals, formation visuals, defensive ideas, and session implementation around the source.</p>
+      </div>
+      <div class="lo-system-meta">
+        <span class="lo-system-meta-chip">Fundamentals</span>
+        <span class="lo-system-meta-chip">SPARK Shapes</span>
+        <span class="lo-system-meta-chip">Session Work</span>
+      </div>
+      <button class="lo-system-btn lo-system-btn-secondary" onclick="openLineoutSystem('spark')">Open SPARK &#9654;</button>
+    </article>
+  `;
+}
+
+function openLineoutSystem(system) {
+  var overlay = document.getElementById('lineoutSystemOverlay');
+  var frame = document.getElementById('lineoutSystemFrame');
+  var title = document.getElementById('lsoTitle');
+  var path = window.DONAU_LINEOUT_SYSTEMS && window.DONAU_LINEOUT_SYSTEMS[system];
+  if (!overlay || !frame || !path) return;
+  frame.src = path;
+  title.textContent = system === 'tempo' ? 'TEMPO - Lineout System' : 'SPARK - Lineout Manual';
+  overlay.classList.add('open');
+  overlay.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('overlay-active');
+}
+
+function closeLineoutSystem() {
+  var overlay = document.getElementById('lineoutSystemOverlay');
+  var frame = document.getElementById('lineoutSystemFrame');
+  if (!overlay) return;
+  overlay.classList.remove('open');
+  overlay.setAttribute('aria-hidden', 'true');
+  if (frame) {
+    setTimeout(function() { frame.src = ''; }, 180);
+  }
+  if (!document.querySelector('.overlay.open')) {
+    

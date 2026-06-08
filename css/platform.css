@@ -36,6 +36,12 @@ body.platform-page {
   overflow-x: hidden;
 }
 
+@media (max-width: 768px) {
+  body.platform-page {
+    overflow: visible;
+  }
+}
+
 body.platform-page::before {
   content: "";
   position: fixed;

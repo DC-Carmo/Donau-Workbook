@@ -48,6 +48,7 @@
   const MOBILE_BREAKPOINT = 768;
   const MOBILE_ENVIRONMENT_LABEL = "Austria Youth";
   let mobileWorkspaceMenuOpen = false;
+  let mobileScrollLockY = 0;
   let overlayScrollLockCount = 0;
   let lockedScrollY = 0;
   let overlayTouchStartY = 0;
@@ -528,7 +529,8 @@
 
   function syncMobileWorkspaceOffset() {
     if (!isMobileViewport()) {
-      document.body.classList.remove("mobile-workspace-menu-open");
+      mobileWorkspaceMenuOpen = false;
+      syncMobileViewportState();
       document.documentElement.style.removeProperty("--mobile-workspace-offset");
       return;
     }
@@ -538,9 +540,59 @@
     document.documentElement.style.setProperty("--mobile-workspace-offset", `${offset}px`);
   }
 
+  function lockMobileBodyScroll() {
+    if (!isMobileViewport() || document.body.classList.contains("mobile-scroll-locked")) {
+      return;
+    }
+
+    mobileScrollLockY = window.scrollY || window.pageYOffset || 0;
+    document.body.classList.add("mobile-scroll-locked");
+    document.body.style.top = `-${mobileScrollLockY}px`;
+  }
+
+  function getLockedMobileScrollY() {
+    const lockedTop = Number.parseFloat(document.body.style.top || "0");
+    return Number.isFinite(lockedTop) ? Math.abs(lockedTop) : mobileScrollLockY;
+  }
+
+  function unlockMobileBodyScroll() {
+    if (!document.body.classList.contains("mobile-scroll-locked")) {
+      return;
+    }
+
+    mobileScrollLockY = getLockedMobileScrollY();
+    document.body.classList.remove("mobile-scroll-locked");
+    document.body.style.removeProperty("top");
+    window.scrollTo(0, mobileScrollLockY);
+  }
+
+  function syncMobileViewportState({ restoreScroll = false } = {}) {
+    const drawer = document.getElementById("mobileModuleDrawer");
+    const shouldLockBody =
+      isMobileViewport() &&
+      mobileWorkspaceMenuOpen &&
+      drawer?.getAttribute("aria-hidden") === "false";
+
+    document.body.classList.toggle("mobile-workspace-menu-open", shouldLockBody);
+
+    if (shouldLockBody) {
+      lockMobileBodyScroll();
+      return;
+    }
+
+    if (document.body.classList.contains("mobile-scroll-locked")) {
+      if (restoreScroll) {
+        unlockMobileBodyScroll();
+      } else {
+        mobileScrollLockY = getLockedMobileScrollY();
+        document.body.classList.remove("mobile-scroll-locked");
+        document.body.style.removeProperty("top");
+      }
+    }
+  }
+
   function setMobileWorkspaceMenu(open) {
     mobileWorkspaceMenuOpen = Boolean(open) && isMobileViewport();
-    document.body.classList.toggle("mobile-workspace-menu-open", mobileWorkspaceMenuOpen);
     const drawer = document.getElementById("mobileModuleDrawer");
     if (drawer) {
       drawer.setAttribute("aria-hidden", mobileWorkspaceMenuOpen ? "false" : "true");
@@ -559,6 +611,8 @@
         sheet.style.transform = mobileWorkspaceMenuOpen ? "translateY(0)" : "translateY(18px)";
       }
     }
+
+    syncMobileViewportState({ restoreScroll: !mobileWorkspaceMenuOpen });
 
     document.querySelectorAll(".mobile-app-menu-btn, .mobile-bottom-modules").forEach((toggle) => {
       toggle.setAttribute("aria-expanded", mobileWorkspaceMenuOpen ? "true" : "false");
@@ -695,11 +749,17 @@
     }
   }
 
-  function goTo(n) {
+  function goTo(n, options = {}) {
     if (document.body.classList.contains("overlay-active")) {
       return;
     }
 
+    if (typeof n !== "number" || n < 1 || n > total || n === cur) {
+      setMobileWorkspaceMenu(false);
+      return;
+    }
+
+    const { behavior = "smooth" } = options;
     setMobileWorkspaceMenu(false);
     document.getElementById(`s${cur}`).classList.remove("active");
     cur = n;
@@ -709,7 +769,7 @@
     if (isMobileViewport()) {
       requestAnimationFrame(() => {
         syncMobileWorkspaceOffset();
-        requestAnimationFrame(() => scrollActiveSlideIntoView());
+        requestAnimationFrame(() => scrollActiveSlideIntoView(behavior));
       });
     }
   }
@@ -1297,32 +1357,80 @@
     });
 
     let sx = null;
+    let sy = null;
+    let swipeEligible = false;
     document.addEventListener("touchstart", (event) => {
       if (hasActiveOverlay()) {
         sx = null;
+        sy = null;
+        swipeEligible = false;
         return;
       }
 
-      sx = event.touches[0].clientX;
-    });
+      const touch = event.touches[0];
+      const target = event.target;
+      const ignoreSwipe =
+        mobileWorkspaceMenuOpen ||
+        event.touches.length !== 1 ||
+        target.closest(
+          ".mobile-module-drawer-sheet, .mobile-bottom-nav, .mobile-app-header, .workspace-map, button, a, input, textarea, select, label",
+        );
+
+      if (!touch || ignoreSwipe) {
+        sx = null;
+        sy = null;
+        swipeEligible = false;
+        return;
+      }
+
+      sx = touch.clientX;
+      sy = touch.clientY;
+      swipeEligible = true;
+    }, { passive: true });
+
+    document.addEventListener("touchmove", (event) => {
+      if (!swipeEligible || sx === null || sy === null) {
+        return;
+      }
+
+      const touch = event.touches[0];
+      if (!touch) {
+        swipeEligible = false;
+        return;
+      }
+
+      const dx = touch.clientX - sx;
+      const dy = touch.clientY - sy;
+      if (Math.abs(dy) > 16 && Math.abs(dy) >= Math.abs(dx)) {
+        swipeEligible = false;
+      }
+    }, { passive: true });
 
     document.addEventListener("touchend", (event) => {
-      if (hasActiveOverlay()) {
+      if (hasActiveOverlay() || !swipeEligible || sx === null || sy === null) {
         sx = null;
+        sy = null;
+        swipeEligible = false;
         return;
       }
 
-      if (sx === null) {
+      const touch = event.changedTouches[0];
+      if (!touch) {
+        sx = null;
+        sy = null;
+        swipeEligible = false;
         return;
       }
 
-      const diff = sx - event.changedTouches[0].clientX;
+      const diff = sx - touch.clientX;
       if (Math.abs(diff) > 50) {
         changeSlide(diff > 0 ? 1 : -1);
       }
 
       sx = null;
-    });
+      sy = null;
+      swipeEligible = false;
+    }, { passive: true });
 
     document.addEventListener("touchstart", handleOverlayTouchStart, { passive: true });
     document.addEventListener("touchmove", handleOverlayTouchMove, { passive: false });
@@ -1349,6 +1457,19 @@
       setMobileWorkspaceMenu(false);
     });
 
+    window.addEventListener("pageshow", () => {
+      syncMobileViewportState({ restoreScroll: true });
+      syncMobileWorkspaceOffset();
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        return;
+      }
+      syncMobileViewportState({ restoreScroll: true });
+      syncMobileWorkspaceOffset();
+    });
+
     window.addEventListener("resize", () => {
       if (!isMobileViewport()) {
         setMobileWorkspaceMenu(false);
@@ -1361,6 +1482,7 @@
     buildWorkspaceMap();
     buildWorkspaceShellStatus();
     buildMobileAppChrome();
+    syncMobileViewportState({ restoreScroll: true });
     syncSlideNumbers();
     renderAttackSidebar();
     renderDefenceMeta();

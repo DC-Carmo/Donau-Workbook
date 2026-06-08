@@ -2253,6 +2253,12 @@ body.austria-u18-theme.overlay-active {
 }
 
 @media (max-width: 768px) {
+  .austria-u18-theme #s2 {
+    overflow: visible;
+    height: auto;
+    min-height: auto;
+  }
+
   .austria-u18-theme #s4 .sl-body {
     flex-direction: column;
     gap: 24px;
@@ -2268,6 +2274,8 @@ body.austria-u18-theme.overlay-active {
   .austria-u18-theme #s4 .def-left {
     padding: 16px 18px 0;
     border-right: 0;
+    overflow: visible;
+    max-height: none;
   }
 
   .austria-u18-theme #s4 .def-right {

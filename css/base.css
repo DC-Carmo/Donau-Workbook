@@ -2070,8 +2070,7 @@ h2.section {
   body {
     height: auto;
     min-height: 100vh;
-    overflow-x: hidden;
-    /* intentionally NO overflow-y — let overflow propagate to viewport (iOS-safe) */
+    overflow: visible;
   }
 
   .slide {
@@ -2353,7 +2352,7 @@ h2.section {
   body {
     height: auto;
     min-height: 100vh;
-    overflow-x: hidden;
+    overflow: visible;
   }
 
   body {
@@ -2362,7 +2361,8 @@ h2.section {
   }
 
   body.mobile-workspace-menu-open {
-    overflow: hidden;
+    /* State hook only. Actual viewport lock lives on .mobile-scroll-locked so a stale
+       menu-open class cannot freeze page scroll after bfcache restores or aborted closes. */
   }
 
   body.mobile-scroll-locked {
