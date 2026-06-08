@@ -2054,12 +2054,19 @@ h2.section {
 }
 
 @media (max-width: 900px) {
+  html {
+    overflow-x: clip; /* clip doesn't create scroll container; keeps body scrollable */
+  }
+
   html,
   body {
-    overflow: auto;
-    overflow-x: hidden;
+    overflow-y: auto;
     height: auto;
     min-height: 100vh;
+  }
+
+  body {
+    overflow-x: hidden;
   }
 
   .slide {
@@ -2322,11 +2329,19 @@ h2.section {
    All rules below are mobile-only. Desktop unchanged.
 ───────────────────────────────────────────────────────*/
 @media (max-width: 768px) {
+  html {
+    /* clip does NOT create a scroll container (unlike hidden), so body scroll is preserved */
+    overflow-x: clip;
+  }
+
   html, body {
     width: 100%;
     max-width: 100%;
-    overflow-x: hidden;
     background: var(--dark);
+  }
+
+  body {
+    overflow-x: hidden;
   }
 
   body {
@@ -2659,12 +2674,4 @@ h2.section {
   /* Keep per-slide layouts, but in column/single-column form */
   #s2 .sl-body { display: grid; grid-template-columns: 1fr; grid-template-rows: auto; }
   #s3 .sl-body { display: flex; flex-direction: column; }
-  #s4 .sl-body { display: grid; grid-template-columns: 1fr; grid-template-rows: auto; }
-  #s5 .sl-body { display: grid; grid-template-columns: 1fr; grid-template-rows: auto; }
-  #s6 .sl-body { display: flex; flex-direction: column; }
-
-  .workspace-shell-status {
-    display: none;
-  }
-
-  /* ── Attack (s3): show main con
+  #s4 .sl-body { display: grid; grid-template-columns: 
