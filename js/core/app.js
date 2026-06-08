@@ -504,6 +504,7 @@
     document.body.appendChild(header);
     document.body.appendChild(drawer);
     document.body.appendChild(bottomNav);
+    syncMobileViewportHeight();
 
     header.querySelector(".mobile-app-back-btn").addEventListener("click", (event) => goBackInWorkspace(event));
     header.querySelector(".mobile-app-menu-btn").addEventListener("click", () => toggleMobileWorkspaceMenu());
@@ -603,6 +604,8 @@
     if (!isMobileViewport()) {
       mobileWorkspaceMenuOpen = false;
       syncMobileViewportState();
+      document.documentElement.style.removeProperty("--app-height");
+      document.documentElement.style.removeProperty("--mobile-drawer-head-height");
       document.documentElement.style.removeProperty("--mobile-workspace-offset");
       return;
     }
@@ -612,10 +615,26 @@
     document.documentElement.style.setProperty("--mobile-workspace-offset", `${offset}px`);
   }
 
+  function syncMobileViewportHeight() {
+    if (!isMobileViewport()) {
+      document.documentElement.style.removeProperty("--app-height");
+      document.documentElement.style.removeProperty("--mobile-drawer-head-height");
+      return;
+    }
+
+    document.documentElement.style.setProperty("--app-height", `${window.innerHeight}px`);
+
+    const drawerHead = document.querySelector(".mobile-drawer-head");
+    if (drawerHead) {
+      document.documentElement.style.setProperty("--mobile-drawer-head-height", `${drawerHead.offsetHeight}px`);
+    }
+  }
+
   function setMobileWorkspaceMenu(open) {
     mobileWorkspaceMenuOpen = Boolean(open) && isMobileViewport();
     const drawer = document.getElementById("mobileModuleDrawer");
     if (drawer) {
+      syncMobileViewportHeight();
       drawer.setAttribute("aria-hidden", mobileWorkspaceMenuOpen ? "false" : "true");
       drawer.style.display = "block";
       drawer.style.pointerEvents = mobileWorkspaceMenuOpen ? "auto" : "none";
@@ -1559,6 +1578,7 @@
     });
 
     window.addEventListener("pageshow", () => {
+      syncMobileViewportHeight();
       syncMobileViewportState({ restoreScroll: true });
       syncMobileWorkspaceOffset();
     });
@@ -1567,11 +1587,13 @@
       if (document.hidden) {
         return;
       }
+      syncMobileViewportHeight();
       syncMobileViewportState({ restoreScroll: true });
       syncMobileWorkspaceOffset();
     });
 
     window.addEventListener("orientationchange", () => {
+      syncMobileViewportHeight();
       if (!mobileWorkspaceMenuOpen) {
         clearMobileScrollLock({ restoreScroll: true });
       }
@@ -1579,6 +1601,7 @@
     });
 
     window.addEventListener("resize", () => {
+      syncMobileViewportHeight();
       if (!isMobileViewport()) {
         setMobileWorkspaceMenu(false);
         mobileWorkspaceHistory = [];
@@ -1592,6 +1615,7 @@
     buildPortalReturnLinks();
     buildWorkspaceShellStatus();
     buildMobileAppChrome();
+    syncMobileViewportHeight();
     syncMobileViewportState({ restoreScroll: true });
     syncSlideNumbers();
     updateNav();

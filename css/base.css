@@ -2487,8 +2487,10 @@ h2.section {
   .mobile-module-drawer {
     position: fixed;
     inset: 0;
+    height: var(--app-height, 100dvh);
     z-index: 95;
     pointer-events: none;
+    overflow: hidden;
   }
 
   .mobile-module-drawer-backdrop {
@@ -2502,6 +2504,7 @@ h2.section {
   .mobile-module-drawer-sheet {
     position: absolute;
     inset: 0;
+    height: var(--app-height, 100dvh);
     background:
       linear-gradient(180deg, rgba(12, 32, 53, 0.995), rgba(7, 20, 33, 0.995));
     display: flex;
@@ -2565,8 +2568,10 @@ h2.section {
 
   .mobile-drawer-list {
     flex: 1;
+    min-height: 0;
+    max-height: calc(var(--app-height, 100dvh) - var(--mobile-drawer-head-height, 84px));
     overflow-y: auto;
-    padding: 10px 16px calc(110px + env(safe-area-inset-bottom, 0px));
+    padding: 10px 16px calc(156px + env(safe-area-inset-bottom, 0px));
     display: flex;
     flex-direction: column;
     gap: 10px;
