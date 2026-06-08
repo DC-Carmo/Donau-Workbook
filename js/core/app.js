@@ -1482,7 +1482,11 @@
         const dx = sx - touch.clientX;
         const dy = sy - touch.clientY;
         if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 55) {
-          changeSlide(dx > 0 ? 1 : -1);
+          if (dx > 0) {
+            changeSlide(1);          // swipe left  → next slide
+          } else {
+            goBackInWorkspace();     // swipe right → history back (never jumps to hero)
+          }
         }
         sx = null;
         sy = null;

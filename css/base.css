@@ -2088,6 +2088,14 @@ h2.section {
     flex-direction: column;
   }
 
+  /* Allow sl-body to scroll on mobile — base rule has overflow:hidden which clips content */
+  .sl-body {
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+
   #s2 .sl-body {
     grid-template-columns: 1fr;
     grid-template-rows: auto;
@@ -2659,20 +2667,4 @@ h2.section {
     display: none;
   }
 
-  /* ── Attack (s3): show main content first, sidebar after ── */
-  .attack-main {
-    order: 1;
-    overflow: visible;
-    height: auto;
-    min-height: 0;
-  }
-
-  .attack-sidebar {
-    order: 2;
-    width: 100%;
-    max-height: none;
-    overflow: visible;
-    border-right: none;
-    border-top: 1px solid var(--border);
-    border-bottom: none;
-    p
+  /* ── Attack (s3): show main con
