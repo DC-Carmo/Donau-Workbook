@@ -2054,19 +2054,18 @@ h2.section {
 }
 
 @media (max-width: 900px) {
+  /* html must NOT have overflow-y set — any value (even auto) creates a scroll container
+     on <html> which prevents body scroll from propagating to the viewport.
+     overflow-x:clip is safe: it clips visually but does NOT create a scroll container. */
   html {
-    overflow-x: clip; /* clip doesn't create scroll container; keeps body scrollable */
-  }
-
-  html,
-  body {
-    overflow-y: auto;
-    height: auto;
-    min-height: 100vh;
+    overflow-x: clip;
   }
 
   body {
     overflow-x: hidden;
+    overflow-y: auto;
+    height: auto;
+    min-height: 100vh;
   }
 
   .slide {
@@ -2672,6 +2671,4 @@ h2.section {
   }
 
   /* Keep per-slide layouts, but in column/single-column form */
-  #s2 .sl-body { display: grid; grid-template-columns: 1fr; grid-template-rows: auto; }
-  #s3 .sl-body { display: flex; flex-direction: column; }
-  #s4 .sl-body { display: grid; grid-template-columns: 
+  #s2 .sl-body { display: grid; g
