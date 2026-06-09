@@ -2380,7 +2380,11 @@ h2.section {
      Instead of relying on viewport/body scroll (unreliable on iOS Safari when
      html,body has height:100vh), the active slide is a fixed-position container
      filling the space between header and bottom nav, with its own overflow-y:auto
-     scroll — the same model the module drawer already uses successfully. */
+     scroll — the same model the module drawer already uses successfully.
+     touch-action:pan-y tells iOS to treat vertical gestures as scroll (not
+     as a swipe to be captured by the swipe handler). overscroll-behavior-y
+     is intentionally omitted — it can prevent scroll from starting on some
+     iOS versions when scrollTop is 0. */
   .slide.active {
     display: block;
     position: fixed;
@@ -2392,9 +2396,10 @@ h2.section {
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain;
+    touch-action: pan-y;
     height: auto;
     min-height: unset;
+    z-index: 1; /* below header(80)/nav(85)/drawer(95) but explicit */
   }
 
   #s1 .cover-left {
@@ -2700,13 +2705,4 @@ h2.section {
 
   /* ── sl-body: override base overflow:hidden + flex:1 so content flows into viewport scroll ──
      Without flex:none + height:auto the base flex:1 rule can create sizing conflicts on iOS.
-     overflow:visible ensures no scroll container is created here — viewport scroll drives the page. */
-  .sl-body {
-    overflow: visible;
-    flex: none;
-    height: auto;
-  }
-
-  /* Per-slide layouts in single-column form */
-  #s2 .sl-body { display: grid; grid-template-columns: 1fr; grid-template-rows: auto; }
-  #s3 .sl-body { display: flex; flex
+     overflow:visible ensure
