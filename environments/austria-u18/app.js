@@ -654,11 +654,18 @@
       return;
     }
 
+    // On mobile the active slide IS the scroll container (position:fixed, overflow-y:auto).
+    // Scroll the slide element to top — window.scrollTo does nothing useful here.
     const slide = document.getElementById(`s${cur}`);
-    const target = getMobileScrollTarget(slide);
-    const offset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--mobile-workspace-offset")) || 0;
-    const top = target.getBoundingClientRect().top + window.scrollY - offset - 8;
-    window.scrollTo({ top: Math.max(0, top), behavior });
+    if (!slide) {
+      return;
+    }
+
+    if (behavior === "smooth") {
+      slide.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      slide.scrollTop = 0;
+    }
   }
 
   function updateWorkspaceMap() {
@@ -1399,158 +1406,4 @@
     }, { passive: true });
 
     document.addEventListener("touchmove", (event) => {
-      if (!swipeEligible || sx === null || sy === null) {
-        return;
-      }
-
-      const touch = event.touches[0];
-      if (!touch) {
-        swipeEligible = false;
-        swipeAxis = null;
-        return;
-      }
-
-      const dx = touch.clientX - sx;
-      const dy = touch.clientY - sy;
-      const absDx = Math.abs(dx);
-      const absDy = Math.abs(dy);
-
-      if (swipeAxis === null) {
-        if (absDy > 12 && absDy >= absDx * 1.2) {
-          swipeAxis = "vertical";
-        } else if (absDx > 24 && absDx >= absDy * 1.5) {
-          swipeAxis = "horizontal";
-        }
-      }
-
-      if (swipeAxis === "vertical") {
-        swipeEligible = false;
-      }
-    }, { passive: true });
-
-    document.addEventListener("touchend", (event) => {
-      if (hasActiveOverlay() || !swipeEligible || sx === null || sy === null) {
-        sx = null;
-        sy = null;
-        swipeEligible = false;
-        swipeAxis = null;
-        return;
-      }
-
-      const touch = event.changedTouches[0];
-      if (!touch) {
-        sx = null;
-        sy = null;
-        swipeEligible = false;
-        swipeAxis = null;
-        return;
-      }
-
-      const dx = sx - touch.clientX;
-      const dy = sy - touch.clientY;
-      const absDx = Math.abs(dx);
-      const absDy = Math.abs(dy);
-      if (swipeAxis === "horizontal" && absDx > 72 && absDx >= absDy * 1.5) {
-        changeSlide(dx > 0 ? 1 : -1);
-      }
-
-      sx = null;
-      sy = null;
-      swipeEligible = false;
-      swipeAxis = null;
-    }, { passive: true });
-
-    document.addEventListener("touchstart", handleOverlayTouchStart, { passive: true });
-    document.addEventListener("touchmove", handleOverlayTouchMove, { passive: false });
-    document.addEventListener("touchstart", handleModalScrollTouchStart, { passive: true });
-    document.addEventListener("touchmove", handleModalScrollTouchMove, { passive: false });
-    document.addEventListener("touchend", handleModalScrollTouchEnd, { passive: true });
-
-    document.addEventListener("click", (event) => {
-      if (!mobileWorkspaceMenuOpen || !isMobileViewport()) {
-        return;
-      }
-
-      const appHeader = document.querySelector(".mobile-app-header");
-      const drawer = document.querySelector(".mobile-module-drawer-sheet");
-      const bottomNav = document.querySelector(".mobile-bottom-nav");
-      if (
-        appHeader?.contains(event.target) ||
-        drawer?.contains(event.target) ||
-        bottomNav?.contains(event.target)
-      ) {
-        return;
-      }
-
-      setMobileWorkspaceMenu(false);
-    });
-
-    window.addEventListener("pageshow", () => {
-      syncMobileViewportState({ restoreScroll: true });
-      syncMobileWorkspaceOffset();
-    });
-
-    document.addEventListener("visibilitychange", () => {
-      if (document.hidden) {
-        return;
-      }
-      syncMobileViewportState({ restoreScroll: true });
-      syncMobileWorkspaceOffset();
-    });
-
-    window.addEventListener("orientationchange", () => {
-      if (!mobileWorkspaceMenuOpen) {
-        clearMobileScrollLock({ restoreScroll: true });
-      }
-      syncMobileWorkspaceOffset();
-    });
-
-    window.addEventListener("resize", () => {
-      if (!isMobileViewport()) {
-        setMobileWorkspaceMenu(false);
-      }
-      syncMobileWorkspaceOffset();
-    });
-
-    buildDots();
-    buildPortalReturnLinks();
-    buildWorkspaceMap();
-    buildWorkspaceShellStatus();
-    buildMobileAppChrome();
-    syncMobileViewportState({ restoreScroll: true });
-    syncSlideNumbers();
-    renderAttackSidebar();
-    renderDefenceMeta();
-    renderSetPieceMeta();
-    renderUnits();
-    renderAnalysisHub();
-    setCategory("setpiece", document.querySelector("#s3 .zone-btn.active"));
-    setDefSide("rhs", document.querySelector("#s4 .zone-tab.active"));
-    setSetPieceTab("overview", document.querySelector("#s5 .zone-btn.active"));
-    updateNav();
-  }
-
-  window.askQ = askQ;
-  window.changeSlide = changeSlide;
-  window.closeDiagramLightbox = closeDiagramLightbox;
-  window.closeFieldLightbox = closeFieldLightbox;
-  window.closeLineoutSystem = closeLineoutSystem;
-  window.closeOverlay = closeOverlay;
-  window.goTo = goTo;
-  window.openDiagramLightbox = openDiagramLightbox;
-  window.openFieldLightbox = openFieldLightbox;
-  window.openLineoutSystem = openLineoutSystem;
-  window.openOverlay = openOverlay;
-  window.sendMsg = sendMsg;
-  window.setCategory = setCategory;
-  window.setDefSide = setDefSide;
-  window.setSetPieceTab = setSetPieceTab;
-  window.toggleFieldArea = toggleFieldArea;
-  window.toggleFieldMap = toggleFieldMap;
-  window.toggleForwardPodsMap = toggleForwardPodsMap;
-  window.toggleLo = toggleLo;
-  window.togglePlay = togglePlay;
-  window.toggleUnitCard = toggleUnitCard;
-
-  init();
-})();
+      if (!s

@@ -2376,8 +2376,25 @@ h2.section {
     min-height: auto;
   }
 
+  /* ── Mobile scroll model: the active slide IS the scroll container ──
+     Instead of relying on viewport/body scroll (unreliable on iOS Safari when
+     html,body has height:100vh), the active slide is a fixed-position container
+     filling the space between header and bottom nav, with its own overflow-y:auto
+     scroll — the same model the module drawer already uses successfully. */
   .slide.active {
-    padding-bottom: 12px;
+    display: block;
+    position: fixed;
+    top: var(--mobile-workspace-offset, 56px);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    height: auto;
+    min-height: unset;
   }
 
   #s1 .cover-left {
@@ -2692,57 +2709,4 @@ h2.section {
 
   /* Per-slide layouts in single-column form */
   #s2 .sl-body { display: grid; grid-template-columns: 1fr; grid-template-rows: auto; }
-  #s3 .sl-body { display: flex; flex-direction: column; }
-  #s4 .sl-body { display: grid; grid-template-columns: 1fr; grid-template-rows: auto; }
-  #s5 .sl-body { display: grid; grid-template-columns: 1fr; grid-template-rows: auto; }
-  #s6 .sl-body { display: flex; flex-direction: column; }
-
-  .workspace-shell-status {
-    display: none;
-  }
-
-  /* ── Attack (s3): main content first, sidebar after ── */
-  .attack-main {
-    order: 1;
-    overflow: visible;
-    height: auto;
-    min-height: 0;
-  }
-
-  .attack-sidebar {
-    order: 2;
-    width: 100%;
-    max-height: none;
-    overflow: visible;
-    border-right: none;
-    border-top: 1px solid var(--border);
-    border-bottom: none;
-    padding: 10px;
-  }
-
-  .attack-content {
-    overflow: visible;
-    height: auto;
-  }
-
-  /* ── Lineout / Defence panels ── */
-  .lineout-left,
-  .lineout-right,
-  .def-left,
-  .def-right {
-    overflow: visible;
-    height: auto;
-  }
-
-  /* ── Chat (s6) ── */
-  .chat-area {
-    overflow: visible;
-    height: auto;
-  }
-
-  .ai-panel {
-    overflow: visible;
-    height: auto;
-    max-height: none;
-  }
-}
+  #s3 .sl-body { display: flex; flex

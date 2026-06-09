@@ -692,11 +692,18 @@
       return;
     }
 
+    // On mobile the active slide IS the scroll container (position:fixed, overflow-y:auto).
+    // Scroll the slide element to top instead of window.scrollTo.
     const slide = document.getElementById(`s${cur}`);
-    const target = getMobileScrollTarget(slide);
-    const offset = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--mobile-workspace-offset")) || 0;
-    const top = target.getBoundingClientRect().top + window.scrollY - offset - 8;
-    window.scrollTo({ top: Math.max(0, top), behavior });
+    if (!slide) {
+      return;
+    }
+
+    if (behavior === "smooth") {
+      slide.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      slide.scrollTop = 0;
+    }
   }
 
   function updateWorkspaceMap() {
