@@ -124,7 +124,7 @@
   const MOBILE_ENVIRONMENT_LABEL = "Donau";
   let mobileWorkspaceMenuOpen = false;
   let mobileWorkspaceHistory = [];
-  let mobileScrollLockY = 0;
+  let _touchLock = null;
   const DONAU_MOBILE_MODULE_ITEMS = [
     { type: "slide", slide: 1, shortLabel: "Intro", title: "Intro" },
     { type: "slide", slide: 2, shortLabel: "Standards", title: "Standards" },
@@ -376,32 +376,47 @@
   }
 
   function lockMobileBodyScroll() {
-    if (!isMobileViewport() || document.body.classList.contains("mobile-scroll-locked")) return;
-    mobileScrollLockY = window.scrollY || window.pageYOffset || 0;
-    document.body.classList.add("mobile-scroll-locked");
-    document.body.style.top = `-${mobileScrollLockY}px`;
+    if (!isMobileViewport() || _touchLock) return;
+
+    let startY = 0;
+    let scrollEl = null;
+    let scrollStartTop = 0;
+
+    function onStart(e) {
+      startY = e.touches[0].clientY;
+      scrollEl = null;
+      let el = e.target;
+      while (el && el !== document.documentElement) {
+        const oy = window.getComputedStyle(el).overflowY;
+        if ((oy === "auto" || oy === "scroll") && el.scrollHeight > el.clientHeight) {
+          scrollEl = el;
+          scrollStartTop = el.scrollTop;
+          break;
+        }
+        el = el.parentElement;
+      }
+    }
+
+    function onMove(e) {
+      e.preventDefault(); // block native page scroll
+      if (!scrollEl) return;
+      scrollEl.scrollTop = scrollStartTop + (startY - e.touches[0].clientY);
+    }
+
+    _touchLock = { onStart, onMove };
+    document.addEventListener("touchstart", onStart, { passive: true });
+    document.addEventListener("touchmove", onMove, { passive: false });
   }
 
   function unlockMobileBodyScroll() {
-    if (!document.body.classList.contains("mobile-scroll-locked")) return;
-    const lockedTop = Number.parseFloat(document.body.style.top || "0");
-    mobileScrollLockY = Number.isFinite(lockedTop) ? Math.abs(lockedTop) : mobileScrollLockY;
-    document.body.classList.remove("mobile-scroll-locked");
-    document.body.style.removeProperty("top");
-    window.scrollTo(0, mobileScrollLockY);
+    if (!_touchLock) return;
+    document.removeEventListener("touchstart", _touchLock.onStart);
+    document.removeEventListener("touchmove", _touchLock.onMove);
+    _touchLock = null;
   }
 
   function clearMobileScrollLock({ restoreScroll = false } = {}) {
-    if (restoreScroll) {
-      unlockMobileBodyScroll();
-    } else {
-      if (document.body.classList.contains("mobile-scroll-locked")) {
-        const lockedTop = Number.parseFloat(document.body.style.top || "0");
-        mobileScrollLockY = Number.isFinite(lockedTop) ? Math.abs(lockedTop) : mobileScrollLockY;
-      }
-      document.body.classList.remove("mobile-scroll-locked");
-      document.body.style.removeProperty("top");
-    }
+    unlockMobileBodyScroll();
     document.body.classList.remove("mobile-workspace-menu-open");
   }
 
