@@ -668,17 +668,11 @@
       return;
     }
 
-    // On mobile the active slide IS the scroll container (position:fixed, overflow-y:auto).
-    // Scroll the slide element to top instead of window.scrollTo.
-    const slide = document.getElementById(`s${cur}`);
-    if (!slide) {
-      return;
-    }
-
+    // Viewport scroll model: slides are position:relative in flow, window scrolls.
     if (behavior === "smooth") {
-      slide.scrollTo({ top: 0, behavior: "smooth" });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } else {
-      slide.scrollTop = 0;
+      window.scrollTo(0, 0);
     }
   }
 

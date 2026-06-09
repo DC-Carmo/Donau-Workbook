@@ -2379,31 +2379,14 @@ h2.section {
     min-height: auto;
   }
 
-  /* ── Mobile scroll model: the active slide IS the scroll container ──
-     Instead of relying on viewport/body scroll (unreliable on iOS Safari when
-     html,body has height:100vh), the active slide is a fixed-position container
-     filling the space between header and bottom nav, with its own overflow-y:auto
-     scroll — the same model the module drawer already uses successfully.
-     touch-action:pan-y tells iOS to treat vertical gestures as scroll (not
-     as a swipe to be captured by the swipe handler). overscroll-behavior-y
-     is intentionally omitted — it can prevent scroll from starting on some
-     iOS versions when scrollTop is 0. */
+  /* ── Mobile scroll model: viewport scroll ──
+     Slides stack in normal flow (position:relative from the 900px rule),
+     html/body scroll naturally. iOS Safari handles this natively and reliably.
+     The fixed header (z-index:80) and bottom nav (z-index:85) sit on top.
+     padding-bottom makes content reachable above the bottom nav. */
   .slide.active {
     display: block;
-    position: fixed;
-    top: var(--mobile-workspace-offset, 56px);
-    left: 0;
-    right: 0;
-    bottom: 0;
     padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px));
-    overflow-y: auto;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-y;
-    height: calc(100vh - var(--mobile-workspace-offset, 56px)); /* iOS 15 fallback */
-    height: calc(100dvh - var(--mobile-workspace-offset, 56px)); /* iOS 16+ dynamic vh */
-    min-height: unset;
-    z-index: 1; /* below header(80)/nav(85)/drawer(95) but explicit */
   }
 
   #s1 .cover-left {
