@@ -2365,6 +2365,16 @@ h2.section {
        menu-open class cannot freeze page scroll after bfcache restores or aborted closes. */
   }
 
+  /* Used by viewport-scroll environments (e.g. Austria U18) to lock the page while
+     the module drawer is open. Donau does not use this — its slides are position:fixed
+     so the body never scrolls; Donau locks html:overflow instead. */
+  body.mobile-scroll-locked {
+    position: fixed;
+    width: 100%;
+    overflow: hidden;
+    inset: 0 auto auto 0;
+  }
+
   .slide {
     min-height: auto;
   }
@@ -2390,7 +2400,8 @@ h2.section {
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
-    height: calc(100dvh - var(--mobile-workspace-offset, 56px));
+    height: calc(100vh - var(--mobile-workspace-offset, 56px)); /* iOS 15 fallback */
+    height: calc(100dvh - var(--mobile-workspace-offset, 56px)); /* iOS 16+ dynamic vh */
     min-height: unset;
     z-index: 1; /* below header(80)/nav(85)/drawer(95) but explicit */
   }

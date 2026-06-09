@@ -375,16 +375,13 @@
 
   function lockMobileBodyScroll() {
     if (!isMobileViewport()) return;
-    // Lock html, not body — body:position:fixed prevents touch-scroll on fixed children in iOS Safari
+    // overflow:hidden on html (not body, not position:fixed) — body:position:fixed and
+    // html:position:fixed both cause iOS Safari to block touch-scroll on fixed children
     document.documentElement.style.overflow = "hidden";
-    document.documentElement.style.position = "fixed";
-    document.documentElement.style.width = "100%";
   }
 
   function unlockMobileBodyScroll() {
     document.documentElement.style.overflow = "";
-    document.documentElement.style.position = "";
-    document.documentElement.style.width = "";
   }
 
   function clearMobileScrollLock({ restoreScroll = false } = {}) {

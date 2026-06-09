@@ -2893,11 +2893,12 @@ body.austria-u18-theme.overlay-active {
   .austria-u18-theme .slide.active {
     position: relative !important;
     inset: auto !important;
-    overflow: visible !important;
     height: auto !important;
     min-height: unset !important;
     touch-action: auto !important;
     z-index: auto !important;
     padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)) !important;
+    /* overflow intentionally not set — cascade keeps overflow-x:hidden which clips
+       absolutely-positioned decorative elements within the slide bounds */
   }
 }
