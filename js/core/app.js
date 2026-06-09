@@ -124,7 +124,7 @@
   const MOBILE_ENVIRONMENT_LABEL = "Donau";
   let mobileWorkspaceMenuOpen = false;
   let mobileWorkspaceHistory = [];
-  let _mobileTouchScrollPreventer = null;
+  let mobileScrollLockY = 0;
   const DONAU_MOBILE_MODULE_ITEMS = [
     { type: "slide", slide: 1, shortLabel: "Intro", title: "Intro" },
     { type: "slide", slide: 2, shortLabel: "Standards", title: "Standards" },
@@ -376,36 +376,32 @@
   }
 
   function lockMobileBodyScroll() {
-    if (!isMobileViewport() || _mobileTouchScrollPreventer) return;
-
-    // touchmove preventDefault is the only approach that prevents iOS background
-    // scroll without also blocking touch-scroll on fixed overlays/drawer.
-    // body:position:fixed breaks fixed-children scroll; overflow:hidden on html/body
-    // blocks ALL touch scroll. touchmove interception avoids both problems.
-    _mobileTouchScrollPreventer = (e) => {
-      let el = e.target;
-      while (el && el !== document.documentElement) {
-        const oy = window.getComputedStyle(el).overflowY;
-        if ((oy === "auto" || oy === "scroll") && el.scrollHeight > el.clientHeight) {
-          return; // inside a real scroll container — let it scroll
-        }
-        el = el.parentElement;
-      }
-      e.preventDefault(); // not inside any scrollable element — block page scroll
-    };
-
-    document.addEventListener("touchmove", _mobileTouchScrollPreventer, { passive: false });
+    if (!isMobileViewport() || document.body.classList.contains("mobile-scroll-locked")) return;
+    mobileScrollLockY = window.scrollY || window.pageYOffset || 0;
+    document.body.classList.add("mobile-scroll-locked");
+    document.body.style.top = `-${mobileScrollLockY}px`;
   }
 
   function unlockMobileBodyScroll() {
-    if (_mobileTouchScrollPreventer) {
-      document.removeEventListener("touchmove", _mobileTouchScrollPreventer, { passive: false });
-      _mobileTouchScrollPreventer = null;
-    }
+    if (!document.body.classList.contains("mobile-scroll-locked")) return;
+    const lockedTop = Number.parseFloat(document.body.style.top || "0");
+    mobileScrollLockY = Number.isFinite(lockedTop) ? Math.abs(lockedTop) : mobileScrollLockY;
+    document.body.classList.remove("mobile-scroll-locked");
+    document.body.style.removeProperty("top");
+    window.scrollTo(0, mobileScrollLockY);
   }
 
   function clearMobileScrollLock({ restoreScroll = false } = {}) {
-    unlockMobileBodyScroll();
+    if (restoreScroll) {
+      unlockMobileBodyScroll();
+    } else {
+      if (document.body.classList.contains("mobile-scroll-locked")) {
+        const lockedTop = Number.parseFloat(document.body.style.top || "0");
+        mobileScrollLockY = Number.isFinite(lockedTop) ? Math.abs(lockedTop) : mobileScrollLockY;
+      }
+      document.body.classList.remove("mobile-scroll-locked");
+      document.body.style.removeProperty("top");
+    }
     document.body.classList.remove("mobile-workspace-menu-open");
   }
 

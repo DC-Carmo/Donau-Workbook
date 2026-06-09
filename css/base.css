@@ -2365,9 +2365,8 @@ h2.section {
        menu-open class cannot freeze page scroll after bfcache restores or aborted closes. */
   }
 
-  /* Austria U18 module drawer lock (viewport-scroll environment).
-     Donau does NOT use this class — it uses a touchmove preventDefault handler
-     so that fixed children (drawer, overlays) can still scroll on iOS Safari. */
+  /* Freezes body scroll when the module drawer or an overlay is open.
+     body.style.top is set inline to -scrollY so position is preserved on unlock. */
   body.mobile-scroll-locked {
     position: fixed;
     width: 100%;
