@@ -544,24 +544,39 @@
     if (!isMobileViewport() || document.body.classList.contains("mobile-scroll-locked")) {
       return;
     }
-    // overflow:hidden on both html and body — no position:fixed so fixed children
-    // (drawer, overlays) still receive touch-scroll events normally on iOS Safari
-    document.documentElement.classList.add("mobile-scroll-locked");
+
+    mobileScrollLockY = window.scrollY || window.pageYOffset || 0;
     document.body.classList.add("mobile-scroll-locked");
+    document.body.style.top = `-${mobileScrollLockY}px`;
+  }
+
+  function getLockedMobileScrollY() {
+    const lockedTop = Number.parseFloat(document.body.style.top || "0");
+    return Number.isFinite(lockedTop) ? Math.abs(lockedTop) : mobileScrollLockY;
   }
 
   function unlockMobileBodyScroll() {
     if (!document.body.classList.contains("mobile-scroll-locked")) {
       return;
     }
-    document.documentElement.classList.remove("mobile-scroll-locked");
+
+    mobileScrollLockY = getLockedMobileScrollY();
     document.body.classList.remove("mobile-scroll-locked");
-    // No window.scrollTo needed — overflow:hidden preserves scroll position naturally
+    document.body.style.removeProperty("top");
+    window.scrollTo(0, mobileScrollLockY);
   }
 
   function clearMobileScrollLock({ restoreScroll = false } = {}) {
-    document.documentElement.classList.remove("mobile-scroll-locked");
-    document.body.classList.remove("mobile-scroll-locked");
+    if (restoreScroll && document.body.classList.contains("mobile-scroll-locked")) {
+      unlockMobileBodyScroll();
+    } else {
+      if (document.body.classList.contains("mobile-scroll-locked")) {
+        mobileScrollLockY = getLockedMobileScrollY();
+      }
+      document.body.classList.remove("mobile-scroll-locked");
+      document.body.style.removeProperty("top");
+    }
+
     document.body.classList.remove("mobile-workspace-menu-open");
   }
 

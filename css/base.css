@@ -2365,19 +2365,14 @@ h2.section {
        menu-open class cannot freeze page scroll after bfcache restores or aborted closes. */
   }
 
-  /* Scroll lock — used by both environments when the module drawer is open.
-     overflow:hidden on both html AND body is the most reliable way to prevent
-     iOS Safari viewport scroll without position:fixed (which breaks touch-scroll
-     on fixed children). Scroll position is preserved naturally — no top/scrollTo hack. */
-  html.mobile-scroll-locked,
+  /* Austria U18 module drawer lock (viewport-scroll environment).
+     Donau does NOT use this class — it uses a touchmove preventDefault handler
+     so that fixed children (drawer, overlays) can still scroll on iOS Safari. */
   body.mobile-scroll-locked {
+    position: fixed;
+    width: 100%;
     overflow: hidden;
-  }
-
-  /* Lock body scroll when any full-screen overlay is open (Donau coach intro etc.)
-     Same reason: body must not scroll behind the overlay on iOS Safari. */
-  body.overlay-active {
-    overflow: hidden;
+    inset: 0 auto auto 0;
   }
 
   .slide {

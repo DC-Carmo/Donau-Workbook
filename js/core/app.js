@@ -124,7 +124,7 @@
   const MOBILE_ENVIRONMENT_LABEL = "Donau";
   let mobileWorkspaceMenuOpen = false;
   let mobileWorkspaceHistory = [];
-  let mobileScrollLockY = 0; // unused — kept to avoid breaking any external references
+  let _mobileTouchScrollPreventer = null;
   const DONAU_MOBILE_MODULE_ITEMS = [
     { type: "slide", slide: 1, shortLabel: "Intro", title: "Intro" },
     { type: "slide", slide: 2, shortLabel: "Standards", title: "Standards" },
@@ -214,6 +214,7 @@
     document.body.classList.add("overlay-active");
     el.querySelector(".overlay-close").focus();
     document.addEventListener("keydown", overlayKeyHandler);
+    lockMobileBodyScroll();
   }
 
   function closeOverlay(id) {
@@ -225,6 +226,7 @@
     el.classList.remove("open");
     if (!document.querySelector(".overlay.open")) {
       document.body.classList.remove("overlay-active");
+      unlockMobileBodyScroll();
     }
 
     document.removeEventListener("keydown", overlayKeyHandler);
@@ -374,16 +376,32 @@
   }
 
   function lockMobileBodyScroll() {
-    if (!isMobileViewport()) return;
-    // overflow:hidden on BOTH html and body — most reliable iOS Safari scroll lock
-    // without position:fixed (which blocks touch-scroll on fixed children)
-    document.documentElement.classList.add("mobile-scroll-locked");
-    document.body.classList.add("mobile-scroll-locked");
+    if (!isMobileViewport() || _mobileTouchScrollPreventer) return;
+
+    // touchmove preventDefault is the only approach that prevents iOS background
+    // scroll without also blocking touch-scroll on fixed overlays/drawer.
+    // body:position:fixed breaks fixed-children scroll; overflow:hidden on html/body
+    // blocks ALL touch scroll. touchmove interception avoids both problems.
+    _mobileTouchScrollPreventer = (e) => {
+      let el = e.target;
+      while (el && el !== document.documentElement) {
+        const oy = window.getComputedStyle(el).overflowY;
+        if ((oy === "auto" || oy === "scroll") && el.scrollHeight > el.clientHeight) {
+          return; // inside a real scroll container — let it scroll
+        }
+        el = el.parentElement;
+      }
+      e.preventDefault(); // not inside any scrollable element — block page scroll
+    };
+
+    document.addEventListener("touchmove", _mobileTouchScrollPreventer, { passive: false });
   }
 
   function unlockMobileBodyScroll() {
-    document.documentElement.classList.remove("mobile-scroll-locked");
-    document.body.classList.remove("mobile-scroll-locked");
+    if (_mobileTouchScrollPreventer) {
+      document.removeEventListener("touchmove", _mobileTouchScrollPreventer, { passive: false });
+      _mobileTouchScrollPreventer = null;
+    }
   }
 
   function clearMobileScrollLock({ restoreScroll = false } = {}) {
