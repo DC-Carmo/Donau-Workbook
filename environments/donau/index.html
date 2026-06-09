@@ -14,7 +14,7 @@
 
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"> 
 
-<link rel="stylesheet" href="../../css/base.css?v=20260609b">
+<link rel="stylesheet" href="../../css/base.css?v=20260609c">
 <link rel="stylesheet" href="../../css/overlays.css?v=20260609">
 <link rel="stylesheet" href="../../css/components.css?v=20260609">
 <link rel="stylesheet" href="../../css/platform.css?v=20260609">
@@ -1673,7 +1673,7 @@
 <script src="../../js/shared/ui-helpers.js"></script>
 <script src="../../js/shared/dev-access.js"></script>
 <script src="../../js/shared/tactical-board-access.js"></script>
-<script src="../../js/core/app.js?v=20260609-slide-scroll"></script> 
+<script src="../../js/core/app.js?v=20260609-scroll-fix"></script> 
 
 <script>
 window.DONAU_LINEOUT_SYSTEMS = {
@@ -1772,4 +1772,4 @@ function closeLineoutSystem() {
   if (frame) {
     setTimeout(function() { frame.src = ''; }, 180);
   }
-  if (!document.querySelector('.overlay.open')) 
+  if (!document.querySelector('.overlay.open')) {

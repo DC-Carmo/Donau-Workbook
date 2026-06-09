@@ -124,7 +124,7 @@
   const MOBILE_ENVIRONMENT_LABEL = "Donau";
   let mobileWorkspaceMenuOpen = false;
   let mobileWorkspaceHistory = [];
-  let mobileScrollLockY = 0;
+  let mobileScrollLockY = 0; // unused — kept to avoid breaking any external references
   const DONAU_MOBILE_MODULE_ITEMS = [
     { type: "slide", slide: 1, shortLabel: "Intro", title: "Intro" },
     { type: "slide", slide: 2, shortLabel: "Standards", title: "Standards" },
@@ -374,42 +374,21 @@
   }
 
   function lockMobileBodyScroll() {
-    if (!isMobileViewport() || document.body.classList.contains("mobile-scroll-locked")) {
-      return;
-    }
-
-    mobileScrollLockY = window.scrollY || window.pageYOffset || 0;
-    document.body.classList.add("mobile-scroll-locked");
-    document.body.style.top = `-${mobileScrollLockY}px`;
-  }
-
-  function getLockedMobileScrollY() {
-    const lockedTop = Number.parseFloat(document.body.style.top || "0");
-    return Number.isFinite(lockedTop) ? Math.abs(lockedTop) : mobileScrollLockY;
+    if (!isMobileViewport()) return;
+    // Lock html, not body — body:position:fixed prevents touch-scroll on fixed children in iOS Safari
+    document.documentElement.style.overflow = "hidden";
+    document.documentElement.style.position = "fixed";
+    document.documentElement.style.width = "100%";
   }
 
   function unlockMobileBodyScroll() {
-    if (!document.body.classList.contains("mobile-scroll-locked")) {
-      return;
-    }
-
-    mobileScrollLockY = getLockedMobileScrollY();
-    document.body.classList.remove("mobile-scroll-locked");
-    document.body.style.removeProperty("top");
-    window.scrollTo(0, mobileScrollLockY);
+    document.documentElement.style.overflow = "";
+    document.documentElement.style.position = "";
+    document.documentElement.style.width = "";
   }
 
   function clearMobileScrollLock({ restoreScroll = false } = {}) {
-    if (restoreScroll && document.body.classList.contains("mobile-scroll-locked")) {
-      unlockMobileBodyScroll();
-    } else {
-      if (document.body.classList.contains("mobile-scroll-locked")) {
-        mobileScrollLockY = getLockedMobileScrollY();
-      }
-      document.body.classList.remove("mobile-scroll-locked");
-      document.body.style.removeProperty("top");
-    }
-
+    unlockMobileBodyScroll();
     document.body.classList.remove("mobile-workspace-menu-open");
   }
 

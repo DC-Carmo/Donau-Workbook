@@ -2365,13 +2365,6 @@ h2.section {
        menu-open class cannot freeze page scroll after bfcache restores or aborted closes. */
   }
 
-  body.mobile-scroll-locked {
-    position: fixed;
-    width: 100%;
-    overflow: hidden;
-    inset: 0 auto auto 0;
-  }
-
   .slide {
     min-height: auto;
   }
@@ -2397,7 +2390,7 @@ h2.section {
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
-    height: auto;
+    height: calc(100dvh - var(--mobile-workspace-offset, 56px));
     min-height: unset;
     z-index: 1; /* below header(80)/nav(85)/drawer(95) but explicit */
   }
@@ -2705,4 +2698,67 @@ h2.section {
 
   /* ── sl-body: override base overflow:hidden + flex:1 so content flows into viewport scroll ──
      Without flex:none + height:auto the base flex:1 rule can create sizing conflicts on iOS.
-     overflow:visible ensure
+     overflow:visible ensures no scroll container is created here — viewport scroll drives the page. */
+  .sl-body {
+    overflow: visible;
+    flex: none;
+    height: auto;
+  }
+
+  /* Per-slide layouts in single-column form */
+  #s2 .sl-body { display: grid; grid-template-columns: 1fr; grid-template-rows: auto; }
+  #s3 .sl-body { display: flex; flex-direction: column; }
+  #s4 .sl-body { display: grid; grid-template-columns: 1fr; grid-template-rows: auto; }
+  #s5 .sl-body { display: grid; grid-template-columns: 1fr; grid-template-rows: auto; }
+  #s6 .sl-body { display: flex; flex-direction: column; }
+
+  .workspace-shell-status {
+    display: none;
+  }
+
+  /* ── Attack (s3): main content first, sidebar after ── */
+  .attack-main {
+    order: 1;
+    overflow: visible;
+    height: auto;
+    min-height: 0;
+  }
+
+  .attack-sidebar {
+    order: 2;
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+    border-right: none;
+    border-top: 1px solid var(--border);
+    border-bottom: none;
+    padding: 10px;
+  }
+
+  .attack-content {
+    overflow: visible;
+    height: auto;
+  }
+
+  /* ── Lineout / Defence panels ── */
+  .lineout-left,
+  .lineout-right,
+  .def-left,
+  .def-right {
+    overflow: visible;
+    height: auto;
+  }
+
+  /* ── Chat (s6) ── */
+  .chat-area {
+    overflow: visible;
+    height: auto;
+  }
+
+  .ai-panel {
+    overflow: visible;
+    height: auto;
+    max-height: none;
+  }
+
+}
