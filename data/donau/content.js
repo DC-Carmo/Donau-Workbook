@@ -1,6 +1,213 @@
 (function () {
   const base = window.DONAU_ASSET_BASE || "assets/donau/";
   const asset = (path) => `${base}${path}`;
+  const developmentSupportConfig = {
+    wellbeingSupportRoles: [
+      "Parent or trusted adult",
+      "Coach",
+      "Club welfare contact",
+      "Doctor",
+      "Qualified mental-health professional",
+    ],
+    welfareContacts: [],
+  };
+  const developmentEvidenceLibrary = {
+    "wr-conditioning-youth": {
+      title: "Introduction to Conditioning for Young Players",
+      organisation: "World Rugby",
+      year: "2023",
+      summary: "Supports age-appropriate physical preparation, movement quality, and gradual progression for adolescent players.",
+      link: "https://passport.world.rugby/conditioning-for-rugby/introduction-to-conditioning/introduction-to-conditioning-for-young-players/",
+    },
+    "wr-conditioning-children": {
+      title: "Introduction to Conditioning for Children",
+      organisation: "World Rugby",
+      year: "2023",
+      summary: "Reinforces broad movement development, fun, and safe learning before narrow physical specialization.",
+      link: "https://passport.world.rugby/conditioning-for-rugby/introduction-to-conditioning/introduction-to-conditioning-for-children/",
+    },
+    "wr-rugby-ready": {
+      title: "Rugby Ready",
+      organisation: "World Rugby",
+      year: "2024",
+      summary: "Provides practical preparation, player welfare, and safe participation principles for training and match environments.",
+      link: "https://passport.world.rugby/player-welfare/rugby-ready/",
+    },
+    "wr-activate": {
+      title: "Activate Injury Prevention Programme",
+      organisation: "World Rugby",
+      year: "2024",
+      summary: "Highlights warm-up structure, movement control, and injury-prevention habits that improve player availability.",
+      link: "https://passport.world.rugby/player-welfare/activate/",
+    },
+    "wr-nutrition-hydration": {
+      title: "Nutrition, Rehydration and Refuelling Guidance",
+      organisation: "World Rugby",
+      year: "2023",
+      summary: "Frames food, fluid, and recovery as repeatable daily habits rather than extreme short-term fixes.",
+      link: "https://passport.world.rugby/conditioning-for-rugby/nutrition/",
+    },
+    "wr-load-management": {
+      title: "Player Load and Recovery Guidance",
+      organisation: "World Rugby",
+      year: "2023",
+      summary: "Supports sensible progression, communication about soreness, and balanced training load decisions.",
+      link: "https://passport.world.rugby/player-welfare/",
+    },
+    "wr-safeguarding": {
+      title: "Safeguarding Best Practice",
+      organisation: "World Rugby",
+      year: "2024",
+      summary: "Reinforces inclusion, welfare reporting, and the importance of safe adult support around young players.",
+      link: "https://passport.world.rugby/player-welfare/safeguarding/",
+    },
+    "irfu-ltpd": {
+      title: "Long-Term Player Development",
+      organisation: "IRFU",
+      year: "2022",
+      summary: "Provides stage-based priorities for skill, physical development, and player support across the pathway.",
+      link: "https://www.irishrugby.ie/playing-the-game/spirit-of-rugby/long-term-player-development/",
+    },
+    "irfu-technical-model": {
+      title: "IRFU Technical Model",
+      organisation: "IRFU",
+      year: "2023",
+      summary: "Connects skill execution, decision-making, and game understanding to player development outcomes.",
+      link: "https://www.irishrugby.ie/playing-the-game/coaching/",
+    },
+    "irfu-holistic": {
+      title: "Holistic Player Development Programme",
+      organisation: "IRFU",
+      year: "2023",
+      summary: "Supports whole-player thinking across rugby, education, life balance, and personal growth.",
+      link: "https://www.irishrugby.ie/playing-the-game/",
+    },
+    "irfu-wellbeing": {
+      title: "Club and Community Wellbeing Guidance",
+      organisation: "IRFU",
+      year: "2023",
+      summary: "Encourages safe reporting, belonging, and the role of adults in creating supportive environments.",
+      link: "https://www.irishrugby.ie/playing-the-game/spirit-of-rugby/",
+    },
+    "barden-activate": {
+      title: "Schoolboy Rugby Injury Prevention Research on Activate",
+      organisation: "Barden et al.",
+      year: "2021",
+      summary: "Peer-reviewed work supporting structured warm-up use and injury-reduction habits in youth rugby settings.",
+      link: "https://bjsm.bmj.com/",
+    },
+    "nsca-youth-strength": {
+      title: "Youth Resistance Training Position Statement",
+      organisation: "National Strength and Conditioning Association",
+      year: "2009",
+      summary: "Supports supervised, technique-led strength training for young athletes when matched to age and experience.",
+      link: "https://journals.lww.com/nsca-jscr/fulltext/2009/08000/youth_resistance_training__updated_position.1.aspx",
+    },
+    "youth-athletic-development": {
+      title: "Youth Athletic Development Position Statement",
+      organisation: "UKSCA and international collaborators",
+      year: "2016",
+      summary: "Explains why speed, strength, movement skill, and long-term progression matter during adolescence.",
+      link: "https://bjsm.bmj.com/content/50/20/1249",
+    },
+    "donau-practice": {
+      title: "Donau Academy Practice",
+      organisation: "Rugby Union Donau",
+      year: "2026",
+      summary: "Local coaching language and player-support habits used to connect federation guidance to the Donau environment.",
+      link: "",
+    },
+  };
+  const developmentStageProfiles = {
+    "development-hub": {
+      u14: {
+        label: "U14",
+        focus: "Enjoy the game, build broad skills, and learn safe habits.",
+        priorities: ["Enjoyment", "Broad movement", "Core skills", "Safe contact habits", "Experiment with positions", "Basic training habits"],
+      },
+      u16: {
+        label: "U16",
+        focus: "Handle more pressure, better decisions, and stronger self-management.",
+        priorities: ["Skill under pressure", "Better decisions", "Position understanding", "Structured physical preparation", "Communication", "Self-management"],
+      },
+      u18u19: {
+        label: "U18/U19",
+        focus: "Prepare for consistency, tactical responsibility, and senior demands.",
+        priorities: ["Consistency", "Tactical responsibility", "Individual preparation", "Balancing school and rugby", "Recovery ownership", "Senior transition"],
+      },
+      senior: {
+        label: "Senior transition",
+        focus: "Adapt to speed, physicality, and new expectations without losing confidence.",
+        priorities: ["Adapting to speed and physicality", "Role clarity", "Communicating with senior coaches", "Load awareness", "Maintaining confidence"],
+      },
+    },
+    "strength-conditioning": {
+      u14: {
+        label: "U14",
+        focus: "Learn how to move, land, and accelerate well before chasing heavy load.",
+        priorities: ["Movement vocabulary", "Landing mechanics", "Short accelerations", "Fun competition", "Warm-up habits"],
+      },
+      u16: {
+        label: "U16",
+        focus: "Improve technique, speed quality, and structured physical preparation.",
+        priorities: ["Technique before load", "Deceleration", "Speed exposure", "Strength supervision", "Recovery routine"],
+      },
+      u18u19: {
+        label: "U18/U19",
+        focus: "Build robustness and repeatability for heavier rugby demands.",
+        priorities: ["Force production", "Sprint repeatability", "Position demands", "Readiness communication", "Availability"],
+      },
+      senior: {
+        label: "Senior transition",
+        focus: "Train with enough quality to stay available and handle senior intensity.",
+        priorities: ["Load awareness", "Contact resilience", "Consistent strength work", "High-speed exposure", "Return-to-play discipline"],
+      },
+    },
+    nutrition: {
+      u14: {
+        label: "U14",
+        focus: "Keep food and hydration simple, familiar, and consistent.",
+        priorities: ["Regular meals", "Water habits", "Simple snacks", "Sleep routine", "Family support"],
+      },
+      u16: {
+        label: "U16",
+        focus: "Match daily fuel to training and start preparing more independently.",
+        priorities: ["Training-day choices", "Hydration awareness", "Pack food early", "Post-training meal", "Matchday routine"],
+      },
+      u18u19: {
+        label: "U18/U19",
+        focus: "Take ownership of match preparation, travel planning, and recovery habits.",
+        priorities: ["Meal timing", "Travel planning", "Recovery sequence", "Communication about needs", "Consistent sleep"],
+      },
+      senior: {
+        label: "Senior transition",
+        focus: "Handle tougher schedules and recovery demands without overcomplicating food.",
+        priorities: ["Busy-week planning", "Fluid discipline", "Recovery after contact", "Work-study balance", "Prepare before travel"],
+      },
+    },
+    wellbeing: {
+      u14: {
+        label: "U14",
+        focus: "Feel welcome, safe, and able to speak to trusted adults.",
+        priorities: ["Belonging", "Friendships", "Safe team behavior", "Enjoyment", "Knowing who can help"],
+      },
+      u16: {
+        label: "U16",
+        focus: "Handle setbacks better and communicate early when life feels heavy.",
+        priorities: ["Confidence after mistakes", "Pressure skills", "Work-school balance", "Sleep", "Speaking up early"],
+      },
+      u18u19: {
+        label: "U18/U19",
+        focus: "Protect energy, perspective, and support networks during demanding seasons.",
+        priorities: ["Managing pressure", "Role clarity", "Recovery habits", "Identity beyond selection", "Support network"],
+      },
+      senior: {
+        label: "Senior transition",
+        focus: "Stay connected and realistic while adapting to new expectations.",
+        priorities: ["Belonging in a new group", "Confidence through change", "Communication", "Load and life balance", "Seeking support early"],
+      },
+    },
+  };
 
   window.DONAU_DATA = {
     attackData: {
@@ -309,7 +516,552 @@
       { slide: 10, group: "Development", shortLabel: "Wellbeing", title: "Player Wellbeing" },
       { slide: 11, group: "Development", shortLabel: "Pathway", title: "Player Pathway" },
     ],
+    developmentSupportConfig,
+    developmentEvidenceLibrary,
+    developmentStageProfiles,
     developmentModules: [
+      {
+        id: "development-hub",
+        slide: 7,
+        iconType: "compass",
+        accent: "green",
+        title: "Development",
+        experience: "premium",
+        category: "Development",
+        estimatedTime: "8-10 min",
+        hero: {
+          headline: "Build Your Game, One Step at a Time",
+          copy: "Every player develops at a different speed. You do not need to be perfect today. Understand your next step, practise with purpose and keep moving forward.",
+          primaryAction: "Start here",
+          secondaryAction: "Explore my age stage",
+        },
+        quickStart: {
+          label: "Three-minute start",
+          importantIdea: "Development works best when you focus on one clear next step instead of trying to fix everything at once.",
+          practicalAction: "Choose one skill, habit, or behavior to improve this week and connect it to one moment in rugby.",
+          reflectionQuestion: "What would feel noticeably better in my rugby if I improved one small thing consistently?",
+        },
+        whyItMatters: [
+          {
+            title: "Late in the match",
+            body: "When fatigue rises, players still need skill, movement quality, and good decisions. Development is what keeps standards alive under pressure.",
+          },
+          {
+            title: "After a mistake",
+            body: "A player who can review, reset, and choose the next useful action grows faster than a player who only chases perfection.",
+          },
+          {
+            title: "Across the season",
+            body: "Improvement comes from repeated cycles of observing, practicing, and reviewing - not from one big session or one big game.",
+          },
+        ],
+        topicCards: [
+          {
+            id: "skill",
+            title: "Rugby Skill",
+            purpose: "Turn practice time into better actions under pressure.",
+            rugbyExample: "Can you catch, pass, tackle, and reload cleanly when the game speeds up?",
+            action: "Pick one core skill to repeat with intent this week.",
+            relatedModule: "Athletic Development",
+            details: [
+              "Why it matters: clean basics give you more good options in the game.",
+              "On-pitch example: a fast reload after a tackle keeps the line connected.",
+              "This week: choose one skill cue you can repeat in every training block.",
+            ],
+          },
+          {
+            id: "understanding",
+            title: "Game Understanding",
+            purpose: "Read the picture sooner and make calmer decisions.",
+            rugbyExample: "Do you recognise when to play fast, when to scan, and where the pressure is coming from?",
+            action: "Review one game moment and name the better option for next time.",
+            relatedModule: "Player Pathway",
+            details: [
+              "Why it matters: game understanding helps skills arrive at the right moment.",
+              "On-pitch example: identifying space before the ball reaches you changes the whole action.",
+              "This week: after training, describe one decision you made well and one you want to improve.",
+            ],
+          },
+          {
+            id: "athletic",
+            title: "Athletic Development",
+            purpose: "Move well, stay available, and handle rugby demands with confidence.",
+            rugbyExample: "Can you accelerate, decelerate, land, and repeat efforts safely?",
+            action: "Notice one movement quality you want to sharpen in warm-up or gym work.",
+            relatedModule: "Athletic Development",
+            details: [
+              "Why it matters: better movement supports contact, speed, and resilience.",
+              "On-pitch example: staying balanced into contact helps you keep power and control.",
+              "This week: treat your warm-up as skill practice, not as dead time before rugby.",
+            ],
+          },
+          {
+            id: "habits",
+            title: "Habits and Lifestyle",
+            purpose: "Build simple routines that support training, school, work, and recovery.",
+            rugbyExample: "Are you arriving prepared, hydrated, and ready to learn?",
+            action: "Prepare one part of your training day earlier than usual this week.",
+            relatedModule: "Fuel & Recovery",
+            details: [
+              "Why it matters: consistent habits create more quality sessions over time.",
+              "On-pitch example: good pre-training routines improve focus before the first drill even starts.",
+              "This week: pack food, kit, and water before the day gets busy.",
+            ],
+          },
+          {
+            id: "mindset",
+            title: "Mindset and Wellbeing",
+            purpose: "Protect confidence, perspective, and support-seeking habits.",
+            rugbyExample: "How do you respond after a mistake, a bad session, or a heavy week?",
+            action: "Name one person you can speak to when rugby or life feels heavy.",
+            relatedModule: "Player Wellbeing",
+            details: [
+              "Why it matters: calm support and honest reflection help players keep improving.",
+              "On-pitch example: a player who resets quickly after an error can still influence the next phase.",
+              "This week: practice one reset phrase you can use after mistakes.",
+            ],
+          },
+        ],
+        specialFeature: {
+          type: "compass",
+          title: "Development Compass",
+          cycleTitle: "Observe -> Choose -> Practise -> Review -> Repeat",
+          cycleSteps: [
+            { title: "Observe", text: "Notice what actually happens in training, matches, and recovery." },
+            { title: "Choose", text: "Pick one next action that is clear, realistic, and controllable." },
+            { title: "Practise", text: "Repeat the action enough times for it to feel familiar." },
+            { title: "Review", text: "Look back honestly at what improved and what still needs work." },
+            { title: "Repeat", text: "Keep going with the next useful step instead of starting over." },
+          ],
+        },
+        practicalTool: {
+          type: "next-step",
+          title: "My Next Step",
+          intro: "Turn reflection into one simple development action you can actually follow this week.",
+          fields: [
+            { id: "goal", label: "What do I want to improve?" },
+            { id: "why", label: "Why will it help my rugby?" },
+            { id: "practice", label: "What will I practise?" },
+            { id: "support", label: "Who can help me?" },
+            { id: "progress", label: "How will I recognise progress?" },
+          ],
+        },
+        guidance: {
+          coachPrinciple: "Give the player one clear, controllable next action.",
+          parentPrinciple: "Ask what the player learned and enjoyed before asking about the result.",
+          coachTips: [
+            "Keep feedback short enough that the player can use it immediately.",
+            "Connect corrections to one game picture, not a long lecture.",
+            "Review progress with the player instead of guessing for them.",
+          ],
+          parentTips: [
+            "Notice effort, learning, and enjoyment as well as outcomes.",
+            "Help create routines around food, sleep, travel, and preparation.",
+            "Encourage honest communication when rugby feels heavy.",
+          ],
+        },
+        ageStageKey: "development-hub",
+        evidenceGroups: {
+          "World Rugby guidance": ["wr-conditioning-children", "wr-conditioning-youth", "wr-rugby-ready"],
+          "IRFU guidance": ["irfu-ltpd", "irfu-holistic"],
+          "Peer-reviewed research": ["youth-athletic-development"],
+          "Donau club practice": ["donau-practice"],
+        },
+        continueJourney: {
+          nextSlide: 8,
+          nextLabel: "Athletic Development",
+          relatedTopic: "Use My Next Step before your next training week.",
+        },
+      },
+      {
+        id: "strength-conditioning",
+        slide: 8,
+        iconType: "athletic",
+        accent: "silver",
+        title: "Athletic Development",
+        experience: "premium",
+        category: "Development",
+        estimatedTime: "10-12 min",
+        hero: {
+          headline: "Build the Athlete Behind the Player",
+          copy: "Athletic development is not about looking like a professional player. It is about moving well, producing force safely, repeating efforts and staying available to play.",
+          primaryAction: "Start here",
+          secondaryAction: "Explore my age stage",
+        },
+        quickStart: {
+          label: "Three-minute start",
+          importantIdea: "Good athletic development starts with movement quality and repeatable habits, not with chasing exhaustion.",
+          practicalAction: "Before your next session, choose one movement quality to own: posture, landing, acceleration, or deceleration.",
+          reflectionQuestion: "What part of my movement helps me most in rugby - and what still feels unstable?",
+        },
+        whyItMatters: [
+          {
+            title: "Accelerating into space",
+            body: "Speed is not only top pace. Your first steps, body position, and ability to react often decide whether you win the moment.",
+          },
+          {
+            title: "Holding shape late in the match",
+            body: "Rugby fitness helps you repeat high-intensity actions and recover quickly enough to contribute again.",
+          },
+          {
+            title: "Staying available",
+            body: "Warm-up quality, gradual progression, and early communication about pain or soreness help players train more often.",
+          },
+        ],
+        topicCards: [
+          {
+            id: "move",
+            title: "Move",
+            purpose: "Build movement quality that transfers to rugby actions.",
+            rugbyExample: "Can you land, brace, accelerate, and change direction under control?",
+            action: "Choose one movement family to notice in warm-up this week.",
+            details: [
+              "Movement families: squat, hinge, lunge, brace, push, pull, land, accelerate, decelerate, and change direction.",
+              "Technique comes before adding difficulty.",
+              "Better movement supports speed, contact, and confidence.",
+            ],
+          },
+          {
+            id: "strength",
+            title: "Strength",
+            purpose: "Use strength to support contact, sprinting, stability, and resilience.",
+            rugbyExample: "A stronger brace and leg drive help you stay connected through contact.",
+            action: "Ask whether the goal of the session is technique, force, or repeatability.",
+            details: [
+              "Technique before load.",
+              "Gradual progression with qualified supervision.",
+              "Full-body development matters more than chasing one body part.",
+            ],
+          },
+          {
+            id: "speed",
+            title: "Speed",
+            purpose: "Train quality fast actions with enough recovery to keep them fast.",
+            rugbyExample: "Winning the first three steps often creates the break, not only maximum speed.",
+            action: "Protect your fastest efforts with enough rest between them.",
+            details: [
+              "Acceleration, reaction, deceleration, and change of direction all matter.",
+              "Fast work needs quality repetitions and recovery.",
+              "Speed training should feel sharp, not sloppy.",
+            ],
+          },
+          {
+            id: "fitness",
+            title: "Rugby Fitness",
+            purpose: "Condition for the repeated efforts your position actually needs.",
+            rugbyExample: "Recovering fast enough to tackle, reload, and carry again changes match impact.",
+            action: "After conditioning, ask what game demand the session matched.",
+            details: [
+              "Repeated high-intensity effort matters alongside aerobic recovery.",
+              "Purposeful conditioning beats random fatigue.",
+              "Harder is not automatically better if quality disappears.",
+            ],
+          },
+          {
+            id: "availability",
+            title: "Availability",
+            purpose: "Stay ready to train by respecting preparation and recovery habits.",
+            rugbyExample: "Players help the team most when they can train and compete consistently.",
+            action: "Report soreness or pain early instead of hiding it.",
+            details: [
+              "Use Activate-style warm-up structure, neck and shoulder prep, balance, and landing control.",
+              "Progress gradually across busy weeks.",
+              "Return-to-play decisions should stay with qualified adults and professionals.",
+            ],
+          },
+        ],
+        specialFeature: {
+          type: "wheel",
+          title: "Athletic Development Wheel",
+          segments: ["Move", "Strength", "Speed", "Rugby Fitness", "Availability"],
+          weekTitle: "My Athletic Week",
+          weekItems: ["Rugby", "Strength", "Speed", "Recovery", "Match", "Rest"],
+        },
+        practicalTool: {
+          type: "readiness",
+          title: "Today's Readiness",
+          intro: "Use this quick check-in to support self-awareness and communication. It is not a diagnosis, selection score, or competition.",
+          prompts: ["Sleep", "Energy", "Soreness", "Stress", "Motivation"],
+        },
+        ageStageKey: "strength-conditioning",
+        evidenceGroups: {
+          "World Rugby guidance": ["wr-conditioning-youth", "wr-activate", "wr-load-management"],
+          "IRFU guidance": ["irfu-ltpd", "irfu-technical-model"],
+          "Peer-reviewed research": ["barden-activate", "nsca-youth-strength", "youth-athletic-development"],
+          "Donau club practice": ["donau-practice"],
+        },
+        continueJourney: {
+          nextSlide: 9,
+          nextLabel: "Fuel & Recovery",
+          relatedTopic: "Compare your readiness with how you recover after training.",
+        },
+      },
+      {
+        id: "nutrition",
+        slide: 9,
+        iconType: "fuel",
+        accent: "gold",
+        title: "Fuel & Recovery",
+        experience: "premium",
+        category: "Development",
+        estimatedTime: "9-11 min",
+        hero: {
+          headline: "Fuel the Work. Recover for What Comes Next.",
+          copy: "You do not need a perfect diet or expensive products. Consistent meals, enough fluid and good recovery habits make the biggest difference.",
+          primaryAction: "Start here",
+          secondaryAction: "Explore my age stage",
+        },
+        quickStart: {
+          label: "Three-minute start",
+          importantIdea: "Simple daily habits usually beat complicated plans you cannot repeat.",
+          practicalAction: "Before your next rugby day, decide when you will eat, drink, and refuel afterwards.",
+          reflectionQuestion: "Which part of my routine usually breaks down first when the day gets busy?",
+        },
+        whyItMatters: [
+          {
+            title: "Preparing for matchday",
+            body: "Good fuel helps players arrive with energy instead of trying to catch up late with rushed choices.",
+          },
+          {
+            title: "Recovering after repeated efforts",
+            body: "Food, fluid, and sleep support the next training session as much as the one you just finished.",
+          },
+          {
+            title: "Balancing school and training",
+            body: "Planning simple, realistic options makes better habits easier even on long days.",
+          },
+        ],
+        topicCards: [
+          {
+            id: "everyday-fuel",
+            title: "Everyday Fuel",
+            purpose: "Build a flexible plate and hydration routine that works in real life.",
+            rugbyExample: "Consistent food helps you keep quality during contact, sprint, and review sessions.",
+            action: "Look at your next main meal and name the energy source, protein, color, and fluid.",
+            details: [
+              "Flexible plate builder: energy source, protein source, fruit or vegetables, and fluid.",
+              "Affordable and culturally varied foods all count.",
+              "Do not label food as morally good or bad.",
+            ],
+          },
+          {
+            id: "training-day",
+            title: "Training Day",
+            purpose: "Match food and fluid choices to the time you actually have.",
+            rugbyExample: "Arriving underfueled can make learning and decision-making feel harder than they should.",
+            action: "Choose your best option for today: normal meal, lighter meal, or quick familiar snack.",
+            details: [
+              "Normal meal several hours before training.",
+              "Lighter meal or snack closer to training.",
+              "Simple, easy-to-digest option when time is limited.",
+            ],
+          },
+          {
+            id: "matchday",
+            title: "Matchday",
+            purpose: "Create a calm routine from the evening before to after the final whistle.",
+            rugbyExample: "A player who plans travel, food, and fluids arrives more settled and ready to perform.",
+            action: "Map one full matchday timeline before the week gets hectic.",
+            details: [
+              "Evening before, breakfast, pre-match meal, travel, arrival, warm-up, half-time, after the match.",
+              "Use familiar foods you already know work for you.",
+              "Keep choices practical rather than perfect.",
+            ],
+          },
+          {
+            id: "recovery",
+            title: "Recovery",
+            purpose: "Use simple habits to reset the body and the mind after effort.",
+            rugbyExample: "Players recover better when they rehydrate, eat, move lightly, and sleep well after contact load.",
+            action: "Choose one thing you will do within the first hour after your next hard session.",
+            details: [
+              "Recovery sequence: Rehydrate -> Eat -> Reset -> Sleep.",
+              "Recovery also includes rest, light movement, connection, and stress management.",
+              "Appropriate healthcare and early communication still matter.",
+            ],
+          },
+          {
+            id: "myths",
+            title: "Myth or Useful Habit",
+            purpose: "Separate flashy claims from reliable foundations.",
+            rugbyExample: "Players often hear about supplements and energy drinks before they master basics.",
+            action: "Check whether the idea you heard improves training, food, sleep, or just sounds impressive.",
+            details: [
+              "Myth: I need supplements to become stronger. Useful habit: training, normal food, and sleep come first.",
+              "Myth: Energy drinks are normal sports hydration. Useful habit: water and consistent food habits are the foundation.",
+              "Myth: Recovery starts after the match. Useful habit: recovery is built through daily habits.",
+            ],
+          },
+        ],
+        specialFeature: {
+          type: "plate",
+          title: "Fuel Builder",
+          columns: ["Energy source", "Protein source", "Fruit or vegetables", "Fluid"],
+          timeline: ["Evening before", "Breakfast", "Pre-match meal", "Travel", "Arrival", "Warm-up", "Half-time", "After the match"],
+        },
+        practicalTool: {
+          type: "matchday-plan",
+          title: "My Matchday Plan",
+          intro: "Create an editable checklist based on your match time, travel, weather, and what is actually available to you.",
+          weatherOptions: ["Cold", "Mild", "Warm", "Hot"],
+        },
+        safetyNotice: {
+          title: "Extra support matters here",
+          body: "Allergies, medical conditions, special dietary needs, supplement questions, and persistent sleep difficulties should be discussed with parents and qualified professionals.",
+        },
+        ageStageKey: "nutrition",
+        evidenceGroups: {
+          "World Rugby guidance": ["wr-nutrition-hydration", "wr-load-management"],
+          "IRFU guidance": ["irfu-ltpd", "irfu-holistic"],
+          "Peer-reviewed research": ["youth-athletic-development"],
+          "Donau club practice": ["donau-practice"],
+        },
+        continueJourney: {
+          nextSlide: 10,
+          nextLabel: "Player Wellbeing",
+          relatedTopic: "Notice how food, fluid, and sleep affect mood and concentration too.",
+        },
+      },
+      {
+        id: "wellbeing",
+        slide: 10,
+        iconType: "wellbeing",
+        accent: "muted-green",
+        title: "Player Wellbeing",
+        experience: "premium",
+        category: "Development",
+        estimatedTime: "8-10 min",
+        hero: {
+          headline: "The Person Comes Before the Player",
+          copy: "Rugby should be a place where you can learn, belong and ask for support. Good players are not expected to handle every challenge alone.",
+          primaryAction: "Start here",
+          secondaryAction: "Explore my age stage",
+        },
+        quickStart: {
+          label: "Three-minute start",
+          importantIdea: "Feeling safe, connected, and supported helps players learn and perform more consistently.",
+          practicalAction: "Before your next rugby week, name one person, one routine, and one habit that helps you reset.",
+          reflectionQuestion: "When rugby feels heavy, what helps me feel steady again?",
+        },
+        whyItMatters: [
+          {
+            title: "Communicating after a mistake",
+            body: "Players who can reset after errors stay present in the next phase instead of disappearing from the game.",
+          },
+          {
+            title: "Balancing rugby, school, and life",
+            body: "Performance naturally changes when the week gets heavy. Honest planning helps players cope earlier.",
+          },
+          {
+            title: "Asking for support",
+            body: "Speaking up early is a strength because it protects learning, safety, and long-term enjoyment of rugby.",
+          },
+        ],
+        topicCards: [
+          {
+            id: "belonging",
+            title: "Belonging",
+            purpose: "Create a team environment where players feel welcomed and respected.",
+            rugbyExample: "New players settle faster when teammates include them early and explain the standards clearly.",
+            action: "Do one small thing this week that makes someone else feel more included.",
+            details: [
+              "Respect, inclusion, and protecting teammates matter every week.",
+              "No humiliation, bullying, or discrimination.",
+              "Different backgrounds and personalities still belong in the same team circle.",
+            ],
+          },
+          {
+            id: "confidence",
+            title: "Confidence",
+            purpose: "Build trust through preparation and next-action feedback.",
+            rugbyExample: "A player who can reset after a missed tackle is still ready for the next job.",
+            action: "After your next mistake, name the next useful action instead of replaying the error.",
+            details: [
+              "Confidence changes - it is not a permanent trait.",
+              "Mistakes do not define the player.",
+              "Progress is not only selection.",
+            ],
+          },
+          {
+            id: "pressure",
+            title: "Pressure",
+            purpose: "Use a simple reset process when emotions rise.",
+            rugbyExample: "After a tough phase, calm breathing and one clear action can bring you back into the game.",
+            action: "Practice Pause -> Breathe -> Identify -> Choose before a stressful moment this week.",
+            details: [
+              "What am I feeling?",
+              "What can I control?",
+              "What is the next useful action?",
+              "Who can support me?",
+            ],
+          },
+          {
+            id: "balance",
+            title: "Rugby, School and Life",
+            purpose: "Plan demanding weeks with honesty instead of pretending you can do everything perfectly.",
+            rugbyExample: "Tired weeks need clearer communication and smarter preparation, not guilt.",
+            action: "Look at your next busy week and identify the day where recovery matters most.",
+            details: [
+              "Plan demanding weeks early.",
+              "Prioritize sleep where you can.",
+              "Recognize overload and accept changing performance during hard periods.",
+            ],
+          },
+          {
+            id: "support",
+            title: "Asking for Support",
+            purpose: "Make support-seeking feel normal, clear, and safe.",
+            rugbyExample: "Speaking early about stress, injury concerns, or team issues can stop small problems getting heavier.",
+            action: "Name the first adult or staff member you would speak to if something felt wrong.",
+            details: [
+              "Speaking up is a strength.",
+              "Use trusted adults and qualified professionals when needed.",
+              "Rugby support should never depend on silence.",
+            ],
+          },
+        ],
+        specialFeature: {
+          type: "support-map",
+          title: "Donau Team Standards",
+          standards: [
+            "We welcome people.",
+            "We listen.",
+            "We challenge with respect.",
+            "We protect teammates.",
+            "We celebrate effort and improvement.",
+            "We speak up when something is wrong.",
+          ],
+        },
+        practicalTool: {
+          type: "week-check-in",
+          title: "My Week Check-In",
+          intro: "This is a private reflection tool. It does not create public scores or automatic judgments.",
+          prompts: [
+            "I feel welcome.",
+            "I feel safe.",
+            "I feel connected to the team.",
+            "I am managing rugby and school.",
+            "I know who I can speak to.",
+            "I am enjoying rugby.",
+          ],
+        },
+        supportCard: {
+          title: "Speaking up is a strength.",
+          body: "If rugby, school, health, or life feels heavy, speak to a trusted adult or the right professional early. You do not need to handle every challenge alone.",
+        },
+        ageStageKey: "wellbeing",
+        evidenceGroups: {
+          "World Rugby guidance": ["wr-safeguarding", "wr-rugby-ready"],
+          "IRFU guidance": ["irfu-holistic", "irfu-wellbeing"],
+          "Peer-reviewed research": ["youth-athletic-development"],
+          "Donau club practice": ["donau-practice"],
+        },
+        continueJourney: {
+          nextSlide: 11,
+          nextLabel: "Player Pathway",
+          relatedTopic: "Use the pathway to see how support and preparation grow through each stage.",
+        },
+      },
       {
         id: "youth-pathway",
         slide: 11,
@@ -510,171 +1262,6 @@
           }
         ]
       },
-      {
-        id: "nutrition",
-        slide: 9,
-        iconType: "fuel",
-        accent: "gold",
-        title: "Fuel & Recovery",
-        shortDescription: "Daily habits that support training, recovery, and matchday.",
-        mission: "Build simple fuel and recovery habits that improve availability, consistency, and matchday readiness across the club.",
-        intro: "Nutrition inside a club environment should be realistic and repeatable. The objective is helping players make better daily decisions that improve availability and recovery.",
-        progressLabel: "RESOURCES ? 52%",
-        progressValue: "52%",
-        progressPercent: 52,
-        status: "Available",
-        tag: "Fuel & Habits",
-        summaryTitle: "Key principle",
-        summaryText: "Better consistency beats occasional extremes. Players improve when useful habits fit real life around school, work, and rugby.",
-        callout: "Daily discipline drives performance long before kickoff.",
-        highlights: ["Daily habits", "Matchday basics", "Recovery support"],
-        metrics: [
-          { value: "52%", label: "Resources live" },
-          { value: "3", label: "Priority areas" }
-        ],
-        sections: [
-          {
-            title: "Daily Habits",
-            subtitle: "Fuel the training week",
-            points: [
-              "Eat regularly enough to support the weekly load.",
-              "Hydrate consistently, not only at training.",
-              "Build around quality basics before supplements."
-            ]
-          },
-          {
-            title: "Matchday",
-            subtitle: "Known and repeatable",
-            points: [
-              "Arrive fueled rather than trying to catch up late.",
-              "Keep pre-match food simple, known, and easy to digest.",
-              "Plan post-match food before kickoff."
-            ]
-          },
-          {
-            title: "Recovery",
-            subtitle: "Support availability",
-            points: [
-              "Refuel soon after hard sessions with simple options.",
-              "Prioritize fluids, carbs, and protein after contact load.",
-              "Use food to improve training availability through the week."
-            ]
-          }
-        ]
-      },
-      {
-        id: "strength-conditioning",
-        slide: 8,
-        iconType: "athletic",
-        accent: "silver",
-        title: "Athletic Development",
-        shortDescription: "Movement quality, durability, and rugby readiness.",
-        mission: "Develop athletes who move well, handle load better, and stay more available for rugby across every stage of the club.",
-        intro: "Strength and conditioning should improve how well players move, how consistently they can train, and how ready they are for rugby demands over time.",
-        progressLabel: "FRAMEWORK ? 61%",
-        progressValue: "61%",
-        progressPercent: 61,
-        status: "Active",
-        tag: "Athletic Framework",
-        summaryTitle: "Coaching lens",
-        summaryText: "The key question is not whether players are tired after training. It is whether they are becoming more robust, more skillful movers, and more available to perform.",
-        callout: "Movement quality, durability, and readiness should rise together.",
-        highlights: ["Movement quality", "Durability", "Rugby readiness"],
-        metrics: [
-          { value: "61%", label: "Framework live" },
-          { value: "Active", label: "Module state" }
-        ],
-        sections: [
-          {
-            title: "Movement Quality",
-            subtitle: "Positions before output",
-            points: [
-              "Own positions and control before chasing output.",
-              "Develop balance, trunk strength, landing, and deceleration habits.",
-              "Use progressions players can understand and repeat."
-            ]
-          },
-          {
-            title: "Athletic Development",
-            subtitle: "Broad physical base",
-            points: [
-              "Speed, force, and repeatability should grow together.",
-              "Youth players need broad development, not narrow specialization.",
-              "Senior players need enough robustness to train well consistently."
-            ]
-          },
-          {
-            title: "Rugby Readiness",
-            subtitle: "Transfer to the game",
-            points: [
-              "Prepare for contact demands and repeated high-effort actions.",
-              "Use gym and field work to support on-pitch intent and availability.",
-              "Track readiness in ways coaches can actually use."
-            ]
-          }
-        ]
-      },
-      {
-        id: "wellbeing",
-        slide: 10,
-        iconType: "wellbeing",
-        accent: "muted-green",
-        title: "Player Wellbeing",
-        shortDescription: "Sleep, mindset, and recovery habits that sustain performance.",
-        mission: "Support players with the off-pitch habits that protect energy, consistency, and balance through a demanding rugby season.",
-        intro: "Wellbeing is part of performance. Sleep, life balance, and recovery habits directly affect availability, decision-making, and the standard a player can maintain.",
-        progressLabel: "GUIDANCE ? 49%",
-        progressValue: "49%",
-        progressPercent: 49,
-        status: "Available",
-        tag: "Recovery & Balance",
-        summaryTitle: "Club message",
-        summaryText: "A strong club environment helps players perform better by taking their off-pitch reality seriously. Better people support better rugby.",
-        callout: "Better people build better rugby when recovery and balance are part of the standard.",
-        highlights: ["Sleep", "Recovery", "Mindset", "Balance"],
-        metrics: [
-          { value: "49%", label: "Guidance live" },
-          { value: "4", label: "Support lanes" }
-        ],
-        sections: [
-          {
-            title: "Sleep",
-            subtitle: "Night-before performance",
-            points: [
-              "Good sleep habits are one of the biggest performance multipliers.",
-              "Players need routines that work around school, work, and travel.",
-              "Recovery starts the night before, not only after sessions."
-            ]
-          },
-          {
-            title: "Recovery",
-            subtitle: "Reset after load",
-            points: [
-              "Use simple repeatable practices after heavy weeks.",
-              "Normalize early communication about soreness and load.",
-              "Help players understand when to push and when to reset."
-            ]
-          },
-          {
-            title: "Mindset",
-            subtitle: "Ownership under pressure",
-            points: [
-              "Promote ownership, honesty, and emotional steadiness.",
-              "Use feedback to build clarity and confidence, not fear.",
-              "Reinforce that consistency comes from habits under pressure."
-            ]
-          },
-          {
-            title: "Balance",
-            subtitle: "Life rhythm matters",
-            points: [
-              "Rugby should fit a sustainable life rhythm.",
-              "Support players across school, work, family, and club demands.",
-              "Protect long-term engagement by caring about the whole athlete."
-            ]
-          }
-        ]
-      }
     ],
     playbookContext: `You are a rugby coaching assistant for Rugby Union Donau. Answer questions using ONLY the following game model knowledge. Be clear, direct, and coaching-focused. Keep answers concise. Use Donau terminology throughout.
 
