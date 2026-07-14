@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Austria U18 – Player Game Plan</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="../../css/base.css?v=20260609h">
+<link rel="stylesheet" href="../../css/overlays.css?v=20260609b">
+<link rel="stylesheet" href="../../css/components.css?v=20260609">
+<link rel="stylesheet" href="../../css/platform.css?v=20260609">
+
+<style>
+/* Austria U18 Player — accent override (red/white) */
+:root {
+  --austria-red: #c8102e;
+  --austria-red-dim: rgba(200, 16, 46, 0.7);
+}
+
+/* Topbar accent for Austria U18 */
+.topbar-title { color: var(--text); }
+
+#s4 .sl-header .tag {
+  border-color: rgba(46, 139, 87, 0.34);
+  color: rgba(240, 244, 240, 0.84);
+  background: rgba(46, 139, 87, 0.08);
+}
+
+#s4 .sl-body {
+  gap: 16px;
+  background: transparent;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+}
+
+#s4 .lineout-left,
+#s4 .lineout-right {
+  position: relative;
+  border: 1px solid rgba(46, 139, 87, 0.16);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(13, 32, 54, 0.96), rgba(8, 25, 41, 0.98)),
+    radial-gradient(circle at top left, rgba(46, 139, 87, 0.12), transparent 28%);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.24);
+}
+
+#s4 .lineout-left::before,
+#s4 .lineout-right::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  pointer-events: none;
+  background:
+    linear-gradient(140deg, rgba(46, 139, 87, 0.08), transparent 36%, transparent 76%, rgba(214, 181, 111, 0.05)),
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: auto, 44px 44px, 44px 44px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.4));
+}
+
+#s4 .lineout-left { padding: 24px; gap: 14px; }
+#s4 .lineout-right { padding: 22px; gap: 16px; }
+
+#s4 .lineout-kicker {
+  position: relative; z-index: 1; margin: 0;
+  font-family: "Barlow Condensed", sans-serif; font-size: 0.72rem; letter-spacing: 2.6px;
+  text-transform: uppercase; color: rgba(160, 185, 200, 0.7);
+}
+
+#s4 .lo-system-card {
+  position: relative; z-index: 1; overflow: hidden; border-radius: 20px;
+  border: 1px solid rgba(46, 139, 87, 0.2); padding: 22px 22px 20px;
+  background: linear-gradient(180deg, rgba(16, 37, 64, 0.96), rgba(11, 28, 47, 0.98));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 18px 42px rgba(0,0,0,0.18);
+}
+
+#s4 .lo-system-card::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(135deg, rgba(46, 139, 87, 0.12), transparent 34%, transparent 74%, rgba(214, 181, 111, 0.05));
+}
+
+#s4 .lo-system-card::after {
+  content: ""; position: absolute; left: 0; top: 20px; bottom: 20px; width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: linear-gradient(180deg, rgba(46, 139, 87, 0.95), rgba(214, 181, 111, 0.5));
+}
+
+#s4 .lo-system-primary { border-color: rgba(46, 139, 87, 0.3); background: linear-gradient(180deg, rgba(18, 42, 68, 0.98), rgba(12, 30, 50, 0.99)); }
+#s4 .lo-system-secondary { border-color: rgba(214, 181, 111, 0.18); background: linear-gradient(180deg, rgba(14, 32, 52, 0.98), rgba(10, 24, 41, 0.99)); }
+#s4 .lo-system-header, #s4 .lo-system-desc, #s4 .lo-system-meta, #s4 .lo-system-btn { position: relative; z-index: 1; }
+#s4 .lo-system-badges, #s4 .lo-system-meta { display: flex; flex-wrap: wrap; gap: 8px; }
+
+#s4 .lo-system-badge, #s4 .lo-system-meta-chip {
+  display: inline-flex; align-items: center; min-height: 28px; padding: 5px 10px; border-radius: 999px;
+  border: 1px solid rgba(46, 139, 87, 0.26); background: rgba(46, 139, 87, 0.08);
+  font-family: "Barlow Condensed", sans-serif; font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 1.8px; text-transform: uppercase; color: var(--text);
+}
+
+#s4 .lo-system-badge-secondary { border-color: rgba(214, 181, 111, 0.28); background: rgba(214, 181, 111, 0.08); }
+#s4 .lo-system-badge-active { border-color: rgba(46, 139, 87, 0.4); background: rgba(46, 139, 87, 0.16); }
+
+#s4 .lo-system-name {
+  margin-top: 12px; font-family: "Anton", sans-serif; font-size: clamp(2.2rem, 4vw, 3rem);
+  line-height: 0.95; letter-spacing: 2px; text-transform: uppercase; color: var(--text);
+}
+
+#s4 .lo-system-subtitle {
+  margin-top: 8px; font-family: "Barlow Condensed", sans-serif; font-size: 0.92rem;
+  letter-spacing: 1.5px; text-transform: uppercase; color: rgba(240, 244, 240, 0.8);
+}
+
+#s4 .lo-system-desc p { margin: 14px 0 16px; max-width: none; color: rgba(240, 244, 240, 0.78); font-size: 0.94rem; line-height: 1.7; }
+
+#s4 .lo-system-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%; min-height: 48px; margin-top: 18px; border-radius: 14px; padding: 12px 16px;
+  font-family: "Barlow Condensed", sans-serif; font-size: 0.86rem; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase; cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+#s4 .lo-system-btn:hover { transform: translateY(-1px); }
+#s4 .lo-system-btn-primary { border: 1px solid rgba(46, 139, 87, 0.36); background: linear-gradient(180deg, rgba(46, 139, 87, 0.24), rgba(46, 139, 87, 0.14)); color: var(--text); box-shadow: 0 12px 28px rgba(46, 139, 87, 0.14); }
+#s4 .lo-system-btn-primary:hover { border-color: rgba(46, 139, 87, 0.5); background: linear-gradient(180deg, rgba(46, 139, 87, 0.3), rgba(46, 139, 87, 0.18)); }
+#s4 .lo-system-btn-secondary { border: 1px solid rgba(214, 181, 111, 0.28); background: linear-gradient(180deg, rgba(214, 181, 111, 0.16), rgba(214, 181, 111, 0.08)); color: var(--text); box-shadow: 0 12px 28px rgba(214, 181, 111, 0.08); }
+#s4 .lo-system-btn-secondary:hover { border-color: rgba(214, 181, 111, 0.42); background: linear-gradient(180deg, rgba(214, 181, 111, 0.22), rgba(214, 181, 111, 0.1)); }
+
+.lineout-system-overlay {
+  position: fixed; inset: 0; z-index: 1200; background: rgba(4, 8, 12, 0.96);
+  display: flex; flex-direction: column; opacity: 0; pointer-events: none; transition: opacity 220ms ease;
+}
+.lineout-system-overlay.open { opacity: 1; pointer-events: all; }
+
+.lso-topbar { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 20px; background: linear-gradient(180deg, rgba(8, 25, 41, 0.98), rgba(6, 18, 30, 0.98)); border-bottom: 1px solid rgba(46, 139, 87, 0.22); }
+.lso-title { font-family: "Barlow Condensed", sans-serif; font-size: 0.88rem; font-weight: 700; letter-spacing: 2.4px; text-transform: uppercase; color: var(--text); }
+.lso-close { width: 38px; height: 38px; border-radius: 50%; border: 1px solid rgba(46, 139, 87, 0.24); background: rgba(255, 255, 255, 0.04); color: var(--text); font-size: 1.2rem; cursor: pointer; }
+.lso-frame { flex: 1; width: 100%; border: none; background: #fff; }
+
+@media (max-width: 768px) {
+  #s4 .sl-body { grid-template-columns: 1fr; gap: 14px; }
+  #s4 .lineout-left, #s4 .lineout-right { padding: 18px 16px; border-radius: 18px; }
+  #s4 .lo-system-card { padding: 18px 16px 16px; border-radius: 18px; }
+  #s4 .lo-system-name { font-size: 2rem; }
+  #s4 .success-metrics { grid-template-columns: 1fr 1fr; }
+  #s4 .code-row { flex-direction: column; align-items: stretch; }
+  #s4 .code-key { align-self: flex-start; }
+  #s4 .tech-item { padding: 12px 12px 12px 52px; }
+  #s4 .lo-system-btn { min-height: 50px; }
+}
+
+.lo-shell { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 0 28px; flex: 1; min-height: 0; align-items: stretch; order: 2; }
+
+.lo-card {
+  position: relative; display: flex; flex-direction: column; border-radius: 20px;
+  border: 1px solid rgba(46,139,87,0.18);
+  background: linear-gradient(160deg, rgba(12,28,18,0.99) 0%, rgba(6,16,10,0.99) 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 28px 56px rgba(0,0,0,0.45), 0 4px 8px rgba(0,0,0,0.25);
+  overflow: hidden; transition: border-color 220ms ease, box-shadow 220ms ease, transform 200ms ease;
+}
+
+.lo-card::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, rgba(20,90,50,0.6) 0%, rgba(46,139,87,1) 45%, rgba(100,210,140,0.7) 100%);
+  border-radius: 20px 20px 0 0;
+}
+
+.lo-card:hover { border-color: rgba(46,139,87,0.38); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 36px 72px rgba(0,0,0,0.5), 0 0 48px rgba(46,139,87,0.1); transform: translateY(-2px); }
+.lo-card-glow { position: absolute; top: -80px; left: -80px; width: 280px; height: 280px; border-radius: 50%; background: radial-gradient(circle, rgba(46,139,87,0.14) 0%, transparent 68%); pointer-events: none; }
+.lo-card-wm { position: absolute; right: -10px; bottom: -20px; font-family: "Bebas Neue","Anton",sans-serif; font-size: clamp(7rem,12vw,10rem); line-height: 1; letter-spacing: -4px; color: rgba(46,139,87,0.06); pointer-events: none; user-select: none; }
+.lo-card-content { position: relative; z-index: 1; display: flex; flex-direction: column; flex: 1; padding: 24px 26px 22px; }
+.lo-card-tags { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.lo-tag { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-family: "Barlow Condensed",sans-serif; font-size: 0.6rem; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; }
+.lo-tag-green { border: 1px solid rgba(46,139,87,0.42); background: rgba(46,139,87,0.1); color: rgba(110,210,150,0.9); }
+.lo-tag-dim { border: 1px solid rgba(255,255,255,0.09); background: rgba(255,255,255,0.03); color: rgba(180,195,185,0.45); }
+.lo-card-name { font-family: "Bebas Neue","Anton",sans-serif; font-size: clamp(3.2rem,5.5vw,4.6rem); line-height: 0.9; letter-spacing: 3px; text-transform: uppercase; background: linear-gradient(130deg, #ffffff 0%, rgba(195,240,215,0.92) 55%, rgba(46,139,87,0.85) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 9px; }
+.lo-card-sub { font-family: "Barlow Condensed",sans-serif; font-size: 0.75rem; letter-spacing: 1.9px; text-transform: uppercase; color: rgba(110,195,145,0.65); margin-bottom: 14px; }
+.lo-card-desc { font-size: 0.84rem; line-height: 1.68; color: rgba(190,210,198,0.58); margin-bottom: 18px; flex: 1; }
+.lo-chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+.lo-chip { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 7px; border: 1px solid rgba(46,139,87,0.22); background: rgba(46,139,87,0.07); font-family: "Barlow Condensed",sans-serif; font-size: 0.62rem; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: rgba(130,210,165,0.75); }
+
+.lo-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 52px;
+  border-radius: 13px; border: 1px solid rgba(46,139,87,0.55);
+  background: linear-gradient(140deg, rgba(22,95,54,0.95) 0%, rgba(46,139,87,0.9) 48%, rgba(28,108,62,0.95) 100%);
+  color: rgba(215,255,232,0.96); font-family: "Barlow Condensed",sans-serif; font-size: 0.84rem; font-weight: 700; letter-spacing: 2.4px; text-transform: uppercase; cursor: pointer;
+  box-shadow: 0 10px 28px rgba(46,139,87,0.28), inset 0 1px 0 rgba(255,255,255,0.12);
+  transition: box-shadow 180ms ease, transform 180ms ease, background 180ms ease;
+}
+.lo-btn:hover { background: linear-gradient(140deg, rgba(30,115,66,1) 0%, rgba(58,168,104,0.98) 48%, rgba(36,130,75,1) 100%); box-shadow: 0 16px 40px rgba(46,139,87,0.38), inset 0 1px 0 rgba(255,255,255,0.18); transform: translateY(-1px); }
+.lo-btn:active { transform: translateY(0); }
+
+.lo-kpi-bar { display: flex; align-items: stretch; justify-content: center; padding: 10px 28px; flex-shrink: 0; order: 1; background: rgba(46,139,87,0.06); border: 1px solid rgba(46,139,87,0.14); border-radius: 14px; margin: 0 28px 8px; }
+.lo-kpi-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 0; }
+.lo-kpi-num { font-family: "Bebas Neue","Anton",sans-serif; font-size: 2rem; line-height: 1; letter-spacing: 1px; color: rgba(90,210,140,1); }
+.lo-kpi-lbl { font-family: "Barlow Condensed",sans-serif; font-size: 0.6rem; letter-spacing: 1.6px; text-transform: uppercase; color: rgba(170,210,185,0.75); }
+.lo-kpi-sep { width: 1px; align-self: stretch; margin: 8px 0; background: rgba(46,139,87,0.22); flex-shrink: 0; }
+
+.lso-topbar { background: linear-gradient(180deg, rgba(6,18,10,0.99), rgba(4,12,7,0.99)) !important; border-bottom: 1px solid rgba(46,139,87,0.22) !important; padding: 10px 20px !important; }
+.lso-title { font-family: "Barlow Condensed",sans-serif !important; font-size: 0.78rem !important; font-weight: 700 !important; letter-spacing: 2.6px !important; text-transform: uppercase !important; color: rgba(140,200,165,0.7) !important; }
+.lso-close { border: 1px solid rgba(46,139,87,0.28) !important; background: rgba(46,139,87,0.06) !important; border-radius: 50% !important; }
+.lso-close:hover { background: rgba(46,139,87,0.16) !important; border-color: rgba(46,139,87,0.5) !important; }
+
+@media (max-width: 768px) {
+  .lo-shell { grid-template-columns: 1fr; padding: 0 14px; gap: 10px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .lo-card-content { padding: 16px 16px 14px; }
+  .lo-card-name { font-size: 2.2rem; margin-bottom: 6px; }
+  .lo-card-sub { font-size: 0.68rem; margin-bottom: 10px; }
+  .lo-card-desc { font-size: 0.78rem; margin-bottom: 10px; line-height: 1.55; }
+  .lo-chip { font-size: 0.56rem; padding: 3px 8px; }
+  .lo-btn { min-height: 44px; font-size: 0.76rem; letter-spacing: 1.8px; }
+  .lo-kpi-bar { margin: 0 14px 8px; padding: 8px 0; }
+  .lo-kpi-num { font-size: 1.3rem; }
+  .lo-kpi-lbl { font-size: 0.52rem; }
+}
+
+@media (max-width: 430px) {
+  .lo-kpi-bar { margin: 0 10px 6px; padding: 6px 0; }
+  .lo-kpi-num { font-size: 1.1rem; }
+  .lo-kpi-lbl { font-size: 0.48rem; letter-spacing: 1px; }
+}
+
+@media (min-width: 769px) and (max-width: 900px) {
+  .lo-shell { padding: 0 18px; gap: 14px; }
+  .lo-card-content { padding: 20px 20px 18px; }
+}
+</style>
+
+</head>
+
+<body>
+
+<!-- Access gating -->
+<script>
+window.PLAYER_ACCESS_CONFIG = { code: "AUSTRIA25", team: "Austria U18", storageKey: "austria_player_access" };
+</script>
+<script src="../../js/shared/dev-access.js"></script>
+<script src="../../js/shared/player-access.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  window.RDAPlayerAccess.protectPage();
+});
+</script>
+
+<a href="#s1" class="sr-only" id="skipLink">Skip to content</a>
+
+<div class="progress" role="progressbar" aria-valuenow="1" aria-valuemin="1" aria-valuemax="11" aria-label="Slide progress"><div class="progress-fill" id="pFill" style="width:9.09%"></div></div>
+
+
+<!-- SLIDE 1: COVER -->
+
+<div class="slide active" id="s1">
+
+  <div class="topbar">
+    <div class="topbar-logo" onclick="goTo(1)">
+      <img src="../austria-u18/assets/oesterreich-logo.png" style="height:30px;width:auto;object-fit:contain;" alt="Austria U18"/>
+      <div><div class="topbar-title">Austria U18</div><div class="topbar-sub">Player Game Plan</div></div>
+    </div>
+    <div class="topbar-right">
+      <div class="motto">WORK ETHIC &middot; ATTACK &middot; BELIEF</div>
+      <div class="slide-num" id="slideNum">01 / 11</div>
+    </div>
+  </div>
+
+  <div style="flex:1;display:flex;overflow:hidden;">
+
+    <div class="cover-left">
+      <img src="../austria-u18/assets/oesterreich-logo.png" class="fadeup" style="width:160px;height:auto;object-fit:contain;margin-bottom:16px;" alt="Austria U18"/>
+      <h1 class="hero fadeup">YOUR<br><span style="color:var(--green);">GAME PLAN</span></h1>
+    </div>
+
+    <div class="cover-right">
+
+      <button class="coach-intro-btn fadeup" onclick="openOverlay('ovCoach')" aria-haspopup="dialog">
+        Meet the Coach <span style="font-size:.65rem;opacity:.6;">&#9654;</span>
+      </button>
+
+      <div class="cover-right-body">
+
+        <img src="../austria-u18/assets/oesterreich-logo.png" class="fadeup" style="width:108px;height:auto;object-fit:contain;opacity:0.42;" alt=""/>
+
+        <div class="cover-divider"></div>
+
+        <div class="cover-pillar fadeup">
+          <div class="p-num">#1 Goal</div>
+          <div class="p-word">Fewest Points Against</div>
+        </div>
+
+        <div class="cover-divider"></div>
+
+        <div style="display:flex;flex-direction:column;gap:26px;width:100%;">
+
+          <div class="cover-pillar fadeup">
+            <div class="p-num" style="font-size:1.5rem;margin-bottom:6px;">WORK ETHIC</div>
+            <div class="p-word">Train as you play. No walking.</div>
+            <div class="p-word" style="margin-top:5px;">Better wrong and decisive than right and passive.</div>
+            <div class="p-word" style="margin-top:5px;">Challenge the opposition by challenging ourselves.</div>
+            <div class="p-word" style="margin-top:5px;">Training reflects games.</div>
+          </div>
+
+          <div class="cover-pillar fadeup">
+            <div class="p-num" style="font-size:1.5rem;color:var(--green);margin-bottom:6px;">ATTACK</div>
+            <div class="p-word">High skill. Challenge opposition.</div>
+          </div>
+
+          <div class="cover-pillar fadeup">
+            <div class="p-num" style="font-size:1.5rem;margin-bottom:6px;">BELIEF</div>
+            <div class="p-word">Trust our skills. Keep attacking.</div>
+            <div class="p-word" style="margin-top:5px;">Share leadership and own your responsibilities.</div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- SLIDE 2: TEAM STANDARDS -->
+
+<div class="slide" id="s2">
+
+  <div class="topbar">
+    <div class="topbar-logo" onclick="goTo(1)">
+      <img src="../austria-u18/assets/oesterreich-logo.png" style="height:30px;width:auto;object-fit:contain;" alt="Austria U18"/>
+      <div><div class="topbar-title">Austria U18</div><div class="topbar-sub">Player Game Plan &middot; Standards</div></div>
+    </div>
+    <div class="topbar-right"><div class="motto">WORK ETHIC &middot; ATTACK &middot; BELIEF</div><div class="slide-num">02 / 11</div></div>
+  </div>
+
+  <div class="sl-header fadeup">
+    <h2 class="section">Team Standards</h2>
+    <div class="tag" style="font-size:.62rem;color:rgba(46,139,87,0.38);border-color:rgba(46,139,87,0.18);">Non-Negotiable</div>
+  </div>
+
+  <div class="sl-body">
+
+    <div class="phil-zone fadeup" data-label="ID">
+      <h3 class="green">Team Identity</h3>
+      <ul>
+        <li>Fast. Connected.</li>
+        <li>Play what's in front</li>
+        <li>Decisions early. No hesitation.</li>
+        <li>Pressure every phase</li>
+        <li>Win collisions</li>
+        <li>Reload and go again</li>
+        <li>80 minutes. Stay in it.</li>
+      </ul>
+      <div style="margin-top:auto;padding-top:14px;border-top:1px solid var(--border);">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.8rem;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Game Areas</div>
+        <div style="display:flex;flex-wrap:wrap;gap:9px;">
+          <span class="tag" style="font-size:.88rem;padding:6px 15px;border-color:rgba(46,139,87,0.65);color:var(--green);">Transition</span>
+          <span class="tag" style="font-size:.88rem;padding:6px 15px;border-color:rgba(46,139,87,0.65);color:var(--green);">Set Piece</span>
+          <span class="tag" style="font-size:.88rem;padding:6px 15px;border-color:rgba(46,139,87,0.65);color:var(--green);">Attack</span>
+          <span class="tag" style="font-size:.88rem;padding:6px 15px;border-color:rgba(46,139,87,0.65);color:var(--green);">Contact</span>
+          <span class="tag" style="font-size:.88rem;padding:6px 15px;border-color:rgba(46,139,87,0.65);color:var(--green);">Defence</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="phil-zone fadeup" data-label="SET">
+      <h3 class="gold">Lineout</h3>
+      <div class="metric-row" style="margin-bottom:14px;">
+        <div class="metric-chip"><div class="m-val">90%</div><div class="m-label">Own ball target</div></div>
+      </div>
+      <ul style="margin-bottom:18px;">
+        <li>Clean, fast delivery</li>
+        <li>Pressure opposition throw</li>
+      </ul>
+      <h3 class="gold" style="margin-top:4px;">Scrum</h3>
+      <div class="metric-row" style="margin-bottom:14px;">
+        <div class="metric-chip"><div class="m-val">100%</div><div class="m-label">Own ball target</div></div>
+      </div>
+      <ul>
+        <li>Stable platform</li>
+        <li>Apply pressure</li>
+      </ul>
+    </div>
+
+    <div class="phil-zone fadeup" data-label="ATK">
+      <h3 class="green">Attack</h3>
+      <ul>
+        <li>Reload faster than the defence</li>
+        <li>Core skills first — catch, pass, support, breakdown</li>
+        <li>Use the 3F's (Feet, Fight, Finish)</li>
+        <li>All 15 as decision-makers</li>
+        <li>Know roles, shapes, exits</li>
+      </ul>
+    </div>
+
+    <div class="phil-zone fadeup" data-label="DEF">
+      <h3 class="green">Defence</h3>
+      <ul>
+        <li>Tough. Physical. Relentless.</li>
+        <li>Work rate</li>
+        <li>Presence — talk, body language</li>
+        <li>On the ball — accelerate</li>
+        <li>Off the ball — stay square</li>
+        <li>Win collisions — bodies in front</li>
+        <li>Repeat</li>
+      </ul>
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- SLIDE 3: ATTACK SYSTEM -->
+
+<div class="slide" id="s3">
+
+  <div class="topbar">
+    <div class="topbar-logo" onclick="goTo(1)">
+      <img src="../austria-u18/assets/oesterreich-logo.png" style="height:30px;width:auto;object-fit:contain;" alt="Austria U18"/>
+      <div><div class="topbar-title">Austria U18</div><div class="topbar-sub">Player Game Plan &middot; Attack System</div></div>
+    </div>
+    <div class="topbar-right"><div class="motto">WORK ETHIC &middot; <span>ATTACK</span> &middot; BELIEF</div><div class="slide-num">03 / 11</div></div>
+  </div>
+
+  <div class="sl-header fadeup">
+    <h2 class="section">Attack System</h2>
+    <div class="tag">Select a category</div>
+  </div>
+
+  <div class="sl-body">
+
+    <div class="attack-sidebar">
+
+      <button class="field-areas-label-btn" id="fieldAreasBtn" onclick="toggleFieldMap()" aria-expanded="false" aria-controls="fieldMapPanel">
+        Field Areas <span class="field-areas-map-arrow">&#9660;</span>
+      </button>
+
+      <div class="field-map-panel" id="fieldMapPanel">
+        <img src="../../assets/donau/images/Field Landmarks (2).png" alt="Field Areas" onclick="openFieldLightbox('../../assets/donau/images/Field Landmarks (2).png','Field Areas')" title="Click to enlarge"/>
+      </div>
+
+      <div style="margin-bottom:18px;">
+
+        <div class="field-area" onclick="toggleFieldArea(this)" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleFieldArea(this);}">
+          <div class="fa-header"><div class="fa-name">Street</div><div class="fa-short">Central field zone</div><div class="fa-arrow">&#9660;</div></div>
+          <div class="fa-body"><ul><li>Best attacking zone for backs</li><li>Space available</li><li>Create mismatches</li><li>Play fast and wide options</li></ul></div>
+        </div>
+
+        <div class="field-area" onclick="toggleFieldArea(this)" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleFieldArea(this);}">
+          <div class="fa-header"><div class="fa-name">Sidewalk</div><div class="fa-short">Between Street &amp; Tramlines</div><div class="fa-arrow">&#9660;</div></div>
+          <div class="fa-body"><ul><li>If ball gets caught here — 9 and winger communicate early</li><li>Tell Batman/Lion to fold or close space</li><li>Decision depends on blind-side defenders</li><li>If fewer than 3 defenders, play 9 / 15 / wing / Fiji</li></ul></div>
+        </div>
+
+        <div class="field-area" onclick="toggleFieldArea(this)" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleFieldArea(this);}">
+          <div class="fa-header"><div class="fa-name">Tramlines</div><div class="fa-short">Inside 15m channels</div><div class="fa-arrow">&#9660;</div></div>
+          <div class="fa-body"><ul><li>Edge of the field</li><li>Limited space</li><li>Force decisions</li><li>Opportunity to isolate defenders</li></ul></div>
+        </div>
+
+      </div>
+
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.68rem;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Direction Calls</div>
+
+      <div class="terminology-grid" style="margin-bottom:16px;">
+        <div class="term-chip"><div class="term-key">BLACK</div><div class="term-val">Off 9 to pod</div></div>
+        <div class="term-chip"><div class="term-key">RED</div><div class="term-val">Off 9 to 10/12</div></div>
+        <div class="term-chip"><div class="term-key">SUNSHINE</div><div class="term-val">Change direction off 9</div></div>
+        <div class="term-chip"><div class="term-key">PINK</div><div class="term-val">Off 9 out the back to playmaker</div></div>
+      </div>
+
+      <button class="field-areas-label-btn" id="forwardPodsBtn" onclick="toggleForwardPodsMap()" aria-expanded="false" aria-controls="forwardPodsMapPanel" style="margin-top:16px;">
+        Forward Pods <span class="field-areas-map-arrow">&#9660;</span>
+      </button>
+
+      <div class="term-chip" style="margin-bottom:6px;"><div class="term-key">BATMAN</div><div class="term-val">Props &amp; Hooker (1, 2, 3)</div></div>
+      <div class="term-chip" style="margin-bottom:6px;"><div class="term-key">LION</div><div class="term-val">Locks &amp; No.8 (4, 5, 8)</div></div>
+      <div class="term-chip" style="margin-bottom:10px;"><div class="term-key">FIJI</div><div class="term-val">Flankers (6, 7)</div></div>
+
+      <div class="field-map-panel" id="forwardPodsMapPanel">
+        <img src="../../assets/donau/images/Forwards Role.png" alt="Forward Pods Structure" onclick="openFieldLightbox('../../assets/donau/images/Forwards Role.png','Forward Pods Structure')" title="Click to enlarge"/>
+      </div>
+
+    </div>
+
+    <div class="attack-main">
+      <div class="zone-btns" role="tablist" aria-label="Attack categories">
+        <button class="zone-btn active" role="tab" aria-selected="true" onclick="setCategory('setpiece',this)">Set Piece</button>
+        <button class="zone-btn" role="tab" aria-selected="false" onclick="setCategory('phase',this)">Backs Calls</button>
+        <button class="zone-btn" role="tab" aria-selected="false" onclick="setCategory('exits',this)">Exits</button>
+        <button class="zone-btn" role="tab" aria-selected="false" onclick="setCategory('calls',this)">Calls Glossary</button>
+      </div>
+      <div class="attack-content" id="attackContent"></div>
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- SLIDE 4: LINEOUT SYSTEMS -->
+
+<div class="slide" id="s4">
+
+  <div class="topbar">
+    <div class="topbar-logo" onclick="goTo(1)">
+      <img src="../austria-u18/assets/oesterreich-logo.png" style="height:30px;width:auto;object-fit:contain;" alt="Austria U18"/>
+      <div><div class="topbar-title">Austria U18</div><div class="topbar-sub">Player Game Plan &middot; Lineout</div></div>
+    </div>
+    <div class="topbar-right"><div class="motto">WORK ETHIC &middot; <span>ATTACK</span> &middot; BELIEF</div><div class="slide-num">04 / 11</div></div>
+  </div>
+
+  <div class="sl-header fadeup">
+    <h2 class="section">Lineout Systems</h2>
+    <div class="tag">Select a system to open the full reference manual</div>
+  </div>
+
+  <div class="lo-shell">
+    <div class="lo-card fadeup">
+      <div class="lo-card-glow"></div>
+      <div class="lo-card-wm">T</div>
+      <div class="lo-card-content">
+        <div class="lo-card-tags"><span class="lo-tag lo-tag-green">Lineout System</span><span class="lo-tag lo-tag-dim">Primary</span></div>
+        <div class="lo-card-name">TEMPO</div>
+        <div class="lo-card-sub">Structured calling architecture</div>
+        <div class="lo-card-desc">Full-system lineout framework. Positions coded by TEMPO. Process-driven and consistent — built to win the source every time.</div>
+        <div class="lo-chip-row"><span class="lo-chip">Throw Zones</span><span class="lo-chip">Maul Sequences</span><span class="lo-chip">Signal Library</span><span class="lo-chip">5·6·7 Man</span></div>
+        <button class="lo-btn" onclick="openLineoutSystem('tempo')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Open TEMPO System
+        </button>
+      </div>
+    </div>
+    <div class="lo-card fadeup">
+      <div class="lo-card-glow"></div>
+      <div class="lo-card-wm">S</div>
+      <div class="lo-card-content">
+        <div class="lo-card-tags"><span class="lo-tag lo-tag-green">Lineout System</span><span class="lo-tag lo-tag-dim">Companion</span></div>
+        <div class="lo-card-name">SPARK</div>
+        <div class="lo-card-sub">Adaptive identification system</div>
+        <div class="lo-card-desc">Supporting reference for technical fundamentals, formation visuals, and lineout principles from source to delivery.</div>
+        <div class="lo-chip-row"><span class="lo-chip">Attack Shapes</span><span class="lo-chip">Formations</span><span class="lo-chip">Maul Defence</span><span class="lo-chip">Throwing</span></div>
+        <button class="lo-btn" onclick="openLineoutSystem('spark')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Open SPARK System
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="lo-kpi-bar fadeup">
+    <div class="lo-kpi-item"><span class="lo-kpi-num">90%</span><span class="lo-kpi-lbl">Own throw target</span></div>
+    <div class="lo-kpi-sep"></div>
+    <div class="lo-kpi-item"><span class="lo-kpi-num">85%</span><span class="lo-kpi-lbl">Delivery quality</span></div>
+    <div class="lo-kpi-sep"></div>
+    <div class="lo-kpi-item"><span class="lo-kpi-num">20%</span><span class="lo-kpi-lbl">Opp turnover rate</span></div>
+    <div class="lo-kpi-sep"></div>
+    <div class="lo-kpi-item"><span class="lo-kpi-num">70%</span><span class="lo-kpi-lbl">Opp unwanted del.</span></div>
+  </div>
+
+</div>
+
+
+<!-- SLIDE 5: DEFENSIVE SYSTEM -->
+
+<div class="slide" id="s5">
+
+  <div class="topbar">
+    <div class="topbar-logo" onclick="goTo(1)">
+      <img src="../austria-u18/assets/oesterreich-logo.png" style="height:30px;width:auto;object-fit:contain;" alt="Austria U18"/>
+      <div><div class="topbar-title">Austria U18</div><div class="topbar-sub">Player Game Plan &middot; Defence</div></div>
+    </div>
+    <div class="topbar-right"><div class="motto">WORK ETHIC &middot; <span>ATTACK</span> &middot; BELIEF</div><div class="slide-num">05 / 11</div></div>
+  </div>
+
+  <div class="sl-header fadeup">
+    <h2 class="section">Defensive System</h2>
+    <div class="tag">Select side &amp; zone</div>
+  </div>
+
+  <div class="sl-body">
+
+    <div class="def-left">
+      <div class="attitude-block fadeup">
+        <h4>Mindset — Total Commitment</h4>
+        <ul>
+          <li>Workrate — relentless + discipline</li>
+          <li>Inside the ball — Hunt Hard / Concrete</li>
+          <li>On the ball — Accelerate through contact</li>
+          <li>Outside the ball — Square up</li>
+          <li>Violence at contact — bodies in front</li>
+        </ul>
+      </div>
+
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Line Principles — 13 On Feet / 2 @ Breakdown</div>
+
+      <div class="role-grid fadeup">
+        <div class="role-card"><div class="rc-role">AXE</div><div class="rc-desc">1st tackler — low chop, dominant tackle. Roll away if non-dominant with ruck.</div></div>
+        <div class="role-card"><div class="rc-role">HUNT</div><div class="rc-desc">Inside defender — attack the ball if space; fight to slow ball if bodies present.</div></div>
+        <div class="role-card"><div class="rc-role">DOUBLE HUNT</div><div class="rc-desc">2nd inside defender at the tackle — reads breakdown, decides counter ruck.</div></div>
+        <div class="role-card"><div class="rc-role">COP</div><div class="rc-desc">Outside the Axe — holds width, organises fold, 2nd tackler if overs run.</div></div>
+      </div>
+
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;margin-top:10px;">Defensive Calls</div>
+
+      <table class="call-table fadeup">
+        <thead><tr><th>Call</th><th>Action</th></tr></thead>
+        <tbody>
+          <tr><td>READY, UP</td><td>Line call led by '1' defender</td></tr>
+          <tr><td>HAMMER</td><td>Linespeed call when we have good numbers</td></tr>
+          <tr><td>HOVER</td><td>Movement call when we have poor numbers</td></tr>
+          <tr><td>STORM</td><td>Red Zone change-up — aggressive up-and-in, 100% commitment</td></tr>
+          <tr><td>RED</td><td>Linebreak / tap defence call</td></tr>
+          <tr><td>ICE</td><td>Counter ruck</td></tr>
+          <tr><td>SPACE</td><td>Get past the ball</td></tr>
+          <tr><td>STEAL</td><td>Pilfer attempt</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="def-right">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Scrum Defence by Side &amp; Zone</div>
+      <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;" role="tablist" aria-label="Defence field sides">
+        <button class="zone-tab active" role="tab" aria-selected="true" onclick="setDefSide('rhs',this)">Right Hand Side</button>
+        <button class="zone-tab" role="tab" aria-selected="false" onclick="setDefSide('lhs',this)">Left Hand Side</button>
+        <button class="zone-tab" role="tab" aria-selected="false" onclick="setDefSide('cfs',this)">Centre Field</button>
+      </div>
+      <div id="defContent"></div>
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- SLIDE 6: ASK THE PLAYBOOK -->
+
+<div class="slide" id="s6">
+
+  <div class="topbar">
+    <div class="topbar-logo" onclick="goTo(1)">
+      <img src="../austria-u18/assets/oesterreich-logo.png" style="height:30px;width:auto;object-fit:contain;" alt="Austria U18"/>
+      <div><div class="topbar-title">Austria U18</div><div class="topbar-sub">AI Coaching Assistant</div></div>
+    </div>
+    <div class="topbar-right"><div class="motto">WORK ETHIC &middot; <span>ATTACK</span> &middot; BELIEF</div><div class="slide-num">06 / 11</div></div>
+  </div>
+
+  <div class="sl-header fadeup">
+    <h2 class="section">Ask the Playbook</h2>
+    <div class="tag">Powered by Claude AI</div>
+  </div>
+
+  <div class="sl-body">
+    <div class="chat-area">
+      <div class="chat-msgs" id="chatMsgs" role="log" aria-label="Chat messages" aria-live="polite">
+        <div class="msg ai">
+          <div class="msg-label">AI Coach</div>
+          <div class="msg-bubble">Ask me anything about the Austria U18 game plan — attack calls, field zones, forward pods, lineout systems, defensive roles, or exits. I know the playbook.</div>
+        </div>
+      </div>
+      <div class="chat-input-row">
+        <label for="chatInp" class="sr-only">Ask a question about the playbook</label>
+        <input class="chat-inp" id="chatInp" placeholder="E.g. What is Batman? or Explain Launch 41" onkeydown="if(event.key==='Enter')sendMsg()" aria-label="Ask a question about the playbook"/>
+        <button class="send-btn" id="sendBtn" onclick="sendMsg()">Send</button>
+      </div>
+    </div>
+    <div class="ai-panel">
+      <h4>Quick Questions</h4>
+      <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What is the Street?</div>
+      <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What are Tramlines and Sidewalk?</div>
+      <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">Explain Black, Red, Sunshine, and Pink.</div>
+      <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What is Batman / Lion / Fiji?</div>
+      <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What does AXE mean in defence?</div>
+      <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">Explain Launch 41.</div>
+      <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What is C.C+?</div>
+      <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What are the exit kick types?</div>
+      <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What are the key lineout calls?</div>
+      <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What are the main defensive principles?</div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- SLIDE 7: DEVELOPMENT -->
+
+<div class="slide" id="s7">
+  <div class="topbar">
+    <div class="topbar-logo" onclick="goTo(1)">
+      <img src="../austria-u18/assets/oesterreich-logo.png" style="height:30px;width:auto;object-fit:contain;" alt="Austria U18"/>
+      <div><div class="topbar-title">Austria U18</div><div class="topbar-sub">Player Game Plan &middot; Development</div></div>
+    </div>
+    <div class="topbar-right"><div class="motto">Growth &middot; <span>Habits</span> &middot; Club Support</div><div class="slide-num">07 / 11</div></div>
+  </div>
+  <div class="sl-header fadeup">
+    <h2 class="section">Development</h2>
+    <div class="tag">Off-Pitch Standards</div>
+  </div>
+  <div class="sl-body development-shell">
+    <div class="module-main">
+      <div class="dev-copy fadeup">
+        <p>The Austria U18 Development space gives you a clear place to revisit pathway guidance, habits, and standards that support your long-term growth as a player.</p>
+      </div>
+      <div class="module-grid fadeup" id="developmentHub"></div>
+    </div>
+    <div class="module-side">
+      <div class="module-panel fadeup"><div class="tagline">Development Pillars</div><div id="developmentPillars"></div></div>
+      <div class="module-panel fadeup"><div class="tagline">Module Status</div><div id="developmentStatus"></div></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- SLIDE 8: PLAYER PATHWAY -->
+
+<div class="slide" id="s8">
+  <div class="topbar">
+    <div class="topbar-logo" onclick="goTo(1)">
+      <img src="../austria-u18/assets/oesterreich-logo.png" style="height:30px;width:auto;object-fit:contain;" alt="Austria U18"/>
+      <div><div class="topbar-title">Austria U18</div><div class="topbar-sub">Development &middot; Player Pathway</div></div>
+    </div>
+    <div class="topbar-right"><div class="motto">Progression &middot; <span>Readiness</span> &middot; Continuity</div><div class="slide-num">08 / 11</div></div>
+  </div>
+  <div class="sl-header fadeup">
+    <h2 class="section">Player Pathway</h2>
+    <div class="tag">Progression Standards</div>
+  </div>
+  <div class="sl-body module-shell">
+    <div class="module-main" id="moduleMain-youth-pathway"></div>
+    <div class="module-side" id="moduleSide-youth-pathway"></div>
+  </div>
+</div>
+
+
+<!-- SLIDE 9: FUEL & RECOVERY -->
+
+<div class="slide" id="s9">
+  <div class="topbar">
+    <div class="topbar-logo" onclick="goTo(1)">
+      <img src="../austria-u18/assets/oesterreich-logo.png" style="height:30px;width:auto;object-fit:contain;" alt="Austria U18"/>
+      <div><div class="topbar-title">Austria U18</div><div class="topbar-sub">Development &middot; Fuel &amp; Recovery</div></div>
+    </div>
+    <div class="topbar-right"><div class="motto">Habits &middot; <span>Fuel</span> &middot; Recovery</div><div class="slide-num">09 / 11</div></div>
+  </div>
+  <div class="sl-header fadeup">
+    <h2 class="section">Fuel &amp; Recovery</h2>
+    <div class="tag">Fuel &amp; Habits</div>
+  </div>
+  <div class="sl-body module-shell">
+    <div class="module-main" id="moduleMain-nutrition"></div>
+    <div class="module-side" id="moduleSide-nutrition"></div>
+  </div>
+</div>
+
+
+<!-- SLIDE 10: ATHLETIC DEVELOPMENT -->
+
+<div class="slide" id="s10">
+  <div class="topbar">
+    <div class="topbar-logo" onclick="goTo(1)">
+      <img src="../austria-u18/assets/oesterreich-logo.png" style="height:30px;width:auto;object-fit:contain;" alt="Austria U18"/>
+      <div><div class="topbar-title">Austria U18</div><div class="topbar-sub">Development &middot; Athletic Development</div></div>
+    </div>
+    <div class="topbar-right"><div class="motto">Movement &middot; <span>Strength</span> &middot; Readiness</div><div class="slide-num">10 / 11</div></div>
+  </div>
+  <div class="sl-header fadeup">
+    <h2 class="section">Athletic Development</h2>
+    <div class="tag">Athletic Framework</div>
+  </div>
+  <div class="sl-body module-shell">
+    <div class="module-main" id="moduleMain-strength-conditioning"></div>
+    <div class="module-side" id="moduleSide-strength-conditioning"></div>
+  </div>
+</div>
+
+
+<!-- SLIDE 11: PLAYER WELLBEING -->
+
+<div class="slide" id="s11">
+  <div class="topbar">
+    <div class="topbar-logo" onclick="goTo(1)">
+      <img src="../austria-u18/assets/oesterreich-logo.png" style="height:30px;width:auto;object-fit:contain;" alt="Austria U18"/>
+      <div><div class="topbar-title">Austria U18</div><div class="topbar-sub">Development &middot; Player Wellbeing</div></div>
+    </div>
+    <div class="topbar-right"><div class="motto">Recovery &middot; <span>Sleep</span> &middot; Balance</div><div class="slide-num">11 / 11</div></div>
+  </div>
+  <div class="sl-header fadeup">
+    <h2 class="section">Player Wellbeing</h2>
+    <div class="tag">Recovery &amp; Balance</div>
+  </div>
+  <div class="sl-body module-shell">
+    <div class="module-main" id="moduleMain-wellbeing"></div>
+    <div class="module-side" id="moduleSide-wellbeing"></div>
+  </div>
+</div>
+
+
+<!-- OVERLAYS -->
+
+<div class="overlay" id="ovCoach" role="dialog" aria-modal="true" aria-label="Meet the Coach">
+  <div class="overlay-topbar">
+    <div class="ov-title">Meet the Coach</div>
+    <button class="overlay-close" onclick="closeOverlay('ovCoach')" aria-label="Close">&times;</button>
+  </div>
+  <div class="overlay-body">
+    <div class="ov-name">Hi, I'm Mato</div>
+    <div class="coach-layout">
+      <div class="coach-photo">
+        <img src="../../assets/donau/images/Coach Intro.jpg" alt="Coach Mato"/>
+      </div>
+      <div class="coach-content">
+        <div>
+          <div class="ov-section-label">Quick Facts</div>
+          <div class="ov-fact-item">
+            <strong>Coaching Experience</strong>
+            <p>I have worked with refugee communities and in the favelas of Brazil, using sport as a tool for development and inclusion.</p>
+            <p style="margin-top:8px;">I have been coaching at Donau for nearly a decade across multiple age groups. Currently coaching the Second and Third teams, the U18 squad, and Head Coach of the U18 National Team.</p>
+          </div>
+          <div class="ov-fact-item">
+            <strong>What Being Part of This Programme Means to Me</strong>
+            <p>Being part of the Austria U18 programme means representing your country and your club at the highest junior level. The standards here are built for that.</p>
+          </div>
+        </div>
+        <div style="margin-top:28px;">
+          <div class="ov-section-label">Coaching Philosophy</div>
+          <div class="ov-pull">All sports involve teamwork, but rugby is built on it. Teamwork is the essence of the game.</div>
+          <div class="ov-fact-item">
+            <strong>My goal is to create an environment where every player:</strong>
+            <ul>
+              <li>feels a strong sense of purpose</li>
+              <li>understands their role</li>
+              <li>supports one another</li>
+              <li>grows together as a team</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- NAVIGATION -->
+
+<nav class="nav" aria-label="Slide navigation">
+  <button class="nav-btn" id="prevBtn" onclick="changeSlide(-1)" disabled aria-label="Previous slide">&#8249;&#xFE0E; PREV</button>
+  <div class="dots" id="dots" role="tablist" aria-label="Slide selector"></div>
+  <button class="nav-btn" id="nextBtn" onclick="changeSlide(1)" aria-label="Next slide">NEXT &#8250;&#xFE0E;</button>
+</nav>
+
+
+<script>window.DONAU_ASSET_BASE = "../../assets/donau/";</script>
+<script src="../../data/donau/content.js"></script>
+<script src="../../js/shared/ui-helpers.js"></script>
+<script src="../../js/core/app.js?v=20260609-manualscroll"></script>
+
+<script>
+window.DONAU_LINEOUT_SYSTEMS = {
+  tempo: "../../assets/donau/images/TEMPO_Lineout_System_Austria_Youth.html",
+  spark: "../../assets/donau/images/Spark-lineout_manual.html"
+};
+</script>
+
+
+<!-- Field Image Lightbox -->
+<div class="field-lightbox" id="fieldLightbox" onclick="closeFieldLightbox(event)">
+  <div class="field-lightbox-inner">
+    <button class="field-lightbox-close" onclick="closeFieldLightbox()" aria-label="Close">&times;</button>
+    <img id="fieldLightboxImg" src="" alt=""/>
+  </div>
+</div>
+
+<div id="lineoutSystemOverlay" class="lineout-system-overlay" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Lineout System">
+  <div class="lso-topbar">
+    <div class="lso-title" id="lsoTitle">Lineout System</div>
+    <button class="lso-close" onclick="closeLineoutSystem()" aria-label="Close">&times;</button>
+  </div>
+  <iframe id="lineoutSystemFrame" class="lso-frame" src="" title="Lineout System"></iframe>
+</div>
+
+<script>
+function openLineoutSystem(system) {
+  var overlay = document.getElementById('lineoutSystemOverlay');
+  var frame = document.getElementById('lineoutSystemFrame');
+  var title = document.getElementById('lsoTitle');
+  var path = window.DONAU_LINEOUT_SYSTEMS && window.DONAU_LINEOUT_SYSTEMS[system];
+  if (!overlay || !frame || !path) return;
+  frame.src = path;
+  title.textContent = system === 'tempo' ? 'TEMPO — Lineout System' : 'SPARK — Lineout Manual';
+  overlay.classList.add('open');
+  overlay.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('overlay-active');
+}
+
+function closeLineoutSystem() {
+  var overlay = document.getElementById('lineoutSystemOverlay');
+  var frame = document.getElementById('lineoutSystemFrame');
+  if (!overlay) return;
+  overlay.classList.remove('open');
+  overlay.setAttribute('aria-hidden', 'true');
+  if (frame) setTimeout(function() { frame.src = ''; }, 180);
+  if (!document.querySelector('.overlay.open')) {
+    document.body.classList.remove('overlay-active');
+  }
+}
+</script>
+
+</body>
+</html>
