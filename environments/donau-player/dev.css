@@ -1,0 +1,696 @@
+/* ===================================================
+   DONAU PLAYER - DEVELOPMENT SLIDES (dev.css)
+   Covers slides 7-11 only.
+   DO NOT add rules that affect slides 1-6.
+=================================================== */
+
+#s7 .sl-body,
+#s8 .sl-body,
+#s9 .sl-body,
+#s10 .sl-body,
+#s11 .sl-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0 24px 24px;
+  overflow-y: auto;
+  background: transparent;
+}
+
+.ltpd-source,
+.fuel-source,
+.athletic-source,
+.recovery-source,
+.dev-hub-source {
+  margin-top: auto;
+  padding-top: 12px;
+  font-family: "Barlow", sans-serif;
+  font-size: 0.68rem;
+  color: rgba(240, 244, 240, 0.32);
+  text-align: center;
+}
+
+.dev-hub-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 1;
+}
+
+.dev-hub-intro {
+  text-align: center;
+}
+
+.dev-hub-lead {
+  margin: 0 auto;
+  max-width: 560px;
+  font-family: "Barlow", sans-serif;
+  font-size: clamp(0.9rem, 2vw, 1.05rem);
+  color: rgba(240, 244, 240, 0.72);
+  line-height: 1.6;
+}
+
+.dev-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  flex: 1;
+}
+
+.dev-hub-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 22px 20px;
+  border-radius: 20px;
+  border: 1px solid rgba(46, 139, 87, 0.2);
+  background: linear-gradient(160deg, rgba(13, 28, 46, 0.96), rgba(8, 20, 34, 0.98));
+  color: #f0f4f0;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+.dev-hub-card:hover {
+  border-color: rgba(46, 139, 87, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28);
+}
+
+.dev-hub-card:focus-visible,
+.ltpd-stage-btn:focus-visible,
+.ltpd-domain-tab:focus-visible {
+  outline: 2px solid rgba(214, 181, 111, 0.9);
+  outline-offset: 3px;
+}
+
+.dev-hub-card-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.dev-hub-card-label {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: clamp(1rem, 2.5vw, 1.3rem);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #f0f4f0;
+}
+
+.dev-hub-card-sub {
+  font-family: "Barlow", sans-serif;
+  font-size: 0.78rem;
+  color: rgba(240, 244, 240, 0.52);
+}
+
+.ltpd-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.ltpd-stage-rail {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ltpd-stage-btn {
+  flex: 1;
+  padding: 9px 4px;
+  border-radius: 12px;
+  border: 1px solid rgba(46, 139, 87, 0.2);
+  background: rgba(13, 28, 46, 0.7);
+  color: rgba(240, 244, 240, 0.55);
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.ltpd-stage-btn.active {
+  border-color: rgba(46, 139, 87, 0.7);
+  background: linear-gradient(135deg, rgba(22, 85, 50, 0.9), rgba(46, 139, 87, 0.7));
+  color: #d7ffe8;
+}
+
+.ltpd-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.ltpd-stage-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.ltpd-ratio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(214, 181, 111, 0.3);
+  background: rgba(214, 181, 111, 0.06);
+  flex-shrink: 0;
+}
+
+.ltpd-ratio-num {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #d6b56f;
+  letter-spacing: 1px;
+}
+
+.ltpd-ratio-label {
+  font-family: "Barlow", sans-serif;
+  font-size: 0.64rem;
+  color: rgba(214, 181, 111, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+}
+
+.ltpd-focus-label {
+  font-family: "Barlow", sans-serif;
+  font-size: 0.88rem;
+  color: rgba(240, 244, 240, 0.68);
+  line-height: 1.5;
+}
+
+.ltpd-domain-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.ltpd-domain-tab {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(240, 244, 240, 0.12);
+  background: transparent;
+  color: rgba(240, 244, 240, 0.5);
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.ltpd-domain-tab.active {
+  border-color: rgba(110, 195, 145, 0.5);
+  background: rgba(46, 139, 87, 0.15);
+  color: #6ec391;
+}
+
+.ltpd-principle-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ltpd-principle-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(46, 139, 87, 0.12);
+  background: rgba(13, 28, 46, 0.6);
+  font-family: "Barlow", sans-serif;
+  font-size: 0.9rem;
+  color: rgba(240, 244, 240, 0.85);
+  line-height: 1.5;
+}
+
+.ltpd-principle-num {
+  flex-shrink: 0;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #6ec391;
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+
+.fuel-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.fuel-windows {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.fuel-window {
+  border-radius: 18px;
+  border: 1px solid rgba(46, 139, 87, 0.18);
+  background: linear-gradient(160deg, rgba(13, 28, 46, 0.96), rgba(8, 20, 34, 0.98));
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fuel-window-hdr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fuel-window-icon {
+  font-size: 1.2rem;
+}
+
+.fuel-window-label {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #6ec391;
+}
+
+.fuel-window-time {
+  margin-left: auto;
+  font-family: "Barlow", sans-serif;
+  font-size: 0.68rem;
+  color: rgba(240, 244, 240, 0.42);
+}
+
+.fuel-window-headline {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #f0f4f0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.fuel-window-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.fuel-window-list li {
+  position: relative;
+  padding-left: 10px;
+  font-family: "Barlow", sans-serif;
+  font-size: 0.8rem;
+  color: rgba(240, 244, 240, 0.7);
+  line-height: 1.4;
+}
+
+.fuel-window-list li::before {
+  content: "-";
+  position: absolute;
+  left: 0;
+  color: rgba(46, 139, 87, 0.6);
+}
+
+.fuel-stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.fuel-stat {
+  border-radius: 14px;
+  border: 1px solid rgba(214, 181, 111, 0.2);
+  background: rgba(214, 181, 111, 0.04);
+  padding: 14px 10px;
+  text-align: center;
+}
+
+.fuel-stat-value {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  font-weight: 800;
+  color: #d6b56f;
+  letter-spacing: 1px;
+  line-height: 1;
+}
+
+.fuel-stat-label {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: rgba(240, 244, 240, 0.8);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-top: 4px;
+}
+
+.fuel-stat-sub {
+  font-family: "Barlow", sans-serif;
+  font-size: 0.66rem;
+  color: rgba(240, 244, 240, 0.38);
+  margin-top: 2px;
+}
+
+.athletic-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.athletic-pillar-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.athletic-pillar {
+  border-radius: 18px;
+  border: 1px solid rgba(46, 139, 87, 0.18);
+  background: linear-gradient(160deg, rgba(13, 28, 46, 0.96), rgba(8, 20, 34, 0.98));
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.athletic-pillar-hdr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.athletic-pillar-icon {
+  font-size: 1.2rem;
+}
+
+.athletic-pillar-label {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #6ec391;
+}
+
+.athletic-pillar-headline {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f0f4f0;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  line-height: 1.3;
+}
+
+.athletic-pillar-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.athletic-pillar-list li {
+  position: relative;
+  padding-left: 10px;
+  font-family: "Barlow", sans-serif;
+  font-size: 0.78rem;
+  color: rgba(240, 244, 240, 0.68);
+  line-height: 1.4;
+}
+
+.athletic-pillar-list li::before {
+  content: "-";
+  position: absolute;
+  left: 0;
+  color: rgba(46, 139, 87, 0.5);
+}
+
+.period-label-row {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(240, 244, 240, 0.4);
+  margin-bottom: 8px;
+}
+
+.period-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.period-phase {
+  border-radius: 14px;
+  border: 1px solid rgba(214, 181, 111, 0.18);
+  background: rgba(214, 181, 111, 0.04);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.period-phase-name {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #d6b56f;
+}
+
+.period-phase-focus {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #f0f4f0;
+}
+
+.period-phase-desc {
+  font-family: "Barlow", sans-serif;
+  font-size: 0.74rem;
+  color: rgba(240, 244, 240, 0.52);
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
+.recovery-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.recovery-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.recovery-cell {
+  border-radius: 18px;
+  border: 1px solid rgba(46, 139, 87, 0.18);
+  background: linear-gradient(160deg, rgba(13, 28, 46, 0.96), rgba(8, 20, 34, 0.98));
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recovery-cell-blue {
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+.recovery-cell-green {
+  border-color: rgba(46, 139, 87, 0.28);
+}
+
+.recovery-cell-gold {
+  border-color: rgba(214, 181, 111, 0.25);
+}
+
+.recovery-cell-silver {
+  border-color: rgba(160, 180, 200, 0.2);
+}
+
+.recovery-cell-hdr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recovery-cell-icon {
+  font-size: 1.1rem;
+}
+
+.recovery-cell-label {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #6ec391;
+}
+
+.recovery-cell-blue .recovery-cell-label {
+  color: #93c5fd;
+}
+
+.recovery-cell-gold .recovery-cell-label {
+  color: #d6b56f;
+}
+
+.recovery-cell-silver .recovery-cell-label {
+  color: rgba(200, 215, 230, 0.85);
+}
+
+.recovery-cell-headline {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #f0f4f0;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.recovery-cell-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.recovery-cell-list li {
+  position: relative;
+  padding-left: 10px;
+  font-family: "Barlow", sans-serif;
+  font-size: 0.78rem;
+  color: rgba(240, 244, 240, 0.67);
+  line-height: 1.4;
+}
+
+.recovery-cell-list li::before {
+  content: "-";
+  position: absolute;
+  left: 0;
+  color: rgba(46, 139, 87, 0.5);
+}
+
+.mental-cards-label {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(240, 244, 240, 0.4);
+  margin-bottom: 8px;
+}
+
+.mental-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.mental-card {
+  border-radius: 14px;
+  border: 1px solid rgba(110, 195, 145, 0.15);
+  background: rgba(46, 139, 87, 0.05);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.mental-card-label {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #6ec391;
+}
+
+.mental-card-headline {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #f0f4f0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1.3;
+}
+
+.mental-card-body {
+  margin: 0;
+  font-family: "Barlow", sans-serif;
+  font-size: 0.76rem;
+  color: rgba(240, 244, 240, 0.62);
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .dev-hub-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .ltpd-stage-meta {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .fuel-windows {
+    grid-template-columns: 1fr;
+  }
+
+  .fuel-stat-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .athletic-pillar-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .period-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .recovery-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mental-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .ltpd-stage-btn {
+    font-size: 0.78rem;
+    padding: 8px 4px;
+  }
+}

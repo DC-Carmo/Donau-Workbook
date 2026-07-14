@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="../../css/overlays.css?v=20260609b">
 <link rel="stylesheet" href="../../css/components.css?v=20260609">
 <link rel="stylesheet" href="../../css/platform.css?v=20260609">
+<link rel="stylesheet" href="dev.css">
 
 <style>
 #s4 .sl-header .tag {
@@ -916,6 +917,96 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 <!-- SLIDE 7: DEVELOPMENT -->
+<script>
+window.DONAU_PLAYER_DEV = {
+  ltpd: [
+    {
+      stage: "U14", label: "Learn to Train", ratio: "70:30",
+      focus: "Technical Foundation and Aerobic Base",
+      domains: {
+        technical: ["Passing accuracy under pressure", "Catching in contested space", "Correct tackle technique", "Rucking body position fundamentals", "Lineout jumping basics"],
+        tactical: ["Reading basic defensive patterns", "Simple attack shapes from set-piece", "Set-piece decision entry", "Awareness of kicking game", "Transition from attack to defence"],
+        physical: ["Aerobic base development", "Sprint start mechanics", "Change of direction", "Bodyweight strength basics", "Flexibility and mobility"],
+        mental: ["Coachability and listening", "Growth mindset - mistakes are data", "Team-first focus", "Basic resilience after errors", "Process over result"],
+        lifestyle: ["Sleep 9-10 hours nightly", "Water before and after every session", "Balance school and rugby load", "Basic cool-down and stretching", "Social connection in the team"]
+      }
+    },
+    {
+      stage: "U16", label: "Train to Train", ratio: "60:40",
+      focus: "Physical Development and Skill Consolidation",
+      domains: {
+        technical: ["Contact technique and body position", "Distribution accuracy at speed", "Set-piece competence under pressure", "Footwork in space before contact", "Off-load in contact"],
+        tactical: ["Defensive line speed and spacing", "Attacking channels and pods", "Decision-making under defensive pressure", "Exit strategy awareness", "Phase transition reads"],
+        physical: ["Speed development - acceleration and deceleration", "Strength training with supervision", "Introduction to power work", "Aerobic capacity for repeated efforts", "Injury prevention movement patterns"],
+        mental: ["Competition mindset", "Self-awareness and honest review", "Handling pressure situations", "Short-term goal setting", "Communication in the team environment"],
+        lifestyle: ["Sleep 8-9 hours nightly", "Pre-training nutrition timing", "Basic recovery protocols", "Time management - school, rugby, rest", "Identity beyond rugby"]
+      }
+    },
+    {
+      stage: "U18", label: "Train to Compete", ratio: "50:50",
+      focus: "Competition Readiness and Rugby Intelligence",
+      domains: {
+        technical: ["Contact dominance and clean carry", "Distributing under defensive pressure", "Set-piece leadership roles", "Kicking for territory and contest", "Breakdown contest and jackal"],
+        tactical: ["Defensive organisation and calls", "Attack shape execution at pace", "Decision cycles in live play", "Kicking tactics and kick-chase", "Game management in pressure moments"],
+        physical: ["Maximal speed and top-end exposure", "Structured strength programme", "Power output and plyometrics", "Rugby-specific fitness demands", "Contact preparation and resilience"],
+        mental: ["Pre-performance routine", "Handling setbacks and reset", "Leadership and communication", "Focus control during the game", "Thinking through consequences"],
+        lifestyle: ["Sleep 8-9 hours nightly", "Matchday nutrition plan", "Periodised recovery week", "Study-rugby-rest balance", "Support network - who to talk to"]
+      }
+    },
+    {
+      stage: "U19", label: "Train to Win", ratio: "40:60",
+      focus: "Performance Consistency and Senior Transition",
+      domains: {
+        technical: ["Consistency under fatigue", "Advanced distribution under pressure", "Set-piece mastery and leadership", "Kicking variety and execution", "Contact efficiency in repeated efforts"],
+        tactical: ["System execution under pressure", "Reading opposition patterns", "Decision speed in live scenarios", "Territory management", "Winning moments and game reads"],
+        physical: ["Peak strength and power", "Sprint repeatability across a match", "Power conversion to rugby actions", "Competition-level fitness", "Load management and monitoring"],
+        mental: ["Winning mindset and standards", "Performance under real pressure", "Senior group transition", "Adversity management", "Identity - player and person"],
+        lifestyle: ["Sleep 7-9 hours nightly", "Performance nutrition ownership", "Load and recovery monitoring", "Career and study planning", "Senior culture adaptation"]
+      }
+    }
+  ],
+  nutrition: {
+    windows: [
+      { id: "pre", label: "PRE", time: "2-3 hours before", icon: "&#9200;", headline: "Load the tank", points: ["Complex carbs - oats, rice, pasta, bread", "Lean protein - eggs, chicken, yoghurt", "Limit fat and fibre close to session", "500ml water in the 2 hours before"] },
+      { id: "during", label: "DURING", time: "Sessions > 60 min", icon: "&#9889;", headline: "Stay fuelled", points: ["30-60g carbs per hour of hard effort", "Small sips every 15-20 minutes", "Banana, energy chew, or sports drink", "Do not wait until you feel thirsty"] },
+      { id: "post", label: "POST", time: "Within 30 min", icon: "&#8635;", headline: "Rebuild fast", points: ["20-25g protein within 30 minutes", "Fast carbs to replenish glycogen", "Chocolate milk, protein shake, or real food", "Rehydrate: 1.5x fluid lost in sweat"] }
+    ],
+    stats: [
+      { value: "2.5L", label: "Water daily", sub: "More on training days" },
+      { value: "60%", label: "Carbohydrates", sub: "Of total daily calories" },
+      { value: "15%", label: "Protein", sub: "~1.4-1.7g per kg bodyweight" },
+      { value: "8-10h", label: "Sleep", sub: "Non-negotiable for youth athletes" }
+    ]
+  },
+  athletic: {
+    pillars: [
+      { id: "speed", label: "Speed", icon: "&#9889;", headline: "First step wins the moment", points: ["Acceleration from standing start", "Sprint posture - forward lean, high knees", "Change of direction without losing pace", "Reaction off the first defensive read"] },
+      { id: "strength", label: "Strength", icon: "&#127947;", headline: "Build the base, protect the body", points: ["Bodyweight first - squat, hinge, push, pull", "Add load only when technique is clean", "Position-specific strength demands", "Consistency beats intensity every time"] },
+      { id: "power", label: "Power", icon: "&#128165;", headline: "Turn strength into action", points: ["Plyometric progressions - land before you leap", "Force-velocity: move fast under load", "Explosive hip extension in carries and tackles", "Only develop after strength base is solid"] },
+      { id: "endurance", label: "Endurance", icon: "&#128257;", headline: "Stay available longer", points: ["Aerobic base enables faster recovery", "Repeated sprint ability across 80 minutes", "High-intensity intervals mimic match demands", "Quality over volume in conditioning work"] }
+    ],
+    periodisation: [
+      { phase: "Off-season", focus: "Foundation", desc: "Build movement quality, aerobic base, and strength. Low match load." },
+      { phase: "Pre-season", focus: "Build", desc: "Increase intensity. Speed and power development. Higher load." },
+      { phase: "In-season", focus: "Maintain", desc: "Protect fitness gains. Recovery priority. Match performance focus." }
+    ]
+  },
+  recovery: {
+    quadrant: [
+      { id: "sleep", label: "Sleep", icon: "&#127769;", color: "blue", headline: "8-10h for youth athletes", points: ["Consistent bedtime - same time every night", "Dark, cool, screen-free room", "Naps under 30 min if training twice", "Sleep is when adaptations are made"] },
+      { id: "nutrition", label: "Nutrition", icon: "&#129367;", color: "green", headline: "Refuel within 30 minutes", points: ["Protein + carbs immediately after training", "Anti-inflammatory foods - fruit, veg, oily fish", "Avoid ultra-processed food on recovery days", "Hydration continues after the session ends"] },
+      { id: "mental", label: "Mental", icon: "&#129504;", color: "gold", headline: "Decompress to absorb", points: ["Time away from rugby is not wasted time", "Breathwork or simple mindfulness routine", "Honest review - one thing well, one to improve", "Talk to someone when the load feels heavy"] },
+      { id: "social", label: "Social", icon: "&#129309;", color: "silver", headline: "Connection protects performance", points: ["Team connection beyond training hours", "Family and friends - not just rugby people", "Identity beyond the jersey", "Know who to speak to when things feel hard"] }
+    ],
+    mentalCards: [
+      { label: "Routine", headline: "Same process, different day", body: "A consistent pre-performance routine reduces anxiety and signals to your brain that it is time to compete." },
+      { label: "Focus", headline: "Control what you can control", body: "Direct attention to the next action - not the last mistake, not the scoreboard. One phase at a time." },
+      { label: "Resilience", headline: "Reset faster than anyone else", body: "Mistakes happen to every player. The best ones reset in seconds. Practice the reset, not perfection." },
+      { label: "Identity", headline: "You are more than rugby", body: "Keeping a full identity outside of rugby protects confidence and makes you a more resilient competitor." }
+    ]
+  }
+};
+</script>
 
 <div class="slide" id="s7">
 
@@ -930,25 +1021,38 @@ document.addEventListener("DOMContentLoaded", function () {
   </div>
 
   <div class="sl-body development-shell">
-
-    <div class="module-main">
-      <div class="dev-copy fadeup">
-        <p>The Donau Development space gives you a clear place to revisit pathway guidance, habits, and standards that support your long-term growth as a player.</p>
+    <div class="dev-hub-layout">
+      <div class="dev-hub-intro fadeup">
+        <p class="dev-hub-lead">Every player develops at their own pace. Explore the areas that matter most to your game right now.</p>
       </div>
-      <div class="module-grid fadeup" id="developmentHub"></div>
+
+      <div class="dev-hub-grid fadeup" id="devHubGrid">
+        <button class="dev-hub-card" type="button" onclick="goTo(8)" aria-label="Skills and Tactics">
+          <div class="dev-hub-card-icon">&#127919;</div>
+          <div class="dev-hub-card-label">Skills &amp; Tactics</div>
+          <div class="dev-hub-card-sub">LTPD Stage Pathway</div>
+        </button>
+        <button class="dev-hub-card" type="button" onclick="goTo(10)" aria-label="Body">
+          <div class="dev-hub-card-icon">&#9889;</div>
+          <div class="dev-hub-card-label">Body</div>
+          <div class="dev-hub-card-sub">Athletic Development</div>
+        </button>
+        <button class="dev-hub-card" type="button" onclick="goTo(9)" aria-label="Fuel">
+          <div class="dev-hub-card-icon">&#129367;</div>
+          <div class="dev-hub-card-label">Fuel</div>
+          <div class="dev-hub-card-sub">Nutrition &amp; Recovery</div>
+        </button>
+        <button class="dev-hub-card" type="button" onclick="goTo(11)" aria-label="Mind and Life">
+          <div class="dev-hub-card-icon">&#129504;</div>
+          <div class="dev-hub-card-label">Mind &amp; Life</div>
+          <div class="dev-hub-card-sub">Wellbeing &amp; Mental Performance</div>
+        </button>
+      </div>
+
+      <div class="dev-hub-source fadeup">
+        <span>Based on World Rugby LTPD Passport · IRFU Athletic Performance Resource · Applied Sport Science for Age-Grade Rugby</span>
+      </div>
     </div>
-
-    <div class="module-side">
-      <div class="module-panel fadeup">
-        <div class="tagline">Development Pillars</div>
-        <div id="developmentPillars"></div>
-      </div>
-      <div class="module-panel fadeup">
-        <div class="tagline">Module Status</div>
-        <div id="developmentStatus"></div>
-      </div>
-    </div>
-
   </div>
 
 </div>
@@ -969,8 +1073,17 @@ document.addEventListener("DOMContentLoaded", function () {
   </div>
 
   <div class="sl-body module-shell">
-    <div class="module-main" id="moduleMain-youth-pathway"></div>
-    <div class="module-side" id="moduleSide-youth-pathway"></div>
+    <div class="ltpd-layout fadeup">
+      <div class="ltpd-stage-rail" id="ltpdStageRail" role="tablist" aria-label="Age Stage"></div>
+      <div class="ltpd-body">
+        <div class="ltpd-stage-meta" id="ltpdStageMeta"></div>
+        <div class="ltpd-domain-tabs" id="ltpdDomainTabs" role="tablist" aria-label="Development Domain"></div>
+        <div class="ltpd-principles" id="ltpdPrinciples"></div>
+      </div>
+      <div class="ltpd-source fadeup">
+        <span>Source: World Rugby LTPD Passport - Ages and Stages Summary · Train to Train · Train to Compete and Win</span>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -991,8 +1104,13 @@ document.addEventListener("DOMContentLoaded", function () {
   </div>
 
   <div class="sl-body module-shell">
-    <div class="module-main" id="moduleMain-nutrition"></div>
-    <div class="module-side" id="moduleSide-nutrition"></div>
+    <div class="fuel-layout fadeup">
+      <div class="fuel-timeline" id="fuelTimeline"></div>
+      <div class="fuel-stats" id="fuelStats"></div>
+      <div class="fuel-source fadeup">
+        <span>Source: World Rugby Passport - Nutrition · Rehydration and Refuelling</span>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -1013,8 +1131,13 @@ document.addEventListener("DOMContentLoaded", function () {
   </div>
 
   <div class="sl-body module-shell">
-    <div class="module-main" id="moduleMain-strength-conditioning"></div>
-    <div class="module-side" id="moduleSide-strength-conditioning"></div>
+    <div class="athletic-layout fadeup">
+      <div class="athletic-pillars" id="athleticPillars"></div>
+      <div class="athletic-period" id="athleticPeriod"></div>
+      <div class="athletic-source fadeup">
+        <span>Source: World Rugby S&amp;C Passport · Applied Sport Science for Age-Grade Rugby Union in England (BMC Sports Med)</span>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -1035,8 +1158,13 @@ document.addEventListener("DOMContentLoaded", function () {
   </div>
 
   <div class="sl-body module-shell">
-    <div class="module-main" id="moduleMain-wellbeing"></div>
-    <div class="module-side" id="moduleSide-wellbeing"></div>
+    <div class="recovery-layout fadeup">
+      <div class="recovery-quadrant" id="recoveryQuadrant"></div>
+      <div class="mental-cards" id="mentalCards"></div>
+      <div class="recovery-source fadeup">
+        <span>Source: IRFU Athletic Performance Resource · World Rugby LTPD · Applied Sport Science for Age-Grade Rugby</span>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -1162,6 +1290,159 @@ function closeLineoutSystem() {
     document.body.classList.remove('overlay-active');
   }
 }
+</script>
+
+<script>
+(function () {
+  var D = window.DONAU_PLAYER_DEV;
+  if (!D) return;
+
+  var ltpdState = { stageIdx: 1, domain: "technical" };
+
+  function renderLTPD() {
+    var stages = D.ltpd;
+    var stage = stages[ltpdState.stageIdx];
+    var domains = ["technical", "tactical", "physical", "mental", "lifestyle"];
+    var domLabels = {
+      technical: "Technical",
+      tactical: "Tactical",
+      physical: "Physical",
+      mental: "Mental",
+      lifestyle: "Lifestyle"
+    };
+
+    var rail = document.getElementById("ltpdStageRail");
+    if (rail) {
+      rail.innerHTML = stages.map(function (s, i) {
+        return '<button class="ltpd-stage-btn' + (i === ltpdState.stageIdx ? ' active' : '') + '" role="tab" aria-selected="' + (i === ltpdState.stageIdx) + '" type="button" onclick="window.__devSwitchStage(' + i + ')">' + s.stage + "</button>";
+      }).join("");
+    }
+
+    var meta = document.getElementById("ltpdStageMeta");
+    if (meta) {
+      meta.innerHTML = '<div class="ltpd-ratio"><span class="ltpd-ratio-num">' + stage.ratio + '</span><span class="ltpd-ratio-label">Train : Match</span></div>'
+        + '<div class="ltpd-focus-label">' + stage.label + " - " + stage.focus + "</div>";
+    }
+
+    var tabs = document.getElementById("ltpdDomainTabs");
+    if (tabs) {
+      tabs.innerHTML = domains.map(function (d) {
+        return '<button class="ltpd-domain-tab' + (d === ltpdState.domain ? ' active' : '') + '" role="tab" aria-selected="' + (d === ltpdState.domain) + '" type="button" onclick="window.__devSwitchDomain(\'' + d + '\')">' + domLabels[d] + "</button>";
+      }).join("");
+    }
+
+    var principles = document.getElementById("ltpdPrinciples");
+    if (principles) {
+      var items = stage.domains[ltpdState.domain] || [];
+      principles.innerHTML = '<ol class="ltpd-principle-list">'
+        + items.map(function (p, i) {
+          return '<li class="ltpd-principle-item"><span class="ltpd-principle-num">0' + (i + 1) + "</span><span>" + p + "</span></li>";
+        }).join("")
+        + "</ol>";
+    }
+  }
+
+  window.__devSwitchStage = function (i) {
+    ltpdState.stageIdx = i;
+    renderLTPD();
+  };
+
+  window.__devSwitchDomain = function (d) {
+    ltpdState.domain = d;
+    renderLTPD();
+  };
+
+  function renderFuel() {
+    var timeline = document.getElementById("fuelTimeline");
+    if (timeline) {
+      timeline.innerHTML = '<div class="fuel-windows">'
+        + D.nutrition.windows.map(function (w) {
+          return '<div class="fuel-window">'
+            + '<div class="fuel-window-hdr"><span class="fuel-window-icon">' + w.icon + '</span><span class="fuel-window-label">' + w.label + '</span><span class="fuel-window-time">' + w.time + "</span></div>"
+            + '<div class="fuel-window-headline">' + w.headline + "</div>"
+            + '<ul class="fuel-window-list">' + w.points.map(function (p) {
+              return "<li>" + p + "</li>";
+            }).join("") + "</ul>"
+            + "</div>";
+        }).join("")
+        + "</div>";
+    }
+
+    var stats = document.getElementById("fuelStats");
+    if (stats) {
+      stats.innerHTML = '<div class="fuel-stat-row">'
+        + D.nutrition.stats.map(function (s) {
+          return '<div class="fuel-stat"><div class="fuel-stat-value">' + s.value + '</div><div class="fuel-stat-label">' + s.label + '</div><div class="fuel-stat-sub">' + s.sub + "</div></div>";
+        }).join("")
+        + "</div>";
+    }
+  }
+
+  function renderAthletic() {
+    var pillars = document.getElementById("athleticPillars");
+    if (pillars) {
+      pillars.innerHTML = '<div class="athletic-pillar-grid">'
+        + D.athletic.pillars.map(function (p) {
+          return '<div class="athletic-pillar">'
+            + '<div class="athletic-pillar-hdr"><span class="athletic-pillar-icon">' + p.icon + '</span><span class="athletic-pillar-label">' + p.label + "</span></div>"
+            + '<div class="athletic-pillar-headline">' + p.headline + "</div>"
+            + '<ul class="athletic-pillar-list">' + p.points.map(function (point) {
+              return "<li>" + point + "</li>";
+            }).join("") + "</ul>"
+            + "</div>";
+        }).join("")
+        + "</div>";
+    }
+
+    var period = document.getElementById("athleticPeriod");
+    if (period) {
+      period.innerHTML = '<div class="period-label-row">Simple yearly periodisation</div><div class="period-strip">'
+        + D.athletic.periodisation.map(function (p) {
+          return '<div class="period-phase"><div class="period-phase-name">' + p.phase + '</div><div class="period-phase-focus">' + p.focus + '</div><div class="period-phase-desc">' + p.desc + "</div></div>";
+        }).join("")
+        + "</div>";
+    }
+  }
+
+  function renderRecovery() {
+    var quadrant = document.getElementById("recoveryQuadrant");
+    if (quadrant) {
+      quadrant.innerHTML = '<div class="recovery-grid">'
+        + D.recovery.quadrant.map(function (q) {
+          return '<div class="recovery-cell recovery-cell-' + q.color + '">'
+            + '<div class="recovery-cell-hdr"><span class="recovery-cell-icon">' + q.icon + '</span><span class="recovery-cell-label">' + q.label + "</span></div>"
+            + '<div class="recovery-cell-headline">' + q.headline + "</div>"
+            + '<ul class="recovery-cell-list">' + q.points.map(function (point) {
+              return "<li>" + point + "</li>";
+            }).join("") + "</ul>"
+            + "</div>";
+        }).join("")
+        + "</div>";
+    }
+
+    var mental = document.getElementById("mentalCards");
+    if (mental) {
+      mental.innerHTML = '<div class="mental-cards-label">Mental performance foundations</div><div class="mental-cards-grid">'
+        + D.recovery.mentalCards.map(function (c) {
+          return '<div class="mental-card"><div class="mental-card-label">' + c.label + '</div><div class="mental-card-headline">' + c.headline + '</div><p class="mental-card-body">' + c.body + "</p></div>";
+        }).join("")
+        + "</div>";
+    }
+  }
+
+  function initDev() {
+    renderLTPD();
+    renderFuel();
+    renderAthletic();
+    renderRecovery();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initDev);
+  } else {
+    initDev();
+  }
+})();
 </script>
 
 </body>
