@@ -372,11 +372,7 @@
       link.innerHTML = "<span>&#8249;&#xFE0E;</span> Back to Portal";
       link.addEventListener("click", (event) => {
         event.preventDefault();
-        if (history.length > 1) {
-          history.back();
-        } else {
-          location.href = "../../index.html";
-        }
+        location.href = "../../index.html";
       });
 
       const topbarRight = topbar.querySelector(".topbar-right");
@@ -484,7 +480,9 @@
       }
     }
 
-    goTo(1, { fromHistory: true });
+    if (cur > 1) {
+      goTo(cur - 1, { fromHistory: true });
+    }
   }
 
   function buildMobileAppChrome() {
