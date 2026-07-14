@@ -310,7 +310,7 @@
   #s4 .lo-system-btn { min-height: 50px; }
 }
 
-.lo-shell { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 0 28px; flex: 1; min-height: 0; align-items: stretch; order: 2; }
+.lo-shell { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 0 28px; flex: 1; min-height: 0; align-items: stretch; align-content: center; order: 2; }
 
 .lo-card {
   position: relative;
@@ -374,7 +374,7 @@
 .lso-close:hover { background: rgba(46,139,87,0.16) !important; border-color: rgba(46,139,87,0.5) !important; }
 
 @media (max-width: 768px) {
-  .lo-shell { grid-template-columns: 1fr; padding: 0 14px; gap: 10px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .lo-shell { grid-template-columns: 1fr; padding: 0 14px; gap: 10px; overflow-y: auto; -webkit-overflow-scrolling: touch; align-content: start; }
   .lo-card-content { padding: 16px 16px 14px; }
   .lo-card-tags { margin-bottom: 10px; }
   .lo-card-name { font-size: 2.2rem; margin-bottom: 6px; }
