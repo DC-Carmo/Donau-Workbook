@@ -6,6 +6,9 @@
   const defData = data.defData || {};
   const workspaceSections = data.workspaceSections || [];
   const developmentModules = data.developmentModules || [];
+  const developmentStageProfiles = data.developmentStageProfiles || {};
+  const developmentEvidenceLibrary = data.developmentEvidenceLibrary || {};
+  const developmentSupportConfig = data.developmentSupportConfig || {};
   const orderedDevelopmentModules = [...developmentModules].sort((left, right) => left.slide - right.slide);
   const playbookContext = data.playbookContext || "";
   const { addMsg, removeTyping, showTyping } = window.DonauShared || {};
@@ -130,6 +133,48 @@
     ...workspaceSections.map((section) => ({ type: "slide", ...section })),
   ];
   DONAU_MOBILE_MODULE_ITEMS.splice(6, 0, { type: "board", shortLabel: "Board", title: "Tactical Board" });
+  const DEVELOPMENT_STORAGE_KEY = "donau-development-experience-v2";
+  const PREMIUM_DEVELOPMENT_MODULE_IDS = new Set(
+    orderedDevelopmentModules.filter((module) => module.experience === "premium").map((module) => module.id),
+  );
+
+  function readDevelopmentState() {
+    try {
+      const raw = window.localStorage?.getItem(DEVELOPMENT_STORAGE_KEY);
+      if (!raw) {
+        return {
+          selectedStageByModule: {},
+          visitedTopicsByModule: {},
+          completedQuickStart: {},
+          toolDataByModule: {},
+        };
+      }
+      const parsed = JSON.parse(raw);
+      return {
+        selectedStageByModule: parsed.selectedStageByModule || {},
+        visitedTopicsByModule: parsed.visitedTopicsByModule || {},
+        completedQuickStart: parsed.completedQuickStart || {},
+        toolDataByModule: parsed.toolDataByModule || {},
+      };
+    } catch (error) {
+      return {
+        selectedStageByModule: {},
+        visitedTopicsByModule: {},
+        completedQuickStart: {},
+        toolDataByModule: {},
+      };
+    }
+  }
+
+  function writeDevelopmentState(nextState) {
+    try {
+      window.localStorage?.setItem(DEVELOPMENT_STORAGE_KEY, JSON.stringify(nextState));
+    } catch (error) {
+      // Ignore storage failures and keep the UI usable.
+    }
+  }
+
+  let developmentState = readDevelopmentState();
 
   function isMobileViewport() {
     return window.innerWidth <= MOBILE_BREAKPOINT;
@@ -1099,205 +1144,816 @@
 
   }
 
-  function renderDevelopmentHub() {
-    const hub = document.getElementById("developmentHub");
-    if (!hub) {
-      return;
-    }
+  function renderDevelopmentHub() {}
 
-    hub.innerHTML = orderedDevelopmentModules
-      .map(
-        (module) => `
-          <button class="module-card module-card-${module.accent}" type="button" onclick="goTo(${module.slide})">
-            <div class="module-card-top">
-              <div class="module-icon module-icon-${module.accent}" aria-hidden="true">${getModuleIcon(module.iconType)}</div>
-              <div class="module-progress">
-                <div class="module-progress-label">${module.progressLabel}</div>
-                <div class="module-status-pill module-status-${slug(module.status)}">${module.status}</div>
-              </div>
-            </div>
-            <div>
-              <h3 class="module-card-title">${module.title}</h3>
-              <p class="module-card-desc">${module.shortDescription}</p>
-            </div>
-            <div class="module-card-meta">
-              <div class="module-progress-value">${module.progressValue}</div>
-            </div>
-            <div class="module-progress-bar">
-              <div class="module-progress-track">
-                <div class="module-progress-fill module-progress-fill-${module.accent}" style="width:${module.progressPercent}%"></div>
-              </div>
-            </div>
-            <div class="module-card-link">Open module <span>&#9654;</span></div>
-          </button>
-        `,
-      )
-      .join("");
+  function getModuleState(moduleId) {
+    return {
+      stageKey:
+        developmentState.selectedStageByModule[moduleId] ||
+        Object.keys(developmentStageProfiles[moduleId] || {})[0] ||
+        "u14",
+      visitedTopics: new Set(developmentState.visitedTopicsByModule[moduleId] || []),
+      quickStartDone: developmentState.completedQuickStart[moduleId] === true,
+      toolData: developmentState.toolDataByModule[moduleId] || {},
+    };
+  }
 
-    const pillars = document.getElementById("developmentPillars");
-    if (pillars) {
-      pillars.innerHTML = `
-        <div class="module-sidebar-list">
-          <div class="module-sidebar-item"><strong>Growth</strong><span>Progress through every stage.</span></div>
-          <div class="module-sidebar-item"><strong>Habits</strong><span>Daily discipline drives performance.</span></div>
-          <div class="module-sidebar-item"><strong>Club Support</strong><span>Better people build better rugby.</span></div>
-        </div>
-      `;
-    }
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
 
-    const status = document.getElementById("developmentStatus");
-    if (status) {
-      status.innerHTML = orderedDevelopmentModules
-        .map(
-          (module) => `
-            <button class="module-status-row" type="button" onclick="goTo(${module.slide})">
-              <span class="module-status-row-title">${module.title}</span>
-              <span class="module-status-row-meta">
-                <span class="module-status-pill module-status-${slug(module.status)}">${module.status}</span>
-                <span class="module-status-row-progress">${module.progressValue}</span>
-              </span>
-            </button>
-          `,
-        )
-        .join("");
+  function escapeAttribute(value) {
+    return escapeHtml(value);
+  }
+
+  function persistDevelopmentModuleState(moduleId, updater) {
+    const nextState = updater({
+      selectedStageByModule: { ...developmentState.selectedStageByModule },
+      visitedTopicsByModule: { ...developmentState.visitedTopicsByModule },
+      completedQuickStart: { ...developmentState.completedQuickStart },
+      toolDataByModule: { ...developmentState.toolDataByModule },
+    });
+    developmentState = nextState;
+    writeDevelopmentState(nextState);
+    renderDevelopmentModules();
+  }
+
+  function getModuleProgress(module, moduleState) {
+    if (module.experience !== "premium") {
+      return null;
     }
+    const total = module.topicCards.length + 2;
+    const complete = moduleState.visitedTopics.size + (moduleState.quickStartDone ? 1 : 0) + (moduleState.toolData.saved ? 1 : 0);
+    return { complete, total };
   }
 
   function renderDevelopmentModules() {
-    orderedDevelopmentModules.forEach((module) => {
+    orderedDevelopmentModules.forEach((module, index) => {
       const main = document.getElementById(`moduleMain-${module.id}`);
       const side = document.getElementById(`moduleSide-${module.id}`);
       if (!main || !side) {
         return;
       }
 
-      main.innerHTML = `
-        <div class="module-overview fadeup">
-          <div class="module-overview-copy">
-            <div class="module-kicker">Development Module</div>
-            <h3 class="module-overview-title">${module.title}</h3>
-            <div class="module-intro">
-              <p>${module.mission}</p>
-            </div>
+      if (module.experience === "premium") {
+        renderPremiumDevelopmentModule(module, index, main, side);
+      } else {
+        renderLegacyDevelopmentModule(module, main, side);
+      }
+    });
+  }
+
+  function renderPremiumDevelopmentModule(module, index, main, side) {
+    const moduleState = getModuleState(module.id);
+    const stageProfiles = developmentStageProfiles[module.ageStageKey] || {};
+    const stageProfile = stageProfiles[moduleState.stageKey] || Object.values(stageProfiles)[0] || { label: "", focus: "", priorities: [] };
+    const progress = getModuleProgress(module, moduleState);
+
+    main.innerHTML = `
+      ${renderDevelopmentModuleHero(module)}
+      ${renderQuickStart(module, moduleState)}
+      ${renderWhyItMatters(module)}
+      ${renderAgeStageSelector(module, stageProfiles, moduleState.stageKey, stageProfile)}
+      ${renderPremiumSpecialFeature(module, stageProfile)}
+      ${renderPremiumExplore(module, moduleState)}
+      ${renderPracticalTool(module, moduleState)}
+      ${renderCoachParentGuidance(module)}
+      ${renderSafetyNotice(module)}
+      ${renderEvidenceDrawer(module)}
+      ${renderContinueJourney(module, index)}
+    `;
+
+    side.innerHTML = `
+      <div class="development-premium-side-stack fadeup">
+        <section class="development-side-panel development-side-panel-${module.accent}">
+          <div class="development-side-kicker">Your journey</div>
+          <h4 class="development-side-title">${module.title}</h4>
+          <p>${module.hero.copy}</p>
+          ${progress ? `<div class="development-progress-real"><strong>${progress.complete}</strong> of <strong>${progress.total}</strong> steps explored</div>` : ""}
+        </section>
+        <section class="development-side-panel">
+          <div class="development-side-kicker">${stageProfile.label || "Age stage"}</div>
+          <h4 class="development-side-title">What matters most now</h4>
+          <p>${stageProfile.focus || ""}</p>
+          <ul class="development-side-list">${(stageProfile.priorities || []).map((item) => `<li>${item}</li>`).join("")}</ul>
+        </section>
+        <section class="development-side-panel">
+          <div class="development-side-kicker">Explore next</div>
+          <div class="development-module-links">
+            ${orderedDevelopmentModules
+              .filter((item) => item.id !== module.id)
+              .map((item) => `<button class="development-module-link" type="button" onclick="goTo(${item.slide})"><span>${String(item.slide).padStart(2, "0")}</span><strong>${item.title}</strong></button>`)
+              .join("")}
           </div>
-          <div class="module-overview-icon module-overview-icon-${module.accent}" aria-hidden="true">${getModuleIcon(module.iconType)}</div>
+        </section>
+      </div>
+    `;
+  }
+
+  function renderLegacyDevelopmentModule(module, main, side) {
+    main.innerHTML = `
+      <div class="module-overview fadeup">
+        <div class="module-overview-copy">
+          <div class="module-kicker">Development Module</div>
+          <h3 class="module-overview-title">${module.title}</h3>
+          <div class="module-intro">
+            <p>${module.mission}</p>
+          </div>
         </div>
-        <div class="module-highlights fadeup">
-          ${module.highlights.map((highlight) => `<div class="module-pill">${highlight}</div>`).join("")}
-        </div>
-        <div class="module-accordion-stack fadeup">
-          ${module.sections
-            .map(
-              (section, index) => `
-                <article class="module-accordion ${index === 0 ? "active" : ""}" aria-expanded="${index === 0 ? "true" : "false"}">
-                  <button class="module-accordion-head" type="button" onclick="toggleModuleSection(this.closest('.module-accordion'))" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleModuleSection(this.closest('.module-accordion'));}">
-                    <div>
-                      <h3>${section.title}</h3>
-                      <div class="module-accordion-sub">${section.subtitle || module.tag}</div>
-                    </div>
-                    <div class="module-accordion-arrow">&#9660;</div>
-                  </button>
-                  <div class="module-accordion-body">
-                    ${section.overview ? `
-                      <div class="module-overview-strip">
-                        <div class="module-overview-chip">
-                          <span class="module-overview-chip-label">LTAD Stage</span>
-                          <span class="module-overview-chip-value">${section.overview.stage}</span>
-                        </div>
-                        <div class="module-overview-chip">
-                          <span class="module-overview-chip-label">Train/Match</span>
-                          <span class="module-overview-chip-value">${section.overview.ratio}</span>
-                        </div>
-                        <div class="module-overview-chip module-overview-chip-focus">
-                          <span class="module-overview-chip-label">Key Focus</span>
-                          <span class="module-overview-chip-value">${section.overview.focus}</span>
-                        </div>
-                      </div>
-                    ` : ""}
-                    ${section.groups
-                      ? section.groups.map((group) => `
-                          <div class="module-group-accordion" aria-expanded="false">
-                            <button class="module-group-head" type="button"
-                               onclick="event.stopPropagation();toggleModuleGroup(this.closest('.module-group-accordion'))"
-                               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();toggleModuleGroup(this.closest('.module-group-accordion'));}">
-                              <div class="module-group-label">${group.title}</div>
-                              <div class="module-group-arrow">&#9660;</div>
-                            </button>
-                            <div class="module-group-body">
-                              <ul class="module-list">
-                                ${group.points.map((point) => `<li>${point}</li>`).join("")}
-                              </ul>
-                            </div>
-                          </div>
-                        `).join("")
-                      : `
-                          <p class="module-accordion-intro">${module.intro}</p>
-                          <ul class="module-list">
-                            ${(section.points || []).map((point) => `<li>${point}</li>`).join("")}
-                          </ul>
-                        `
-                    }
+        <div class="module-overview-icon module-overview-icon-${module.accent}" aria-hidden="true">${getModuleIcon(module.iconType)}</div>
+      </div>
+      <div class="module-highlights fadeup">
+        ${module.highlights.map((highlight) => `<div class="module-pill">${highlight}</div>`).join("")}
+      </div>
+      <div class="module-accordion-stack fadeup">
+        ${module.sections
+          .map(
+            (section, index) => {
+              const sectionId = `${module.id}-section-${index}`;
+              return `
+              <article class="module-accordion ${index === 0 ? "active" : ""}" aria-expanded="${index === 0 ? "true" : "false"}">
+                <button class="module-accordion-head" type="button" aria-expanded="${index === 0 ? "true" : "false"}" aria-controls="${sectionId}" onclick="toggleModuleSection(this.closest('.module-accordion'))">
+                  <div>
+                    <h3>${section.title}</h3>
+                    <div class="module-accordion-sub">${section.subtitle || module.tag}</div>
                   </div>
-                </article>
+                  <div class="module-accordion-arrow">&#9660;</div>
+                </button>
+                <div class="module-accordion-body" id="${sectionId}">
+                  ${section.overview ? `
+                    <div class="module-overview-strip">
+                      <div class="module-overview-chip">
+                        <span class="module-overview-chip-label">LTAD Stage</span>
+                        <span class="module-overview-chip-value">${section.overview.stage}</span>
+                      </div>
+                      <div class="module-overview-chip">
+                        <span class="module-overview-chip-label">Train/Match</span>
+                        <span class="module-overview-chip-value">${section.overview.ratio}</span>
+                      </div>
+                      <div class="module-overview-chip module-overview-chip-focus">
+                        <span class="module-overview-chip-label">Key Focus</span>
+                        <span class="module-overview-chip-value">${section.overview.focus}</span>
+                      </div>
+                    </div>
+                  ` : ""}
+                  ${section.groups
+                    ? section.groups
+                        .map(
+                          (group, groupIndex) => {
+                            const groupId = `${sectionId}-group-${groupIndex}`;
+                            return `
+                            <div class="module-group-accordion" aria-expanded="false">
+                              <button class="module-group-head" type="button" aria-expanded="false" aria-controls="${groupId}" onclick="event.stopPropagation();toggleModuleGroup(this.closest('.module-group-accordion'))">
+                                <div class="module-group-label">${group.title}</div>
+                                <div class="module-group-arrow">&#9660;</div>
+                              </button>
+                              <div class="module-group-body" id="${groupId}">
+                                <ul class="module-list">${group.points.map((point) => `<li>${point}</li>`).join("")}</ul>
+                              </div>
+                            </div>
+                            `;
+                          },
+                        )
+                        .join("")
+                    : `
+                        <p class="module-accordion-intro">${module.intro}</p>
+                        <ul class="module-list">${(section.points || []).map((point) => `<li>${point}</li>`).join("")}</ul>
+                      `}
+                </div>
+              </article>
+            `;
+            },
+          )
+          .join("")}
+      </div>
+    `;
+
+    side.innerHTML = `
+      <div class="module-side-stack fadeup">
+        <section class="module-summary">
+          <h4 class="module-panel-title">${module.summaryTitle}</h4>
+          <div class="ov-pull">${module.callout}</div>
+          <p>${module.summaryText}</p>
+        </section>
+        <section class="module-panel">
+          <h4 class="module-panel-title">Related Modules</h4>
+          <div class="module-related-list">
+            ${orderedDevelopmentModules
+              .filter((item) => item.id !== module.id)
+              .map((item) => `<button class="module-related-link" type="button" onclick="goTo(${item.slide})"><span>${item.title}</span><span>&#9654;</span></button>`)
+              .join("")}
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
+  function renderDevelopmentModuleHero(module) {
+    return `
+      <section class="development-hero development-hero-${module.accent} fadeup">
+        <div class="development-hero-copy">
+          <div class="development-hero-meta">${String(module.slide).padStart(2, "0")} ${module.category}</div>
+          <h3 class="development-hero-title">${module.hero.headline}</h3>
+          <p class="development-hero-body">${module.hero.copy}</p>
+          <div class="development-hero-actions">
+            <button class="development-cta" type="button" onclick="scrollToDevelopmentSection('${module.id}','quick-start')">${module.hero.primaryAction}</button>
+            <button class="development-cta development-cta-secondary" type="button" onclick="scrollToDevelopmentSection('${module.id}','age-stage')">${module.hero.secondaryAction}</button>
+          </div>
+          <div class="development-hero-time">${module.estimatedTime || ""}</div>
+        </div>
+        <div class="development-hero-visual development-hero-visual-${module.accent}" aria-hidden="true">${getDevelopmentVisual(module)}</div>
+      </section>
+    `;
+  }
+
+  function renderQuickStart(module, moduleState) {
+    return `
+      <section class="development-section fadeup" id="${module.id}-quick-start">
+        <div class="development-section-head">
+          <div>
+            <div class="development-section-kicker">${module.quickStart.label}</div>
+            <h4 class="development-section-title">Start with one useful idea</h4>
+          </div>
+          <button class="development-chip-btn${moduleState.quickStartDone ? " is-complete" : ""}" type="button" onclick="toggleQuickStart('${module.id}')">${moduleState.quickStartDone ? "Marked done" : "Mark as done"}</button>
+        </div>
+        <div class="development-quick-grid">
+          <article class="development-quick-card"><span>Important idea</span><p>${module.quickStart.importantIdea}</p></article>
+          <article class="development-quick-card"><span>Practical action</span><p>${module.quickStart.practicalAction}</p></article>
+          <article class="development-quick-card"><span>Reflection question</span><p>${module.quickStart.reflectionQuestion}</p></article>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderWhyItMatters(module) {
+    return `
+      <section class="development-section fadeup">
+        <div class="development-section-head">
+          <div>
+            <div class="development-section-kicker">Understand</div>
+            <h4 class="development-section-title">Why this matters on the pitch</h4>
+          </div>
+        </div>
+        <div class="development-context-grid">
+          ${module.whyItMatters.map((item) => `<article class="development-context-card"><h5>${item.title}</h5><p>${item.body}</p></article>`).join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderAgeStageSelector(module, stageProfiles, activeStageKey, stageProfile) {
+    const activeTabId = `${module.id}-stage-tab-${activeStageKey}`;
+    const panelId = `${module.id}-stage-panel`;
+    return `
+      <section class="development-section fadeup" id="${module.id}-age-stage">
+        <div class="development-section-head">
+          <div>
+            <div class="development-section-kicker">Explore</div>
+            <h4 class="development-section-title">Explore my age stage</h4>
+          </div>
+        </div>
+        <div class="development-stage-selector" role="tablist" aria-label="${module.title} age stages">
+          ${Object.entries(stageProfiles)
+            .map(
+              ([stageKey, profile]) => `
+                <button
+                  class="development-stage-tab${stageKey === activeStageKey ? " active" : ""}"
+                  type="button"
+                  role="tab"
+                  id="${module.id}-stage-tab-${stageKey}"
+                  aria-selected="${stageKey === activeStageKey ? "true" : "false"}"
+                  aria-controls="${panelId}"
+                  onclick="setDevelopmentAgeStage('${module.id}','${stageKey}')"
+                >${profile.label}</button>
               `,
             )
             .join("")}
         </div>
-      `;
-
-      const related = orderedDevelopmentModules
-        .filter((item) => item.id !== module.id)
-        .map(
-          (item) => `
-            <button class="module-related-link" type="button" onclick="goTo(${item.slide})">
-              <span>${item.title}</span>
-              <span>&#9654;</span>
-            </button>
-          `,
-        )
-        .join("");
-
-      side.innerHTML = `
-        <div class="module-side-stack fadeup">
-          <section class="module-panel">
-            <h4 class="module-panel-title">Module Status</h4>
-            <div class="module-metric-grid">
-              ${module.metrics
-                .map(
-                  (metric) => `
-                    <div class="metric-chip">
-                      <div class="m-val">${metric.value}</div>
-                      <div class="m-label">${metric.label}</div>
-                    </div>
-                  `,
-                )
-                .join("")}
-            </div>
-          </section>
-          <section class="module-panel">
-            <h4 class="module-panel-title">Progress</h4>
-            <div class="module-progress-label">${module.progressLabel}</div>
-            <div class="module-status-row-meta" style="margin-top:10px;">
-              <span class="module-status-pill module-status-${slug(module.status)}">${module.status}</span>
-              <span class="module-progress-value">${module.progressValue}</span>
-            </div>
-            <div class="module-progress-bar" style="margin-top:14px;">
-              <div class="module-progress-track">
-                <div class="module-progress-fill module-progress-fill-${module.accent}" style="width:${module.progressPercent}%"></div>
-              </div>
-            </div>
-          </section>
-          <section class="module-summary">
-            <h4 class="module-panel-title">${module.summaryTitle}</h4>
-            <div class="ov-pull">${module.callout}</div>
-            <p>${module.summaryText}</p>
-          </section>
-          <section class="module-panel">
-            <h4 class="module-panel-title">Related Modules</h4>
-            <div class="module-related-list">${related}</div>
-          </section>
+        <div class="development-stage-panel" id="${panelId}" role="tabpanel" aria-labelledby="${activeTabId}">
+          <p class="development-stage-focus">${stageProfile.focus || ""}</p>
+          <div class="development-priority-grid">
+            ${(stageProfile.priorities || []).map((item) => `<div class="development-priority-chip">${item}</div>`).join("")}
+          </div>
         </div>
+      </section>
+    `;
+  }
+
+  function renderPremiumSpecialFeature(module, stageProfile) {
+    if (!module.specialFeature) {
+      return "";
+    }
+
+    if (module.specialFeature.type === "compass") {
+      return `
+        <section class="development-section fadeup">
+          <div class="development-section-head">
+            <div>
+              <div class="development-section-kicker">Explore</div>
+              <h4 class="development-section-title">${module.specialFeature.title}</h4>
+            </div>
+          </div>
+          <div class="development-compass-grid">
+            ${module.topicCards.map((card) => `<article class="development-compass-card"><h5>${card.title}</h5><p>${card.details[0]}</p><div class="development-compass-action">${card.action}</div><div class="development-compass-link">Relevant module: ${card.relatedModule}</div></article>`).join("")}
+          </div>
+          <div class="development-cycle">
+            <div class="development-cycle-title">${module.specialFeature.cycleTitle}</div>
+            <div class="development-cycle-grid">
+              ${module.specialFeature.cycleSteps.map((step) => `<article class="development-cycle-step"><h5>${step.title}</h5><p>${step.text}</p></article>`).join("")}
+            </div>
+            <div class="development-cycle-note">Current age-stage focus: ${stageProfile.label || ""}</div>
+          </div>
+        </section>
       `;
+    }
+
+    if (module.specialFeature.type === "wheel") {
+      return `
+        <section class="development-section fadeup">
+          <div class="development-feature-shell development-feature-wheel">
+            <div class="development-wheel">
+              ${module.specialFeature.segments.map((segment) => `<div class="development-wheel-segment">${segment}</div>`).join("")}
+            </div>
+            <div class="development-week">
+              <div class="development-section-kicker">${module.specialFeature.weekTitle}</div>
+              <div class="development-week-list">${module.specialFeature.weekItems.map((item) => `<span>${item}</span>`).join("")}</div>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    if (module.specialFeature.type === "plate") {
+      return `
+        <section class="development-section fadeup">
+          <div class="development-feature-shell development-feature-plate">
+            <div class="development-plate-grid">${module.specialFeature.columns.map((item) => `<article class="development-plate-item"><h5>${item}</h5><p>Choose realistic options that fit your home, school, work, and travel routine.</p></article>`).join("")}</div>
+            <div class="development-timeline-preview">${module.specialFeature.timeline.map((item) => `<span>${item}</span>`).join("")}</div>
+          </div>
+        </section>
+      `;
+    }
+
+    if (module.specialFeature.type === "support-map") {
+      const supportRoles = developmentSupportConfig.wellbeingSupportRoles || [];
+      const supportContacts = developmentSupportConfig.welfareContacts || [];
+      return `
+        <section class="development-section fadeup">
+          <div class="development-feature-shell development-feature-support">
+            <div>
+              <div class="development-section-kicker">${module.specialFeature.title}</div>
+              <div class="development-standards-list">${module.specialFeature.standards.map((item) => `<div class="development-standard-item">${item}</div>`).join("")}</div>
+            </div>
+            ${module.supportCard ? `
+              <aside class="development-support-card">
+                <h5>${module.supportCard.title}</h5>
+                <p>${module.supportCard.body}</p>
+                <ul>${supportRoles.map((item) => `<li>${item}</li>`).join("")}</ul>
+                ${supportContacts.length ? `<div class="development-support-contacts">${supportContacts.map((item) => `<div><strong>${item.label}</strong><span>${item.value}</span></div>`).join("")}</div>` : `<div class="development-evidence-local">Speak to a trusted adult, coach, or club welfare contact for local support details.</div>`}
+              </aside>
+            ` : ""}
+          </div>
+        </section>
+      `;
+    }
+
+    return "";
+  }
+
+  function renderPremiumExplore(module, moduleState) {
+    return `
+      <section class="development-section fadeup">
+        <div class="development-section-head">
+          <div>
+            <div class="development-section-kicker">Explore</div>
+            <h4 class="development-section-title">Choose a topic to open up</h4>
+          </div>
+        </div>
+        <div class="development-topic-grid">
+          ${module.topicCards.map((card) => renderTopicCard(module, card, moduleState.visitedTopics.has(card.id))).join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderTopicCard(module, card, isOpen) {
+    const topicBodyId = `${module.id}-topic-${card.id}`;
+    return `
+      <article class="development-topic-card${isOpen ? " active" : ""}">
+        <div class="development-topic-top">
+          <div>
+            <h5>${card.title}</h5>
+            <p>${card.purpose}</p>
+          </div>
+          <button class="development-chip-btn" type="button" aria-expanded="${isOpen ? "true" : "false"}" aria-controls="${topicBodyId}" onclick="toggleDevelopmentTopic('${module.id}','${card.id}')">${isOpen ? "Hide details" : "Explore"}</button>
+        </div>
+        <div class="development-topic-example"><strong>Rugby example:</strong> ${card.rugbyExample}</div>
+        <div class="development-topic-body${isOpen ? " open" : ""}" id="${topicBodyId}"${isOpen ? "" : " hidden"}>
+          <ul>${card.details.map((detail) => `<li>${detail}</li>`).join("")}</ul>
+          <div class="development-topic-action">${card.action}</div>
+        </div>
+      </article>
+    `;
+  }
+
+  function renderPracticalTool(module, moduleState) {
+    const tool = module.practicalTool;
+    if (!tool) {
+      return "";
+    }
+    if (tool.type === "next-step") {
+      return renderPlayerReflection(module, moduleState, tool);
+    }
+    if (tool.type === "readiness") {
+      return renderReadinessCheck(module, moduleState, tool);
+    }
+    if (tool.type === "matchday-plan") {
+      return renderMatchdayTimeline(module, moduleState, tool);
+    }
+    if (tool.type === "week-check-in") {
+      return renderActionChecklist(module, moduleState, tool);
+    }
+    return "";
+  }
+
+  function renderPlayerReflection(module, moduleState, tool) {
+    return `
+      <section class="development-section fadeup">
+        <div class="development-section-head">
+          <div>
+            <div class="development-section-kicker">Apply + Reflect</div>
+            <h4 class="development-section-title">${tool.title}</h4>
+          </div>
+        </div>
+        <p class="development-tool-intro">${tool.intro}</p>
+        <div class="development-form-grid">
+          ${tool.fields
+            .map((field) => `
+              <label class="development-field">
+                <span>${field.label}</span>
+                <textarea id="${module.id}-${field.id}" rows="3">${escapeHtml(moduleState.toolData[field.id] || "")}</textarea>
+              </label>
+            `)
+            .join("")}
+        </div>
+        <div class="development-tool-actions">
+          <button class="development-cta" type="button" onclick="saveNextStep('${module.id}')">Save locally</button>
+          ${moduleState.toolData.saved ? `<span class="development-save-note">Saved on this device.</span>` : ""}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderReadinessCheck(module, moduleState, tool) {
+    return `
+      <section class="development-section fadeup">
+        <div class="development-section-head">
+          <div>
+            <div class="development-section-kicker">Apply + Reflect</div>
+            <h4 class="development-section-title">${tool.title}</h4>
+          </div>
+        </div>
+        <p class="development-tool-intro">${tool.intro}</p>
+        <div class="development-readiness-grid">
+          ${tool.prompts
+            .map((prompt) => {
+              const key = slug(prompt);
+              const selected = Number(moduleState.toolData[key] || 0);
+              return `
+                <div class="development-scale-card">
+                  <div class="development-scale-label">${prompt}</div>
+                  <div class="development-scale-options">
+                    ${[1, 2, 3, 4, 5]
+                      .map(
+                        (value) => `
+                          <button class="development-scale-btn${selected === value ? " active" : ""}" type="button" onclick="setDevelopmentScale('${module.id}','${key}',${value})">${value}</button>
+                        `,
+                      )
+                      .join("")}
+                  </div>
+                </div>
+              `;
+            })
+            .join("")}
+        </div>
+        <label class="development-field">
+          <span>What should I communicate today?</span>
+          <textarea id="${module.id}-readiness-note" rows="3">${escapeHtml(moduleState.toolData.note || "")}</textarea>
+        </label>
+        <div class="development-tool-actions">
+          <button class="development-cta" type="button" onclick="saveReadinessCheck('${module.id}')">Save readiness check</button>
+          ${moduleState.toolData.saved ? `<span class="development-save-note">Saved on this device.</span>` : ""}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderMatchdayTimeline(module, moduleState, tool) {
+    const checklist = moduleState.toolData.checklist || [];
+    return `
+      <section class="development-section fadeup">
+        <div class="development-section-head">
+          <div>
+            <div class="development-section-kicker">Apply + Reflect</div>
+            <h4 class="development-section-title">${tool.title}</h4>
+          </div>
+        </div>
+        <p class="development-tool-intro">${tool.intro}</p>
+        <div class="development-form-grid development-form-grid-compact">
+          <label class="development-field"><span>Match time</span><input id="${module.id}-match-time" type="time" value="${escapeAttribute(moduleState.toolData.matchTime || "")}"></label>
+          <label class="development-field"><span>Travel time</span><input id="${module.id}-travel-time" type="text" value="${escapeAttribute(moduleState.toolData.travelTime || "")}" placeholder="45 min"></label>
+          <label class="development-field"><span>Expected weather</span><select id="${module.id}-weather">${tool.weatherOptions.map((item) => `<option value="${escapeAttribute(item)}"${moduleState.toolData.weather === item ? " selected" : ""}>${escapeHtml(item)}</option>`).join("")}</select></label>
+          <label class="development-field"><span>Food available</span><input id="${module.id}-food-available" type="text" value="${escapeAttribute(moduleState.toolData.foodAvailable || "")}" placeholder="Packed sandwich, fruit, yogurt"></label>
+          <label class="development-field development-field-wide"><span>Items to prepare</span><textarea id="${module.id}-items" rows="3">${escapeHtml(moduleState.toolData.items || "")}</textarea></label>
+        </div>
+        <div class="development-tool-actions">
+          <button class="development-cta" type="button" onclick="generateMatchdayPlan('${module.id}')">Generate checklist</button>
+          ${moduleState.toolData.saved ? `<span class="development-save-note">Checklist saved on this device.</span>` : ""}
+        </div>
+        ${checklist.length
+          ? `<div class="development-checklist">${checklist
+              .map(
+                (item, index) => `
+                  <label class="development-checklist-item">
+                    <input type="checkbox" ${item.done ? "checked" : ""} onchange="toggleMatchdayChecklist('${module.id}',${index})">
+                    <span>${escapeHtml(item.label)}</span>
+                  </label>
+                `,
+              )
+              .join("")}</div>`
+          : ""}
+      </section>
+    `;
+  }
+
+  function renderActionChecklist(module, moduleState, tool) {
+    const optionLabels = ["Not yet", "Sometimes", "Mostly", "Yes"];
+    return `
+      <section class="development-section fadeup">
+        <div class="development-section-head">
+          <div>
+            <div class="development-section-kicker">Apply + Reflect</div>
+            <h4 class="development-section-title">${tool.title}</h4>
+          </div>
+        </div>
+        <p class="development-tool-intro">${tool.intro}</p>
+        <div class="development-checkin-grid">
+          ${tool.prompts
+            .map((prompt) => {
+              const key = slug(prompt);
+              const selected = Number(moduleState.toolData[key] || 0);
+              return `
+                <div class="development-checkin-card">
+                  <div class="development-scale-label">${prompt}</div>
+                  <div class="development-checkin-options">
+                    ${optionLabels
+                      .map(
+                        (label, index) => `
+                          <button class="development-checkin-btn${selected === index + 1 ? " active" : ""}" type="button" onclick="setDevelopmentScale('${module.id}','${key}',${index + 1})">${label}</button>
+                        `,
+                      )
+                      .join("")}
+                  </div>
+                </div>
+              `;
+            })
+            .join("")}
+        </div>
+        <label class="development-field">
+          <span>What support would help this week?</span>
+          <textarea id="${module.id}-checkin-note" rows="3">${escapeHtml(moduleState.toolData.note || "")}</textarea>
+        </label>
+        <div class="development-tool-actions">
+          <button class="development-cta" type="button" onclick="saveWeekCheckIn('${module.id}')">Save check-in</button>
+          ${moduleState.toolData.saved ? `<span class="development-save-note">Saved on this device.</span>` : ""}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderEvidenceDrawer(module) {
+    if (!module.evidenceGroups) {
+      return "";
+    }
+    return `
+      <details class="development-evidence fadeup">
+        <summary>Evidence behind this module</summary>
+        <div class="development-evidence-body">
+          ${Object.entries(module.evidenceGroups)
+            .map(
+              ([group, sourceIds]) => `
+                <section class="development-evidence-group">
+                  <h5>${group}</h5>
+                  <div class="development-evidence-list">
+                    ${sourceIds
+                      .map((sourceId) => {
+                        const source = developmentEvidenceLibrary[sourceId];
+                        if (!source) {
+                          return "";
+                        }
+                        return `
+                          <article class="development-evidence-item">
+                            <div class="development-evidence-top">
+                              <strong>${source.title}</strong>
+                              <span>${source.organisation} · ${source.year}</span>
+                            </div>
+                            <p>${source.summary}</p>
+                            ${source.link ? `<a href="${source.link}" target="_blank" rel="noopener noreferrer">Open source</a>` : `<span class="development-evidence-local">Local club practice reference</span>`}
+                          </article>
+                        `;
+                      })
+                      .join("")}
+                  </div>
+                </section>
+              `,
+            )
+            .join("")}
+        </div>
+      </details>
+    `;
+  }
+
+  function renderCoachParentGuidance(module) {
+    if (!module.guidance) {
+      return "";
+    }
+    return `
+      <details class="development-guidance fadeup">
+        <summary>Guidance for coaches and parents</summary>
+        <div class="development-guidance-body">
+          <div class="development-guidance-grid">
+            <article>
+              <h5>Coach principle</h5>
+              <p>${module.guidance.coachPrinciple}</p>
+              <ul>${module.guidance.coachTips.map((tip) => `<li>${tip}</li>`).join("")}</ul>
+            </article>
+            <article>
+              <h5>Parent principle</h5>
+              <p>${module.guidance.parentPrinciple}</p>
+              <ul>${module.guidance.parentTips.map((tip) => `<li>${tip}</li>`).join("")}</ul>
+            </article>
+          </div>
+        </div>
+      </details>
+    `;
+  }
+
+  function renderSafetyNotice(module) {
+    if (!module.safetyNotice) {
+      return "";
+    }
+    return `
+      <section class="development-safety fadeup">
+        <h5>${module.safetyNotice.title}</h5>
+        <p>${module.safetyNotice.body}</p>
+      </section>
+    `;
+  }
+
+  function renderContinueJourney(module, index) {
+    const previous = orderedDevelopmentModules[index - 1] || null;
+    const next = orderedDevelopmentModules[index + 1] || null;
+    return `
+      <section class="development-continue fadeup">
+        <div class="development-section-kicker">Continue</div>
+        <h4 class="development-section-title">Continue your journey</h4>
+        <p>${module.continueJourney?.relatedTopic || ""}</p>
+        <div class="development-journey-links">
+          ${module.continueJourney?.nextSlide ? `<button class="development-next-module" type="button" onclick="goTo(${module.continueJourney.nextSlide})">Recommended next module: ${module.continueJourney.nextLabel}</button>` : ""}
+          <div class="development-prev-next">
+            ${previous ? `<button class="development-nav-link" type="button" onclick="goTo(${previous.slide})">&#8249; ${previous.title}</button>` : `<span></span>`}
+            ${next ? `<button class="development-nav-link" type="button" onclick="goTo(${next.slide})">${next.title} &#8250;</button>` : `<span></span>`}
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  function scrollToDevelopmentSection(moduleId, anchor) {
+    const container = document.getElementById(`${moduleId}-${anchor}`);
+    if (container) {
+      container.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+    }
+  }
+
+  function setDevelopmentAgeStage(moduleId, stageKey) {
+    persistDevelopmentModuleState(moduleId, (state) => {
+      state.selectedStageByModule[moduleId] = stageKey;
+      return state;
+    });
+  }
+
+  function toggleQuickStart(moduleId) {
+    persistDevelopmentModuleState(moduleId, (state) => {
+      state.completedQuickStart[moduleId] = !state.completedQuickStart[moduleId];
+      return state;
+    });
+  }
+
+  function toggleDevelopmentTopic(moduleId, topicId) {
+    persistDevelopmentModuleState(moduleId, (state) => {
+      const current = new Set(state.visitedTopicsByModule[moduleId] || []);
+      if (current.has(topicId)) {
+        current.delete(topicId);
+      } else {
+        current.add(topicId);
+      }
+      state.visitedTopicsByModule[moduleId] = [...current];
+      return state;
+    });
+  }
+
+  function setDevelopmentScale(moduleId, key, value) {
+    persistDevelopmentModuleState(moduleId, (state) => {
+      state.toolDataByModule[moduleId] = { ...(state.toolDataByModule[moduleId] || {}), [key]: value };
+      return state;
+    });
+  }
+
+  function saveNextStep(moduleId) {
+    persistDevelopmentModuleState(moduleId, (state) => {
+      const next = { ...(state.toolDataByModule[moduleId] || {}) };
+      ["goal", "why", "practice", "support", "progress"].forEach((field) => {
+        next[field] = document.getElementById(`${moduleId}-${field}`)?.value.trim() || "";
+      });
+      next.saved = true;
+      state.toolDataByModule[moduleId] = next;
+      return state;
+    });
+  }
+
+  function saveReadinessCheck(moduleId) {
+    persistDevelopmentModuleState(moduleId, (state) => {
+      const next = { ...(state.toolDataByModule[moduleId] || {}) };
+      next.note = document.getElementById(`${moduleId}-readiness-note`)?.value.trim() || "";
+      next.saved = true;
+      state.toolDataByModule[moduleId] = next;
+      return state;
+    });
+  }
+
+  function buildMatchdayChecklist(toolData) {
+    const checklist = [];
+    if (toolData.matchTime) {
+      checklist.push({ label: `Plan your main meal before ${toolData.matchTime}.`, done: false });
+    }
+    if (toolData.travelTime) {
+      checklist.push({ label: `Prepare food and fluid before your ${toolData.travelTime} journey.`, done: false });
+    }
+    if (toolData.weather) {
+      checklist.push({ label: `Adjust fluids and layers for ${toolData.weather.toLowerCase()} conditions.`, done: false });
+    }
+    if (toolData.foodAvailable) {
+      checklist.push({ label: `Use what is available: ${toolData.foodAvailable}.`, done: false });
+    }
+    if (toolData.items) {
+      checklist.push({ label: `Pack: ${toolData.items}.`, done: false });
+    }
+    checklist.push({ label: "Refuel and rehydrate soon after the match.", done: false });
+    return checklist;
+  }
+
+  function generateMatchdayPlan(moduleId) {
+    persistDevelopmentModuleState(moduleId, (state) => {
+      const next = { ...(state.toolDataByModule[moduleId] || {}) };
+      next.matchTime = document.getElementById(`${moduleId}-match-time`)?.value || "";
+      next.travelTime = document.getElementById(`${moduleId}-travel-time`)?.value.trim() || "";
+      next.weather = document.getElementById(`${moduleId}-weather`)?.value || "";
+      next.foodAvailable = document.getElementById(`${moduleId}-food-available`)?.value.trim() || "";
+      next.items = document.getElementById(`${moduleId}-items`)?.value.trim() || "";
+      next.checklist = buildMatchdayChecklist(next);
+      next.saved = true;
+      state.toolDataByModule[moduleId] = next;
+      return state;
+    });
+  }
+
+  function toggleMatchdayChecklist(moduleId, index) {
+    persistDevelopmentModuleState(moduleId, (state) => {
+      const next = { ...(state.toolDataByModule[moduleId] || {}) };
+      const checklist = [...(next.checklist || [])];
+      if (checklist[index]) {
+        checklist[index] = { ...checklist[index], done: !checklist[index].done };
+      }
+      next.checklist = checklist;
+      next.saved = true;
+      state.toolDataByModule[moduleId] = next;
+      return state;
+    });
+  }
+
+  function saveWeekCheckIn(moduleId) {
+    persistDevelopmentModuleState(moduleId, (state) => {
+      const next = { ...(state.toolDataByModule[moduleId] || {}) };
+      next.note = document.getElementById(`${moduleId}-checkin-note`)?.value.trim() || "";
+      next.saved = true;
+      state.toolDataByModule[moduleId] = next;
+      return state;
     });
   }
 
@@ -1308,6 +1964,10 @@
       container.querySelectorAll(".module-accordion").forEach((item) => {
         item.classList.remove("active");
         item.setAttribute("aria-expanded", "false");
+        const button = item.querySelector(".module-accordion-head");
+        if (button) {
+          button.setAttribute("aria-expanded", "false");
+        }
         const body = item.querySelector(".module-accordion-body");
         if (body) {
           body.style.maxHeight = "";
@@ -1318,6 +1978,10 @@
     if (!wasActive) {
       el.classList.add("active");
       el.setAttribute("aria-expanded", "true");
+      const button = el.querySelector(".module-accordion-head");
+      if (button) {
+        button.setAttribute("aria-expanded", "true");
+      }
       const body = el.querySelector(".module-accordion-body");
       if (body) {
         body.style.maxHeight = body.scrollHeight + "px";
@@ -1329,9 +1993,13 @@
     const wasActive = el.classList.contains("active");
     const parentBody = el.closest(".module-accordion-body");
     const body = el.querySelector(".module-group-body");
+    const button = el.querySelector(".module-group-head");
 
     el.classList.toggle("active", !wasActive);
     el.setAttribute("aria-expanded", !wasActive ? "true" : "false");
+    if (button) {
+      button.setAttribute("aria-expanded", !wasActive ? "true" : "false");
+    }
 
     if (body) {
       body.style.display = !wasActive ? "block" : "none";
@@ -1350,6 +2018,12 @@
 
   function getModuleIcon(type) {
     const icons = {
+      compass: `
+        <svg viewBox="0 0 48 48" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="24" cy="24" r="15"></circle>
+          <path d="M19 29 22.8 16.5 34 14 29 25.5 19 29Z"></path>
+          <path d="M22.8 16.5 29 25.5"></path>
+        </svg>`,
       pathway: `
         <svg viewBox="0 0 48 48" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="10" cy="34" r="2.5"></circle>
@@ -1377,6 +2051,46 @@
     };
 
     return icons[type] || type || "";
+  }
+
+  function getDevelopmentVisual(module) {
+    const visualType = module.specialFeature?.type || module.id;
+    if (visualType === "compass") {
+      return `
+        <svg viewBox="0 0 240 200" fill="none" aria-hidden="true">
+          <circle cx="120" cy="100" r="58" stroke="currentColor" stroke-opacity="0.28" stroke-width="2"></circle>
+          <circle cx="120" cy="100" r="22" stroke="currentColor" stroke-width="2"></circle>
+          <path d="M120 36v25M120 139v25M56 100h25M159 100h25" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+          <path d="M120 78 145 55 133 95 95 118 107 82 120 78Z" fill="currentColor" fill-opacity="0.18" stroke="currentColor" stroke-width="2"></path>
+        </svg>`;
+    }
+    if (visualType === "wheel") {
+      return `
+        <svg viewBox="0 0 240 200" fill="none" aria-hidden="true">
+          <circle cx="120" cy="100" r="62" stroke="currentColor" stroke-width="2"></circle>
+          <circle cx="120" cy="100" r="28" stroke="currentColor" stroke-opacity="0.35" stroke-width="2"></circle>
+          <path d="M120 38v124M61 63l118 74M61 137l118-74" stroke="currentColor" stroke-opacity="0.35" stroke-width="2"></path>
+        </svg>`;
+    }
+    if (visualType === "plate") {
+      return `
+        <svg viewBox="0 0 240 200" fill="none" aria-hidden="true">
+          <circle cx="104" cy="100" r="54" stroke="currentColor" stroke-width="2"></circle>
+          <path d="M104 46v108M50 100h108" stroke="currentColor" stroke-opacity="0.32" stroke-width="2"></path>
+          <rect x="170" y="62" width="24" height="76" rx="8" stroke="currentColor" stroke-width="2"></rect>
+          <path d="M182 46v16" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+        </svg>`;
+    }
+    if (visualType === "support-map") {
+      return `
+        <svg viewBox="0 0 240 200" fill="none" aria-hidden="true">
+          <circle cx="120" cy="72" r="24" stroke="currentColor" stroke-width="2"></circle>
+          <circle cx="72" cy="126" r="18" stroke="currentColor" stroke-opacity="0.5" stroke-width="2"></circle>
+          <circle cx="168" cy="126" r="18" stroke="currentColor" stroke-opacity="0.5" stroke-width="2"></circle>
+          <path d="M120 96v28M92 112 78 122M148 112l14 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+        </svg>`;
+    }
+    return getModuleIcon(module.iconType);
   }
 
   async function sendMsg() {
@@ -1619,7 +2333,6 @@
     syncSlideNumbers();
     updateNav();
     buildLoCalls();
-    renderDevelopmentHub();
     renderDevelopmentModules();
     renderAttackCategory("setpiece", document.querySelector(".zone-btn.active"));
     setDefSide("rhs", document.querySelector(".zone-tab"));
@@ -1633,11 +2346,21 @@
   window.goTo = goTo;
   window.openFieldLightbox = openFieldLightbox;
   window.openOverlay = openOverlay;
+  window.generateMatchdayPlan = generateMatchdayPlan;
+  window.saveNextStep = saveNextStep;
+  window.saveReadinessCheck = saveReadinessCheck;
+  window.saveWeekCheckIn = saveWeekCheckIn;
+  window.scrollToDevelopmentSection = scrollToDevelopmentSection;
   window.sendMsg = sendMsg;
+  window.setDevelopmentAgeStage = setDevelopmentAgeStage;
+  window.setDevelopmentScale = setDevelopmentScale;
   window.setCategory = renderAttackCategory;
   window.setDefSide = setDefSide;
+  window.toggleDevelopmentTopic = toggleDevelopmentTopic;
   window.toggleFieldArea = toggleFieldArea;
   window.toggleFieldMap = toggleFieldMap;
+  window.toggleMatchdayChecklist = toggleMatchdayChecklist;
+  window.toggleQuickStart = toggleQuickStart;
   window.toggleForwardPodsMap = toggleForwardPodsMap;
   window.toggleLo = toggleLo;
   window.toggleModuleGroup = toggleModuleGroup;
