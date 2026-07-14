@@ -6,6 +6,7 @@
   const defData = data.defData || {};
   const workspaceSections = data.workspaceSections || [];
   const developmentModules = data.developmentModules || [];
+  const orderedDevelopmentModules = [...developmentModules].sort((left, right) => left.slide - right.slide);
   const playbookContext = data.playbookContext || "";
   const { addMsg, removeTyping, showTyping } = window.DonauShared || {};
   const attackGuides = {
@@ -126,19 +127,9 @@
   let mobileWorkspaceHistory = [];
   let _touchLock = null;
   const DONAU_MOBILE_MODULE_ITEMS = [
-    { type: "slide", slide: 1, shortLabel: "Intro", title: "Intro" },
-    { type: "slide", slide: 2, shortLabel: "Standards", title: "Standards" },
-    { type: "slide", slide: 3, shortLabel: "Attack", title: "Attack" },
-    { type: "slide", slide: 4, shortLabel: "Lineout", title: "Lineout" },
-    { type: "slide", slide: 5, shortLabel: "Defence", title: "Defence" },
-    { type: "slide", slide: 6, shortLabel: "Playbook", title: "Ask the Playbook" },
-    { type: "board", shortLabel: "Board", title: "Tactical Board" },
-    { type: "slide", slide: 7, shortLabel: "Hub", title: "Development" },
-    { type: "slide", slide: 8, shortLabel: "Pathway", title: "Player Pathway" },
-    { type: "slide", slide: 9, shortLabel: "Fuel", title: "Fuel & Recovery" },
-    { type: "slide", slide: 10, shortLabel: "Athletic", title: "Athletic Development" },
-    { type: "slide", slide: 11, shortLabel: "Wellbeing", title: "Player Wellbeing" },
+    ...workspaceSections.map((section) => ({ type: "slide", ...section })),
   ];
+  DONAU_MOBILE_MODULE_ITEMS.splice(6, 0, { type: "board", shortLabel: "Board", title: "Tactical Board" });
 
   function isMobileViewport() {
     return window.innerWidth <= MOBILE_BREAKPOINT;
@@ -1114,7 +1105,7 @@
       return;
     }
 
-    hub.innerHTML = developmentModules
+    hub.innerHTML = orderedDevelopmentModules
       .map(
         (module) => `
           <button class="module-card module-card-${module.accent}" type="button" onclick="goTo(${module.slide})">
@@ -1156,7 +1147,7 @@
 
     const status = document.getElementById("developmentStatus");
     if (status) {
-      status.innerHTML = developmentModules
+      status.innerHTML = orderedDevelopmentModules
         .map(
           (module) => `
             <button class="module-status-row" type="button" onclick="goTo(${module.slide})">
@@ -1173,7 +1164,7 @@
   }
 
   function renderDevelopmentModules() {
-    developmentModules.forEach((module) => {
+    orderedDevelopmentModules.forEach((module) => {
       const main = document.getElementById(`moduleMain-${module.id}`);
       const side = document.getElementById(`moduleSide-${module.id}`);
       if (!main || !side) {
@@ -1254,7 +1245,7 @@
         </div>
       `;
 
-      const related = developmentModules
+      const related = orderedDevelopmentModules
         .filter((item) => item.id !== module.id)
         .map(
           (item) => `
