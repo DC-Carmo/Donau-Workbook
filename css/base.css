@@ -1831,17 +1831,17 @@ h2.section {
 }
 
 .workspace-track-items {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(156px, 1fr));
+  gap: 10px;
 }
 
 .workspace-map-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
-  min-height: 42px;
-  padding: 9px 10px;
+  min-height: 52px;
+  padding: 10px 12px;
   border-radius: 8px;
   border: 1px solid rgba(46, 139, 87, 0.12);
   background: rgba(255, 255, 255, 0.025);
@@ -1861,8 +1861,8 @@ h2.section {
 
 .workspace-map-item.active {
   border-color: var(--green);
-  background: rgba(46, 139, 87, 0.16);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  background: rgba(46, 139, 87, 0.18);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
 }
 
 .workspace-item-num {
@@ -1889,6 +1889,7 @@ h2.section {
 
 .workspace-item-title {
   font-size: 0.78rem;
+  line-height: 1.3;
   color: var(--text-light);
 }
 
@@ -2251,6 +2252,10 @@ h2.section {
 
   .workspace-map-item {
     width: 100%;
+  }
+
+  .workspace-track-items {
+    grid-template-columns: 1fr;
   }
 
   .terminology-grid {
@@ -2621,7 +2626,8 @@ h2.section {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
+    flex: 1;
   }
 
   .mobile-drawer-item-short {
@@ -2634,6 +2640,7 @@ h2.section {
 
   .mobile-drawer-item-title {
     font-size: 0.96rem;
+    line-height: 1.3;
     color: var(--text);
   }
 

@@ -304,15 +304,15 @@
       { slide: 5, group: "Performance", shortLabel: "Defence", title: "Defence" },
       { slide: 6, group: "Performance", shortLabel: "Playbook", title: "Ask the Playbook" },
       { slide: 7, group: "Development", shortLabel: "Hub", title: "Development" },
-      { slide: 8, group: "Development", shortLabel: "Pathway", title: "Player Pathway" },
+      { slide: 8, group: "Development", shortLabel: "Athletic", title: "Athletic Development" },
       { slide: 9, group: "Development", shortLabel: "Fuel", title: "Fuel & Recovery" },
-      { slide: 10, group: "Development", shortLabel: "Athletic", title: "Athletic Development" },
-      { slide: 11, group: "Development", shortLabel: "Wellbeing", title: "Player Wellbeing" },
+      { slide: 10, group: "Development", shortLabel: "Wellbeing", title: "Player Wellbeing" },
+      { slide: 11, group: "Development", shortLabel: "Pathway", title: "Player Pathway" },
     ],
     developmentModules: [
       {
         id: "youth-pathway",
-        slide: 8,
+        slide: 11,
         iconType: "pathway",
         accent: "green",
         title: "Player Pathway",
@@ -564,7 +564,7 @@
       },
       {
         id: "strength-conditioning",
-        slide: 10,
+        slide: 8,
         iconType: "athletic",
         accent: "silver",
         title: "Athletic Development",
@@ -616,7 +616,7 @@
       },
       {
         id: "wellbeing",
-        slide: 11,
+        slide: 10,
         iconType: "wellbeing",
         accent: "muted-green",
         title: "Player Wellbeing",
