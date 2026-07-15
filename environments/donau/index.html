@@ -1757,3 +1757,9 @@ function closeLineoutSystem() {
     setTimeout(function() { frame.src = ''; }, 180);
   }
   if (!document.querySelector('.overlay.open')) {
+    document.body.classList.remove('overlay-active');
+  }
+}
+</script>
+</body>
+</html>
