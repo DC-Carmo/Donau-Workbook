@@ -372,6 +372,22 @@
 .lso-title { font-family: "Barlow Condensed", sans-serif !important; font-size: 0.78rem !important; font-weight: 700 !important; letter-spacing: 2.6px !important; text-transform: uppercase !important; color: rgba(140,200,165,0.7) !important; }
 .lso-close { border: 1px solid rgba(46,139,87,0.28) !important; background: rgba(46,139,87,0.06) !important; border-radius: 50% !important; transition: background 150ms ease, border-color 150ms ease !important; }
 .lso-close:hover { background: rgba(46,139,87,0.16) !important; border-color: rgba(46,139,87,0.5) !important; }
+.dev-focus { margin: 4px 0 22px; padding: 18px 20px; border-radius: 16px; border: 1px solid rgba(46,139,87,0.28); background: linear-gradient(160deg, rgba(18,42,32,0.92), rgba(10,22,16,0.96)); }
+.dev-focus-kicker { font-size: .66rem; letter-spacing: .28em; text-transform: uppercase; color: #4ea87a; margin-bottom: 12px; font-weight: 700; }
+.dev-focus-input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.14); background: rgba(0,0,0,0.28); color: #f0f0f2; font-size: .95rem; }
+.dev-focus-input::placeholder { color: #8a8a94; }
+.dev-focus-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.dev-focus-chip { padding: 7px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #c8c8d0; font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; }
+.dev-focus-chip.on { border-color: #2e8b57; background: rgba(46,139,87,0.22); color: #eafff3; }
+.dev-focus-btn { padding: 10px 18px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.18); background: transparent; color: #e8e8ee; font-size: .82rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; cursor: pointer; }
+.dev-focus-btn-primary { border-color: #2e8b57; background: #2e8b57; color: #06140d; }
+.dev-focus-text { font-size: 1.05rem; color: #f4f4f6; font-weight: 600; line-height: 1.4; }
+.dev-focus-meta { display: flex; align-items: center; gap: 10px; margin: 10px 0 14px; flex-wrap: wrap; }
+.dev-focus-tag { padding: 4px 10px; border-radius: 999px; background: rgba(46,139,87,0.2); border: 1px solid rgba(46,139,87,0.4); color: #8fe0b4; font-size: .64rem; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; }
+.dev-focus-date { color: #9a9aa4; font-size: .72rem; }
+.dev-focus-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.dev-focus-count { margin-top: 12px; color: #6fb894; font-size: .74rem; font-weight: 600; }
+.dev-focus-done .dev-focus-text { color: #8fe0b4; }
 
 @media (max-width: 768px) {
   .lo-shell { grid-template-columns: 1fr; padding: 0 14px; gap: 10px; overflow-y: auto; -webkit-overflow-scrolling: touch; align-content: start; }
@@ -1026,6 +1042,8 @@ window.DONAU_PLAYER_DEV = {
         <p class="dev-hub-lead">Every player develops at their own pace. Explore the areas that matter most to your game right now.</p>
       </div>
 
+      <div class="dev-focus fadeup" id="devFocus"></div>
+
       <div class="dev-hub-grid fadeup" id="devHubGrid">
         <button class="dev-hub-card" type="button" onclick="goTo(8)" aria-label="Skills and Tactics">
           <div class="dev-hub-card-icon">&#127919;</div>
@@ -1442,6 +1460,97 @@ function closeLineoutSystem() {
   } else {
     initDev();
   }
+})();
+</script>
+
+<script>
+(function(){
+  var KEY = 'donau_player_focus';
+  var AREAS = [
+    {id:'skills', label:'Skills & Tactics'},
+    {id:'body', label:'Body'},
+    {id:'fuel', label:'Fuel'},
+    {id:'mind', label:'Mind & Life'}
+  ];
+  var editing = false;
+  function load(){ try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e){ return {}; } }
+  function save(s){ try { localStorage.setItem(KEY, JSON.stringify(s)); } catch(e){} }
+  function esc(t){ var d = document.createElement('div'); d.textContent = t || ''; return d.innerHTML; }
+  function fmtDate(iso){ try { return new Date(iso).toLocaleDateString(undefined, {day:'numeric', month:'short'}); } catch(e){ return ''; } }
+  function areaLabel(id){ for (var i=0;i<AREAS.length;i++){ if (AREAS[i].id===id) return AREAS[i].label; } return ''; }
+
+  window.pickFocusArea = function(el){
+    var chips = document.querySelectorAll('#devFocus .dev-focus-chip');
+    for (var i=0;i<chips.length;i++) chips[i].classList.remove('on');
+    el.classList.add('on');
+  };
+  window.setPlayerFocus = function(){
+    var inp = document.getElementById('devFocusInput');
+    var text = (inp && inp.value || '').trim();
+    if (!text){ if (inp) inp.focus(); return; }
+    var area = document.querySelector('#devFocus .dev-focus-chip.on');
+    var s = load();
+    s.text = text;
+    s.area = area ? area.getAttribute('data-area') : '';
+    s.setAt = new Date().toISOString();
+    s.done = false;
+    if (typeof s.completed !== 'number') s.completed = 0;
+    editing = false;
+    save(s); renderFocus();
+  };
+  window.completePlayerFocus = function(){
+    var s = load();
+    s.done = true;
+    s.completed = (s.completed || 0) + 1;
+    save(s); renderFocus();
+  };
+  window.changePlayerFocus = function(){ editing = true; renderFocus(); };
+
+  function renderFocus(){
+    var el = document.getElementById('devFocus');
+    if (!el) return;
+    var s = load();
+    var count = s.completed ? '<div class="dev-focus-count">' + s.completed + ' focus' + (s.completed === 1 ? '' : 'es') + ' completed</div>' : '';
+    if (!s.text || editing){
+      var prefill = s.text ? esc(s.text) : '';
+      var chips = AREAS.map(function(a){
+        var on = (s.area === a.id) ? ' on' : '';
+        return '<button type="button" class="dev-focus-chip' + on + '" data-area="' + a.id + '" onclick="pickFocusArea(this)">' + esc(a.label) + '</button>';
+      }).join('');
+      el.innerHTML =
+        '<div class="dev-focus-kicker">My focus this week</div>' +
+        '<div class="dev-focus-empty">' +
+          '<input class="dev-focus-input" id="devFocusInput" type="text" maxlength="120" placeholder="What\'s the one thing you\'ll work on this week?" value="' + prefill + '" />' +
+          '<div class="dev-focus-chips">' + chips + '</div>' +
+          '<button type="button" class="dev-focus-btn dev-focus-btn-primary" onclick="setPlayerFocus()">Set focus</button>' +
+          count +
+        '</div>';
+    } else if (s.done){
+      el.innerHTML =
+        '<div class="dev-focus-kicker">Focus completed</div>' +
+        '<div class="dev-focus-active dev-focus-done">' +
+          '<div class="dev-focus-text">&#10003; Nice work - you followed through.</div>' +
+          count +
+          '<div class="dev-focus-actions"><button type="button" class="dev-focus-btn dev-focus-btn-primary" onclick="changePlayerFocus()">Set a new focus</button></div>' +
+        '</div>';
+    } else {
+      var tag = s.area ? '<span class="dev-focus-tag">' + esc(areaLabel(s.area)) + '</span>' : '';
+      el.innerHTML =
+        '<div class="dev-focus-kicker">This week\'s focus</div>' +
+        '<div class="dev-focus-active">' +
+          '<div class="dev-focus-text">' + esc(s.text) + '</div>' +
+          '<div class="dev-focus-meta">' + tag + '<span class="dev-focus-date">Set ' + fmtDate(s.setAt) + '</span></div>' +
+          '<div class="dev-focus-actions">' +
+            '<button type="button" class="dev-focus-btn dev-focus-btn-primary" onclick="completePlayerFocus()">Done &#10003;</button>' +
+            '<button type="button" class="dev-focus-btn" onclick="changePlayerFocus()">Change</button>' +
+          '</div>' +
+          count +
+        '</div>';
+    }
+  }
+  window.renderPlayerFocus = renderFocus;
+  if (document.readyState !== 'loading') renderFocus();
+  else document.addEventListener('DOMContentLoaded', renderFocus);
 })();
 </script>
 
