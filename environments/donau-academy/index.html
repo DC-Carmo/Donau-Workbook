@@ -439,6 +439,33 @@
   .academy-hero-inner{margin:0 0 0 18px;padding:20px 18px 20px 16px;}
 }
 </style>
+<style>
+/* ── Academy type scale (normalization) ── */
+/* Body/list points — one size everywhere */
+.slide li, .ltpd-moveup li { font-size: .9rem !important; line-height: 1.6; }
+/* Section card headlines — consistent */
+.slide h3, .slide [class*="headline"] { font-size: 1.02rem !important; line-height: 1.35; }
+/* Missions — consistent */
+.ltpd-mission { font-size: .98rem !important; }
+/* Hub cards */
+.dev-hub-card-label { font-size: 1.05rem !important; }
+.dev-hub-card-sub { font-size: .85rem !important; }
+.dev-hub-lead { font-size: .95rem !important; }
+/* Small controls & captions — floor at ~12.5px */
+#ltpdStageRail button, #ltpdDomainTabs button { font-size: .84rem !important; }
+.dev-hub-source, .dev-focus-date { font-size: .78rem !important; }
+/* Focus tracker */
+.dev-focus-input { font-size: .95rem !important; }
+.dev-focus-text { font-size: 1.05rem !important; }
+
+/* Tablet & mobile: slightly larger body for readability */
+@media (max-width: 900px) {
+  .slide li, .ltpd-moveup li { font-size: .95rem !important; }
+  .ltpd-mission { font-size: 1rem !important; }
+  .slide h3, .slide [class*="headline"] { font-size: 1.08rem !important; }
+  .dev-hub-source, .dev-focus-date { font-size: .8rem !important; }
+}
+</style>
 </head>
 
 <body>
