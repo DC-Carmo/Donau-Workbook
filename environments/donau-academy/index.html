@@ -418,13 +418,14 @@
 
 <style>
 [data-mobile-nav="board"],[data-mobile-nav="playbook"],.mobile-drawer-item[data-drawer-type="board"]{display:none !important;}
-.academy-hero{position:relative;border-radius:20px;overflow:hidden;margin:0 0 24px;min-height:56vh;display:flex;align-items:flex-end;
+#s1 .sl-body.development-shell{overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0;}
+.academy-hero{position:relative;border-radius:20px;overflow:hidden;margin:0 0 24px;min-height:44vh;display:flex;align-items:flex-end;border:1px solid rgba(46,139,87,0.25);box-shadow:0 24px 48px rgba(0,0,0,0.4);
   background-image:
     linear-gradient(180deg, rgba(0,0,0,0.38) 0%, rgba(0,0,0,0.5) 45%, rgba(0,0,0,0.85) 100%),
     linear-gradient(0deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.15) 55%),
     url("../../assets/donau/images/academy-hero.jpg");
-  background-size:cover;background-position:center 30%;}
-.academy-hero-inner{padding:30px 32px;}
+  background-size:cover;background-position:center 12%;}
+.academy-hero-inner{border-left:3px solid var(--green);padding:30px 32px 26px 22px;margin:0 0 0 26px;}
 .academy-hero-kicker{font-family:'Barlow Condensed',sans-serif;font-size:.72rem;letter-spacing:.34em;text-transform:uppercase;color:var(--green);font-weight:700;margin-bottom:10px;}
 .academy-hero-title{font-family:'Barlow Condensed',sans-serif;font-size:clamp(2.6rem,7vw,4.2rem);line-height:.92;color:#fff;font-weight:900;text-transform:uppercase;letter-spacing:.04em;margin:0 0 12px;}
 .academy-hero-sub{font-size:1.02rem;color:#e9ece9;max-width:560px;line-height:1.55;margin:0;}
@@ -434,8 +435,8 @@
 .ltpd-moveup li { color: #dfe5df; font-size: .85rem; line-height: 1.6; margin-left: 16px; }
 .dev-focus-kicker{font-family:'Barlow Condensed',sans-serif;color:var(--green);}
 @media(max-width:700px){
-  .academy-hero{min-height:46vh;background-position:center 24%;}
-  .academy-hero-inner{padding:20px 18px;}
+  .academy-hero{min-height:40vh;background-position:center 12%;}
+  .academy-hero-inner{margin:0 0 0 18px;padding:20px 18px 20px 16px;}
 }
 </style>
 </head>
