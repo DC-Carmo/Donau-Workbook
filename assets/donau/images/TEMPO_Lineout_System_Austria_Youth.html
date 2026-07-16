@@ -741,6 +741,35 @@ html, body {
   }
 }
 </style>
+<style>
+/* ── Premium type scale override ── */
+/* Top bar */
+#tnav .nb, #topnav button { font-size: .84rem !important; color: #c9c9d2; }
+#tnav .nb .nn, #topnav button .n { font-size: .68rem !important; opacity: .85; }
+.bt, #brand-text .team { font-size: .8rem !important; }
+.bp, #brand-text .prog { font-size: .64rem !important; }
+.cr, #credits .cr { font-size: .68rem !important; }
+/* Active tab stays brightest */
+#tnav .nb.on, #topnav button.on { color: #ffffff !important; }
+
+/* Content */
+.panel p, #content p, p { font-size: .95rem !important; line-height: 1.65; }
+.panel li, #content li, li { font-size: .92rem !important; line-height: 1.6; }
+.ft td, .ft th, td, th { font-size: .88rem !important; }
+.cdesc, .pillar p { font-size: .9rem !important; }
+.ctag2 { font-size: .68rem !important; }
+.csub { font-size: .95rem !important; }
+/* Slightly brighter body text for vividness (was #a0a0b0 / #b0b0b8) */
+.panel p, #content p { color: #c4c4cd !important; }
+
+/* Mobile: a touch larger still */
+@media (max-width: 700px) {
+  #tnav .nb, #topnav button { font-size: .9rem !important; }
+  .panel p, #content p, p { font-size: 1rem !important; }
+  .panel li, #content li, li { font-size: .96rem !important; }
+  .ft td, .ft th, td, th { font-size: .92rem !important; }
+}
+</style>
 </head>
 <body>
 <div id="app" class="tempo-system-embedded">
