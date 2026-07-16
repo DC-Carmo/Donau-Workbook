@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Donau Academy – Player Development</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="../../css/base.css?v=20260609h">
+<link rel="stylesheet" href="../../css/overlays.css?v=20260609b">
+<link rel="stylesheet" href="../../css/components.css?v=20260609">
+<link rel="stylesheet" href="../../css/platform.css?v=20260609">
+<link rel="stylesheet" href="dev.css">
+
+<style>
+#s4 .sl-header .tag {
+  border-color: rgba(46, 139, 87, 0.34);
+  color: rgba(240, 244, 240, 0.84);
+  background: rgba(46, 139, 87, 0.08);
+}
+
+#s4 .sl-body {
+  gap: 16px;
+  background: transparent;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+}
+
+#s4 .lineout-left,
+#s4 .lineout-right {
+  position: relative;
+  border: 1px solid rgba(46, 139, 87, 0.16);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(13, 32, 54, 0.96), rgba(8, 25, 41, 0.98)),
+    radial-gradient(circle at top left, rgba(46, 139, 87, 0.12), transparent 28%);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.24);
+}
+
+#s4 .lineout-left::before,
+#s4 .lineout-right::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  pointer-events: none;
+  background:
+    linear-gradient(140deg, rgba(46, 139, 87, 0.08), transparent 36%, transparent 76%, rgba(214, 181, 111, 0.05)),
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: auto, 44px 44px, 44px 44px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.4));
+}
+
+#s4 .lineout-left { padding: 24px; gap: 14px; }
+#s4 .lineout-right { padding: 22px; gap: 16px; }
+
+#s4 .lineout-kicker {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 2.6px;
+  text-transform: uppercase;
+  color: rgba(160, 185, 200, 0.7);
+}
+
+#s4 .lo-system-card {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid rgba(46, 139, 87, 0.2);
+  padding: 22px 22px 20px;
+  background: linear-gradient(180deg, rgba(16, 37, 64, 0.96), rgba(11, 28, 47, 0.98));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 18px 42px rgba(0,0,0,0.18);
+}
+
+#s4 .lo-system-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(46, 139, 87, 0.12), transparent 34%, transparent 74%, rgba(214, 181, 111, 0.05));
+}
+
+#s4 .lo-system-card::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 20px;
+  bottom: 20px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: linear-gradient(180deg, rgba(46, 139, 87, 0.95), rgba(214, 181, 111, 0.5));
+}
+
+#s4 .lo-system-primary { border-color: rgba(46, 139, 87, 0.3); background: linear-gradient(180deg, rgba(18, 42, 68, 0.98), rgba(12, 30, 50, 0.99)); }
+#s4 .lo-system-secondary { border-color: rgba(214, 181, 111, 0.18); background: linear-gradient(180deg, rgba(14, 32, 52, 0.98), rgba(10, 24, 41, 0.99)); }
+
+#s4 .lo-system-header,
+#s4 .lo-system-desc,
+#s4 .lo-system-meta,
+#s4 .lo-system-btn { position: relative; z-index: 1; }
+
+#s4 .lo-system-badges,
+#s4 .lo-system-meta { display: flex; flex-wrap: wrap; gap: 8px; }
+
+#s4 .lo-system-badge,
+#s4 .lo-system-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(46, 139, 87, 0.26);
+  background: rgba(46, 139, 87, 0.08);
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+#s4 .lo-system-badge-secondary { border-color: rgba(214, 181, 111, 0.28); background: rgba(214, 181, 111, 0.08); }
+#s4 .lo-system-badge-active { border-color: rgba(46, 139, 87, 0.4); background: rgba(46, 139, 87, 0.16); }
+
+#s4 .lo-system-name {
+  margin-top: 12px;
+  font-family: "Anton", sans-serif;
+  font-size: clamp(2.2rem, 4vw, 3rem);
+  line-height: 0.95;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+#s4 .lo-system-subtitle {
+  margin-top: 8px;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.92rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(240, 244, 240, 0.8);
+}
+
+#s4 .lo-system-desc p { margin: 14px 0 16px; max-width: none; color: rgba(240, 244, 240, 0.78); font-size: 0.94rem; line-height: 1.7; }
+
+#s4 .lo-system-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 18px;
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+#s4 .lo-system-btn:hover { transform: translateY(-1px); }
+
+#s4 .lo-system-btn-primary {
+  border: 1px solid rgba(46, 139, 87, 0.36);
+  background: linear-gradient(180deg, rgba(46, 139, 87, 0.24), rgba(46, 139, 87, 0.14));
+  color: var(--text);
+  box-shadow: 0 12px 28px rgba(46, 139, 87, 0.14);
+}
+
+#s4 .lo-system-btn-primary:hover { border-color: rgba(46, 139, 87, 0.5); background: linear-gradient(180deg, rgba(46, 139, 87, 0.3), rgba(46, 139, 87, 0.18)); }
+
+#s4 .lo-system-btn-secondary {
+  border: 1px solid rgba(214, 181, 111, 0.28);
+  background: linear-gradient(180deg, rgba(214, 181, 111, 0.16), rgba(214, 181, 111, 0.08));
+  color: var(--text);
+  box-shadow: 0 12px 28px rgba(214, 181, 111, 0.08);
+}
+
+#s4 .lo-system-btn-secondary:hover { border-color: rgba(214, 181, 111, 0.42); background: linear-gradient(180deg, rgba(214, 181, 111, 0.22), rgba(214, 181, 111, 0.1)); }
+
+#s4 .lineout-panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(46, 139, 87, 0.18);
+  background: linear-gradient(180deg, rgba(15, 35, 57, 0.96), rgba(10, 25, 41, 0.98));
+  padding: 18px 18px 16px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02), 0 14px 32px rgba(0,0,0,0.16);
+}
+
+#s4 .lineout-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(140deg, rgba(46, 139, 87, 0.08), transparent 40%, rgba(255,255,255,0.02));
+}
+
+#s4 .success-block h4,
+#s4 .fc-title {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 14px;
+  color: rgba(160, 185, 200, 0.84);
+}
+
+#s4 .success-metrics { position: relative; z-index: 1; gap: 12px; }
+
+#s4 .s-metric {
+  padding: 14px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(46, 139, 87, 0.14);
+  background: rgba(46, 139, 87, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+#s4 .s-metric .sv { font-size: 2.15rem; line-height: 1; letter-spacing: 1px; color: #4aba7a; }
+#s4 .s-metric .sl { display: block; margin-top: 6px; font-size: 0.66rem; line-height: 1.45; color: rgba(160, 185, 200, 0.72); }
+
+#s4 .code-list { position: relative; z-index: 1; }
+#s4 .code-row { gap: 14px; align-items: flex-start; padding: 9px 0; }
+#s4 .code-key { flex: 0 0 42px; display: inline-flex; align-items: center; justify-content: center; min-height: 28px; border-radius: 999px; border: 1px solid rgba(46, 139, 87, 0.22); background: rgba(46, 139, 87, 0.12); color: var(--text); letter-spacing: 1.2px; }
+#s4 .code-desc { flex: 1 1 auto; text-align: left; line-height: 1.55; color: rgba(240, 244, 240, 0.74); }
+
+#s4 .technique-list { position: relative; z-index: 1; counter-reset: lineout-steps; gap: 10px; }
+
+#s4 .tech-item {
+  position: relative;
+  align-items: center;
+  gap: 14px;
+  min-height: 58px;
+  padding: 12px 14px 12px 56px;
+  border-radius: 14px;
+  background: rgba(46, 139, 87, 0.06);
+}
+
+#s4 .tech-item::before {
+  counter-increment: lineout-steps;
+  content: counter(lineout-steps);
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid rgba(46, 139, 87, 0.3);
+  background: rgba(46, 139, 87, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text);
+}
+
+#s4 .tech-icon { width: 18px; margin-top: 0; opacity: 0.9; }
+#s4 .tech-text { color: rgba(240, 244, 240, 0.76); font-size: 0.84rem; line-height: 1.55; }
+
+.lineout-system-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(4, 8, 12, 0.96);
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease;
+}
+
+.lineout-system-overlay.open { opacity: 1; pointer-events: all; }
+
+.lso-topbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 20px;
+  background: linear-gradient(180deg, rgba(8, 25, 41, 0.98), rgba(6, 18, 30, 0.98));
+  border-bottom: 1px solid rgba(46, 139, 87, 0.22);
+}
+
+.lso-title { font-family: "Barlow Condensed", sans-serif; font-size: 0.88rem; font-weight: 700; letter-spacing: 2.4px; text-transform: uppercase; color: var(--text); }
+.lso-close { width: 38px; height: 38px; border-radius: 50%; border: 1px solid rgba(46, 139, 87, 0.24); background: rgba(255, 255, 255, 0.04); color: var(--text); font-size: 1.2rem; cursor: pointer; }
+.lso-frame { flex: 1; width: 100%; border: none; background: #fff; }
+
+@media (max-width: 768px) {
+  #s4 .sl-body { grid-template-columns: 1fr; gap: 14px; }
+  #s4 .lineout-left, #s4 .lineout-right { padding: 18px 16px; border-radius: 18px; }
+  #s4 .lo-system-card { padding: 18px 16px 16px; border-radius: 18px; }
+  #s4 .lo-system-name { font-size: 2rem; }
+  #s4 .success-metrics { grid-template-columns: 1fr 1fr; }
+  #s4 .code-row { flex-direction: column; align-items: stretch; }
+  #s4 .code-key { align-self: flex-start; }
+  #s4 .tech-item { padding: 12px 12px 12px 52px; }
+  #s4 .lo-system-btn { min-height: 50px; }
+}
+
+.lo-shell { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 0 28px; flex: 1; min-height: 0; align-items: stretch; align-content: center; order: 2; }
+
+.lo-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  border: 1px solid rgba(46,139,87,0.18);
+  background: linear-gradient(160deg, rgba(12,28,18,0.99) 0%, rgba(6,16,10,0.99) 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 28px 56px rgba(0,0,0,0.45), 0 4px 8px rgba(0,0,0,0.25);
+  overflow: hidden;
+  transition: border-color 220ms ease, box-shadow 220ms ease, transform 200ms ease;
+}
+
+.lo-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(20,90,50,0.6) 0%, rgba(46,139,87,1) 45%, rgba(100,210,140,0.7) 100%);
+  border-radius: 20px 20px 0 0;
+}
+
+.lo-card:hover { border-color: rgba(46,139,87,0.38); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 36px 72px rgba(0,0,0,0.5), 0 0 48px rgba(46,139,87,0.1); transform: translateY(-2px); }
+
+.lo-card-glow { position: absolute; top: -80px; left: -80px; width: 280px; height: 280px; border-radius: 50%; background: radial-gradient(circle, rgba(46,139,87,0.14) 0%, transparent 68%); pointer-events: none; }
+.lo-card-wm { position: absolute; right: -10px; bottom: -20px; font-family: "Bebas Neue", "Anton", sans-serif; font-size: clamp(7rem,12vw,10rem); line-height: 1; letter-spacing: -4px; color: rgba(46,139,87,0.06); pointer-events: none; user-select: none; }
+.lo-card-content { position: relative; z-index: 1; display: flex; flex-direction: column; flex: 1; padding: 24px 26px 22px; }
+.lo-card-tags { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+
+.lo-tag { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-family: "Barlow Condensed", sans-serif; font-size: 0.6rem; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; }
+.lo-tag-green { border: 1px solid rgba(46,139,87,0.42); background: rgba(46,139,87,0.1); color: rgba(110,210,150,0.9); }
+.lo-tag-dim { border: 1px solid rgba(255,255,255,0.09); background: rgba(255,255,255,0.03); color: rgba(180,195,185,0.45); }
+
+.lo-card-name { font-family: "Bebas Neue", "Anton", sans-serif; font-size: clamp(3.2rem,5.5vw,4.6rem); line-height: 0.9; letter-spacing: 3px; text-transform: uppercase; background: linear-gradient(130deg, #ffffff 0%, rgba(195,240,215,0.92) 55%, rgba(46,139,87,0.85) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 9px; }
+.lo-card-sub { font-family: "Barlow Condensed", sans-serif; font-size: 0.75rem; letter-spacing: 1.9px; text-transform: uppercase; color: rgba(110,195,145,0.65); margin-bottom: 14px; }
+.lo-card-desc { font-size: 0.84rem; line-height: 1.68; color: rgba(190,210,198,0.58); margin-bottom: 18px; flex: 1; }
+
+.lo-chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+.lo-chip { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 7px; border: 1px solid rgba(46,139,87,0.22); background: rgba(46,139,87,0.07); font-family: "Barlow Condensed", sans-serif; font-size: 0.62rem; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: rgba(130,210,165,0.75); }
+
+.lo-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 52px;
+  border-radius: 13px; border: 1px solid rgba(46,139,87,0.55);
+  background: linear-gradient(140deg, rgba(22,95,54,0.95) 0%, rgba(46,139,87,0.9) 48%, rgba(28,108,62,0.95) 100%);
+  color: rgba(215,255,232,0.96); font-family: "Barlow Condensed", sans-serif; font-size: 0.84rem; font-weight: 700; letter-spacing: 2.4px; text-transform: uppercase; cursor: pointer;
+  box-shadow: 0 10px 28px rgba(46,139,87,0.28), inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -1px 0 rgba(0,0,0,0.15);
+  transition: box-shadow 180ms ease, transform 180ms ease, background 180ms ease;
+}
+.lo-btn:hover { background: linear-gradient(140deg, rgba(30,115,66,1) 0%, rgba(58,168,104,0.98) 48%, rgba(36,130,75,1) 100%); box-shadow: 0 16px 40px rgba(46,139,87,0.38), inset 0 1px 0 rgba(255,255,255,0.18); transform: translateY(-1px); }
+.lo-btn:active { transform: translateY(0); }
+
+.lo-kpi-bar { display: flex; align-items: stretch; justify-content: center; padding: 10px 28px; flex-shrink: 0; gap: 0; order: 1; background: rgba(46,139,87,0.06); border: 1px solid rgba(46,139,87,0.14); border-radius: 14px; margin: 0 28px 8px; }
+.lo-kpi-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 0; }
+.lo-kpi-num { font-family: "Bebas Neue", "Anton", sans-serif; font-size: 2rem; line-height: 1; letter-spacing: 1px; color: rgba(90,210,140,1); }
+.lo-kpi-lbl { font-family: "Barlow Condensed", sans-serif; font-size: 0.6rem; letter-spacing: 1.6px; text-transform: uppercase; color: rgba(170,210,185,0.75); }
+.lo-kpi-sep { width: 1px; align-self: stretch; margin: 8px 0; background: rgba(46,139,87,0.22); flex-shrink: 0; }
+
+.lso-topbar { background: linear-gradient(180deg, rgba(6,18,10,0.99), rgba(4,12,7,0.99)) !important; border-bottom: 1px solid rgba(46,139,87,0.22) !important; padding: 10px 20px !important; }
+.lso-title { font-family: "Barlow Condensed", sans-serif !important; font-size: 0.78rem !important; font-weight: 700 !important; letter-spacing: 2.6px !important; text-transform: uppercase !important; color: rgba(140,200,165,0.7) !important; }
+.lso-close { border: 1px solid rgba(46,139,87,0.28) !important; background: rgba(46,139,87,0.06) !important; border-radius: 50% !important; transition: background 150ms ease, border-color 150ms ease !important; }
+.lso-close:hover { background: rgba(46,139,87,0.16) !important; border-color: rgba(46,139,87,0.5) !important; }
+.dev-focus { margin: 4px 0 22px; padding: 18px 20px; border-radius: 16px; border: 1px solid rgba(46,139,87,0.28); background: linear-gradient(160deg, rgba(18,42,32,0.92), rgba(10,22,16,0.96)); }
+.dev-focus-kicker { font-size: .66rem; letter-spacing: .28em; text-transform: uppercase; color: #4ea87a; margin-bottom: 12px; font-weight: 700; }
+.dev-focus-input { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.14); background: rgba(0,0,0,0.28); color: #f0f0f2; font-size: .95rem; }
+.dev-focus-input::placeholder { color: #8a8a94; }
+.dev-focus-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.dev-focus-chip { padding: 7px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.16); background: transparent; color: #c8c8d0; font-size: .72rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; cursor: pointer; }
+.dev-focus-chip.on { border-color: #2e8b57; background: rgba(46,139,87,0.22); color: #eafff3; }
+.dev-focus-btn { padding: 10px 18px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.18); background: transparent; color: #e8e8ee; font-size: .82rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; cursor: pointer; }
+.dev-focus-btn-primary { border-color: #2e8b57; background: #2e8b57; color: #06140d; }
+.dev-focus-text { font-size: 1.05rem; color: #f4f4f6; font-weight: 600; line-height: 1.4; }
+.dev-focus-meta { display: flex; align-items: center; gap: 10px; margin: 10px 0 14px; flex-wrap: wrap; }
+.dev-focus-tag { padding: 4px 10px; border-radius: 999px; background: rgba(46,139,87,0.2); border: 1px solid rgba(46,139,87,0.4); color: #8fe0b4; font-size: .64rem; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; }
+.dev-focus-date { color: #9a9aa4; font-size: .72rem; }
+.dev-focus-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.dev-focus-count { margin-top: 12px; color: #6fb894; font-size: .74rem; font-weight: 600; }
+.dev-focus-done .dev-focus-text { color: #8fe0b4; }
+
+@media (max-width: 768px) {
+  .lo-shell { grid-template-columns: 1fr; padding: 0 14px; gap: 10px; overflow-y: auto; -webkit-overflow-scrolling: touch; align-content: start; }
+  .lo-card-content { padding: 16px 16px 14px; }
+  .lo-card-tags { margin-bottom: 10px; }
+  .lo-card-name { font-size: 2.2rem; margin-bottom: 6px; }
+  .lo-card-sub { font-size: 0.68rem; margin-bottom: 10px; }
+  .lo-card-desc { font-size: 0.78rem; margin-bottom: 10px; line-height: 1.55; }
+  .lo-chip-row { gap: 5px; margin-bottom: 12px; }
+  .lo-chip { font-size: 0.56rem; padding: 3px 8px; }
+  .lo-btn { min-height: 44px; font-size: 0.76rem; letter-spacing: 1.8px; }
+  .lo-kpi-bar { margin: 0 14px 8px; padding: 8px 0; }
+  .lo-kpi-num { font-size: 1.3rem; }
+  .lo-kpi-lbl { font-size: 0.52rem; }
+}
+
+@media (max-width: 430px) {
+  .lo-kpi-bar { margin: 0 10px 6px; padding: 6px 0; }
+  .lo-kpi-num { font-size: 1.1rem; }
+  .lo-kpi-lbl { font-size: 0.48rem; letter-spacing: 1px; }
+}
+
+@media (min-width: 769px) and (max-width: 900px) {
+  .lo-shell { padding: 0 18px; gap: 14px; }
+  .lo-card-content { padding: 20px 20px 18px; }
+}
+</style>
+
+<style>
+[data-mobile-nav="board"],[data-mobile-nav="playbook"],.mobile-drawer-item[data-drawer-type="board"]{display:none !important;}
+.academy-hero{position:relative;border-radius:20px;overflow:hidden;margin:0 0 22px;min-height:250px;display:flex;align-items:flex-end;background-image:linear-gradient(180deg,rgba(6,16,10,0.12) 0%,rgba(6,16,10,0.55) 55%,rgba(6,16,10,0.95) 100%),url("../../assets/donau/images/academy-hero.jpg");background-size:cover;background-position:center 28%;}
+.academy-hero-inner{padding:22px 24px;}
+.academy-hero-kicker{font-size:.66rem;letter-spacing:.26em;text-transform:uppercase;color:#8fe0b4;font-weight:700;margin-bottom:8px;}
+.academy-hero-title{font-size:clamp(1.9rem,6vw,2.8rem);line-height:1;color:#fff;font-weight:900;text-transform:uppercase;margin:0 0 8px;}
+.academy-hero-sub{color:#e6e6ec;font-size:.95rem;max-width:520px;line-height:1.5;margin:0;}
+</style>
+</head>
+
+<body>
+
+<!-- Access gating — shows modal immediately if no valid session token -->
+<script>
+window.PLAYER_ACCESS_CONFIG = { code: "DONAUACADEMY25", team: "Donau Academy", storageKey: "donau_academy_access" };
+</script>
+<script src="../../js/shared/dev-access.js"></script>
+<script src="../../js/shared/player-access.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  window.RDAPlayerAccess.protectPage();
+});
+</script>
+
+<a href="#s1" class="sr-only" id="skipLink">Skip to content</a>
+
+<div class="progress" role="progressbar" aria-valuenow="1" aria-valuemin="1" aria-valuemax="11" aria-label="Slide progress"><div class="progress-fill" id="pFill" style="width:9.09%"></div></div>
+
+
+<!-- SLIDE 1: COVER -->
+
+<div class="slide active" id="s1">
+
+  <div class="topbar">
+    <div class="topbar-logo" onclick="goTo(1)"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Donau Academy</div><div class="topbar-sub">Player Development &middot; Development</div></div></div>
+    <div class="topbar-right"><div class="motto">Growth &middot; <span>Habits</span> &middot; Club Support</div><div class="slide-num">01 / 05</div></div>
+  </div>
+
+  <div class="sl-header fadeup">
+    <h2 class="section">Development</h2>
+    <div class="tag">Off-Pitch Standards</div>
+  </div>
+
+  <div class="sl-body development-shell">
+    <div class="dev-hub-layout">
+<div class="academy-hero fadeup">
+  <div class="academy-hero-inner">
+    <div class="academy-hero-kicker">Donau Academy</div>
+    <div class="academy-hero-title">Your game starts here</div>
+    <div class="academy-hero-sub">Your development home &mdash; find your next step and keep growing, one week at a time.</div>
+  </div>
+</div>
+
+      <div class="dev-hub-intro fadeup">
+        <p class="dev-hub-lead">Every player develops at their own pace. Explore the areas that matter most to your game right now.</p>
+      </div>
+
+      <div class="dev-focus fadeup" id="devFocus"></div>
+
+      <div class="dev-hub-grid fadeup" id="devHubGrid">
+        <button class="dev-hub-card" type="button" onclick="goTo(2)" aria-label="Skills and Tactics">
+          <div class="dev-hub-card-icon">&#127919;</div>
+          <div class="dev-hub-card-label">Skills &amp; Tactics</div>
+          <div class="dev-hub-card-sub">LTPD Stage Pathway</div>
+        </button>
+        <button class="dev-hub-card" type="button" onclick="goTo(4)" aria-label="Body">
+          <div class="dev-hub-card-icon">&#9889;</div>
+          <div class="dev-hub-card-label">Body</div>
+          <div class="dev-hub-card-sub">Athletic Development</div>
+        </button>
+        <button class="dev-hub-card" type="button" onclick="goTo(3)" aria-label="Fuel">
+          <div class="dev-hub-card-icon">&#129367;</div>
+          <div class="dev-hub-card-label">Fuel</div>
+          <div class="dev-hub-card-sub">Nutrition &amp; Recovery</div>
+        </button>
+        <button class="dev-hub-card" type="button" onclick="goTo(5)" aria-label="Mind and Life">
+          <div class="dev-hub-card-icon">&#129504;</div>
+          <div class="dev-hub-card-label">Mind &amp; Life</div>
+          <div class="dev-hub-card-sub">Wellbeing &amp; Mental Performance</div>
+        </button>
+      </div>
+
+      <div class="dev-hub-source fadeup">
+        <span>Based on World Rugby LTPD Passport · IRFU Athletic Performance Resource · Applied Sport Science for Age-Grade Rugby</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- SLIDE 8: PLAYER PATHWAY -->
+
+<div class="slide" id="s2">
+
+  <div class="topbar">
+    <div class="topbar-logo" onclick="goTo(1)"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Donau Academy</div><div class="topbar-sub">Development &middot; Player Pathway</div></div></div>
+    <div class="topbar-right"><div class="motto">Progression &middot; <span>Readiness</span> &middot; Continuity</div><div class="slide-num">02 / 05</div></div>
+  </div>
+
+  <div class="sl-header fadeup">
+    <h2 class="section">Player Pathway</h2>
+    <div class="tag">Progression Standards</div>
+  </div>
+
+  <div class="sl-body module-shell">
+    <div class="ltpd-layout fadeup">
+      <div class="ltpd-stage-rail" id="ltpdStageRail" role="tablist" aria-label="Age Stage"></div>
+      <div class="ltpd-body">
+        <div class="ltpd-stage-meta" id="ltpdStageMeta"></div>
+        <div class="ltpd-domain-tabs" id="ltpdDomainTabs" role="tablist" aria-label="Development Domain"></div>
+        <div class="ltpd-principles" id="ltpdPrinciples"></div>
+      </div>
+      <div class="ltpd-source fadeup">
+        <span>Source: World Rugby LTPD Passport - Ages and Stages Summary · Train to Train · Train to Compete and Win</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- SLIDE 9: FUEL & RECOVERY -->
+
+<div class="slide" id="s3">
+
+  <div class="topbar">
+    <div class="topbar-logo" onclick="goTo(1)"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Donau Academy</div><div class="topbar-sub">Development &middot; Fuel &amp; Recovery</div></div></div>
+    <div class="topbar-right"><div class="motto">Habits &middot; <span>Fuel</span> &middot; Recovery</div><div class="slide-num">03 / 05</div></div>
+  </div>
+
+  <div class="sl-header fadeup">
+    <h2 class="section">Fuel &amp; Recovery</h2>
+    <div class="tag">Fuel &amp; Habits</div>
+  </div>
+
+  <div class="sl-body module-shell">
+    <div class="fuel-layout fadeup">
+      <div class="fuel-timeline" id="fuelTimeline"></div>
+      <div class="fuel-stats" id="fuelStats"></div>
+      <div class="fuel-source fadeup">
+        <span>Source: World Rugby Passport - Nutrition · Rehydration and Refuelling</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- SLIDE 10: ATHLETIC DEVELOPMENT -->
+
+<div class="slide" id="s4">
+
+  <div class="topbar">
+    <div class="topbar-logo" onclick="goTo(1)"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Donau Academy</div><div class="topbar-sub">Development &middot; Athletic Development</div></div></div>
+    <div class="topbar-right"><div class="motto">Movement &middot; <span>Strength</span> &middot; Readiness</div><div class="slide-num">04 / 05</div></div>
+  </div>
+
+  <div class="sl-header fadeup">
+    <h2 class="section">Athletic Development</h2>
+    <div class="tag">Athletic Framework</div>
+  </div>
+
+  <div class="sl-body module-shell">
+    <div class="athletic-layout fadeup">
+      <div class="athletic-pillars" id="athleticPillars"></div>
+      <div class="athletic-period" id="athleticPeriod"></div>
+      <div class="athletic-source fadeup">
+        <span>Source: World Rugby S&amp;C Passport · Applied Sport Science for Age-Grade Rugby Union in England (BMC Sports Med)</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- SLIDE 11: PLAYER WELLBEING -->
+
+<div class="slide" id="s5">
+
+  <div class="topbar">
+    <div class="topbar-logo" onclick="goTo(1)"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Donau Academy</div><div class="topbar-sub">Development &middot; Player Wellbeing</div></div></div>
+    <div class="topbar-right"><div class="motto">Recovery &middot; <span>Sleep</span> &middot; Balance</div><div class="slide-num">05 / 05</div></div>
+  </div>
+
+  <div class="sl-header fadeup">
+    <h2 class="section">Player Wellbeing</h2>
+    <div class="tag">Recovery &amp; Balance</div>
+  </div>
+
+  <div class="sl-body module-shell">
+    <div class="recovery-layout fadeup">
+      <div class="recovery-quadrant" id="recoveryQuadrant"></div>
+      <div class="mental-cards" id="mentalCards"></div>
+      <div class="recovery-source fadeup">
+        <span>Source: IRFU Athletic Performance Resource · World Rugby LTPD · Applied Sport Science for Age-Grade Rugby</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- OVERLAYS -->
+
+<!-- OVERLAY: MEET THE COACH -->
+<div class="overlay" id="ovCoach" role="dialog" aria-modal="true" aria-label="Meet the Coach">
+  <div class="overlay-topbar">
+    <div class="ov-title">Meet the Coach</div>
+    <button class="overlay-close" onclick="closeOverlay('ovCoach')" aria-label="Close">&times;</button>
+  </div>
+  <div class="overlay-body">
+
+    <div class="ov-name">Hi, I'm Mato</div>
+
+    <div class="coach-layout">
+
+      <div class="coach-photo">
+        <img src="../../assets/donau/images/Coach Intro.jpg" alt="Coach Mato"/>
+      </div>
+
+      <div class="coach-content">
+
+        <div>
+          <div class="ov-section-label">Quick Facts</div>
+
+          <div class="ov-fact-item">
+            <strong>Coaching Experience</strong>
+            <p>I have worked with refugee communities and in the favelas of Brazil, using sport as a tool for development and inclusion.</p>
+            <p style="margin-top:8px;">I have been coaching at Donau for nearly a decade across multiple age groups. Currently coaching the Second and Third teams, the U18 squad, and Head Coach of the U18 National Team.</p>
+          </div>
+
+          <div class="ov-fact-item">
+            <strong>What Being a Pirate Means to Me</strong>
+            <p>Being a Pirate means being part of a family. For a period of my life, this club was not only my team, but also my home. For that, I will always be deeply grateful.</p>
+          </div>
+        </div>
+
+        <div style="margin-top:28px;">
+          <div class="ov-section-label">Coaching Philosophy</div>
+
+          <div class="ov-pull">All sports involve teamwork, but rugby is built on it. Teamwork is the essence of the game.</div>
+
+          <div class="ov-fact-item">
+            <strong>My goal is to create an environment where every player:</strong>
+            <ul>
+              <li>feels a strong sense of purpose</li>
+              <li>understands their role</li>
+              <li>supports one another</li>
+              <li>grows together as a team</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- NAVIGATION -->
+
+<nav class="nav" aria-label="Slide navigation">
+  <button class="nav-btn" id="prevBtn" onclick="changeSlide(-1)" disabled aria-label="Previous slide">&#8249;&#xFE0E; PREV</button>
+  <div class="dots" id="dots" role="tablist" aria-label="Slide selector"></div>
+  <button class="nav-btn" id="nextBtn" onclick="changeSlide(1)" aria-label="Next slide">NEXT &#8250;&#xFE0E;</button>
+</nav>
+
+
+<script>window.DONAU_ASSET_BASE = "../../assets/donau/";</script>
+<script src="../../data/donau/content.js"></script>
+<script src="../../js/shared/ui-helpers.js"></script>
+<script>if(window.DONAU_DATA){window.DONAU_DATA.workspaceSections=[{slide:1,group:"Academy",shortLabel:"Home",title:"Development"},{slide:2,group:"Academy",shortLabel:"Pathway",title:"Player Pathway"},{slide:3,group:"Academy",shortLabel:"Fuel",title:"Fuel & Recovery"},{slide:4,group:"Academy",shortLabel:"Athletic",title:"Athletic Development"},{slide:5,group:"Academy",shortLabel:"Mind",title:"Player Wellbeing"}];}</script>
+<script src="../../js/core/app.js?v=20260609-manualscroll"></script>
+
+<script>
+window.DONAU_LINEOUT_SYSTEMS = {
+  tempo: "../../assets/donau/images/TEMPO_Lineout_System_Austria_Youth.html",
+  spark: "../../assets/donau/images/Spark-lineout_manual.html"
+};
+</script>
+
+
+<!-- Field Image Lightbox -->
+<div class="field-lightbox" id="fieldLightbox" onclick="closeFieldLightbox(event)">
+  <div class="field-lightbox-inner">
+    <button class="field-lightbox-close" onclick="closeFieldLightbox()" aria-label="Close">&times;</button>
+    <img id="fieldLightboxImg" src="" alt=""/>
+  </div>
+</div>
+
+<div id="lineoutSystemOverlay" class="lineout-system-overlay" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Lineout System">
+  <div class="lso-topbar">
+    <div class="lso-title" id="lsoTitle">Lineout System</div>
+    <button class="lso-close" onclick="closeLineoutSystem()" aria-label="Close">&times;</button>
+  </div>
+  <iframe id="lineoutSystemFrame" class="lso-frame" src="" title="Lineout System"></iframe>
+</div>
+
+<script>
+function openLineoutSystem(system) {
+  var overlay = document.getElementById('lineoutSystemOverlay');
+  var frame = document.getElementById('lineoutSystemFrame');
+  var title = document.getElementById('lsoTitle');
+  var path = window.DONAU_LINEOUT_SYSTEMS && window.DONAU_LINEOUT_SYSTEMS[system];
+  if (!overlay || !frame || !path) return;
+  frame.src = path;
+  title.textContent = system === 'tempo' ? 'TEMPO — Lineout System' : 'SPARK — Lineout Manual';
+  overlay.classList.add('open');
+  overlay.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('overlay-active');
+}
+
+function closeLineoutSystem() {
+  var overlay = document.getElementById('lineoutSystemOverlay');
+  var frame = document.getElementById('lineoutSystemFrame');
+  if (!overlay) return;
+  overlay.classList.remove('open');
+  overlay.setAttribute('aria-hidden', 'true');
+  if (frame) setTimeout(function() { frame.src = ''; }, 180);
+  if (!document.querySelector('.overlay.open')) {
+    document.body.classList.remove('overlay-active');
+  }
+}
+</script>
+
+<script>
+(function () {
+  var D = window.DONAU_PLAYER_DEV;
+  if (!D) return;
+
+  var ltpdState = { stageIdx: 1, domain: "technical" };
+
+  function renderLTPD() {
+    var stages = D.ltpd;
+    var stage = stages[ltpdState.stageIdx];
+    var domains = ["technical", "tactical", "physical", "mental", "lifestyle"];
+    var domLabels = {
+      technical: "Technical",
+      tactical: "Tactical",
+      physical: "Physical",
+      mental: "Mental",
+      lifestyle: "Lifestyle"
+    };
+
+    var rail = document.getElementById("ltpdStageRail");
+    if (rail) {
+      rail.innerHTML = stages.map(function (s, i) {
+        return '<button class="ltpd-stage-btn' + (i === ltpdState.stageIdx ? ' active' : '') + '" role="tab" aria-selected="' + (i === ltpdState.stageIdx) + '" type="button" onclick="window.__devSwitchStage(' + i + ')">' + s.stage + "</button>";
+      }).join("");
+    }
+
+    var meta = document.getElementById("ltpdStageMeta");
+    if (meta) {
+      meta.innerHTML = '<div class="ltpd-ratio"><span class="ltpd-ratio-num">' + stage.ratio + '</span><span class="ltpd-ratio-label">Train : Match</span></div>'
+        + '<div class="ltpd-focus-label">' + stage.label + " - " + stage.focus + "</div>";
+    }
+
+    var tabs = document.getElementById("ltpdDomainTabs");
+    if (tabs) {
+      tabs.innerHTML = domains.map(function (d) {
+        return '<button class="ltpd-domain-tab' + (d === ltpdState.domain ? ' active' : '') + '" role="tab" aria-selected="' + (d === ltpdState.domain) + '" type="button" onclick="window.__devSwitchDomain(\'' + d + '\')">' + domLabels[d] + "</button>";
+      }).join("");
+    }
+
+    var principles = document.getElementById("ltpdPrinciples");
+    if (principles) {
+      var items = stage.domains[ltpdState.domain] || [];
+      principles.innerHTML = '<ol class="ltpd-principle-list">'
+        + items.map(function (p, i) {
+          return '<li class="ltpd-principle-item"><span class="ltpd-principle-num">0' + (i + 1) + "</span><span>" + p + "</span></li>";
+        }).join("")
+        + "</ol>";
+    }
+  }
+
+  window.__devSwitchStage = function (i) {
+    ltpdState.stageIdx = i;
+    renderLTPD();
+  };
+
+  window.__devSwitchDomain = function (d) {
+    ltpdState.domain = d;
+    renderLTPD();
+  };
+
+  function renderFuel() {
+    var timeline = document.getElementById("fuelTimeline");
+    if (timeline) {
+      timeline.innerHTML = '<div class="fuel-windows">'
+        + D.nutrition.windows.map(function (w) {
+          return '<div class="fuel-window">'
+            + '<div class="fuel-window-hdr"><span class="fuel-window-icon">' + w.icon + '</span><span class="fuel-window-label">' + w.label + '</span><span class="fuel-window-time">' + w.time + "</span></div>"
+            + '<div class="fuel-window-headline">' + w.headline + "</div>"
+            + '<ul class="fuel-window-list">' + w.points.map(function (p) {
+              return "<li>" + p + "</li>";
+            }).join("") + "</ul>"
+            + "</div>";
+        }).join("")
+        + "</div>";
+    }
+
+    var stats = document.getElementById("fuelStats");
+    if (stats) {
+      stats.innerHTML = '<div class="fuel-stat-row">'
+        + D.nutrition.stats.map(function (s) {
+          return '<div class="fuel-stat"><div class="fuel-stat-value">' + s.value + '</div><div class="fuel-stat-label">' + s.label + '</div><div class="fuel-stat-sub">' + s.sub + "</div></div>";
+        }).join("")
+        + "</div>";
+    }
+  }
+
+  function renderAthletic() {
+    var pillars = document.getElementById("athleticPillars");
+    if (pillars) {
+      pillars.innerHTML = '<div class="athletic-pillar-grid">'
+        + D.athletic.pillars.map(function (p) {
+          return '<div class="athletic-pillar">'
+            + '<div class="athletic-pillar-hdr"><span class="athletic-pillar-icon">' + p.icon + '</span><span class="athletic-pillar-label">' + p.label + "</span></div>"
+            + '<div class="athletic-pillar-headline">' + p.headline + "</div>"
+            + '<ul class="athletic-pillar-list">' + p.points.map(function (point) {
+              return "<li>" + point + "</li>";
+            }).join("") + "</ul>"
+            + "</div>";
+        }).join("")
+        + "</div>";
+    }
+
+    var period = document.getElementById("athleticPeriod");
+    if (period) {
+      period.innerHTML = '<div class="period-label-row">Simple yearly periodisation</div><div class="period-strip">'
+        + D.athletic.periodisation.map(function (p) {
+          return '<div class="period-phase"><div class="period-phase-name">' + p.phase + '</div><div class="period-phase-focus">' + p.focus + '</div><div class="period-phase-desc">' + p.desc + "</div></div>";
+        }).join("")
+        + "</div>";
+    }
+  }
+
+  function renderRecovery() {
+    var quadrant = document.getElementById("recoveryQuadrant");
+    if (quadrant) {
+      quadrant.innerHTML = '<div class="recovery-grid">'
+        + D.recovery.quadrant.map(function (q) {
+          return '<div class="recovery-cell recovery-cell-' + q.color + '">'
+            + '<div class="recovery-cell-hdr"><span class="recovery-cell-icon">' + q.icon + '</span><span class="recovery-cell-label">' + q.label + "</span></div>"
+            + '<div class="recovery-cell-headline">' + q.headline + "</div>"
+            + '<ul class="recovery-cell-list">' + q.points.map(function (point) {
+              return "<li>" + point + "</li>";
+            }).join("") + "</ul>"
+            + "</div>";
+        }).join("")
+        + "</div>";
+    }
+
+    var mental = document.getElementById("mentalCards");
+    if (mental) {
+      mental.innerHTML = '<div class="mental-cards-label">Mental performance foundations</div><div class="mental-cards-grid">'
+        + D.recovery.mentalCards.map(function (c) {
+          return '<div class="mental-card"><div class="mental-card-label">' + c.label + '</div><div class="mental-card-headline">' + c.headline + '</div><p class="mental-card-body">' + c.body + "</p></div>";
+        }).join("")
+        + "</div>";
+    }
+  }
+
+  function initDev() {
+    renderLTPD();
+    renderFuel();
+    renderAthletic();
+    renderRecovery();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initDev);
+  } else {
+    initDev();
+  }
+})();
+</script>
+
+<script>
+(function(){
+  var KEY = 'donau_player_focus';
+  var AREAS = [
+    {id:'skills', label:'Skills & Tactics'},
+    {id:'body', label:'Body'},
+    {id:'fuel', label:'Fuel'},
+    {id:'mind', label:'Mind & Life'}
+  ];
+  var editing = false;
+  function load(){ try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e){ return {}; } }
+  function save(s){ try { localStorage.setItem(KEY, JSON.stringify(s)); } catch(e){} }
+  function esc(t){ var d = document.createElement('div'); d.textContent = t || ''; return d.innerHTML; }
+  function fmtDate(iso){ try { return new Date(iso).toLocaleDateString(undefined, {day:'numeric', month:'short'}); } catch(e){ return ''; } }
+  function areaLabel(id){ for (var i=0;i<AREAS.length;i++){ if (AREAS[i].id===id) return AREAS[i].label; } return ''; }
+
+  window.pickFocusArea = function(el){
+    var chips = document.querySelectorAll('#devFocus .dev-focus-chip');
+    for (var i=0;i<chips.length;i++) chips[i].classList.remove('on');
+    el.classList.add('on');
+  };
+  window.setPlayerFocus = function(){
+    var inp = document.getElementById('devFocusInput');
+    var text = (inp && inp.value || '').trim();
+    if (!text){ if (inp) inp.focus(); return; }
+    var area = document.querySelector('#devFocus .dev-focus-chip.on');
+    var s = load();
+    s.text = text;
+    s.area = area ? area.getAttribute('data-area') : '';
+    s.setAt = new Date().toISOString();
+    s.done = false;
+    if (typeof s.completed !== 'number') s.completed = 0;
+    editing = false;
+    save(s); renderFocus();
+  };
+  window.completePlayerFocus = function(){
+    var s = load();
+    s.done = true;
+    s.completed = (s.completed || 0) + 1;
+    save(s); renderFocus();
+  };
+  window.changePlayerFocus = function(){ editing = true; renderFocus(); };
+
+  function renderFocus(){
+    var el = document.getElementById('devFocus');
+    if (!el) return;
+    var s = load();
+    var count = s.completed ? '<div class="dev-focus-count">' + s.completed + ' focus' + (s.completed === 1 ? '' : 'es') + ' completed</div>' : '';
+    if (!s.text || editing){
+      var prefill = s.text ? esc(s.text) : '';
+      var chips = AREAS.map(function(a){
+        var on = (s.area === a.id) ? ' on' : '';
+        return '<button type="button" class="dev-focus-chip' + on + '" data-area="' + a.id + '" onclick="pickFocusArea(this)">' + esc(a.label) + '</button>';
+      }).join('');
+      el.innerHTML =
+        '<div class="dev-focus-kicker">My focus this week</div>' +
+        '<div class="dev-focus-empty">' +
+          '<input class="dev-focus-input" id="devFocusInput" type="text" maxlength="120" placeholder="What\'s the one thing you\'ll work on this week?" value="' + prefill + '" />' +
+          '<div class="dev-focus-chips">' + chips + '</div>' +
+          '<button type="button" class="dev-focus-btn dev-focus-btn-primary" onclick="setPlayerFocus()">Set focus</button>' +
+          count +
+        '</div>';
+    } else if (s.done){
+      el.innerHTML =
+        '<div class="dev-focus-kicker">Focus completed</div>' +
+        '<div class="dev-focus-active dev-focus-done">' +
+          '<div class="dev-focus-text">&#10003; Nice work - you followed through.</div>' +
+          count +
+          '<div class="dev-focus-actions"><button type="button" class="dev-focus-btn dev-focus-btn-primary" onclick="changePlayerFocus()">Set a new focus</button></div>' +
+        '</div>';
+    } else {
+      var tag = s.area ? '<span class="dev-focus-tag">' + esc(areaLabel(s.area)) + '</span>' : '';
+      el.innerHTML =
+        '<div class="dev-focus-kicker">This week\'s focus</div>' +
+        '<div class="dev-focus-active">' +
+          '<div class="dev-focus-text">' + esc(s.text) + '</div>' +
+          '<div class="dev-focus-meta">' + tag + '<span class="dev-focus-date">Set ' + fmtDate(s.setAt) + '</span></div>' +
+          '<div class="dev-focus-actions">' +
+            '<button type="button" class="dev-focus-btn dev-focus-btn-primary" onclick="completePlayerFocus()">Done &#10003;</button>' +
+            '<button type="button" class="dev-focus-btn" onclick="changePlayerFocus()">Change</button>' +
+          '</div>' +
+          count +
+        '</div>';
+    }
+  }
+  window.renderPlayerFocus = renderFocus;
+  if (document.readyState !== 'loading') renderFocus();
+  else document.addEventListener('DOMContentLoaded', renderFocus);
+})();
+</script>
+
+</body>
+</html>
