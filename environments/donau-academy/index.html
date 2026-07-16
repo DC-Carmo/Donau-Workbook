@@ -743,6 +743,96 @@ function closeLineoutSystem() {
 </script>
 
 <script>
+window.DONAU_PLAYER_DEV = {
+  ltpd: [
+    {
+      stage: "U14", label: "Learn to Train", ratio: "70:30",
+      focus: "Technical Foundation and Aerobic Base",
+      domains: {
+        technical: ["Passing accuracy under pressure", "Catching in contested space", "Correct tackle technique", "Rucking body position fundamentals", "Lineout jumping basics"],
+        tactical: ["Reading basic defensive patterns", "Simple attack shapes from set-piece", "Set-piece decision entry", "Awareness of kicking game", "Transition from attack to defence"],
+        physical: ["Aerobic base development", "Sprint start mechanics", "Change of direction", "Bodyweight strength basics", "Flexibility and mobility"],
+        mental: ["Coachability and listening", "Growth mindset - mistakes are data", "Team-first focus", "Basic resilience after errors", "Process over result"],
+        lifestyle: ["Sleep 9-10 hours nightly", "Water before and after every session", "Balance school and rugby load", "Basic cool-down and stretching", "Social connection in the team"]
+      }
+    },
+    {
+      stage: "U16", label: "Train to Train", ratio: "60:40",
+      focus: "Physical Development and Skill Consolidation",
+      domains: {
+        technical: ["Contact technique and body position", "Distribution accuracy at speed", "Set-piece competence under pressure", "Footwork in space before contact", "Off-load in contact"],
+        tactical: ["Defensive line speed and spacing", "Attacking channels and pods", "Decision-making under defensive pressure", "Exit strategy awareness", "Phase transition reads"],
+        physical: ["Speed development - acceleration and deceleration", "Strength training with supervision", "Introduction to power work", "Aerobic capacity for repeated efforts", "Injury prevention movement patterns"],
+        mental: ["Competition mindset", "Self-awareness and honest review", "Handling pressure situations", "Short-term goal setting", "Communication in the team environment"],
+        lifestyle: ["Sleep 8-9 hours nightly", "Pre-training nutrition timing", "Basic recovery protocols", "Time management - school, rugby, rest", "Identity beyond rugby"]
+      }
+    },
+    {
+      stage: "U18", label: "Train to Compete", ratio: "50:50",
+      focus: "Competition Readiness and Rugby Intelligence",
+      domains: {
+        technical: ["Contact dominance and clean carry", "Distributing under defensive pressure", "Set-piece leadership roles", "Kicking for territory and contest", "Breakdown contest and jackal"],
+        tactical: ["Defensive organisation and calls", "Attack shape execution at pace", "Decision cycles in live play", "Kicking tactics and kick-chase", "Game management in pressure moments"],
+        physical: ["Maximal speed and top-end exposure", "Structured strength programme", "Power output and plyometrics", "Rugby-specific fitness demands", "Contact preparation and resilience"],
+        mental: ["Pre-performance routine", "Handling setbacks and reset", "Leadership and communication", "Focus control during the game", "Thinking through consequences"],
+        lifestyle: ["Sleep 8-9 hours nightly", "Matchday nutrition plan", "Periodised recovery week", "Study-rugby-rest balance", "Support network - who to talk to"]
+      }
+    },
+    {
+      stage: "U19", label: "Train to Win", ratio: "40:60",
+      focus: "Performance Consistency and Senior Transition",
+      domains: {
+        technical: ["Consistency under fatigue", "Advanced distribution under pressure", "Set-piece mastery and leadership", "Kicking variety and execution", "Contact efficiency in repeated efforts"],
+        tactical: ["System execution under pressure", "Reading opposition patterns", "Decision speed in live scenarios", "Territory management", "Winning moments and game reads"],
+        physical: ["Peak strength and power", "Sprint repeatability across a match", "Power conversion to rugby actions", "Competition-level fitness", "Load management and monitoring"],
+        mental: ["Winning mindset and standards", "Performance under real pressure", "Senior group transition", "Adversity management", "Identity - player and person"],
+        lifestyle: ["Sleep 7-9 hours nightly", "Performance nutrition ownership", "Load and recovery monitoring", "Career and study planning", "Senior culture adaptation"]
+      }
+    }
+  ],
+  nutrition: {
+    windows: [
+      { id: "pre", label: "PRE", time: "2-3 hours before", icon: "&#9200;", headline: "Load the tank", points: ["Complex carbs - oats, rice, pasta, bread", "Lean protein - eggs, chicken, yoghurt", "Limit fat and fibre close to session", "500ml water in the 2 hours before"] },
+      { id: "during", label: "DURING", time: "Sessions > 60 min", icon: "&#9889;", headline: "Stay fuelled", points: ["30-60g carbs per hour of hard effort", "Small sips every 15-20 minutes", "Banana, energy chew, or sports drink", "Do not wait until you feel thirsty"] },
+      { id: "post", label: "POST", time: "Within 30 min", icon: "&#8635;", headline: "Rebuild fast", points: ["20-25g protein within 30 minutes", "Fast carbs to replenish glycogen", "Chocolate milk, protein shake, or real food", "Rehydrate: 1.5x fluid lost in sweat"] }
+    ],
+    stats: [
+      { value: "2.5L", label: "Water daily", sub: "More on training days" },
+      { value: "60%", label: "Carbohydrates", sub: "Of total daily calories" },
+      { value: "15%", label: "Protein", sub: "~1.4-1.7g per kg bodyweight" },
+      { value: "8-10h", label: "Sleep", sub: "Non-negotiable for youth athletes" }
+    ]
+  },
+  athletic: {
+    pillars: [
+      { id: "speed", label: "Speed", icon: "&#9889;", headline: "First step wins the moment", points: ["Acceleration from standing start", "Sprint posture - forward lean, high knees", "Change of direction without losing pace", "Reaction off the first defensive read"] },
+      { id: "strength", label: "Strength", icon: "&#127947;", headline: "Build the base, protect the body", points: ["Bodyweight first - squat, hinge, push, pull", "Add load only when technique is clean", "Position-specific strength demands", "Consistency beats intensity every time"] },
+      { id: "power", label: "Power", icon: "&#128165;", headline: "Turn strength into action", points: ["Plyometric progressions - land before you leap", "Force-velocity: move fast under load", "Explosive hip extension in carries and tackles", "Only develop after strength base is solid"] },
+      { id: "endurance", label: "Endurance", icon: "&#128257;", headline: "Stay available longer", points: ["Aerobic base enables faster recovery", "Repeated sprint ability across 80 minutes", "High-intensity intervals mimic match demands", "Quality over volume in conditioning work"] }
+    ],
+    periodisation: [
+      { phase: "Off-season", focus: "Foundation", desc: "Build movement quality, aerobic base, and strength. Low match load." },
+      { phase: "Pre-season", focus: "Build", desc: "Increase intensity. Speed and power development. Higher load." },
+      { phase: "In-season", focus: "Maintain", desc: "Protect fitness gains. Recovery priority. Match performance focus." }
+    ]
+  },
+  recovery: {
+    quadrant: [
+      { id: "sleep", label: "Sleep", icon: "&#127769;", color: "blue", headline: "8-10h for youth athletes", points: ["Consistent bedtime - same time every night", "Dark, cool, screen-free room", "Naps under 30 min if training twice", "Sleep is when adaptations are made"] },
+      { id: "nutrition", label: "Nutrition", icon: "&#129367;", color: "green", headline: "Refuel within 30 minutes", points: ["Protein + carbs immediately after training", "Anti-inflammatory foods - fruit, veg, oily fish", "Avoid ultra-processed food on recovery days", "Hydration continues after the session ends"] },
+      { id: "mental", label: "Mental", icon: "&#129504;", color: "gold", headline: "Decompress to absorb", points: ["Time away from rugby is not wasted time", "Breathwork or simple mindfulness routine", "Honest review - one thing well, one to improve", "Talk to someone when the load feels heavy"] },
+      { id: "social", label: "Social", icon: "&#129309;", color: "silver", headline: "Connection protects performance", points: ["Team connection beyond training hours", "Family and friends - not just rugby people", "Identity beyond the jersey", "Know who to speak to when things feel hard"] }
+    ],
+    mentalCards: [
+      { label: "Routine", headline: "Same process, different day", body: "A consistent pre-performance routine reduces anxiety and signals to your brain that it is time to compete." },
+      { label: "Focus", headline: "Control what you can control", body: "Direct attention to the next action - not the last mistake, not the scoreboard. One phase at a time." },
+      { label: "Resilience", headline: "Reset faster than anyone else", body: "Mistakes happen to every player. The best ones reset in seconds. Practice the reset, not perfection." },
+      { label: "Identity", headline: "You are more than rugby", body: "Keeping a full identity outside of rugby protects confidence and makes you a more resilient competitor." }
+    ]
+  }
+};
+</script>
+<script>
 (function () {
   var D = window.DONAU_PLAYER_DEV;
   if (!D) return;
