@@ -418,16 +418,25 @@
 
 <style>
 [data-mobile-nav="board"],[data-mobile-nav="playbook"],.mobile-drawer-item[data-drawer-type="board"]{display:none !important;}
-.academy-hero{position:relative;border-radius:20px;overflow:hidden;margin:0 0 22px;min-height:300px;display:flex;align-items:flex-end;background-image:linear-gradient(180deg,rgba(6,16,10,0) 0%,rgba(6,16,10,0.30) 52%,rgba(6,16,10,0.90) 100%),url("../../assets/donau/images/academy-hero.jpg");background-size:cover;background-position:center 22%;}
-.academy-hero-inner{padding:24px 26px;}
-.academy-hero-kicker{font-size:.68rem;letter-spacing:.26em;text-transform:uppercase;color:#8fe0b4;font-weight:700;margin-bottom:8px;}
-.academy-hero-title{font-size:clamp(2rem,6.5vw,3rem);line-height:1;color:#fff;font-weight:900;text-transform:uppercase;margin:0 0 10px;letter-spacing:.01em;}
-.academy-hero-sub{color:#eef0ee;font-size:1rem;max-width:540px;line-height:1.5;margin:0;}
+.academy-hero{position:relative;border-radius:20px;overflow:hidden;margin:0 0 24px;min-height:56vh;display:flex;align-items:flex-end;
+  background-image:
+    linear-gradient(180deg, rgba(0,0,0,0.38) 0%, rgba(0,0,0,0.5) 45%, rgba(0,0,0,0.85) 100%),
+    linear-gradient(0deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.15) 55%),
+    url("../../assets/donau/images/academy-hero.jpg");
+  background-size:cover;background-position:center 30%;}
+.academy-hero-inner{padding:30px 32px;}
+.academy-hero-kicker{font-family:'Barlow Condensed',sans-serif;font-size:.72rem;letter-spacing:.34em;text-transform:uppercase;color:var(--green);font-weight:700;margin-bottom:10px;}
+.academy-hero-title{font-family:'Barlow Condensed',sans-serif;font-size:clamp(2.6rem,7vw,4.2rem);line-height:.92;color:#fff;font-weight:900;text-transform:uppercase;letter-spacing:.04em;margin:0 0 12px;}
+.academy-hero-sub{font-size:1.02rem;color:#e9ece9;max-width:560px;line-height:1.55;margin:0;}
 .ltpd-mission { margin: 10px 0 4px; color: #cfd6d0; font-size: .95rem; line-height: 1.55; max-width: 640px; }
 .ltpd-moveup { margin-top: 18px; padding: 14px 16px; border-radius: 12px; border: 1px solid rgba(46,139,87,0.3); background: rgba(46,139,87,0.08); }
-.ltpd-moveup-kicker { font-size: .64rem; letter-spacing: .22em; text-transform: uppercase; color: #8fe0b4; font-weight: 700; margin-bottom: 8px; }
+.ltpd-moveup-kicker { font-family:'Barlow Condensed',sans-serif; font-size: .64rem; letter-spacing: .22em; text-transform: uppercase; color: var(--green); font-weight: 700; margin-bottom: 8px; }
 .ltpd-moveup li { color: #dfe5df; font-size: .85rem; line-height: 1.6; margin-left: 16px; }
-@media(max-width:700px){.academy-hero{min-height:240px;}.academy-hero-inner{padding:18px 18px;}}
+.dev-focus-kicker{font-family:'Barlow Condensed',sans-serif;color:var(--green);}
+@media(max-width:700px){
+  .academy-hero{min-height:46vh;background-position:center 24%;}
+  .academy-hero-inner{padding:20px 18px;}
+}
 </style>
 </head>
 
@@ -509,6 +518,8 @@ window.DONAU_PLAYER_DEV = {
     }
   ],
   nutrition: {
+    mission: "Food and sleep are training. The player who fuels right recovers faster, grows stronger, and gets picked more often — it is that simple.",
+    standards: ["Water bottle at every session - no exceptions", "You eat something real within 30 minutes after training", "8+ hours of sleep on school nights", "You never train or play on an empty tank"],
     windows: [
       { id: "pre", label: "PRE", time: "2-3 hours before", icon: "&#9200;", headline: "Load the tank", points: ["Complex carbs - oats, rice, pasta, bread", "Lean protein - eggs, chicken, yoghurt", "Limit fat and fibre close to session", "500ml water in the 2 hours before"] },
       { id: "during", label: "DURING", time: "Sessions > 60 min", icon: "&#9889;", headline: "Stay fuelled", points: ["30-60g carbs per hour of hard effort", "Small sips every 15-20 minutes", "Banana, energy chew, or sports drink", "Do not wait until you feel thirsty"] },
@@ -522,6 +533,8 @@ window.DONAU_PLAYER_DEV = {
     ]
   },
   athletic: {
+    mission: "Speed, strength, power, endurance — built in the right order, at the right age. This is how you become the player who is still accelerating in the last five minutes.",
+    standards: ["Technique before load - always", "You move well before you move heavy", "Speed work when fresh, conditioning when planned", "You finish every week having trained all four pillars"],
     pillars: [
       { id: "speed", label: "Speed", icon: "&#9889;", headline: "First step wins the moment", points: ["Acceleration from standing start", "Sprint posture - forward lean, high knees", "Change of direction without losing pace", "Reaction off the first defensive read"] },
       { id: "strength", label: "Strength", icon: "&#127947;", headline: "Build the base, protect the body", points: ["Bodyweight first - squat, hinge, push, pull", "Add load only when technique is clean", "Position-specific strength demands", "Consistency beats intensity every time"] },
@@ -535,6 +548,8 @@ window.DONAU_PLAYER_DEV = {
     ]
   },
   recovery: {
+    mission: "The strongest players are not the ones who never struggle — they are the ones who recover, reset, and come back. Mind and body are one system: look after both.",
+    standards: ["Same bedtime routine every night", "One honest self-review after every game - one thing well, one to improve", "You talk to someone when the load feels heavy", "You keep one thing in your life that is not rugby"],
     quadrant: [
       { id: "sleep", label: "Sleep", icon: "&#127769;", color: "blue", headline: "8-10h for youth athletes", points: ["Consistent bedtime - same time every night", "Dark, cool, screen-free room", "Naps under 30 min if training twice", "Sleep is when adaptations are made"] },
       { id: "nutrition", label: "Nutrition", icon: "&#129367;", color: "green", headline: "Refuel within 30 minutes", points: ["Protein + carbs immediately after training", "Anti-inflammatory foods - fruit, veg, oily fish", "Avoid ultra-processed food on recovery days", "Hydration continues after the session ends"] },
@@ -917,7 +932,8 @@ function closeLineoutSystem() {
   function renderFuel() {
     var timeline = document.getElementById("fuelTimeline");
     if (timeline) {
-      timeline.innerHTML = '<div class="fuel-windows">'
+      timeline.innerHTML = '<p class="ltpd-mission">' + D.nutrition.mission + "</p>"
+        + '<div class="fuel-windows">'
         + D.nutrition.windows.map(function (w) {
           return '<div class="fuel-window">'
             + '<div class="fuel-window-hdr"><span class="fuel-window-icon">' + w.icon + '</span><span class="fuel-window-label">' + w.label + '</span><span class="fuel-window-time">' + w.time + "</span></div>"
@@ -936,14 +952,20 @@ function closeLineoutSystem() {
         + D.nutrition.stats.map(function (s) {
           return '<div class="fuel-stat"><div class="fuel-stat-value">' + s.value + '</div><div class="fuel-stat-label">' + s.label + '</div><div class="fuel-stat-sub">' + s.sub + "</div></div>";
         }).join("")
-        + "</div>";
+        + "</div>"
+        + '<div class="ltpd-moveup"><div class="ltpd-moveup-kicker">What good looks like</div><ul>'
+        + D.nutrition.standards.map(function (point) {
+          return "<li>" + point + "</li>";
+        }).join("")
+        + "</ul></div>";
     }
   }
 
   function renderAthletic() {
     var pillars = document.getElementById("athleticPillars");
     if (pillars) {
-      pillars.innerHTML = '<div class="athletic-pillar-grid">'
+      pillars.innerHTML = '<p class="ltpd-mission">' + D.athletic.mission + "</p>"
+        + '<div class="athletic-pillar-grid">'
         + D.athletic.pillars.map(function (p) {
           return '<div class="athletic-pillar">'
             + '<div class="athletic-pillar-hdr"><span class="athletic-pillar-icon">' + p.icon + '</span><span class="athletic-pillar-label">' + p.label + "</span></div>"
@@ -962,14 +984,20 @@ function closeLineoutSystem() {
         + D.athletic.periodisation.map(function (p) {
           return '<div class="period-phase"><div class="period-phase-name">' + p.phase + '</div><div class="period-phase-focus">' + p.focus + '</div><div class="period-phase-desc">' + p.desc + "</div></div>";
         }).join("")
-        + "</div>";
+        + "</div>"
+        + '<div class="ltpd-moveup"><div class="ltpd-moveup-kicker">What good looks like</div><ul>'
+        + D.athletic.standards.map(function (point) {
+          return "<li>" + point + "</li>";
+        }).join("")
+        + "</ul></div>";
     }
   }
 
   function renderRecovery() {
     var quadrant = document.getElementById("recoveryQuadrant");
     if (quadrant) {
-      quadrant.innerHTML = '<div class="recovery-grid">'
+      quadrant.innerHTML = '<p class="ltpd-mission">' + D.recovery.mission + "</p>"
+        + '<div class="recovery-grid">'
         + D.recovery.quadrant.map(function (q) {
           return '<div class="recovery-cell recovery-cell-' + q.color + '">'
             + '<div class="recovery-cell-hdr"><span class="recovery-cell-icon">' + q.icon + '</span><span class="recovery-cell-label">' + q.label + "</span></div>"
@@ -988,7 +1016,12 @@ function closeLineoutSystem() {
         + D.recovery.mentalCards.map(function (c) {
           return '<div class="mental-card"><div class="mental-card-label">' + c.label + '</div><div class="mental-card-headline">' + c.headline + '</div><p class="mental-card-body">' + c.body + "</p></div>";
         }).join("")
-        + "</div>";
+        + "</div>"
+        + '<div class="ltpd-moveup"><div class="ltpd-moveup-kicker">What good looks like</div><ul>'
+        + D.recovery.standards.map(function (point) {
+          return "<li>" + point + "</li>";
+        }).join("")
+        + "</ul></div>";
     }
   }
 
