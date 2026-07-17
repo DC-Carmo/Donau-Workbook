@@ -3694,6 +3694,7 @@ body.is-phone .mob-more-btn {
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   white-space: nowrap;
+  touch-action: manipulation;
 }
 
 body.is-phone #mobileMoreDrawer {

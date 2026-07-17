@@ -234,7 +234,7 @@ function resize() {
     wrap.style.width = '';
     wrap.style.height = '';
     if (MOBILE_PORTRAIT) {
-      sc = Math.max(0.01, cvW / FVW);
+      sc = Math.max(0.01, Math.min((cvW - padX * 2) / FVW, (cvH - padY * 2) / FVH));
       sx = sc;
       sy = sc;
     } else if (PHONE_LANDSCAPE) {
@@ -377,7 +377,7 @@ function fmtSpd(v) { return v + '×'; }
 const SAVED_PLAYS_KEY = 'coachmato.animator.savedPlays.v1';
 const FIRST_USE_TUTORIAL_KEY = 'coachmato.animator.firstUseTutorial.v1';
 const PROJECT_SCHEMA_VERSION = 4;
-const PHONE_UI_ACTION_GUARD_MS = 420;
+const PHONE_UI_ACTION_GUARD_MS = 300;
 let lastPhoneAddAction = { team: null, at: -Infinity };
 let phoneMoveToastTimer = null;
 let phoneMoveToastShown = false;
@@ -2799,9 +2799,20 @@ function drawField() {
   // ── 6. In-goal areas — darker overlay for visual separation ──────────────
   const igH_top = goalTopY - fieldTop;
   const igH_bot = fieldBottom - goalBottomY;
-  ctx.fillStyle = 'rgba(0,0,0,0.16)';
-  ctx.fillRect(fieldLeft, fieldTop, FW, igH_top);
-  ctx.fillRect(fieldLeft, goalBottomY, FW, igH_bot);
+  if (igH_top > 0) {
+    const topGoalGrad = ctx.createLinearGradient(fieldLeft, fieldTop, fieldLeft, goalTopY);
+    topGoalGrad.addColorStop(0, 'rgba(28,74,38,0.92)');
+    topGoalGrad.addColorStop(1, 'rgba(37,94,48,0.84)');
+    ctx.fillStyle = topGoalGrad;
+    ctx.fillRect(fieldLeft, fieldTop, FW, igH_top);
+  }
+  if (igH_bot > 0) {
+    const bottomGoalGrad = ctx.createLinearGradient(fieldLeft, goalBottomY, fieldLeft, fieldBottom);
+    bottomGoalGrad.addColorStop(0, 'rgba(37,94,48,0.84)');
+    bottomGoalGrad.addColorStop(1, 'rgba(28,74,38,0.92)');
+    ctx.fillStyle = bottomGoalGrad;
+    ctx.fillRect(fieldLeft, goalBottomY, FW, igH_bot);
+  }
 
   // ── 7. Vignette ──────────────────────────────────────────────────────────
   const vig = ctx.createRadialGradient(
@@ -2973,12 +2984,12 @@ function drawField() {
   fieldLabel(4.2, 79.4, '22', 0.48); fieldLabel(63.8, 79.4, '22', 0.48);
   fieldLabel(4.2, 38.6, '10', 0.48); fieldLabel(63.8, 38.6, '10', 0.48);
   fieldLabel(4.2, 61.4, '10', 0.48); fieldLabel(63.8, 61.4, '10', 0.48);
-  fieldLabel(34, -5,  'IN-GOAL', 0.48);
-  fieldLabel(34, 105, 'IN-GOAL', 0.48);
+  fieldLabel(34, -5,  'IN-GOAL', 0.56);
+  fieldLabel(34, 105, 'IN-GOAL', 0.56);
 
   // ── 16. Goal posts ────────────────────────────────────────────────────────
-  drawPosts(34, isMobilePortraitBoard ? 100 : 0, 'top');
-  drawPosts(34, isMobilePortraitBoard ? 0 : 100, 'bot');
+  drawTopViewPosts(34, 0);
+  drawTopViewPosts(34, 100);
 }
 
 function drawPosts(fx, fy, side) {
@@ -3070,6 +3081,41 @@ function drawPosts(fx, fy, side) {
   ctx.beginPath(); ctx.arc(leftX,  tryLineY, dotR, 0, Math.PI * 2); ctx.fill();
   ctx.beginPath(); ctx.arc(rightX, tryLineY, dotR, 0, Math.PI * 2); ctx.fill();
 
+  ctx.restore();
+}
+
+function drawTopViewPosts(fx, fy) {
+  const dir = fy <= 50 ? -1 : 1;
+  const halfSpan = 2.8;
+  const uprightDepth = 2.2;
+  const leftBase = toC(fx - halfSpan, fy);
+  const rightBase = toC(fx + halfSpan, fy);
+  const leftBack = toC(fx - halfSpan, fy + dir * uprightDepth);
+  const rightBack = toC(fx + halfSpan, fy + dir * uprightDepth);
+  const postW = Math.max(1.4, sc * 0.14);
+  const dotR = Math.max(1.8, sc * 0.18);
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0,0,0,0.34)';
+  ctx.lineWidth = postW + 2;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(leftBase.x + 0.8, leftBase.y + 0.8); ctx.lineTo(rightBase.x + 0.8, rightBase.y + 0.8);
+  ctx.moveTo(leftBase.x + 0.8, leftBase.y + 0.8); ctx.lineTo(leftBack.x + 0.8, leftBack.y + 0.8);
+  ctx.moveTo(rightBase.x + 0.8, rightBase.y + 0.8); ctx.lineTo(rightBack.x + 0.8, rightBack.y + 0.8);
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(255,249,220,0.95)';
+  ctx.lineWidth = postW;
+  ctx.beginPath();
+  ctx.moveTo(leftBase.x, leftBase.y); ctx.lineTo(rightBase.x, rightBase.y);
+  ctx.moveTo(leftBase.x, leftBase.y); ctx.lineTo(leftBack.x, leftBack.y);
+  ctx.moveTo(rightBase.x, rightBase.y); ctx.lineTo(rightBack.x, rightBack.y);
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255,249,220,0.92)';
+  ctx.beginPath(); ctx.arc(leftBase.x, leftBase.y, dotR, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(rightBase.x, rightBase.y, dotR, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }
 
@@ -5262,19 +5308,77 @@ function resolveStepBall(step) {
   return ownerPlayer ? { x: ownerPlayer.x, y: ownerPlayer.y } : null;
 }
 
+function computeChainedStepStates() {
+  ensureSteps();
+  const sourceSteps = S.steps.map(step => cloneStepState(step || emptyStepState()));
+  if (!sourceSteps.length) return [emptyStepState()];
+
+  const chained = [cloneStepState(sourceSteps[0])];
+  for (let idx = 1; idx < sourceSteps.length; idx++) {
+    const prevState = cloneStepState(chained[idx - 1]);
+    const stepDef = sourceSteps[idx];
+    const prevLookup = buildStepLookup(prevState.players);
+    const defLookup = buildStepLookup(stepDef.players);
+    const allKeys = new Set([...prevLookup.keys(), ...defLookup.keys()]);
+    const players = Array.from(allKeys).map((key) => {
+      const prevPlayer = prevLookup.get(key) || defLookup.get(key);
+      const defPlayer = defLookup.get(key) || prevLookup.get(key);
+      const defPath = defPlayer ? phasePathForPlayer(stepDef, defPlayer) : null;
+      const finalPoint = defPath?.pts?.length ? defPath.pts[defPath.pts.length - 1] : null;
+      return {
+        ...(cloneData(defPlayer) || cloneData(prevPlayer) || {}),
+        x: finalPoint ? finalPoint.x : defPlayer.x,
+        y: finalPoint ? finalPoint.y : defPlayer.y,
+      };
+    });
+
+    const playerLookup = buildStepLookup(players);
+    let ball = resolveStepBall(stepDef);
+    if (stepDef.ballAttached) {
+      const owner = normalizePlayerRef(stepDef.ballOwner);
+      const ownerPlayer = owner ? playerLookup.get(playerKey(owner)) : null;
+      ball = ownerPlayer ? attachedBallPositionForPlayer(ownerPlayer) : ball;
+    } else if (stepDef.passes?.length) {
+      const lastPass = stepDef.passes[stepDef.passes.length - 1];
+      if (lastPass?.style === 'kick' && lastPass.targetX !== undefined && lastPass.targetY !== undefined) {
+        ball = { x: lastPass.targetX, y: lastPass.targetY };
+      } else if (lastPass?.toNum !== undefined && lastPass?.toT !== undefined) {
+        const receiver = playerLookup.get(playerKey({ num: lastPass.toNum, team: lastPass.toT }));
+        if (receiver) ball = attachedBallPositionForPlayer(receiver);
+      }
+    }
+
+    chained.push({
+      ...cloneStepState(stepDef),
+      players,
+      ball,
+      ballOwner: normalizePlayerRef(stepDef.ballOwner),
+      ballAttached: !!stepDef.ballAttached,
+      paths: cloneData(stepDef.paths),
+      passes: cloneData(stepDef.passes),
+      annotations: cloneData(stepDef.annotations),
+    });
+  }
+
+  return chained;
+}
+
 function buildSequenceFrame(progress) {
   persistCurrentPhase();
   const localT = clamp(progress, 0, 1);
   let from = null;
   let to = null;
+  let motionStep = null;
   let segmentIndex = GamePlan.currentPhase;
 
   if (isPhoneViewport && !S.playAll && sequenceStepCount() > 1) {
+    const chainedSteps = computeChainedStepStates();
     const stepCount = sequenceStepCount();
     const fromStepIdx = clamp(S.currentStep, 0, Math.max(0, stepCount - 2));
     const toStepIdx = clamp(fromStepIdx + 1, 0, stepCount - 1);
-    from = cloneStepState(S.steps[fromStepIdx] || emptyStepState());
-    to = cloneStepState(S.steps[toStepIdx] || from);
+    from = cloneStepState(chainedSteps[fromStepIdx] || emptyStepState());
+    to = cloneStepState(chainedSteps[toStepIdx] || from);
+    motionStep = cloneStepState(S.steps[toStepIdx] || to);
     segmentIndex = fromStepIdx;
   } else {
     const fromIdx = GamePlan.currentPhase;
@@ -5288,6 +5392,7 @@ function buildSequenceFrame(progress) {
       };
     }
     to = phasePlaybackStepAt(toIdx);
+    motionStep = to;
     segmentIndex = fromIdx;
   }
 
@@ -5297,7 +5402,7 @@ function buildSequenceFrame(progress) {
   const players = Array.from(allKeys).map(key => {
     const a = fromLookup.get(key) || toLookup.get(key);
     const b = toLookup.get(key) || fromLookup.get(key);
-    const toPath = b ? phasePathForPlayer(to, b) : null;
+    const toPath = b ? phasePathForPlayer(motionStep, b) : null;
     if (toPath && Array.isArray(toPath.pts) && toPath.pts.length >= 2) {
       const alongPath = catmullRom(toPath.pts, localT);
       return {
@@ -5326,9 +5431,9 @@ function buildSequenceFrame(progress) {
     players,
     ball,
     ballOwner: normalizePlayerRef(localT < 0.5 ? from.ballOwner : to.ballOwner),
-    annotations: cloneData(to.annotations),
-    paths: cloneData(to.paths),
-    passes: cloneData(to.passes),
+    annotations: cloneData(motionStep.annotations),
+    paths: cloneData(motionStep.paths),
+    passes: cloneData(motionStep.passes),
     segmentIndex,
     localT,
   };
@@ -7296,12 +7401,33 @@ document.getElementById('mobileMoreDrawer')?.addEventListener('click', (e) => {
 function bindSinglePhoneButton(id, handler) {
   const el = document.getElementById(id);
   if (!el) return;
+  let lastFireAt = -Infinity;
+  const invoke = (e) => {
+    if (!isPhoneViewport) return;
+    const now = (typeof performance !== 'undefined' && Number.isFinite(performance.now())) ? performance.now() : Date.now();
+    if (now - lastFireAt < PHONE_UI_ACTION_GUARD_MS) {
+      e.preventDefault();
+      e.stopImmediatePropagation?.();
+      e.stopPropagation();
+      return;
+    }
+    lastFireAt = now;
+    e.preventDefault();
+    e.stopImmediatePropagation?.();
+    e.stopPropagation();
+    handler();
+  };
+
+  el.style.touchAction = 'manipulation';
+  el.addEventListener('touchend', invoke, { capture: true, passive: false });
+  el.addEventListener('pointerup', (e) => {
+    if (e.pointerType === 'touch') invoke(e);
+  }, true);
   el.addEventListener('click', (e) => {
     if (!isPhoneViewport) return;
     e.preventDefault();
     e.stopImmediatePropagation?.();
     e.stopPropagation();
-    handler();
   }, true);
 }
 
