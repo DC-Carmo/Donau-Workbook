@@ -20,6 +20,7 @@ const F = { // Field constants
 };
 const FVW = F.DX1 - F.DX0;
 const FVH = F.DY1 - F.DY0;
+const FIELD_X_STRETCH = 1.7;
 const BALL_CARRY_OFFSET = { x: 1.45, y: -1.05 };
 const MOBILE_TAP_TOGGLE_PX = 5;
 const PENDING_GROUP_DRAG_PX = 8;
@@ -256,10 +257,10 @@ function resize() {
     wrap.style.width = '';
     wrap.style.height = '';
     cvH = Math.max(1, Math.round(cv.clientHeight || wrapH || (window.innerHeight * 0.6)));
-    const baseFromWidth = (cvW - padX * 2) / FVW;
+    const baseFromWidth = (cvW - padX * 2) / (FVW * FIELD_X_STRETCH);
     const baseFromHeight = (cvH - padY * 2) / FVH;
     sc = Math.max(0.01, Math.min(baseFromWidth, baseFromHeight));
-    sx = sc;
+    sx = sc * FIELD_X_STRETCH;
     sy = sc;
   }
   cv.width = cvW;
