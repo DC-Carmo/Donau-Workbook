@@ -287,23 +287,13 @@
 
       <!-- Mobile 2-row tool grid (CSS hides this on desktop) -->
       <div id="mobileMoreDrawer" aria-hidden="true">
-        <div class="mob-more-section mob-more-phase-nav">
-          <button class="mob-more-btn" id="mobileMorePrevPhaseBtn" type="button" onclick="goToPhase(GamePlan.currentPhase - 1)">PREV PHASE</button>
+        <div class="mob-more-list">
           <button class="mob-more-btn" id="mobileMoreAddPhaseBtn" type="button" onclick="addPhase()">+ PHASE</button>
+          <button class="mob-more-btn" id="mobileMorePrevPhaseBtn" type="button" onclick="goToPhase(GamePlan.currentPhase - 1)">PREV PHASE</button>
           <button class="mob-more-btn" id="mobileMoreNextPhaseBtn" type="button" onclick="goToPhase(GamePlan.currentPhase + 1)">NEXT PHASE</button>
-        </div>
-        <div class="mob-more-section mob-more-step-nav">
-          <button class="mob-more-btn" id="mobileMorePrevStepBtn" type="button" onclick="prevStep()">&#9665;&#xFE0E; PREV STEP</button>
-          <button class="mob-more-btn" id="mobileMoreAddStepBtn" type="button" onclick="addStep()">&#65291; STEP</button>
-          <button class="mob-more-btn" id="mobileMoreNextStepBtn" type="button" onclick="nextStep()">NEXT STEP &#9655;&#xFE0E;</button>
-        </div>
-        <div class="mob-more-section mob-more-players">
           <button class="mob-more-btn" id="mobileMoreAddAttackBtn" type="button" onclick="addNextAvailablePlayer('A')">+ ATTACK</button>
           <button class="mob-more-btn" id="mobileMoreAddDefenceBtn" type="button" onclick="addNextAvailablePlayer('D')">+ DEFENCE</button>
           <button class="mob-more-btn" id="mobileMoreBallBtn" type="button" onclick="addBall()">BALL</button>
-        </div>
-        <div class="mob-more-section mob-more-playback">
-          <button class="mob-more-btn mob-play-btn" id="mobPlayBtn" type="button" onclick="togglePlay()">&#9654; PLAY</button>
           <button class="mob-more-btn" id="mobileMorePlayAllBtn" type="button" onclick="togglePlayAll()">&#9654;&#9654; PLAY ALL</button>
           <div class="mob-speed-row" aria-label="Playback speed">
             <button class="board-pill speed-btn" id="mspd-0.25" onclick="setMobileSpd(0.25)">&#188;&#215;</button>
@@ -311,27 +301,16 @@
             <button class="board-pill speed-btn active" id="mspd-1" onclick="setMobileSpd(1)">1&#215;</button>
             <button class="board-pill speed-btn" id="mspd-2" onclick="setMobileSpd(2)">2&#215;</button>
           </div>
-        </div>
-        <div class="mob-more-section mob-more-actions">
           <button class="mob-more-btn" id="mobileMoreNotesBtn" type="button" onclick="openMobileNotesSheet()">NOTES</button>
-          <button class="mob-more-btn" id="mobileMoreUndoBtn" type="button" onclick="undo()">&#8617; UNDO</button>
           <button class="mob-more-btn" id="mobileMoreRedoBtn" type="button" onclick="redo()">&#8618; REDO</button>
-          <button class="mob-more-btn" id="mobGainlineBtn" type="button" onclick="toggleGainline()">GAINLINE</button>
           <button class="mob-more-btn" id="mobileMoreClearBtn" type="button" onclick="clearAll()">CLEAR</button>
-        </div>
-        <div class="mob-more-section mob-more-tools">
-          <button class="mob-more-btn" type="button" onclick="setTool('tele')">TELE</button>
-          <button class="mob-more-btn" type="button" onclick="setTool('zone')">CIRCLE</button>
-          <button class="mob-more-btn" type="button" onclick="setTool('box')">BOX</button>
-          <button class="mob-more-btn" type="button" onclick="setTool('arrow')">ARROW</button>
-          <button class="mob-more-btn" type="button" onclick="setTool('note')">NOTE</button>
         </div>
       </div>
       <div id="mobileToolGrid">
-        <button class="mob-tool-btn active" data-tool="move" onclick="setTool('move')">MOVE</button>
-        <button class="mob-tool-btn" data-tool="run" onclick="setTool('run')">RUN</button>
+        <button class="mob-tool-btn" id="mobileStepBtn" type="button" onclick="addStep()">+ STEP</button>
         <button class="mob-tool-btn" data-tool="pass" onclick="setTool('pass')">PASS</button>
         <button class="mob-tool-btn" data-tool="kick" onclick="setTool('kick')">KICK</button>
+        <button class="mob-tool-btn" id="mobileRailUndoBtn" type="button" onclick="undo()">UNDO</button>
         <button class="mob-tool-btn" data-tool="erase" onclick="setTool('erase')">ERASE</button>
         <button class="mob-tool-btn mob-tool-more" id="mobMoreBtn" onclick="toggleMobileMoreDrawer()">MORE &#9652;&#xFE0E;</button>
       </div>

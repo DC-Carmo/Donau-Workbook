@@ -41,6 +41,7 @@ const FIELD_X_STRETCH = 1.7;
 let cvW=0, cvH=0, sc=1, sx=1, sy=1, ox=0, oy=0;
 let isPhoneViewport = false;
 let isMobilePortraitBoard = false;
+let portraitPanOffset = 0;
 const cv  = document.getElementById('field');
 
 function normEvent(e) {
@@ -194,8 +195,44 @@ function getPhoneCanvasBounds() {
   };
 }
 
+function getPortraitFieldHeightPx() {
+  return FVH * sy;
+}
+
+function getPortraitPanMax() {
+  return Math.max(0, getPortraitFieldHeightPx() - cvH);
+}
+
+function clampPortraitPanOffset(nextOffset) {
+  return clamp(nextOffset, 0, getPortraitPanMax());
+}
+
+function getDefaultPortraitPanOffset() {
+  return getPortraitPanMax() / 2;
+}
+
+function applyPortraitViewportOffset() {
+  if (!isMobilePortraitBoard) return;
+  const fieldHeight = getPortraitFieldHeightPx();
+  if (fieldHeight <= cvH) {
+    portraitPanOffset = 0;
+    oy = (cvH - fieldHeight) / 2;
+    return;
+  }
+  portraitPanOffset = clampPortraitPanOffset(portraitPanOffset);
+  oy = -portraitPanOffset;
+}
+
+function setPortraitPanOffset(nextOffset) {
+  portraitPanOffset = clampPortraitPanOffset(nextOffset);
+  if (!isMobilePortraitBoard) return;
+  applyPortraitViewportOffset();
+  render();
+}
+
 function resize() {
   const wrap = document.getElementById('canvasWrap');
+  const wasPortraitMode = isMobilePortraitBoard;
   const isPhone = Math.min(window.innerWidth, window.innerHeight) <= 700;
   const MOBILE_PORTRAIT = isPhone && window.innerHeight > window.innerWidth;
   isPhoneViewport = isPhone;
@@ -216,9 +253,7 @@ function resize() {
     wrap.style.width = '';
     wrap.style.height = '';
     if (MOBILE_PORTRAIT) {
-      const baseFromWidth = (cvW - padX * 2) / FVW;
-      const baseFromHeight = (cvH - padY * 2) / (FVH * FIELD_X_STRETCH);
-      sc = Math.max(0.01, Math.min(baseFromWidth, baseFromHeight));
+      sc = Math.max(0.01, cvW / FVW);
       sx = sc;
       sy = sc * FIELD_X_STRETCH;
     } else {
@@ -242,8 +277,19 @@ function resize() {
   }
   cv.width = cvW;
   cv.height = cvH;
-  ox = (cvW - FVW * sx) / 2;
-  oy = (cvH - FVH * sy) / 2;
+  if (MOBILE_PORTRAIT) {
+    ox = 0;
+    if (!wasPortraitMode) {
+      portraitPanOffset = getDefaultPortraitPanOffset();
+    } else {
+      portraitPanOffset = clampPortraitPanOffset(portraitPanOffset);
+    }
+    applyPortraitViewportOffset();
+  } else {
+    ox = (cvW - FVW * sx) / 2;
+    oy = (cvH - FVH * sy) / 2;
+    portraitPanOffset = 0;
+  }
   syncMobileBoardNameInput();
   updateMobileUI();
   render();
@@ -4060,6 +4106,40 @@ function consumePointerTap(pointerId) {
   return tap;
 }
 
+function startPortraitPan(pointerId, point, payload = { type: 'portrait-pan' }) {
+  if (!isMobilePortraitBoard) return false;
+  closeRadialMenu();
+  S.dragging = {
+    type: 'portrait-pan',
+    startClientY: point.clientY,
+    startPanOffset: portraitPanOffset,
+  };
+  beginPointerTap(pointerId, payload, point);
+  try { cv.setPointerCapture(pointerId); } catch(_) {}
+  return true;
+}
+
+function addKickToFieldTarget(fieldPoint) {
+  if (S.tool !== 'kick' || !activeWorkflowPlayerId() || !fieldPoint) return false;
+  S.passes.push({
+    from: activeWorkflowPlayerId(),
+    to: null,
+    targetX: fieldPoint.x,
+    targetY: fieldPoint.y,
+    style: 'kick',
+  });
+  S.ball = { x: fieldPoint.x, y: fieldPoint.y };
+  S.ballOwner = null;
+  S.ballAttached = false;
+  applyBallOwnershipVisualState();
+  clearPassKickState();
+  clearSelectedObject();
+  setHint('Kick to field drawn.');
+  refreshInteractionUI();
+  render();
+  return true;
+}
+
 function handlePointerDown(e) {
   const fp = getF(e);
   const clampedFieldPoint = clampFieldPoint(fp);
@@ -4191,6 +4271,10 @@ function handlePointerDown(e) {
         S.selectedPassIdx = null;
         S.ballAssignCandidate = null;
         S.pointerTap = null;
+      } else if (startPortraitPan(e.pointerId, e)) {
+        refreshInteractionUI();
+        render();
+        return;
       } else {
         clearDragPlayer();
         clearSelectedObject();
@@ -4370,22 +4454,33 @@ function handlePointerDown(e) {
         }
       }
       render();
-    } else if (S.tool === 'kick' && activeWorkflowPlayerId() && isInsidePitch(fp)) {
-      // Kick to field target (no receiver player)
-      S.passes.push({ from: activeWorkflowPlayerId(), to: null, targetX: clampedFieldPoint.x, targetY: clampedFieldPoint.y, style: 'kick' });
-      S.ball = { x: clampedFieldPoint.x, y: clampedFieldPoint.y };
-      S.ballOwner = null;
-      S.ballAttached = false;
-      applyBallOwnershipVisualState();
-      clearPassKickState();
-      clearSelectedObject();
-      setHint('Kick to field drawn.');
+    } else if (startPortraitPan(
+      e.pointerId,
+      e,
+      S.tool === 'kick' && activeWorkflowPlayerId() && isInsidePitch(fp)
+        ? { type: 'portrait-pan-kick-target', fieldPoint: { x: clampedFieldPoint.x, y: clampedFieldPoint.y } }
+        : { type: 'portrait-pan' }
+    )) {
       refreshInteractionUI();
       render();
+    } else if (S.tool === 'kick' && activeWorkflowPlayerId() && isInsidePitch(fp)) {
+      addKickToFieldTarget(clampedFieldPoint);
     }
   }
 
   else if (S.tool === 'erase') {
+    const erasePlayer = hitPlayer(fp);
+    const eraseBall = !erasePlayer && hitBall(fp);
+    const eraseAnnotation = !erasePlayer && !eraseBall ? hitAnnotation(fp) : null;
+    const eraseRun = hitRunPath(fp);
+    const erasePass = hitPassLine(fp);
+    const eraseKick = hitKickPath(fp);
+    if (isMobilePortraitBoard && !erasePlayer && !eraseBall && !eraseAnnotation && eraseRun === null && erasePass === -1 && eraseKick === -1) {
+      startPortraitPan(e.pointerId, e);
+      refreshInteractionUI();
+      render();
+      return;
+    }
     snapshot();
     let removed = false;
 
@@ -4458,7 +4553,10 @@ function handlePointerMove(e) {
   // Drag
   if (S.dragging) {
     cv.style.cursor = 'grabbing';
-    if (S.dragging.type === 'player') {
+    if (S.dragging.type === 'portrait-pan') {
+      portraitPanOffset = clampPortraitPanOffset(S.dragging.startPanOffset - (e.clientY - S.dragging.startClientY));
+      applyPortraitViewportOffset();
+    } else if (S.dragging.type === 'player') {
       const pl = S.players.find(p => p.id === S.dragPlayerId);
       if (pl) {
         if (!S.dragging.snapshotDone) {
@@ -4664,6 +4762,11 @@ cv.addEventListener('pointermove', handlePointerMove);
 function onPointerUp(e) {
   const clampedFieldPoint = clampFieldPoint(getF(e));
   const tap = consumePointerTap(e?.pointerId);
+  if (tap && !tap.moved && tap.payload?.type === 'portrait-pan-kick-target') {
+    S.dragging = null;
+    addKickToFieldTarget(tap.payload.fieldPoint || clampedFieldPoint);
+    return;
+  }
   if (tap?.payload?.type === 'pending-group-place') {
     const group = selectedGroup() || S.groups.find(item => item.id === S.pendingGroupPlacement?.id) || null;
     snapshot();
@@ -6310,7 +6413,19 @@ function setTool(t) {
   document.querySelectorAll('[data-tool]').forEach(b => b.classList.remove('active'));
   document.querySelectorAll(`[data-tool="${t}"]`).forEach(b => b.classList.add('active'));
   cv.style.cursor = t === 'move' ? 'default' : 'crosshair';
-  setHint(HINTS[t] || '');
+  if (t === 'run' && isPhoneViewport && S.selectedPlayerId !== null && !selectedGroup()) {
+    const selectedPlayer = S.players.find(player => player.id === S.selectedPlayerId) || null;
+    if (selectedPlayer) {
+      setArmedRunSource(selectedPlayer.id);
+      selectPlayer(selectedPlayer.id, { highlightedIds: [selectedPlayer.id] });
+      const teamLabel = selectedPlayer.team === 'A' ? 'Attack' : 'Defence';
+      setHint(`Run from ${teamLabel} #${selectedPlayer.num}. Drag on the pitch to draw the path, or tap the same player again to cancel.`);
+    } else {
+      setHint(HINTS[t] || '');
+    }
+  } else {
+    setHint(HINTS[t] || '');
+  }
   updateAnnotationPanel();
   refreshInteractionUI();
   render();
