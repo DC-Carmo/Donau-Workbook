@@ -212,6 +212,14 @@ function setPortraitPanOffset(nextOffset) {
   phoneVerticalPanPx = clampPhoneVerticalPan(nextOffset);
 }
 
+function translatePathPoints(path, dx, dy) {
+  if (!path || !Array.isArray(path.pts) || !path.pts.length) return;
+  path.pts = path.pts.map((pt) => ({
+    x: pt.x + dx,
+    y: pt.y + dy,
+  }));
+}
+
 function resize() {
   const wrap = document.getElementById('canvasWrap');
   const isPhone = Math.min(window.innerWidth, window.innerHeight) <= 700;
@@ -239,22 +247,9 @@ function resize() {
     cv.style.height = `${cvH}px`;
     wrap.style.width = '';
     wrap.style.height = '';
-    if (MOBILE_PORTRAIT) {
-      const portraitPadY = Math.max(12, Math.min(18, cvH * 0.024));
-      sc = Math.max(0.01, Math.min((cvW - padX * 2) / FVW, (cvH - portraitPadY * 2) / FVH));
-      sx = sc;
-      sy = sc;
-    } else if (PHONE_LANDSCAPE) {
-      sc = Math.max(0.01, (cvW - padX * 2) / FVW);
-      sx = sc;
-      sy = sc;
-    } else {
-      const baseFromWidth = (cvW - padX * 2) / FVW;
-      const baseFromHeight = (cvH - padY * 2) / FVH;
-      sc = Math.max(0.01, Math.min(baseFromWidth, baseFromHeight));
-      sx = sc;
-      sy = sc;
-    }
+    sc = Math.max(0.01, (cvW - padX * 2) / FVW);
+    sx = sc;
+    sy = sc;
   } else {
     cv.style.width = '';
     cv.style.height = '';
@@ -271,7 +266,7 @@ function resize() {
   cv.height = cvH;
   if (isPhone) {
     phoneVerticalOverflowPx = Math.max(0, FVH * sy - cvH);
-    phoneVerticalPanPx = MOBILE_PORTRAIT ? 0 : clampPhoneVerticalPan(phoneVerticalPanPx);
+    phoneVerticalPanPx = clampPhoneVerticalPan(phoneVerticalPanPx);
     ox = (cvW - FVW * sx) / 2;
     oy = ((cvH - FVH * sy) / 2) + phoneVerticalPanPx;
   } else {
@@ -1387,7 +1382,7 @@ function movePendingGroupTo(pending, fp) {
     live.x += dx;
     live.y += dy;
     const path = S.paths.find(pathItem => pathItem.pid === live.id);
-    if (path && path.pts.length) path.pts[0] = { x: live.x, y: live.y };
+    if (path && path.pts.length) translatePathPoints(path, dx, dy);
     if (live.isBC && S.ball) {
       if (S.ballAttached && samePlayerRef(playerRef(live), S.ballOwner)) {
         S.ball = attachedBallPositionForPlayer(live);
@@ -1419,10 +1414,12 @@ function placeGroupAtPoint(placement, point) {
   const dx = clamp(dxRaw, dxMin, dxMax);
   const dy = clamp(dyRaw, dyMin, dyMax);
   members.forEach(({ live, start }) => {
+    const prevX = live.x;
+    const prevY = live.y;
     live.x = start.x + dx;
     live.y = start.y + dy;
     const path = S.paths.find(pathItem => pathItem.pid === live.id);
-    if (path && path.pts.length) path.pts[0] = { x: live.x, y: live.y };
+    if (path && path.pts.length) translatePathPoints(path, live.x - prevX, live.y - prevY);
     if (live.isBC && S.ball) {
       if (S.ballAttached && samePlayerRef(playerRef(live), S.ballOwner)) {
         S.ball = attachedBallPositionForPlayer(live);
@@ -2906,15 +2903,15 @@ function drawField() {
     const p3 = toC(0, y1);
     const sg = ctx.createLinearGradient(p0.x, p0.y, p3.x, p3.y);
     if (si % 2 === 0) {
-      sg.addColorStop(0, 'rgba(255,255,255,0.018)');
-      sg.addColorStop(0.22, 'rgba(255,255,255,0.092)');
-      sg.addColorStop(0.78, 'rgba(255,255,255,0.092)');
-      sg.addColorStop(1, 'rgba(255,255,255,0.018)');
+      sg.addColorStop(0, 'rgba(255,255,255,0.032)');
+      sg.addColorStop(0.22, 'rgba(255,255,255,0.16)');
+      sg.addColorStop(0.78, 'rgba(255,255,255,0.16)');
+      sg.addColorStop(1, 'rgba(255,255,255,0.032)');
     } else {
-      sg.addColorStop(0, 'rgba(0,0,0,0.016)');
-      sg.addColorStop(0.22, 'rgba(0,0,0,0.102)');
-      sg.addColorStop(0.78, 'rgba(0,0,0,0.102)');
-      sg.addColorStop(1, 'rgba(0,0,0,0.016)');
+      sg.addColorStop(0, 'rgba(0,0,0,0.028)');
+      sg.addColorStop(0.22, 'rgba(0,0,0,0.18)');
+      sg.addColorStop(0.78, 'rgba(0,0,0,0.18)');
+      sg.addColorStop(1, 'rgba(0,0,0,0.028)');
     }
     ctx.fillStyle = sg;
     ctx.beginPath();
@@ -2933,7 +2930,7 @@ function drawField() {
     const pat = ctx.createPattern(tile, 'repeat');
     if (pat) {
       ctx.save();
-      ctx.globalAlpha = Math.max(0.11, S.textureStrength || 0.09);
+      ctx.globalAlpha = Math.max(0.16, S.textureStrength || 0.12);
       ctx.beginPath(); ctx.rect(fieldLeft, fieldTop, FW, FH); ctx.clip();
       ctx.fillStyle = pat;
       ctx.fillRect(fieldLeft, fieldTop, FW, FH);
@@ -3419,6 +3416,33 @@ function drawBallCarrierHighlight(fx, fy) {
   ctx.lineWidth = 1;
   ctx.stroke();
   ctx.restore();
+}
+
+function drawPathOriginMarker(fx, fy, palette = null) {
+  if (isPhoneViewport) return;
+  const p = toC(fx, fy);
+  const r = Math.max(7, R() * 0.6);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+  ctx.strokeStyle = palette?.border || 'rgba(255,255,255,0.7)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 3]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+function renderPathOriginMarkers(players = S.players, paths = S.paths) {
+  if (isPhoneViewport) return;
+  paths.forEach((path) => {
+    if (!Array.isArray(path?.pts) || path.pts.length < 2) return;
+    const pl = players.find((player) => player.id === path.pid);
+    if (!pl) return;
+    const origin = path.pts[0];
+    if (d2(origin, { x: pl.x, y: pl.y }) < 0.75) return;
+    drawPathOriginMarker(origin.x, origin.y, playerColorPalette(pl));
+  });
 }
 
 function lighten(hex, amt) {
@@ -4058,6 +4082,7 @@ function render() {
       drawRunPath(path.pts, path.team === 'A' ? '#60a5fa' : '#f87171', 2.8, 1);
     });
     renderAnnotations('lines', frame.annotations);
+    renderPathOriginMarkers(frame.players, frame.paths);
     frame.players.forEach(pl => drawPlayer(pl.x, pl.y, pl.num, pl.team, false, samePlayerRef(playerRef(pl), frame.ballOwner), playerColorPalette(pl)));
     const frameBall = animatedKickBall || frame.ball;
     if (frameBall) drawBall(frameBall.x, frameBall.y, false);
@@ -4117,6 +4142,7 @@ function render() {
     }
   }
   renderAnnotations('lines');
+  renderPathOriginMarkers();
 
   if (S.drawing && S.drawing.pts.length >= 2) {
     const pl  = S.players.find(p => p.id === S.drawing.pid);
@@ -4802,6 +4828,8 @@ function handlePointerMove(e) {
           snapshot();
           S.dragging.snapshotDone = true;
         }
+        const prevX = pl.x;
+        const prevY = pl.y;
         pl.x = clamp(fp.x - S.dragOff.x, -2, 70);
         pl.y = clamp(fp.y - S.dragOff.y, -11, 111);
 
@@ -4812,7 +4840,7 @@ function handlePointerMove(e) {
         }
 
         const path = S.paths.find(p => p.pid === pl.id);
-        if (path && path.pts.length) path.pts[0] = {x:pl.x, y:pl.y};
+        if (path && path.pts.length) translatePathPoints(path, pl.x - prevX, pl.y - prevY);
         if (samePlayerRef(playerRef(pl), S.ballOwner) && S.ball) {
           // Ball magnet: this player owns the ball - always drag it along, regardless of ballAttached state
           S.ball = attachedBallPositionForPlayer(pl);
@@ -4856,10 +4884,12 @@ function handlePointerMove(e) {
         const dx = clamp(dxRaw, dxMin, dxMax);
         const dy = clamp(dyRaw, dyMin, dyMax);
         members.forEach(({ live, start }) => {
+          const prevX = live.x;
+          const prevY = live.y;
           live.x = start.x + dx;
           live.y = start.y + dy;
           const path = S.paths.find(pathItem => pathItem.pid === live.id);
-          if (path && path.pts.length) path.pts[0] = { x: live.x, y: live.y };
+          if (path && path.pts.length) translatePathPoints(path, live.x - prevX, live.y - prevY);
           if (live.isBC && S.ball) {
             if (S.ballAttached && samePlayerRef(playerRef(live), S.ballOwner)) {
               S.ball = attachedBallPositionForPlayer(live);
