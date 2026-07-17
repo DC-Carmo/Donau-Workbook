@@ -41,8 +41,14 @@ let cvW=0, cvH=0, sc=1, sx=1, sy=1, ox=0, oy=0;
 let isPhoneViewport = false;
 let isMobilePortraitBoard = false;
 let isPhoneLandscapeBoard = false;
+let phoneVerticalPanPx = 0;
+let phoneVerticalOverflowPx = 0;
 const cv  = document.getElementById('field');
 const supportsPointerEvents = typeof window !== 'undefined' && 'PointerEvent' in window;
+
+function isVerticalPhoneBoard() {
+  return isPhoneViewport;
+}
 
 function normEvent(e) {
   const src = e.touches && e.touches.length > 0         ? e.touches[0]
@@ -59,20 +65,14 @@ function normEvent(e) {
 const ctx = cv.getContext('2d');
 
 function toC(fx, fy) {
-  if (isMobilePortraitBoard) {
+  if (isVerticalPhoneBoard()) {
     return { x: ox + (fx - F.DX0) * sx, y: oy + (F.DY1 - fy) * sy };
-  }
-  if (isPhoneLandscapeBoard) {
-    return { x: ox + (fy - F.DY0) * sx, y: oy + (F.DX1 - fx) * sy };
   }
   return { x: ox + (fx - F.DX0) * sx, y: oy + (fy - F.DY0) * sy };
 }
 function frC(cx, cy) {
-  if (isMobilePortraitBoard) {
+  if (isVerticalPhoneBoard()) {
     return { x: (cx - ox) / sx + F.DX0, y: F.DY1 - ((cy - oy) / sy) };
-  }
-  if (isPhoneLandscapeBoard) {
-    return { x: F.DX1 - ((cy - oy) / sy), y: (cx - ox) / sx + F.DY0 };
   }
   return { x: (cx - ox) / sx + F.DX0, y: (cy - oy) / sy + F.DY0 };
 }
@@ -196,13 +196,20 @@ function getPhoneCanvasBounds() {
   const padY = (parseFloat(wrapStyles?.paddingTop || '0') || 0) + (parseFloat(wrapStyles?.paddingBottom || '0') || 0);
   const outerHeight = Math.max(1, viewportH - topbarH - bottomPanelH);
   return {
+    top: topbarH,
     width: Math.max(1, Math.round(viewportW - padX)),
     height: Math.max(1, Math.round(outerHeight - padY)),
   };
 }
 
+function clampPhoneVerticalPan(nextOffset) {
+  if (!phoneVerticalOverflowPx) return 0;
+  const limit = phoneVerticalOverflowPx / 2;
+  return clamp(nextOffset, -limit, limit);
+}
+
 function setPortraitPanOffset(nextOffset) {
-  void nextOffset;
+  phoneVerticalPanPx = clampPhoneVerticalPan(nextOffset);
 }
 
 function resize() {
@@ -212,18 +219,18 @@ function resize() {
   const PHONE_LANDSCAPE = isPhone && !MOBILE_PORTRAIT;
   isPhoneViewport = isPhone;
   isMobilePortraitBoard = MOBILE_PORTRAIT;
-  isPhoneLandscapeBoard = PHONE_LANDSCAPE;
+  isPhoneLandscapeBoard = false;
   document.body.classList.toggle('is-phone', isPhone);
   document.body.classList.toggle('tb-mobile-portrait', MOBILE_PORTRAIT);
   syncMobileNotesPanelHost();
-  const phoneBox = null;
+  const phoneBox = isPhone ? getPhoneCanvasBounds() : null;
   const wrapW = phoneBox?.width || wrap.clientWidth || wrap.getBoundingClientRect().width || cv.clientWidth || window.innerWidth;
   const wrapH = phoneBox?.height || wrap.clientHeight || wrap.getBoundingClientRect().height || cv.clientHeight || window.innerHeight;
   cvW = isPhone
-    ? Math.max(1, Math.round(window.innerWidth || document.documentElement.clientWidth || wrapW))
+    ? Math.max(1, Math.round(phoneBox?.width || wrapW))
     : Math.max(1, Math.round(wrapW));
   cvH = isPhone
-    ? Math.max(1, Math.round(window.innerHeight || document.documentElement.clientHeight || wrapH))
+    ? Math.max(1, Math.round(phoneBox?.height || wrapH))
     : Math.max(1, Math.round(wrapH));
   const padX = Math.max(6, Math.min(12, cvW * 0.008));
   const padY = Math.max(8, Math.min(14, cvH * 0.01));
@@ -233,11 +240,12 @@ function resize() {
     wrap.style.width = '';
     wrap.style.height = '';
     if (MOBILE_PORTRAIT) {
-      sc = Math.max(0.01, Math.min((cvW - padX * 2) / FVW, (cvH - padY * 2) / FVH));
+      const portraitPadY = Math.max(24, Math.min(34, cvH * 0.045));
+      sc = Math.max(0.01, Math.min((cvW - padX * 2) / FVW, (cvH - portraitPadY * 2) / FVH));
       sx = sc;
       sy = sc;
     } else if (PHONE_LANDSCAPE) {
-      sc = Math.max(0.01, Math.min(cvW / FVH, cvH / FVW));
+      sc = Math.max(0.01, (cvW - padX * 2) / FVW);
       sx = sc;
       sy = sc;
     } else {
@@ -261,13 +269,14 @@ function resize() {
   }
   cv.width = cvW;
   cv.height = cvH;
-  if (MOBILE_PORTRAIT) {
+  if (isPhone) {
+    phoneVerticalOverflowPx = Math.max(0, FVH * sy - cvH);
+    phoneVerticalPanPx = MOBILE_PORTRAIT ? 0 : clampPhoneVerticalPan(phoneVerticalPanPx);
     ox = (cvW - FVW * sx) / 2;
-    oy = (cvH - FVH * sy) / 2;
-  } else if (PHONE_LANDSCAPE) {
-    ox = (cvW - FVH * sx) / 2;
-    oy = (cvH - FVW * sy) / 2;
+    oy = ((cvH - FVH * sy) / 2) + phoneVerticalPanPx;
   } else {
+    phoneVerticalOverflowPx = 0;
+    phoneVerticalPanPx = 0;
     ox = (cvW - FVW * sx) / 2;
     oy = (cvH - FVH * sy) / 2;
   }
@@ -377,14 +386,25 @@ const SAVED_PLAYS_KEY = 'coachmato.animator.savedPlays.v1';
 const FIRST_USE_TUTORIAL_KEY = 'coachmato.animator.firstUseTutorial.v1';
 const PROJECT_SCHEMA_VERSION = 4;
 const PHONE_UI_ACTION_GUARD_MS = 300;
+const PHONE_DATA_ACTION_GUARD_MS = 400;
 let lastPhoneAddAction = { team: null, at: -Infinity };
 let phoneMoveToastTimer = null;
 let phoneMoveToastShown = false;
 let phoneDeleteConfirmTimers = { phase: null, move: null };
 let phoneDeleteConfirmState = { phase: false, move: false };
+const phoneDataActionAt = new Map();
 const PROJECT_TYPE = 'coachmato.animator.project';
 const PLAYBACK_TIMELINE_MODEL = 'global_progress_v1';
 const DEFAULT_PLAYBACK_DURATION = 5;
+
+function claimPhoneDataAction(actionKey) {
+  if (!isPhoneViewport) return true;
+  const now = (typeof performance !== 'undefined' && Number.isFinite(performance.now())) ? performance.now() : Date.now();
+  const lastAt = phoneDataActionAt.get(actionKey) ?? -Infinity;
+  if ((now - lastAt) < PHONE_DATA_ACTION_GUARD_MS) return false;
+  phoneDataActionAt.set(actionKey, now);
+  return true;
+}
 const ANNOTATION_NOTE_DEFAULT = 'Note';
 const NOTE_FONT = '"Barlow Condensed"';
 const STEP_MIN_COUNT = 3;
@@ -1051,6 +1071,7 @@ function loadCurrentPhaseBoardState() {
 }
 
 function addPhaseAfterCurrent() {
+  if (!claimPhoneDataAction('more:phase:add')) return;
   resetDeleteConfirm('phase');
   resetDeleteConfirm('move');
   persistCurrentPhase();
@@ -1114,6 +1135,7 @@ function confirmDeleteAction(kind) {
 }
 
 function deleteCurrentPhaseWithConfirm() {
+  if (!claimPhoneDataAction('more:phase:delete')) return;
   if (!confirmDeleteAction('phase')) return;
   resetDeleteConfirm('move');
   snapshot();
@@ -2793,6 +2815,7 @@ function undo() {
 }
 window.undo = undo;
 function redo() {
+  if (!claimPhoneDataAction('more:redo')) return;
   if (!S.future.length) return;
   persistCurrentPhase();
   S.history.push(cloneData({
@@ -3017,7 +3040,7 @@ function drawField() {
     ctx.fillStyle = 'rgba(251,191,36,0.8)';
     ctx.font = `bold ${Math.max(9, sc * 0.75)}px "Barlow Condensed"`;
     ctx.textAlign = 'right';
-    const gainLabelY = clamp(gainY + (isMobilePortraitBoard ? 14 : -4), fieldTop + 12, fieldBottom - 6);
+    const gainLabelY = clamp(gainY + (isPhoneViewport ? 14 : -4), fieldTop + 12, fieldBottom - 6);
     ctx.fillText('GAINLINE', toC(67, GAINLINE_Y).x, gainLabelY);
     ctx.restore();
   }
@@ -4264,10 +4287,17 @@ function consumePointerTap(pointerId) {
 }
 
 function startPortraitPan(pointerId, point, payload = { type: 'portrait-pan' }) {
-  void pointerId;
-  void point;
-  void payload;
-  return false;
+  if (!isPhoneViewport || phoneVerticalOverflowPx <= 0 || !point) return false;
+  closeRadialMenu();
+  S.dragging = {
+    type: 'portrait-pan',
+    startClientY: point.clientY,
+    startPan: phoneVerticalPanPx,
+  };
+  beginPointerTap(pointerId, payload, point);
+  try { cv.setPointerCapture(pointerId); } catch(_) {}
+  setHint('Drag empty grass to pan the full field.');
+  return true;
 }
 
 function addKickToFieldTarget(fieldPoint) {
@@ -4674,7 +4704,7 @@ function handlePointerDown(e) {
     const eraseRun = hitRunPath(fp);
     const erasePass = hitPassLine(fp);
     const eraseKick = hitKickPath(fp);
-    if (isMobilePortraitBoard && !erasePlayer && !eraseBall && !eraseAnnotation && eraseRun === null && erasePass === -1 && eraseKick === -1) {
+    if (isPhoneViewport && !erasePlayer && !eraseBall && !eraseAnnotation && eraseRun === null && erasePass === -1 && eraseKick === -1) {
       startPortraitPan(e.pointerId, e);
       refreshInteractionUI();
       render();
@@ -4861,6 +4891,9 @@ function handlePointerMove(e) {
       GAINLINE_Y = clamp(fp.y, 5, 95);
       const carrier = S.players.find(p => p.isBC);
       if (carrier) updateGainDisplayForY(carrier.y);
+    } else if (S.dragging.type === 'portrait-pan') {
+      const deltaY = e.clientY - S.dragging.startClientY;
+      setPortraitPanOffset(S.dragging.startPan + deltaY);
     } else if (S.dragging.type === 'annotation') {
       const ann = findAnnotationById(S.dragging.id);
       if (ann) {
@@ -5164,8 +5197,13 @@ function clamp(v, mn, mx) { return Math.max(mn, Math.min(mx, v)); }
 //  PLAYER MANAGEMENT
 
 function addPlayerByNum(num, team) {
+  const now = (typeof performance !== 'undefined' && Number.isFinite(performance.now())) ? performance.now() : Date.now();
+  if (isPhoneViewport && lastPhoneAddAction.team === team && (now - lastPhoneAddAction.at) < PHONE_DATA_ACTION_GUARD_MS) {
+    return;
+  }
   const used = team === 'A' ? S.atkUsed : S.defUsed;
   if (used.has(num)) return; // already on field
+  lastPhoneAddAction = { team, at: now };
   snapshot();
   // Smart placement: stagger across field
   const existing = S.players.filter(p => p.team === team);
@@ -5231,12 +5269,7 @@ function togglePalettePlayer(num, team, event = null) {
 }
 
 function addNextAvailablePlayer(team) {
-  const now = (typeof performance !== 'undefined' && Number.isFinite(performance.now())) ? performance.now() : Date.now();
-  if (isPhoneViewport && lastPhoneAddAction.team === team && (now - lastPhoneAddAction.at) < PHONE_UI_ACTION_GUARD_MS) {
-    console.debug('[animator] skipped duplicate phone add', { team, players: S.players.length });
-    return;
-  }
-  lastPhoneAddAction = { team, at: now };
+  if (!claimPhoneDataAction(`add-player:${team}`)) return;
   const used = team === 'A' ? S.atkUsed : S.defUsed;
   const nextNum = Array.from({ length: 15 }, (_, idx) => idx + 1).find(num => !used.has(num));
   if (!nextNum) {
@@ -5253,6 +5286,7 @@ function addNextAvailablePlayer(team) {
 window.addNextAvailablePlayer = addNextAvailablePlayer;
 
 function addBall() {
+  if (!claimPhoneDataAction('add-ball')) return;
   snapshot();
   const selectedPlayer = S.selectedPlayerId !== null
     ? S.players.find(p => p.id === S.selectedPlayerId)
@@ -5637,6 +5671,7 @@ function nextStep() {
 }
 
 function addStep() {
+  if (!claimPhoneDataAction('more:move:add')) return;
   resetDeleteConfirm('move');
   resetDeleteConfirm('phase');
   snapshot();
@@ -5723,6 +5758,7 @@ function deleteStepAt(idx) {
 window.deleteStepAt = deleteStepAt;
 
 function deleteLastMoveWithConfirm() {
+  if (!claimPhoneDataAction('more:move:delete')) return;
   if (!confirmDeleteAction('move')) return;
   resetDeleteConfirm('phase');
   ensureSteps();
@@ -5831,6 +5867,7 @@ function togglePlay() {
 }
 
 function togglePlayAll() {
+  if (!claimPhoneDataAction('more:play-all')) return;
   if (S.playAll) {
     if (S.animating) {
       S.animating = false;
@@ -6432,6 +6469,7 @@ function updateBoardStatus() {
 }
 
 function toggleGainline() {
+  if (!claimPhoneDataAction('more:gainline')) return;
   showGainline = !showGainline;
   resetDeleteConfirm('phase');
   resetDeleteConfirm('move');
@@ -6650,6 +6688,7 @@ function setMobileNotesSheetOpen(open) {
   sheet.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
 }
 function openMobileNotesSheet() {
+  if (!claimPhoneDataAction('more:notes')) return;
   closeMobileBoardMenu();
   setMobileMoreDrawerOpen(false);
   setMobileNotesSheetOpen(true);
@@ -7021,6 +7060,7 @@ function cancelActiveBoardInteraction() {
   return false;
 }
 function clearAll() {
+  if (!claimPhoneDataAction('more:clear')) return;
   if (!confirm('Clear all players and paths? This cannot be undone.')) return;
   snapshot();
   resetDeleteConfirm('phase');
