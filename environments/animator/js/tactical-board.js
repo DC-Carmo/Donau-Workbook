@@ -153,11 +153,31 @@ function showRadial(pl, canvasX, canvasY) {
   renderRadialMenu();
 }
 
+function shouldUsePortraitBoard() {
+  return window.innerWidth <= 900 && window.innerHeight > window.innerWidth;
+}
+
+function syncMobileNotesPanelHost() {
+  const notes = document.querySelector('.sp-notes-panel');
+  const host = document.getElementById('mobileMenuNotesHost');
+  const anchor = document.getElementById('smartPanelNotesAnchor');
+  if (!notes || !host || !anchor || !anchor.parentNode) return;
+  if (isMobilePortraitBoard) {
+    if (notes.parentNode !== host) host.appendChild(notes);
+    return;
+  }
+  const targetParent = anchor.parentNode;
+  if (notes.parentNode !== targetParent || notes.previousElementSibling !== anchor) {
+    targetParent.insertBefore(notes, anchor.nextSibling);
+  }
+}
+
 function resize() {
   const wrap = document.getElementById('canvasWrap');
-  const MOBILE_PORTRAIT = window.innerWidth <= 768 && window.innerHeight > window.innerWidth;
+  const MOBILE_PORTRAIT = shouldUsePortraitBoard();
   isMobilePortraitBoard = MOBILE_PORTRAIT;
   document.body.classList.toggle('tb-mobile-portrait', MOBILE_PORTRAIT);
+  syncMobileNotesPanelHost();
   const wrapW = wrap.clientWidth || wrap.getBoundingClientRect().width || cv.clientWidth || window.innerWidth;
   const wrapH = wrap.clientHeight || wrap.getBoundingClientRect().height || cv.clientHeight || window.innerHeight;
   cvW = Math.max(1, Math.round(wrapW));
@@ -171,7 +191,7 @@ function resize() {
     cv.style.height = `${cvH}px`;
   } else {
     cv.style.height = '';
-    cvH = Math.max(1, Math.round(cv.clientHeight || wrapH));
+    cvH = Math.max(1, Math.round(cv.clientHeight || wrapH || (window.innerHeight * 0.6)));
     const baseFromWidth = (cvW - padX * 2) / (FVW * FIELD_X_STRETCH);
     const baseFromHeight = (cvH - padY * 2) / FVH;
     sc = Math.max(0.01, Math.min(baseFromWidth, baseFromHeight));
@@ -5534,7 +5554,7 @@ function setMobileSpd(val) {
 window.setMobileSpd = setMobileSpd;
 
 function isCompactViewport() {
-  return window.matchMedia('(max-width: 768px)').matches;
+  return shouldUsePortraitBoard();
 }
 
 function syncResponsiveToolbarLabels() {
@@ -5632,7 +5652,7 @@ function updateMobileUI() {
       section.classList.remove('is-open');
     }
   });
-  if (!isMobileViewport()) {
+  if (!isMobilePortraitBoard) {
     closeMobileToolsDropdown();
     closeMobileBoardMenu();
     setMobileMoreDrawerOpen(false);
@@ -6048,7 +6068,7 @@ window.closeMobileDrawer  = closeMobileDrawer;
 function setMobileBoardMenuOpen(open) {
   const menu = document.getElementById('mobileBoardMenu');
   const btn = document.getElementById('mobileBoardMenuBtn');
-  const isOpen = !!open && isMobileViewport();
+  const isOpen = !!open && isMobilePortraitBoard;
   if (!menu) return;
   menu.classList.toggle('open', isOpen);
   menu.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
@@ -6195,7 +6215,7 @@ window.toggleMobileMoreDrawer = toggleMobileMoreDrawer;
 function setMobileMoreDrawerOpen(open) {
   const drawer = document.getElementById('mobileMoreDrawer');
   const btn    = document.getElementById('mobMoreBtn');
-  const isOpen = !!open && isMobileViewport();
+  const isOpen = !!open && isMobilePortraitBoard;
   if (!drawer) return;
   drawer.classList.toggle('open', isOpen);
   drawer.setAttribute('aria-hidden', String(!isOpen));

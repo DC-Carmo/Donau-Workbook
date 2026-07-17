@@ -69,6 +69,10 @@
         <button class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); exportCurrentPlay()">Export JSON</button>
         <button class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); triggerImportPlay()">Import</button>
       </div>
+      <div class="mobile-board-menu-notes">
+        <span class="mobile-board-menu-kicker">Coaching Notes</span>
+        <div id="mobileMenuNotesHost"></div>
+      </div>
     </div>
   </div>
 
@@ -165,6 +169,8 @@
           </button>
           <div id="playList"></div>
         </div>
+
+      <div id="smartPanelNotesAnchor"></div>
 
       <!-- BOTTOM: Coaching Notes accordion -->
       <div class="sp-notes-panel">
