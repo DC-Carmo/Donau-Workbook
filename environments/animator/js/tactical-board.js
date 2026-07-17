@@ -38,7 +38,7 @@ let currentPresetId = null;
 const SCHEMA_VERSION = 2;
 
 // Canvas scaling
-let cvW=0, cvH=0, sc=1, sx=1, sy=1, ox=0, oy=0;
+let cvW=0, cvH=0, sc=1, sx=1, sy=1, ox=0, oy=0, renderDpr=1;
 let isPhoneViewport = false;
 let isMobilePortraitBoard = false;
 let isPhoneLandscapeBoard = false;
@@ -46,6 +46,9 @@ let phoneVerticalPanPx = 0;
 let phoneVerticalOverflowPx = 0;
 const cv  = document.getElementById('field');
 const supportsPointerEvents = typeof window !== 'undefined' && 'PointerEvent' in window;
+let staticFieldCanvas = null;
+let staticFieldCtx = null;
+let staticFieldCacheKey = '';
 
 function isVerticalPhoneBoard() {
   return isPhoneViewport;
@@ -63,7 +66,54 @@ function normEvent(e) {
   }
   return e;
 }
-const ctx = cv.getContext('2d');
+let ctx = cv.getContext('2d');
+
+function withRenderContext(nextCtx, fn) {
+  const prevCtx = ctx;
+  ctx = nextCtx;
+  try {
+    return fn();
+  } finally {
+    ctx = prevCtx;
+  }
+}
+
+function syncCanvasResolution(canvas, context, width, height) {
+  const pxW = Math.max(1, Math.round(width * renderDpr));
+  const pxH = Math.max(1, Math.round(height * renderDpr));
+  if (canvas.width !== pxW) canvas.width = pxW;
+  if (canvas.height !== pxH) canvas.height = pxH;
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.setTransform(renderDpr, 0, 0, renderDpr, 0, 0);
+}
+
+function invalidateStaticFieldCache() {
+  staticFieldCacheKey = '';
+}
+
+function getStaticFieldCacheKey() {
+  return [
+    cvW,
+    cvH,
+    renderDpr.toFixed(3),
+    sx.toFixed(4),
+    sy.toFixed(4),
+    ox.toFixed(2),
+    oy.toFixed(2),
+    isPhoneViewport ? 1 : 0,
+    Number(S?.stripeCount || 12).toFixed(2),
+    Number(S?.textureStrength || 0).toFixed(3),
+  ].join('|');
+}
+
+function ensureStaticFieldSnapshotBuffer() {
+  if (!staticFieldCanvas) {
+    staticFieldCanvas = document.createElement('canvas');
+    staticFieldCtx = staticFieldCanvas.getContext('2d');
+  }
+  syncCanvasResolution(staticFieldCanvas, staticFieldCtx, cvW, cvH);
+}
 
 function toC(fx, fy) {
   if (isVerticalPhoneBoard()) {
@@ -226,6 +276,7 @@ function resize() {
   const isPhone = Math.min(window.innerWidth, window.innerHeight) <= 700;
   const MOBILE_PORTRAIT = isPhone && window.innerHeight > window.innerWidth;
   const PHONE_LANDSCAPE = isPhone && !MOBILE_PORTRAIT;
+  renderDpr = Math.max(1, window.devicePixelRatio || 1);
   isPhoneViewport = isPhone;
   isMobilePortraitBoard = MOBILE_PORTRAIT;
   isPhoneLandscapeBoard = false;
@@ -252,8 +303,8 @@ function resize() {
     sx = sc;
     sy = sc;
   } else {
-    cv.style.width = '';
-    cv.style.height = '';
+    cv.style.width = `${cvW}px`;
+    cv.style.height = `${cvH}px`;
     wrap.style.width = '';
     wrap.style.height = '';
     cvH = Math.max(1, Math.round(cv.clientHeight || wrapH || (window.innerHeight * 0.6)));
@@ -263,8 +314,8 @@ function resize() {
     sx = sc * FIELD_X_STRETCH;
     sy = sc;
   }
-  cv.width = cvW;
-  cv.height = cvH;
+  syncCanvasResolution(cv, ctx, cvW, cvH);
+  invalidateStaticFieldCache();
   if (isPhone) {
     phoneVerticalOverflowPx = Math.max(0, FVH * sy - cvH);
     phoneVerticalPanPx = clampPhoneVerticalPan(phoneVerticalPanPx);
@@ -350,6 +401,7 @@ Object.assign(S, {
   selectedGroupId: null,
   selectedObjectType: null,
   selectedAnnotationIdValue: null,
+  currentStepBaseline: null,
   moveGuideOrigins: {},
   dragPlayerId: null,
   dragging: null,       // { type:'player'|'group'|'ball', id? }
@@ -896,6 +948,11 @@ function persistCurrentStep() {
   S.steps[S.currentStep] = liveBoardToStepState();
 }
 
+function commitLiveBoardToCurrentStep() {
+  ensureSteps();
+  S.steps[S.currentStep] = liveBoardToStepState();
+}
+
 function serializePhase(phase = S(), index = GamePlan.currentPhase) {
   const normalized = normalizePhaseState(phase, index);
   return {
@@ -972,6 +1029,7 @@ function setLiveBoardFromStep(step, { keepSelection = false } = {}) {
   S.selectedPlayerId = selectedPlayer?.id || null;
   S.selectedObjectType = selectedObjectType === 'player' && !selectedPlayer ? null : selectedObjectType;
   S.selectedAnnotationIdValue = selectedAnnotation;
+  S.currentStepBaseline = cloneStepState(normalized);
   S.moveGuideOrigins = {};
   syncLegacySelectionState();
   if (S.ballAttached && S.ballOwner) syncAttachedBallToOwner();
@@ -2853,6 +2911,12 @@ window.redo = redo;
 
 //  FIELD RENDERING
 function drawField() {
+  const cacheKey = getStaticFieldCacheKey();
+  if (!showGainline && staticFieldCanvas && staticFieldCacheKey === cacheKey) {
+    ctx.clearRect(0, 0, cvW, cvH);
+    ctx.drawImage(staticFieldCanvas, 0, 0, staticFieldCanvas.width, staticFieldCanvas.height, 0, 0, cvW, cvH);
+    return;
+  }
   ctx.clearRect(0, 0, cvW, cvH);
 
   // ── 1. Background ────────────────────────────────────────────────────────
@@ -3135,6 +3199,11 @@ function drawField() {
   // ── 16. Goal posts ────────────────────────────────────────────────────────
   drawTopViewPosts(34, 0);
   drawTopViewPosts(34, 100);
+  if (!showGainline) {
+    ensureStaticFieldSnapshotBuffer();
+    staticFieldCtx.drawImage(cv, 0, 0, cv.width, cv.height, 0, 0, cvW, cvH);
+    staticFieldCacheKey = cacheKey;
+  }
 }
 
 function drawPosts(fx, fy, side) {
@@ -3496,7 +3565,7 @@ function drawMovementGuideLine(start, end, color) {
 
 function renderPhoneEditMovementGuides() {
   if (!isPhoneViewport || S.animating) return;
-  const baseStep = S.steps?.[S.currentStep];
+  const baseStep = S.currentStepBaseline || S.steps?.[S.currentStep];
   const baseLookup = baseStep?.players?.length ? buildStepLookup(baseStep.players) : new Map();
   S.players.forEach((player) => {
     const start = S.moveGuideOrigins?.[player.id] || baseLookup.get(playerKey(player));
@@ -4232,7 +4301,7 @@ function render() {
   }
 
   S.players.forEach(pl => {
-    const pos = animPos(pl, t);
+    const pos = S.animating ? animPos(pl, t) : pl;
     const sel = isPlayerSelected(pl.id);
     drawPlayer(pos.x, pos.y, pl.num, pl.team, sel, pl.isBC, playerColorPalette(pl));
   });
@@ -5155,6 +5224,9 @@ function onPointerUp(e) {
 
   if (S.dragging) {
     if (S.dragging.type === 'ball' || S.dragging.type === 'player' || S.dragging.type === 'group') updateBallOwnerFromPosition();
+    if (S.dragging.type === 'player' || S.dragging.type === 'group' || S.dragging.type === 'ball' || S.dragging.type === 'annotation') {
+      commitLiveBoardToCurrentStep();
+    }
     S.dragging = null;
     clearDragPlayer();
     refreshInteractionUI();
@@ -5209,6 +5281,7 @@ function finishDraw() {
     const col = pl?.team === 'A' ? '#60a5fa' : '#f87171';
     S.paths = S.paths.filter(p => p.pid !== S.drawing.pid);
     S.paths.push({ pid:S.drawing.pid, pts:simplified, color:col });
+    commitLiveBoardToCurrentStep();
   }
   S.drawing = null;
   clearArmedRunState();
@@ -5249,6 +5322,7 @@ function finishAnnotationDraft() {
   }
   snapshot();
   S.annotations.push(draft);
+  commitLiveBoardToCurrentStep();
   selectAnnotationById(draft.id);
   completeFirstUseTutorial();
   setHint(`${MODE_LABELS[draft.type] || 'Annotation'} placed — selected. Press Delete to remove, or click it again to reposition.`);
