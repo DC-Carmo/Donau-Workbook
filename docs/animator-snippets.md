@@ -1,5 +1,5 @@
 # Animator Snippet Extract For External Review
-Call-graph note: token paint splits inside `render()`; playback uses `frame.players`, edit mode uses `S.players`.
+Call-graph note: token paint splits inside `render()`; playback uses `frame.players`, edit mode now dedupes through `uniquePlayersByRef(S.players)` before painting full tokens.
 
 ```js
 if (shouldRenderSequencePreview()) {
@@ -33,7 +33,8 @@ renderAnnotations('lines');
 renderPhoneEditMovementGuides();
 renderPathOriginMarkers();
 
-S.players.forEach(pl => {
+const livePlayers = uniquePlayersByRef(S.players);
+livePlayers.forEach(pl => {
   const pos = S.animating ? animPos(pl, t) : pl;
   const sel = isPlayerSelected(pl.id);
   drawPlayer(pos.x, pos.y, pl.num, pl.team, sel, pl.isBC, playerColorPalette(pl));
@@ -152,13 +153,13 @@ for (let idx = 1; idx < sourceSteps.length; idx++) {
   const allKeys = new Set([...prevLookup.keys(), ...defLookup.keys()]);
   const players = Array.from(allKeys).map((key) => {
     const prevPlayer = prevLookup.get(key) || defLookup.get(key);
-    const defPlayer = defLookup.get(key) || prevLookup.get(key);
+    const defPlayer = defLookup.get(key) || prevPlayer;
     const defPath = defPlayer ? phasePathForPlayer(stepDef, defPlayer) : null;
     const finalPoint = defPath?.pts?.length ? defPath.pts[defPath.pts.length - 1] : null;
     return {
       ...(cloneData(defPlayer) || cloneData(prevPlayer) || {}),
-      x: finalPoint ? finalPoint.x : defPlayer.x,
-      y: finalPoint ? finalPoint.y : defPlayer.y,
+      x: finalPoint ? finalPoint.x : (Number.isFinite(defPlayer?.x) ? defPlayer.x : prevPlayer?.x),
+      y: finalPoint ? finalPoint.y : (Number.isFinite(defPlayer?.y) ? defPlayer.y : prevPlayer?.y),
     };
   });
 

@@ -785,7 +785,7 @@ function playerKey(ref) {
 
 function normalizeStepPlayers(players = []) {
   if (!Array.isArray(players)) return [];
-  return players
+  const normalized = players
     .map(pl => {
       const id = Number(pl?.id);
       const colorOverride = typeof pl?.colorOverride === 'string' ? pl.colorOverride : '';
@@ -804,6 +804,11 @@ function normalizeStepPlayers(players = []) {
       };
     })
     .filter(Boolean);
+  const deduped = new Map();
+  normalized.forEach(player => {
+    deduped.set(playerKey(player), player);
+  });
+  return Array.from(deduped.values());
 }
 
 function normalizeBallPosition(ball) {
@@ -4303,7 +4308,8 @@ function render() {
     }
   }
 
-  S.players.forEach(pl => {
+  const livePlayers = uniquePlayersByRef(S.players);
+  livePlayers.forEach(pl => {
     const pos = S.animating ? animPos(pl, t) : pl;
     const sel = isPlayerSelected(pl.id);
     drawPlayer(pos.x, pos.y, pl.num, pl.team, sel, pl.isBC, playerColorPalette(pl));
@@ -4312,7 +4318,7 @@ function render() {
   if (liveBall) {
     drawBall(liveBall.x, liveBall.y, isBallSelected());
   }
-  S.players.forEach(pl => {
+  livePlayers.forEach(pl => {
     if (pl.isBC) drawBallCarrierHighlight(pl.x, pl.y);
   });
   renderAnnotations('notes');
@@ -5621,6 +5627,10 @@ function buildStepLookup(players = []) {
   return map;
 }
 
+function uniquePlayersByRef(players = []) {
+  return Array.from(buildStepLookup(players).values());
+}
+
 function lerp(a, b, t) {
   return a + (b - a) * t;
 }
@@ -5654,13 +5664,13 @@ function computeChainedStepStates() {
     const allKeys = new Set([...prevLookup.keys(), ...defLookup.keys()]);
     const players = Array.from(allKeys).map((key) => {
       const prevPlayer = prevLookup.get(key) || defLookup.get(key);
-      const defPlayer = defLookup.get(key) || prevLookup.get(key);
+      const defPlayer = defLookup.get(key) || prevPlayer;
       const defPath = defPlayer ? phasePathForPlayer(stepDef, defPlayer) : null;
       const finalPoint = defPath?.pts?.length ? defPath.pts[defPath.pts.length - 1] : null;
       return {
         ...(cloneData(defPlayer) || cloneData(prevPlayer) || {}),
-        x: finalPoint ? finalPoint.x : defPlayer.x,
-        y: finalPoint ? finalPoint.y : defPlayer.y,
+        x: finalPoint ? finalPoint.x : (Number.isFinite(defPlayer?.x) ? defPlayer.x : prevPlayer?.x),
+        y: finalPoint ? finalPoint.y : (Number.isFinite(defPlayer?.y) ? defPlayer.y : prevPlayer?.y),
       };
     });
 
