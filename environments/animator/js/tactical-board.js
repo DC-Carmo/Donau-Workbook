@@ -240,7 +240,7 @@ function resize() {
     wrap.style.width = '';
     wrap.style.height = '';
     if (MOBILE_PORTRAIT) {
-      const portraitPadY = Math.max(24, Math.min(34, cvH * 0.045));
+      const portraitPadY = Math.max(12, Math.min(18, cvH * 0.024));
       sc = Math.max(0.01, Math.min((cvW - padX * 2) / FVW, (cvH - portraitPadY * 2) / FVH));
       sx = sc;
       sy = sc;
@@ -4069,7 +4069,7 @@ function render() {
     return;
   }
 
-  const t = S.animT;
+  const t = S.animating ? S.animT : 0;
   const animatedKickBall = resolveLiveAnimatedKickBall(t);
   renderAnnotations('zones');
 
