@@ -350,6 +350,7 @@ Object.assign(S, {
   selectedGroupId: null,
   selectedObjectType: null,
   selectedAnnotationIdValue: null,
+  moveGuideOrigins: {},
   dragPlayerId: null,
   dragging: null,       // { type:'player'|'group'|'ball', id? }
   dragOff: { x:0, y:0 },
@@ -971,6 +972,7 @@ function setLiveBoardFromStep(step, { keepSelection = false } = {}) {
   S.selectedPlayerId = selectedPlayer?.id || null;
   S.selectedObjectType = selectedObjectType === 'player' && !selectedPlayer ? null : selectedObjectType;
   S.selectedAnnotationIdValue = selectedAnnotation;
+  S.moveGuideOrigins = {};
   syncLegacySelectionState();
   if (S.ballAttached && S.ballOwner) syncAttachedBallToOwner();
   else if (S.ball && !S.ballOwner) updateBallOwnerFromPosition();
@@ -3420,14 +3422,13 @@ function drawBallCarrierHighlight(fx, fy) {
 }
 
 function drawPathOriginMarker(fx, fy, palette = null) {
-  if (isPhoneViewport) return;
   const p = toC(fx, fy);
-  const r = Math.max(7, R() * 0.6);
+  const r = isPhoneViewport ? Math.max(5.5, R() * 0.52) : Math.max(7, R() * 0.6);
   ctx.save();
   ctx.beginPath();
   ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
   ctx.strokeStyle = palette?.border || 'rgba(255,255,255,0.7)';
-  ctx.lineWidth = 2;
+  ctx.lineWidth = isPhoneViewport ? 1.6 : 2;
   ctx.setLineDash([4, 3]);
   ctx.stroke();
   ctx.setLineDash([]);
@@ -3435,7 +3436,6 @@ function drawPathOriginMarker(fx, fy, palette = null) {
 }
 
 function renderPathOriginMarkers(players = S.players, paths = S.paths) {
-  if (isPhoneViewport) return;
   paths.forEach((path) => {
     if (!Array.isArray(path?.pts) || path.pts.length < 2) return;
     const pl = players.find((player) => player.id === path.pid);
@@ -3443,6 +3443,42 @@ function renderPathOriginMarkers(players = S.players, paths = S.paths) {
     const origin = path.pts[0];
     if (d2(origin, { x: pl.x, y: pl.y }) < 0.75) return;
     drawPathOriginMarker(origin.x, origin.y, playerColorPalette(pl));
+  });
+}
+
+function drawMovementGuideLine(start, end, color) {
+  const a = toC(start.x, start.y);
+  const b = toC(end.x, end.y);
+  ctx.save();
+  ctx.strokeStyle = 'rgba(7,16,24,0.38)';
+  ctx.lineWidth = isPhoneViewport ? 4.2 : 4.8;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y);
+  ctx.lineTo(b.x, b.y);
+  ctx.stroke();
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = isPhoneViewport ? 2.3 : 2.6;
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y);
+  ctx.lineTo(b.x, b.y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function renderPhoneEditMovementGuides() {
+  if (!isPhoneViewport || S.animating) return;
+  const baseStep = S.steps?.[S.currentStep];
+  const baseLookup = baseStep?.players?.length ? buildStepLookup(baseStep.players) : new Map();
+  S.players.forEach((player) => {
+    const start = S.moveGuideOrigins?.[player.id] || baseLookup.get(playerKey(player));
+    if (!start) return;
+    const end = { x: player.x, y: player.y };
+    if (d2(start, end) < 0.75) return;
+    const palette = playerColorPalette(player);
+    drawMovementGuideLine(start, end, palette.fill);
+    drawPathOriginMarker(start.x, start.y, palette);
   });
 }
 
@@ -4143,6 +4179,7 @@ function render() {
     }
   }
   renderAnnotations('lines');
+  renderPhoneEditMovementGuides();
   renderPathOriginMarkers();
 
   if (S.drawing && S.drawing.pts.length >= 2) {
@@ -4458,6 +4495,9 @@ function handlePointerDown(e) {
         selectPlayer(pl.id);
         setDragPlayer(pl.id);
         S.ballAssignCandidate = pl.id;
+        if (!S.moveGuideOrigins[pl.id]) {
+          S.moveGuideOrigins[pl.id] = { x: pl.x, y: pl.y };
+        }
         S.dragging  = { type:'player', id:pl.id, snapshotDone: false };
         S.dragOff   = { x:fp.x - pl.x, y:fp.y - pl.y };
         beginPointerTap(e.pointerId, { type:'player', id:pl.id, wasSelected, canvasX: canvasPoint.x, canvasY: canvasPoint.y }, e);
@@ -5552,7 +5592,6 @@ function computeChainedStepStates() {
 }
 
 function buildSequenceFrame(progress) {
-  persistCurrentPhase();
   const localT = clamp(progress, 0, 1);
   let from = null;
   let to = null;
