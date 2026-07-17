@@ -2653,15 +2653,9 @@ html, body {
   }
 }
 
-/* Mobile button base styles — hidden on desktop */
-@media (min-width: 769px) {
-  #mobileToolGrid,
-  #mobileMoreDrawer {
-    display: none !important;
-  }
-}
 #mobileToolGrid,
 #mobileMoreDrawer {
+  display: none;
   background: #091510;
   border-top: 0.5px solid rgba(255,255,255,0.08);
 }
@@ -3523,62 +3517,406 @@ body.tb-mobile-portrait .mob-more-btn {
   letter-spacing: 0.12em;
 }
 
-@media (max-width: 900px) and (orientation: landscape) {
-  #workspace {
-    display: grid !important;
-    grid-template-columns: 220px minmax(0, 1fr) !important;
-    grid-template-rows: 1fr auto;
-  }
+/* Definitive phone shell: single source of truth comes from body.is-phone/body.tb-mobile-portrait */
+.mobile-play-btn,
+#mobileNotesSheet {
+  display: none;
+}
 
-  #smartPanel {
-    position: relative !important;
-    left: auto !important;
-    top: auto !important;
-    width: 220px !important;
-    transform: none !important;
-    grid-column: 1;
-    grid-row: 1 / 3;
-  }
+body.is-phone {
+  --tb-phone-topbar-h: 56px;
+  --tb-phone-rail-h: 86px;
+  --tb-phone-surface: rgba(7, 16, 24, 0.96);
+  overflow: hidden;
+}
 
-  #canvasWrap,
-  #bottomPanel {
-    grid-column: 2 !important;
-  }
+body.is-phone #app {
+  height: 100dvh;
+  overflow: hidden;
+  padding-top: var(--tb-phone-topbar-h);
+}
 
-  #compactToolbar,
-  #playerSelector {
-    display: flex !important;
-  }
+body.is-phone #topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 180;
+  min-height: var(--tb-phone-topbar-h);
+  padding: 8px 10px;
+  gap: 8px;
+  flex-wrap: nowrap;
+  align-items: center;
+}
 
-  #mobileToolGrid,
-  #mobileMoreDrawer,
-  #mobileBoardMenu,
-  .mobile-phase-counter,
-  .mobile-menu-btn,
-  #spMobileToggle,
-  #spMobileBackdrop {
-    display: none !important;
-  }
+body.is-phone .tb-title-shell,
+body.is-phone .seq-bar,
+body.is-phone .tb-actions > .c-btn:not(.mobile-play-btn):not(.mobile-menu-btn),
+body.is-phone #smartPanel,
+body.is-phone #spMobileToggle,
+body.is-phone #spMobileBackdrop,
+body.is-phone #compactToolbar,
+body.is-phone #playerSelector,
+body.is-phone #smartPanelNotesAnchor + .sp-notes-panel {
+  display: none;
+}
 
-  .tb-title-shell,
-  .seq-bar,
-  .tb-actions > .c-btn:not(.mobile-menu-btn),
-  .tb-brand-copy {
-    display: flex !important;
-  }
+body.is-phone .tb-brand {
+  flex: 0 0 auto;
+}
 
-  .tb-actions > a.c-btn.tb-portal,
-  .tb-actions > button.c-btn {
-    display: inline-flex !important;
-  }
+body.is-phone .tb-brand-copy {
+  display: none;
+}
 
-  #field {
-    min-height: 0;
-    height: clamp(280px, 74dvh, 80dvh) !important;
-    max-height: 80dvh;
-  }
+body.is-phone .tb-brand-icon {
+  width: 32px;
+  height: 24px;
+}
 
-  #canvasWrap {
-    overflow: hidden;
-  }
+body.is-phone .mobile-phase-counter,
+body.is-phone .mobile-play-btn,
+body.is-phone .mobile-menu-btn {
+  display: inline-flex;
+}
+
+body.is-phone .mobile-phase-counter {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(227, 178, 60, 0.24);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f3f1e8;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.is-phone .tb-actions {
+  margin-left: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  gap: 8px;
+}
+
+body.is-phone .mobile-play-btn,
+body.is-phone .mobile-menu-btn {
+  min-width: 44px;
+  min-height: 40px;
+  justify-content: center;
+  padding: 0 12px;
+}
+
+body.is-phone #workspace {
+  height: calc(100dvh - var(--tb-phone-topbar-h));
+}
+
+body.is-phone #canvasWrap {
+  position: fixed;
+  top: var(--tb-phone-topbar-h);
+  left: 0;
+  right: 0;
+  bottom: var(--tb-phone-rail-h);
+  min-width: 0;
+  min-height: 0;
+  padding: 10px 10px 12px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+body.is-phone #field {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  margin: 0 auto;
+}
+
+body.is-phone #bottomPanel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 170;
+  max-height: none;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: linear-gradient(180deg, rgba(4, 10, 18, 0.88), rgba(4, 10, 18, 0.98));
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.28);
+}
+
+body.is-phone #mobileToolGrid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+}
+
+body.is-phone .mob-tool-btn,
+body.is-phone .mob-more-btn {
+  min-height: 48px;
+  padding: 0 8px;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+}
+
+body.is-phone #mobileMoreDrawer {
+  position: fixed;
+  left: 10px;
+  right: 10px;
+  bottom: calc(var(--tb-phone-rail-h) - 8px);
+  z-index: 175;
+  display: none;
+  gap: 8px;
+  max-height: calc(100dvh - var(--tb-phone-topbar-h) - var(--tb-phone-rail-h) - 20px);
+  overflow: auto;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(9, 21, 16, 0.96);
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.34);
+}
+
+body.is-phone #mobileMoreDrawer.open {
+  display: grid;
+}
+
+body.is-phone .mob-more-section {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+body.is-phone .mob-more-phase-nav,
+body.is-phone .mob-more-step-nav,
+body.is-phone .mob-more-playback {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+body.is-phone .mob-more-tools {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+body.is-phone .mob-speed-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+body.is-phone .mob-speed-row .speed-btn {
+  min-height: 40px;
+  padding: 0;
+}
+
+body.is-phone #mobileBoardMenu,
+body.is-phone #mobileNotesSheet {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+body.is-phone #mobileBoardMenu.open,
+body.is-phone #mobileNotesSheet.open {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+body.is-phone .mobile-board-menu-backdrop,
+body.is-phone .mobile-notes-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(3, 8, 14, 0.62);
+}
+
+body.is-phone .mobile-board-menu-sheet {
+  position: absolute;
+  right: 12px;
+  top: calc(var(--tb-phone-topbar-h) + env(safe-area-inset-top));
+  width: min(320px, calc(100vw - 24px));
+  max-height: calc(100dvh - var(--tb-phone-topbar-h) - 16px - env(safe-area-inset-top));
+  overflow-y: auto;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(9, 21, 16, 0.96);
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.34);
+  display: grid;
+  gap: 12px;
+}
+
+body.is-phone .mobile-board-menu-head,
+body.is-phone .mobile-notes-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+body.is-phone .mobile-board-menu-kicker {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+body.is-phone .mobile-board-menu-close,
+body.is-phone .mobile-board-menu-btn {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f3f1e8;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+body.is-phone .mobile-board-menu-close {
+  min-width: 38px;
+  min-height: 38px;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+body.is-phone .mobile-board-menu-actions {
+  display: grid;
+  gap: 8px;
+}
+
+body.is-phone .mobile-board-menu-meta {
+  display: grid;
+  gap: 6px;
+}
+
+body.is-phone .mobile-board-menu-input {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f3f1e8;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.92rem;
+}
+
+body.is-phone .mobile-board-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 12px;
+  font-size: 0.76rem;
+}
+
+body.is-phone .mobile-notes-sheet {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: calc(var(--tb-phone-topbar-h) + 10px) 12px calc(var(--tb-phone-rail-h) + 10px);
+  background: var(--tb-phone-surface);
+}
+
+body.is-phone #mobileNotesSheetHost {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+}
+
+body.is-phone #mobileNotesSheetHost .sp-notes-panel {
+  display: block;
+  max-height: none;
+  margin: 0;
+  border-top: 0;
+}
+
+body.is-phone #mobileNotesSheetHost .sp-acc-body-inner {
+  gap: 8px;
+}
+
+body.is-phone .player-token {
+  min-width: 32px;
+  min-height: 32px;
+}
+
+body.is-phone:not(.tb-mobile-portrait) {
+  --tb-phone-topbar-h: 46px;
+  --tb-phone-rail-h: 60px;
+}
+
+body.is-phone:not(.tb-mobile-portrait) #topbar {
+  min-height: var(--tb-phone-topbar-h);
+  padding: 4px 8px;
+  gap: 6px;
+}
+
+body.is-phone:not(.tb-mobile-portrait) .mobile-play-btn {
+  display: none;
+}
+
+body.is-phone:not(.tb-mobile-portrait) .mobile-phase-counter {
+  min-height: 36px;
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
+  padding: 0 10px;
+}
+
+body.is-phone:not(.tb-mobile-portrait) .mobile-menu-btn {
+  min-width: 42px;
+  min-height: 36px;
+  padding: 0 10px;
+}
+
+body.is-phone:not(.tb-mobile-portrait) #canvasWrap {
+  padding: 6px 8px;
+  overflow: hidden;
+}
+
+body.is-phone:not(.tb-mobile-portrait) #bottomPanel {
+  min-height: var(--tb-phone-rail-h);
+}
+
+body.is-phone:not(.tb-mobile-portrait) #mobileToolGrid {
+  gap: 6px;
+  padding: 8px;
+}
+
+body.is-phone:not(.tb-mobile-portrait) .mob-tool-btn,
+body.is-phone:not(.tb-mobile-portrait) .mob-more-btn {
+  min-height: 40px;
+  font-size: 0.66rem;
+  padding: 0 6px;
+}
+
+body.is-phone:not(.tb-mobile-portrait) #mobileMoreDrawer {
+  bottom: calc(var(--tb-phone-rail-h) - 4px);
+  max-height: calc(100dvh - var(--tb-phone-topbar-h) - var(--tb-phone-rail-h) - 12px);
+  padding: 10px;
+}
+
+body.is-phone:not(.tb-mobile-portrait) .mobile-board-menu-sheet {
+  top: calc(var(--tb-phone-topbar-h) + 6px + env(safe-area-inset-top));
+  max-height: calc(100dvh - var(--tb-phone-topbar-h) - 12px - env(safe-area-inset-top));
 }

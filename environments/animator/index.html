@@ -43,6 +43,7 @@
     </div>
 
     <div class="mobile-phase-counter" id="mobilePhaseCounter" aria-live="polite">PHASE 1 / 1</div>
+    <button class="c-btn mobile-play-btn" id="mobileTopPlayBtn" type="button" onclick="togglePlay()" aria-label="Play current phase">Play</button>
 
     <div class="tb-actions">
       <a class="c-btn tb-portal" href="../../index.html"
@@ -62,17 +63,30 @@
         <span class="mobile-board-menu-kicker">Board Menu</span>
         <button class="mobile-board-menu-close" type="button" onclick="closeMobileBoardMenu()" aria-label="Close board menu">&times;</button>
       </div>
+      <div class="mobile-board-menu-meta">
+        <label class="mobile-board-menu-kicker" for="mobilePlayNameInput">Board Name</label>
+        <input id="mobilePlayNameInput" class="mobile-board-menu-input" type="text" maxlength="48" placeholder="Play name" autocomplete="off">
+      </div>
       <div class="mobile-board-menu-actions">
         <a class="mobile-board-menu-btn" href="../../index.html" onclick="event.preventDefault(); closeMobileBoardMenu(); location.href='../../index.html'">Portal</a>
+        <button class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); togglePlay()">Play</button>
+        <button class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); openMobileNotesSheet()">Coaching Notes</button>
         <button class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); saveCurrentPlay()">Save</button>
         <button class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); exportPDF()">Export PDF</button>
         <button class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); exportCurrentPlay()">Export JSON</button>
         <button class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); triggerImportPlay()">Import</button>
       </div>
-      <div class="mobile-board-menu-notes">
+    </div>
+  </div>
+
+  <div id="mobileNotesSheet" aria-hidden="true">
+    <button class="mobile-notes-backdrop" type="button" onclick="closeMobileNotesSheet()" aria-label="Close coaching notes"></button>
+    <div class="mobile-notes-sheet" role="dialog" aria-modal="true" aria-label="Coaching notes">
+      <div class="mobile-notes-sheet-head">
         <span class="mobile-board-menu-kicker">Coaching Notes</span>
-        <div id="mobileMenuNotesHost"></div>
+        <button class="mobile-board-menu-close" type="button" onclick="closeMobileNotesSheet()" aria-label="Close coaching notes">&times;</button>
       </div>
+      <div id="mobileNotesSheetHost"></div>
     </div>
   </div>
 
@@ -299,6 +313,7 @@
           </div>
         </div>
         <div class="mob-more-section mob-more-actions">
+          <button class="mob-more-btn" id="mobileMoreNotesBtn" type="button" onclick="openMobileNotesSheet()">NOTES</button>
           <button class="mob-more-btn" id="mobileMoreUndoBtn" type="button" onclick="undo()">&#8617; UNDO</button>
           <button class="mob-more-btn" id="mobileMoreRedoBtn" type="button" onclick="redo()">&#8618; REDO</button>
           <button class="mob-more-btn" id="mobGainlineBtn" type="button" onclick="toggleGainline()">GAINLINE</button>

@@ -39,6 +39,7 @@ const SCHEMA_VERSION = 2;
 // Canvas scaling
 const FIELD_X_STRETCH = 1.7;
 let cvW=0, cvH=0, sc=1, sx=1, sy=1, ox=0, oy=0;
+let isPhoneViewport = false;
 let isMobilePortraitBoard = false;
 const cv  = document.getElementById('field');
 
@@ -153,16 +154,12 @@ function showRadial(pl, canvasX, canvasY) {
   renderRadialMenu();
 }
 
-function shouldUsePortraitBoard() {
-  return window.innerWidth <= 900 && window.innerHeight > window.innerWidth;
-}
-
 function syncMobileNotesPanelHost() {
   const notes = document.querySelector('.sp-notes-panel');
-  const host = document.getElementById('mobileMenuNotesHost');
+  const host = document.getElementById('mobileNotesSheetHost');
   const anchor = document.getElementById('smartPanelNotesAnchor');
   if (!notes || !host || !anchor || !anchor.parentNode) return;
-  if (isMobilePortraitBoard) {
+  if (isPhoneViewport) {
     if (notes.parentNode !== host) host.appendChild(notes);
     return;
   }
@@ -172,10 +169,20 @@ function syncMobileNotesPanelHost() {
   }
 }
 
+function syncMobileBoardNameInput() {
+  const desktopInput = document.getElementById('playName');
+  const mobileInput = document.getElementById('mobilePlayNameInput');
+  if (!desktopInput || !mobileInput || mobileInput === document.activeElement) return;
+  if (mobileInput.value !== desktopInput.value) mobileInput.value = desktopInput.value;
+}
+
 function resize() {
   const wrap = document.getElementById('canvasWrap');
-  const MOBILE_PORTRAIT = shouldUsePortraitBoard();
+  const isPhone = Math.min(window.innerWidth, window.innerHeight) <= 700;
+  const MOBILE_PORTRAIT = isPhone && window.innerHeight > window.innerWidth;
+  isPhoneViewport = isPhone;
   isMobilePortraitBoard = MOBILE_PORTRAIT;
+  document.body.classList.toggle('is-phone', isPhone);
   document.body.classList.toggle('tb-mobile-portrait', MOBILE_PORTRAIT);
   syncMobileNotesPanelHost();
   const wrapW = wrap.clientWidth || wrap.getBoundingClientRect().width || cv.clientWidth || window.innerWidth;
@@ -202,6 +209,7 @@ function resize() {
   cv.height = cvH;
   ox = (cvW - FVW * sx) / 2;
   oy = (cvH - FVH * sy) / 2;
+  syncMobileBoardNameInput();
   updateMobileUI();
   render();
 }
@@ -369,7 +377,7 @@ function getGrassTile() {
 }
 
 function isMobileBoardViewport() {
-  return window.innerWidth <= 768;
+  return isPhoneViewport;
 }
 
 function hasSeenFirstUseTutorial() {
@@ -553,7 +561,7 @@ window.startTour = startTour;
 
 const R = () => {
   const base = Math.max(15, Math.min(24, sc * 1.8));
-  return isMobileBoardViewport() ? base * 0.88 : base;
+  return isPhoneViewport ? Math.max(16, base * 0.9) : base;
 };
 
 function nowIso() {
@@ -5510,7 +5518,7 @@ MODE_LABELS.tele = 'Telestrator';
 const MOBILE_DRAWER_IDS = ['selection', 'annotations', 'notes', 'files'];
 
 function isMobileViewport() {
-  return window.matchMedia('(max-width: 768px)').matches;
+  return isPhoneViewport;
 }
 
 function setMobileToolsDropdownOpen(open) {
@@ -5554,7 +5562,7 @@ function setMobileSpd(val) {
 window.setMobileSpd = setMobileSpd;
 
 function isCompactViewport() {
-  return shouldUsePortraitBoard();
+  return isPhoneViewport;
 }
 
 function syncResponsiveToolbarLabels() {
@@ -5572,6 +5580,7 @@ function syncPlayButtons() {
   const playBtn = document.getElementById('playBtn');
   const playAllBtn = document.getElementById('playAllBtn');
   const mobPlayBtn = document.getElementById('mobPlayBtn');
+  const mobileTopPlayBtn = document.getElementById('mobileTopPlayBtn');
   const tlPlayBtn = document.getElementById('tlPlayBtn');
   const singlePlayActive = S.animating && !S.playAll;
   const playAllLocked = S.playAll;
@@ -5592,6 +5601,10 @@ function syncPlayButtons() {
   if (mobPlayBtn) {
     mobPlayBtn.textContent = S.animating ? '\u23f8 PAUSE' : '\u25b6 PLAY';
     mobPlayBtn.disabled = !playable;
+  }
+  if (mobileTopPlayBtn) {
+    mobileTopPlayBtn.textContent = singlePlayActive ? 'Pause' : 'Play';
+    mobileTopPlayBtn.disabled = !playable || playAllLocked;
   }
 }
 
@@ -5648,13 +5661,14 @@ function updateMobileUI() {
   MOBILE_DRAWER_IDS.forEach(id => {
     const section = document.getElementById(`drawer-${id}`);
     if (!section) return;
-    if (!isMobileViewport()) {
+    if (!isPhoneViewport) {
       section.classList.remove('is-open');
     }
   });
-  if (!isMobilePortraitBoard) {
+  if (!isPhoneViewport) {
     closeMobileToolsDropdown();
     closeMobileBoardMenu();
+    closeMobileNotesSheet();
     setMobileMoreDrawerOpen(false);
   }
   return;
@@ -5695,6 +5709,52 @@ function updateMobileUI() {
     }
   });
   if (!isMobileViewport()) closeMobileToolsDropdown();
+}
+
+function updateMobileUI() {
+  const mobilePhaseCounter = document.getElementById('mobilePhaseCounter');
+  const mobileAddAttackBtn = document.getElementById('mobileAddAttackBtn');
+  const mobileAddDefenceBtn = document.getElementById('mobileAddDefenceBtn');
+  const mobileMoreAddAttackBtn = document.getElementById('mobileMoreAddAttackBtn');
+  const mobileMoreAddDefenceBtn = document.getElementById('mobileMoreAddDefenceBtn');
+  const mobileMorePrevPhaseBtn = document.getElementById('mobileMorePrevPhaseBtn');
+  const mobileMoreNextPhaseBtn = document.getElementById('mobileMoreNextPhaseBtn');
+  const mobileMorePrevStepBtn = document.getElementById('mobileMorePrevStepBtn');
+  const mobileMoreNextStepBtn = document.getElementById('mobileMoreNextStepBtn');
+  const mobileMorePlayAllBtn = document.getElementById('mobileMorePlayAllBtn');
+  const count = sequenceStepCount();
+  const playable = currentPhaseHasPlayablePlayback();
+
+  syncResponsiveToolbarLabels();
+  syncPlayButtons();
+  if (mobilePhaseCounter) mobilePhaseCounter.textContent = `PHASE ${GamePlan.currentPhase + 1} / ${GamePlan.phases.length}`;
+  [0.25, 0.5, 1, 2].forEach(v => {
+    const chip = document.getElementById('mspd-' + v);
+    if (chip) chip.classList.toggle('active', v === S.animSpd);
+  });
+  if (mobileMorePrevPhaseBtn) mobileMorePrevPhaseBtn.disabled = GamePlan.currentPhase === 0;
+  if (mobileMoreNextPhaseBtn) mobileMoreNextPhaseBtn.disabled = GamePlan.currentPhase >= GamePlan.phases.length - 1;
+  if (mobileMorePrevStepBtn) mobileMorePrevStepBtn.disabled = S.currentStep === 0;
+  if (mobileMoreNextStepBtn) mobileMoreNextStepBtn.disabled = S.currentStep >= count - 1;
+  if (mobileAddAttackBtn) mobileAddAttackBtn.disabled = S.atkUsed.size >= 15;
+  if (mobileAddDefenceBtn) mobileAddDefenceBtn.disabled = S.defUsed.size >= 15;
+  if (mobileMoreAddAttackBtn) mobileMoreAddAttackBtn.disabled = S.atkUsed.size >= 15;
+  if (mobileMoreAddDefenceBtn) mobileMoreAddDefenceBtn.disabled = S.defUsed.size >= 15;
+  if (mobileMorePlayAllBtn) {
+    mobileMorePlayAllBtn.textContent = S.animating && S.playAll ? 'â¸ PAUSE ALL' : 'â–¶â–¶ PLAY ALL';
+    mobileMorePlayAllBtn.disabled = !playable;
+  }
+  MOBILE_DRAWER_IDS.forEach(id => {
+    const section = document.getElementById(`drawer-${id}`);
+    if (!section) return;
+    if (!isPhoneViewport) section.classList.remove('is-open');
+  });
+  if (!isPhoneViewport) {
+    closeMobileToolsDropdown();
+    closeMobileBoardMenu();
+    closeMobileNotesSheet();
+    setMobileMoreDrawerOpen(false);
+  }
 }
 
 function getSelectedSummary() {
@@ -6068,8 +6128,12 @@ window.closeMobileDrawer  = closeMobileDrawer;
 function setMobileBoardMenuOpen(open) {
   const menu = document.getElementById('mobileBoardMenu');
   const btn = document.getElementById('mobileBoardMenuBtn');
-  const isOpen = !!open && isMobilePortraitBoard;
+  const isOpen = !!open && isPhoneViewport;
   if (!menu) return;
+  if (isOpen) {
+    closeMobileNotesSheet();
+    setMobileMoreDrawerOpen(false);
+  }
   menu.classList.toggle('open', isOpen);
   menu.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
   if (btn) btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
@@ -6084,6 +6148,24 @@ function closeMobileBoardMenu() {
 }
 window.toggleMobileBoardMenu = toggleMobileBoardMenu;
 window.closeMobileBoardMenu = closeMobileBoardMenu;
+
+function setMobileNotesSheetOpen(open) {
+  const sheet = document.getElementById('mobileNotesSheet');
+  const isOpen = !!open && isPhoneViewport;
+  if (!sheet) return;
+  sheet.classList.toggle('open', isOpen);
+  sheet.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+}
+function openMobileNotesSheet() {
+  closeMobileBoardMenu();
+  setMobileMoreDrawerOpen(false);
+  setMobileNotesSheetOpen(true);
+}
+function closeMobileNotesSheet() {
+  setMobileNotesSheetOpen(false);
+}
+window.openMobileNotesSheet = openMobileNotesSheet;
+window.closeMobileNotesSheet = closeMobileNotesSheet;
 
 /* ── Coaching drawer ── */
 function toggleCoachingDrawer() {
@@ -6220,6 +6302,90 @@ function setMobileMoreDrawerOpen(open) {
   drawer.classList.toggle('open', isOpen);
   drawer.setAttribute('aria-hidden', String(!isOpen));
   if (btn) btn.textContent = isOpen ? 'MORE ▾' : 'MORE ▴';
+}
+
+function toggleMobileMoreDrawer() {
+  const drawer = document.getElementById('mobileMoreDrawer');
+  if (!drawer) return;
+  closeMobileBoardMenu();
+  closeMobileNotesSheet();
+  setMobileMoreDrawerOpen(!drawer.classList.contains('open'));
+}
+window.toggleMobileMoreDrawer = toggleMobileMoreDrawer;
+
+function setMobileMoreDrawerOpen(open) {
+  const drawer = document.getElementById('mobileMoreDrawer');
+  const btn    = document.getElementById('mobMoreBtn');
+  const isOpen = !!open && isPhoneViewport;
+  if (!drawer) return;
+  drawer.classList.toggle('open', isOpen);
+  drawer.setAttribute('aria-hidden', String(!isOpen));
+  if (btn) btn.textContent = isOpen ? 'MORE â–¾' : 'MORE â–´';
+}
+
+function toggleMobileMoreDrawer() {
+  const drawer = document.getElementById('mobileMoreDrawer');
+  if (!drawer) return;
+  closeMobileBoardMenu();
+  closeMobileNotesSheet();
+  setMobileMoreDrawerOpen(!drawer.classList.contains('open'));
+}
+window.toggleMobileMoreDrawer = toggleMobileMoreDrawer;
+
+function setMobileMoreDrawerOpen(open) {
+  const drawer = document.getElementById('mobileMoreDrawer');
+  const btn    = document.getElementById('mobMoreBtn');
+  const isOpen = !!open && isPhoneViewport;
+  if (!drawer) return;
+  drawer.classList.toggle('open', isOpen);
+  drawer.setAttribute('aria-hidden', String(!isOpen));
+  if (btn) btn.textContent = isOpen ? 'MORE v' : 'MORE ^';
+}
+
+function updateMobileUI() {
+  const mobilePhaseCounter = document.getElementById('mobilePhaseCounter');
+  const mobileAddAttackBtn = document.getElementById('mobileAddAttackBtn');
+  const mobileAddDefenceBtn = document.getElementById('mobileAddDefenceBtn');
+  const mobileMoreAddAttackBtn = document.getElementById('mobileMoreAddAttackBtn');
+  const mobileMoreAddDefenceBtn = document.getElementById('mobileMoreAddDefenceBtn');
+  const mobileMorePrevPhaseBtn = document.getElementById('mobileMorePrevPhaseBtn');
+  const mobileMoreNextPhaseBtn = document.getElementById('mobileMoreNextPhaseBtn');
+  const mobileMorePrevStepBtn = document.getElementById('mobileMorePrevStepBtn');
+  const mobileMoreNextStepBtn = document.getElementById('mobileMoreNextStepBtn');
+  const mobileMorePlayAllBtn = document.getElementById('mobileMorePlayAllBtn');
+  const count = sequenceStepCount();
+  const playable = currentPhaseHasPlayablePlayback();
+
+  syncResponsiveToolbarLabels();
+  syncPlayButtons();
+  if (mobilePhaseCounter) mobilePhaseCounter.textContent = `PHASE ${GamePlan.currentPhase + 1} / ${GamePlan.phases.length}`;
+  [0.25, 0.5, 1, 2].forEach(v => {
+    const chip = document.getElementById('mspd-' + v);
+    if (chip) chip.classList.toggle('active', v === S.animSpd);
+  });
+  if (mobileMorePrevPhaseBtn) mobileMorePrevPhaseBtn.disabled = GamePlan.currentPhase === 0;
+  if (mobileMoreNextPhaseBtn) mobileMoreNextPhaseBtn.disabled = GamePlan.currentPhase >= GamePlan.phases.length - 1;
+  if (mobileMorePrevStepBtn) mobileMorePrevStepBtn.disabled = S.currentStep === 0;
+  if (mobileMoreNextStepBtn) mobileMoreNextStepBtn.disabled = S.currentStep >= count - 1;
+  if (mobileAddAttackBtn) mobileAddAttackBtn.disabled = S.atkUsed.size >= 15;
+  if (mobileAddDefenceBtn) mobileAddDefenceBtn.disabled = S.defUsed.size >= 15;
+  if (mobileMoreAddAttackBtn) mobileMoreAddAttackBtn.disabled = S.atkUsed.size >= 15;
+  if (mobileMoreAddDefenceBtn) mobileMoreAddDefenceBtn.disabled = S.defUsed.size >= 15;
+  if (mobileMorePlayAllBtn) {
+    mobileMorePlayAllBtn.textContent = S.animating && S.playAll ? 'PAUSE ALL' : 'PLAY ALL';
+    mobileMorePlayAllBtn.disabled = !playable;
+  }
+  MOBILE_DRAWER_IDS.forEach(id => {
+    const section = document.getElementById(`drawer-${id}`);
+    if (!section) return;
+    if (!isPhoneViewport) section.classList.remove('is-open');
+  });
+  if (!isPhoneViewport) {
+    closeMobileToolsDropdown();
+    closeMobileBoardMenu();
+    closeMobileNotesSheet();
+    setMobileMoreDrawerOpen(false);
+  }
 }
 
 function clearPaths()  { snapshot(); S.paths=[]; S.passes=[]; S.drawing=null; setHint('Paths cleared. Choose the next action.'); refreshInteractionUI(); render(); }
@@ -6831,6 +6997,17 @@ updateAnnotationPanel();
 updatePhaseUI();
 updatePlayMetadataPanel();
 document.getElementById('playName').addEventListener('input', () => {
+  GamePlan.name = currentPlayTitle();
+  syncPlayMetadataTitle();
+  syncMobileBoardNameInput();
+  refreshInteractionUI();
+});
+document.getElementById('mobilePlayNameInput')?.addEventListener('input', (e) => {
+  const desktopInput = document.getElementById('playName');
+  if (!desktopInput) return;
+  if (desktopInput.value !== e.target.value) {
+    desktopInput.value = e.target.value;
+  }
   GamePlan.name = currentPlayTitle();
   syncPlayMetadataTitle();
   refreshInteractionUI();
