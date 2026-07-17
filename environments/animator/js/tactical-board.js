@@ -176,6 +176,24 @@ function syncMobileBoardNameInput() {
   if (mobileInput.value !== desktopInput.value) mobileInput.value = desktopInput.value;
 }
 
+function getPhoneCanvasBounds() {
+  const wrap = document.getElementById('canvasWrap');
+  const topbar = document.getElementById('topbar');
+  const bottomPanel = document.getElementById('bottomPanel');
+  const viewportW = Math.max(1, Math.round(window.innerWidth || document.documentElement.clientWidth || 0));
+  const viewportH = Math.max(1, Math.round(window.innerHeight || document.documentElement.clientHeight || 0));
+  const topbarH = Math.max(0, Math.round(topbar?.getBoundingClientRect().height || 0));
+  const bottomPanelH = Math.max(0, Math.round(bottomPanel?.getBoundingClientRect().height || 0));
+  const wrapStyles = wrap ? window.getComputedStyle(wrap) : null;
+  const padX = (parseFloat(wrapStyles?.paddingLeft || '0') || 0) + (parseFloat(wrapStyles?.paddingRight || '0') || 0);
+  const padY = (parseFloat(wrapStyles?.paddingTop || '0') || 0) + (parseFloat(wrapStyles?.paddingBottom || '0') || 0);
+  const outerHeight = Math.max(1, viewportH - topbarH - bottomPanelH);
+  return {
+    width: Math.max(1, Math.round(viewportW - padX)),
+    height: Math.max(1, Math.round(outerHeight - padY)),
+  };
+}
+
 function resize() {
   const wrap = document.getElementById('canvasWrap');
   const isPhone = Math.min(window.innerWidth, window.innerHeight) <= 700;
@@ -185,19 +203,36 @@ function resize() {
   document.body.classList.toggle('is-phone', isPhone);
   document.body.classList.toggle('tb-mobile-portrait', MOBILE_PORTRAIT);
   syncMobileNotesPanelHost();
-  const wrapW = wrap.clientWidth || wrap.getBoundingClientRect().width || cv.clientWidth || window.innerWidth;
-  const wrapH = wrap.clientHeight || wrap.getBoundingClientRect().height || cv.clientHeight || window.innerHeight;
+  const phoneBox = isPhone ? getPhoneCanvasBounds() : null;
+  const wrapW = phoneBox?.width || wrap.clientWidth || wrap.getBoundingClientRect().width || cv.clientWidth || window.innerWidth;
+  const wrapH = phoneBox?.height || wrap.clientHeight || wrap.getBoundingClientRect().height || cv.clientHeight || window.innerHeight;
   cvW = Math.max(1, Math.round(wrapW));
+  cvH = Math.max(1, Math.round(wrapH));
   const padX = Math.max(6, Math.min(12, cvW * 0.008));
-  const padY = Math.max(8, Math.min(14, Math.max(wrapH, cvW) * 0.01));
-  if (MOBILE_PORTRAIT) {
-    sc = Math.max(0.01, (cvW - padX * 2) / FVW);
-    sx = sc;
-    sy = sc * FIELD_X_STRETCH;
-    cvH = Math.max(1, Math.round(FVH * sy + padY * 2));
+  const padY = Math.max(8, Math.min(14, cvH * 0.01));
+  if (isPhone) {
+    cv.style.width = `${cvW}px`;
     cv.style.height = `${cvH}px`;
+    wrap.style.width = '';
+    wrap.style.height = '';
+    if (MOBILE_PORTRAIT) {
+      const baseFromWidth = (cvW - padX * 2) / FVW;
+      const baseFromHeight = (cvH - padY * 2) / (FVH * FIELD_X_STRETCH);
+      sc = Math.max(0.01, Math.min(baseFromWidth, baseFromHeight));
+      sx = sc;
+      sy = sc * FIELD_X_STRETCH;
+    } else {
+      const baseFromWidth = (cvW - padX * 2) / (FVW * FIELD_X_STRETCH);
+      const baseFromHeight = (cvH - padY * 2) / FVH;
+      sc = Math.max(0.01, Math.min(baseFromWidth, baseFromHeight));
+      sx = sc * FIELD_X_STRETCH;
+      sy = sc;
+    }
   } else {
+    cv.style.width = '';
     cv.style.height = '';
+    wrap.style.width = '';
+    wrap.style.height = '';
     cvH = Math.max(1, Math.round(cv.clientHeight || wrapH || (window.innerHeight * 0.6)));
     const baseFromWidth = (cvW - padX * 2) / (FVW * FIELD_X_STRETCH);
     const baseFromHeight = (cvH - padY * 2) / FVH;
