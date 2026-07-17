@@ -42,7 +42,7 @@
       </button>
     </div>
 
-    <div class="mobile-phase-counter" id="mobilePhaseCounter" aria-live="polite">PHASE 1 / 1</div>
+    <div class="mobile-phase-counter" id="mobilePhaseCounter" aria-live="polite">PHASE 1/1 · STEP 1/1</div>
     <button class="c-btn mobile-play-btn" id="mobileTopPlayBtn" type="button" onclick="togglePlay()" aria-label="Play current phase">Play</button>
 
     <div class="tb-actions">
@@ -294,12 +294,13 @@
           <button class="mob-more-btn" id="mobileMoreAddAttackBtn" type="button" onclick="addNextAvailablePlayer('A')">+ ATTACK</button>
           <button class="mob-more-btn" id="mobileMoreAddDefenceBtn" type="button" onclick="addNextAvailablePlayer('D')">+ DEFENCE</button>
           <button class="mob-more-btn" id="mobileMoreBallBtn" type="button" onclick="addBall()">BALL</button>
+          <button class="mob-more-btn" id="mobileMorePassBtn" type="button" onclick="setTool('pass')">PASS</button>
+          <button class="mob-more-btn" id="mobileMoreKickBtn" type="button" onclick="setTool('kick')">KICK</button>
           <button class="mob-more-btn" id="mobileMorePlayAllBtn" type="button" onclick="togglePlayAll()">&#9654;&#9654; PLAY ALL</button>
           <div class="mob-speed-row" aria-label="Playback speed">
-            <button class="board-pill speed-btn" id="mspd-0.25" onclick="setMobileSpd(0.25)">&#188;&#215;</button>
-            <button class="board-pill speed-btn" id="mspd-0.5" onclick="setMobileSpd(0.5)">&#189;&#215;</button>
-            <button class="board-pill speed-btn active" id="mspd-1" onclick="setMobileSpd(1)">1&#215;</button>
-            <button class="board-pill speed-btn" id="mspd-2" onclick="setMobileSpd(2)">2&#215;</button>
+            <button class="board-pill speed-btn active" data-speed="1" onclick="setMobileSpd(1)">1&#215;</button>
+            <button class="board-pill speed-btn" data-speed="2" onclick="setMobileSpd(2)">2&#215;</button>
+            <button class="board-pill speed-btn" data-speed="3" onclick="setMobileSpd(3)">3&#215;</button>
           </div>
           <button class="mob-more-btn" id="mobileMoreNotesBtn" type="button" onclick="openMobileNotesSheet()">NOTES</button>
           <button class="mob-more-btn" id="mobileMoreRedoBtn" type="button" onclick="redo()">&#8618; REDO</button>
@@ -307,9 +308,9 @@
         </div>
       </div>
       <div id="mobileToolGrid">
+        <button class="mob-tool-btn" id="mobileRailAddAttackBtn" type="button" onclick="addNextAvailablePlayer('A')">+ ATTACK</button>
+        <button class="mob-tool-btn" id="mobileRailAddDefenceBtn" type="button" onclick="addNextAvailablePlayer('D')">+ DEFENCE</button>
         <button class="mob-tool-btn" id="mobileStepBtn" type="button" onclick="addStep()">+ STEP</button>
-        <button class="mob-tool-btn" data-tool="pass" onclick="setTool('pass')">PASS</button>
-        <button class="mob-tool-btn" data-tool="kick" onclick="setTool('kick')">KICK</button>
         <button class="mob-tool-btn" id="mobileRailUndoBtn" type="button" onclick="undo()">UNDO</button>
         <button class="mob-tool-btn" data-tool="erase" onclick="setTool('erase')">ERASE</button>
         <button class="mob-tool-btn mob-tool-more" id="mobMoreBtn" onclick="toggleMobileMoreDrawer()">MORE &#9652;&#xFE0E;</button>
@@ -330,10 +331,9 @@
         <div class="tb-group tb-group-b">
           <div id="spdGroup" class="spd-group">
             <span class="spd-group-label">Speed</span>
-            <button class="board-pill speed-btn" id="mspd-0.25" onclick="setMobileSpd(0.25)">¼×</button>
-            <button class="board-pill speed-btn" id="mspd-0.5" onclick="setMobileSpd(0.5)">½×</button>
-            <button class="board-pill speed-btn active" id="mspd-1" onclick="setMobileSpd(1)">1×</button>
-            <button class="board-pill speed-btn" id="mspd-2" onclick="setMobileSpd(2)">2×</button>
+            <button class="board-pill speed-btn active" data-speed="1" onclick="setMobileSpd(1)">1×</button>
+            <button class="board-pill speed-btn" data-speed="2" onclick="setMobileSpd(2)">2×</button>
+            <button class="board-pill speed-btn" data-speed="3" onclick="setMobileSpd(3)">3×</button>
           </div>
         </div>
 

@@ -41,7 +41,6 @@ const FIELD_X_STRETCH = 1.7;
 let cvW=0, cvH=0, sc=1, sx=1, sy=1, ox=0, oy=0;
 let isPhoneViewport = false;
 let isMobilePortraitBoard = false;
-let portraitPanOffset = 0;
 const cv  = document.getElementById('field');
 
 function normEvent(e) {
@@ -195,44 +194,12 @@ function getPhoneCanvasBounds() {
   };
 }
 
-function getPortraitFieldHeightPx() {
-  return FVH * sy;
-}
-
-function getPortraitPanMax() {
-  return Math.max(0, getPortraitFieldHeightPx() - cvH);
-}
-
-function clampPortraitPanOffset(nextOffset) {
-  return clamp(nextOffset, 0, getPortraitPanMax());
-}
-
-function getDefaultPortraitPanOffset() {
-  return getPortraitPanMax() / 2;
-}
-
-function applyPortraitViewportOffset() {
-  if (!isMobilePortraitBoard) return;
-  const fieldHeight = getPortraitFieldHeightPx();
-  if (fieldHeight <= cvH) {
-    portraitPanOffset = 0;
-    oy = (cvH - fieldHeight) / 2;
-    return;
-  }
-  portraitPanOffset = clampPortraitPanOffset(portraitPanOffset);
-  oy = -portraitPanOffset;
-}
-
 function setPortraitPanOffset(nextOffset) {
-  portraitPanOffset = clampPortraitPanOffset(nextOffset);
-  if (!isMobilePortraitBoard) return;
-  applyPortraitViewportOffset();
-  render();
+  void nextOffset;
 }
 
 function resize() {
   const wrap = document.getElementById('canvasWrap');
-  const wasPortraitMode = isMobilePortraitBoard;
   const isPhone = Math.min(window.innerWidth, window.innerHeight) <= 700;
   const MOBILE_PORTRAIT = isPhone && window.innerHeight > window.innerWidth;
   isPhoneViewport = isPhone;
@@ -240,11 +207,15 @@ function resize() {
   document.body.classList.toggle('is-phone', isPhone);
   document.body.classList.toggle('tb-mobile-portrait', MOBILE_PORTRAIT);
   syncMobileNotesPanelHost();
-  const phoneBox = isPhone ? getPhoneCanvasBounds() : null;
+  const phoneBox = isPhone && !MOBILE_PORTRAIT ? getPhoneCanvasBounds() : null;
   const wrapW = phoneBox?.width || wrap.clientWidth || wrap.getBoundingClientRect().width || cv.clientWidth || window.innerWidth;
   const wrapH = phoneBox?.height || wrap.clientHeight || wrap.getBoundingClientRect().height || cv.clientHeight || window.innerHeight;
-  cvW = Math.max(1, Math.round(wrapW));
-  cvH = Math.max(1, Math.round(wrapH));
+  cvW = MOBILE_PORTRAIT
+    ? Math.max(1, Math.round(window.innerWidth || document.documentElement.clientWidth || wrapW))
+    : Math.max(1, Math.round(wrapW));
+  cvH = MOBILE_PORTRAIT
+    ? Math.max(1, Math.round(window.innerHeight || document.documentElement.clientHeight || wrapH))
+    : Math.max(1, Math.round(wrapH));
   const padX = Math.max(6, Math.min(12, cvW * 0.008));
   const padY = Math.max(8, Math.min(14, cvH * 0.01));
   if (isPhone) {
@@ -255,7 +226,7 @@ function resize() {
     if (MOBILE_PORTRAIT) {
       sc = Math.max(0.01, cvW / FVW);
       sx = sc;
-      sy = sc * FIELD_X_STRETCH;
+      sy = sc;
     } else {
       const baseFromWidth = (cvW - padX * 2) / (FVW * FIELD_X_STRETCH);
       const baseFromHeight = (cvH - padY * 2) / FVH;
@@ -278,17 +249,11 @@ function resize() {
   cv.width = cvW;
   cv.height = cvH;
   if (MOBILE_PORTRAIT) {
-    ox = 0;
-    if (!wasPortraitMode) {
-      portraitPanOffset = getDefaultPortraitPanOffset();
-    } else {
-      portraitPanOffset = clampPortraitPanOffset(portraitPanOffset);
-    }
-    applyPortraitViewportOffset();
+    ox = (cvW - FVW * sx) / 2;
+    oy = (cvH - FVH * sy) / 2;
   } else {
     ox = (cvW - FVW * sx) / 2;
     oy = (cvH - FVH * sy) / 2;
-    portraitPanOffset = 0;
   }
   syncMobileBoardNameInput();
   updateMobileUI();
@@ -389,9 +354,9 @@ Object.assign(S, {
   selectedPassIdx: null,
   selectedPathPid: null,
 });
-const SPEEDS = [0.25, 0.5, 1, 2];
-let   spdIdx = 2;
-function fmtSpd(v) { return v===0.25?'¼×':v===0.5?'½×':v+'×'; }
+const SPEEDS = [1, 2, 3];
+let   spdIdx = 0;
+function fmtSpd(v) { return v + '×'; }
 const SAVED_PLAYS_KEY = 'coachmato.animator.savedPlays.v1';
 const FIRST_USE_TUTORIAL_KEY = 'coachmato.animator.firstUseTutorial.v1';
 const PROJECT_SCHEMA_VERSION = 4;
@@ -1033,6 +998,7 @@ function addPhase() {
   updateSelInfo();
   updatePhaseUI();
   refreshInteractionUI();
+  flashMobilePhaseCounter();
   render();
 }
 
@@ -4107,16 +4073,10 @@ function consumePointerTap(pointerId) {
 }
 
 function startPortraitPan(pointerId, point, payload = { type: 'portrait-pan' }) {
-  if (!isMobilePortraitBoard) return false;
-  closeRadialMenu();
-  S.dragging = {
-    type: 'portrait-pan',
-    startClientY: point.clientY,
-    startPanOffset: portraitPanOffset,
-  };
-  beginPointerTap(pointerId, payload, point);
-  try { cv.setPointerCapture(pointerId); } catch(_) {}
-  return true;
+  void pointerId;
+  void point;
+  void payload;
+  return false;
 }
 
 function addKickToFieldTarget(fieldPoint) {
@@ -4138,6 +4098,30 @@ function addKickToFieldTarget(fieldPoint) {
   refreshInteractionUI();
   render();
   return true;
+}
+
+function syncSpeedButtonsUI() {
+  document.querySelectorAll('.speed-btn[data-speed]').forEach((btn) => {
+    const btnSpeed = Number(btn.getAttribute('data-speed'));
+    btn.classList.toggle('active', btnSpeed === S.animSpd);
+  });
+  const speedLabel = document.getElementById('spdLabel');
+  if (speedLabel) speedLabel.textContent = fmtSpd(S.animSpd);
+}
+
+function updateMobilePhaseCounterLabel() {
+  const mobilePhaseCounter = document.getElementById('mobilePhaseCounter');
+  if (!mobilePhaseCounter) return;
+  mobilePhaseCounter.textContent = `PHASE ${GamePlan.currentPhase + 1}/${GamePlan.phases.length} · STEP ${S.currentStep + 1}/${sequenceStepCount()}`;
+}
+
+function flashMobilePhaseCounter() {
+  const mobilePhaseCounter = document.getElementById('mobilePhaseCounter');
+  if (!mobilePhaseCounter) return;
+  mobilePhaseCounter.classList.remove('is-flashing');
+  void mobilePhaseCounter.offsetWidth;
+  mobilePhaseCounter.classList.add('is-flashing');
+  setTimeout(() => mobilePhaseCounter.classList.remove('is-flashing'), 420);
 }
 
 function handlePointerDown(e) {
@@ -4553,10 +4537,7 @@ function handlePointerMove(e) {
   // Drag
   if (S.dragging) {
     cv.style.cursor = 'grabbing';
-    if (S.dragging.type === 'portrait-pan') {
-      portraitPanOffset = clampPortraitPanOffset(S.dragging.startPanOffset - (e.clientY - S.dragging.startClientY));
-      applyPortraitViewportOffset();
-    } else if (S.dragging.type === 'player') {
+    if (S.dragging.type === 'player') {
       const pl = S.players.find(p => p.id === S.dragPlayerId);
       if (pl) {
         if (!S.dragging.snapshotDone) {
@@ -5354,6 +5335,7 @@ function addStep() {
   setHint(`Step ${S.currentStep + 1} added. The previous step was duplicated so you can build the next action from it.`);
   rebuildPalette();
   refreshInteractionUI();
+  flashMobilePhaseCounter();
   updateTL();
   render();
 }
@@ -5603,7 +5585,7 @@ function chSpd(d) {
     ...(S.projectPlayback || {}),
     currentSpeed: S.animSpd,
   });
-  document.getElementById('spdLabel').textContent = fmtSpd(S.animSpd);
+  syncSpeedButtonsUI();
 }
 function updateTL() {
   const pct = S.animT * 100;
@@ -5691,11 +5673,7 @@ function setMobileSpd(val) {
   spdIdx = idx;
   S.animSpd = SPEEDS[spdIdx];
   S.projectPlayback = normalizePlaybackSettings({ ...(S.projectPlayback || {}), currentSpeed: S.animSpd });
-  document.getElementById('spdLabel').textContent = fmtSpd(S.animSpd);
-  [0.25, 0.5, 1, 2].forEach(v => {
-    const chip = document.getElementById('mspd-' + v);
-    if (chip) chip.classList.toggle('active', v === S.animSpd);
-  });
+  syncSpeedButtonsUI();
 }
 window.setMobileSpd = setMobileSpd;
 
@@ -6423,6 +6401,23 @@ function setTool(t) {
     } else {
       setHint(HINTS[t] || '');
     }
+  } else if ((t === 'pass' || t === 'kick') && isPhoneViewport && S.selectedPlayerId !== null && !selectedGroup()) {
+    const selectedPlayer = S.players.find(player => player.id === S.selectedPlayerId) || null;
+    if (selectedPlayer) {
+      setWorkflowSource(selectedPlayer.id, t);
+      selectPlayer(selectedPlayer.id, { highlightedIds: [selectedPlayer.id] });
+      S.ballOwner = playerRef(selectedPlayer);
+      S.ballAttached = true;
+      if (!S.ball) S.ball = { x: selectedPlayer.x, y: selectedPlayer.y };
+      syncAttachedBallToOwner();
+      applyBallOwnershipVisualState();
+      const teamLabel = selectedPlayer.team === 'A' ? 'Attack' : 'Defence';
+      setHint(t === 'kick'
+        ? `Kick from ${teamLabel} #${selectedPlayer.num}. Tap a receiver or field target.`
+        : `Pass from ${teamLabel} #${selectedPlayer.num}. Tap the receiver.`);
+    } else {
+      setHint(HINTS[t] || '');
+    }
   } else {
     setHint(HINTS[t] || '');
   }
@@ -6494,31 +6489,23 @@ function setMobileMoreDrawerOpen(open) {
 
 function updateMobileUI() {
   const mobilePhaseCounter = document.getElementById('mobilePhaseCounter');
-  const mobileAddAttackBtn = document.getElementById('mobileAddAttackBtn');
-  const mobileAddDefenceBtn = document.getElementById('mobileAddDefenceBtn');
+  const mobileRailAddAttackBtn = document.getElementById('mobileRailAddAttackBtn');
+  const mobileRailAddDefenceBtn = document.getElementById('mobileRailAddDefenceBtn');
   const mobileMoreAddAttackBtn = document.getElementById('mobileMoreAddAttackBtn');
   const mobileMoreAddDefenceBtn = document.getElementById('mobileMoreAddDefenceBtn');
   const mobileMorePrevPhaseBtn = document.getElementById('mobileMorePrevPhaseBtn');
   const mobileMoreNextPhaseBtn = document.getElementById('mobileMoreNextPhaseBtn');
-  const mobileMorePrevStepBtn = document.getElementById('mobileMorePrevStepBtn');
-  const mobileMoreNextStepBtn = document.getElementById('mobileMoreNextStepBtn');
   const mobileMorePlayAllBtn = document.getElementById('mobileMorePlayAllBtn');
-  const count = sequenceStepCount();
   const playable = currentPhaseHasPlayablePlayback();
 
   syncResponsiveToolbarLabels();
   syncPlayButtons();
-  if (mobilePhaseCounter) mobilePhaseCounter.textContent = `PHASE ${GamePlan.currentPhase + 1} / ${GamePlan.phases.length}`;
-  [0.25, 0.5, 1, 2].forEach(v => {
-    const chip = document.getElementById('mspd-' + v);
-    if (chip) chip.classList.toggle('active', v === S.animSpd);
-  });
+  if (mobilePhaseCounter) updateMobilePhaseCounterLabel();
+  syncSpeedButtonsUI();
   if (mobileMorePrevPhaseBtn) mobileMorePrevPhaseBtn.disabled = GamePlan.currentPhase === 0;
   if (mobileMoreNextPhaseBtn) mobileMoreNextPhaseBtn.disabled = GamePlan.currentPhase >= GamePlan.phases.length - 1;
-  if (mobileMorePrevStepBtn) mobileMorePrevStepBtn.disabled = S.currentStep === 0;
-  if (mobileMoreNextStepBtn) mobileMoreNextStepBtn.disabled = S.currentStep >= count - 1;
-  if (mobileAddAttackBtn) mobileAddAttackBtn.disabled = S.atkUsed.size >= 15;
-  if (mobileAddDefenceBtn) mobileAddDefenceBtn.disabled = S.defUsed.size >= 15;
+  if (mobileRailAddAttackBtn) mobileRailAddAttackBtn.disabled = S.atkUsed.size >= 15;
+  if (mobileRailAddDefenceBtn) mobileRailAddDefenceBtn.disabled = S.defUsed.size >= 15;
   if (mobileMoreAddAttackBtn) mobileMoreAddAttackBtn.disabled = S.atkUsed.size >= 15;
   if (mobileMoreAddDefenceBtn) mobileMoreAddDefenceBtn.disabled = S.defUsed.size >= 15;
   if (mobileMorePlayAllBtn) {
@@ -6641,13 +6628,13 @@ function clearAll() {
   S.annotations = [];
   S.drawing=null; S.passFrom=null; S.annotationDraft=null; S.selected=null; S.selectedPlayerId=null; S.selectedPlayerIds=[]; S.selectedGroupId=null; S.selectedAnnotationIdValue=null; S.selectedObjectType=null; S.dragPlayerId=null; S.activePasserId=null; S.activeKickerId=null; S.activeRunSourceId=null; S.highlightedPlayerIds=[]; S.ballAssignCandidate=null; S.selectedPathPid=null; S.selectedPassIdx=null; S.pendingGroupPlacement=null;
   S.animT=0; S.animating=false;
-  S.animSpd=1; spdIdx=2;
+  S.animSpd=1; spdIdx=0;
   S.nextId=1;
   S.steps=[emptyStepState()]; S.currentStep=0;
   S.atkUsed=new Set(); S.defUsed=new Set();
   document.getElementById('playName').value='New Play';
   setHint('Board reset. Start by adding players from the left.');
-  document.getElementById('spdLabel').textContent = '1×';
+  syncSpeedButtonsUI();
   updateAnnotationPanel();
   updatePhaseUI();
   setPlayBtnState(); rebuildPalette(); refreshInteractionUI(); updateTL(); render();
@@ -7173,6 +7160,11 @@ document.addEventListener('pointerdown', e => {
     closeRadialMenu();
     render();
   }
+});
+document.getElementById('mobileMoreDrawer')?.addEventListener('click', (e) => {
+  const actionBtn = e.target.closest('.mob-more-btn');
+  if (!actionBtn || actionBtn.disabled) return;
+  setTimeout(() => setMobileMoreDrawerOpen(false), 0);
 });
 [
   'metaPurpose',
