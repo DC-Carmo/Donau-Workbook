@@ -39,6 +39,7 @@ const SCHEMA_VERSION = 2;
 // Canvas scaling
 const FIELD_X_STRETCH = 1.7;
 let cvW=0, cvH=0, sc=1, sx=1, sy=1, ox=0, oy=0;
+let isMobilePortraitBoard = false;
 const cv  = document.getElementById('field');
 
 function normEvent(e) {
@@ -55,8 +56,18 @@ function normEvent(e) {
 }
 const ctx = cv.getContext('2d');
 
-function toC(fx, fy) { return { x: ox + (fx - F.DX0) * sx, y: oy + (fy - F.DY0) * sy }; }
-function frC(cx, cy) { return { x: (cx - ox) / sx + F.DX0, y: (cy - oy) / sy + F.DY0 }; }
+function toC(fx, fy) {
+  if (isMobilePortraitBoard) {
+    return { x: ox + (fx - F.DX0) * sx, y: oy + (F.DY1 - fy) * sy };
+  }
+  return { x: ox + (fx - F.DX0) * sx, y: oy + (fy - F.DY0) * sy };
+}
+function frC(cx, cy) {
+  if (isMobilePortraitBoard) {
+    return { x: (cx - ox) / sx + F.DX0, y: F.DY1 - ((cy - oy) / sy) };
+  }
+  return { x: (cx - ox) / sx + F.DX0, y: (cy - oy) / sy + F.DY0 };
+}
 function d2(a, b)    { return Math.hypot(a.x - b.x, a.y - b.y); }
 function isInsidePitch(point) {
   return !!point &&
@@ -144,16 +155,31 @@ function showRadial(pl, canvasX, canvasY) {
 
 function resize() {
   const wrap = document.getElementById('canvasWrap');
-  cvW = cv.clientWidth || wrap.clientWidth;
-  cvH = cv.clientHeight || wrap.clientHeight;
-  cv.width = cvW; cv.height = cvH;
+  const MOBILE_PORTRAIT = window.innerWidth <= 768 && window.innerHeight > window.innerWidth;
+  isMobilePortraitBoard = MOBILE_PORTRAIT;
+  document.body.classList.toggle('tb-mobile-portrait', MOBILE_PORTRAIT);
+  const wrapW = wrap.clientWidth || wrap.getBoundingClientRect().width || cv.clientWidth || window.innerWidth;
+  const wrapH = wrap.clientHeight || wrap.getBoundingClientRect().height || cv.clientHeight || window.innerHeight;
+  cvW = Math.max(1, Math.round(wrapW));
   const padX = Math.max(6, Math.min(12, cvW * 0.008));
-  const padY = Math.max(8, Math.min(14, cvH * 0.01));
-  const baseFromWidth = (cvW - padX * 2) / (FVW * FIELD_X_STRETCH);
-  const baseFromHeight = (cvH - padY * 2) / FVH;
-  sc = Math.min(baseFromWidth, baseFromHeight);
-  sx = sc * FIELD_X_STRETCH;
-  sy = sc;
+  const padY = Math.max(8, Math.min(14, Math.max(wrapH, cvW) * 0.01));
+  if (MOBILE_PORTRAIT) {
+    sc = Math.max(0.01, (cvW - padX * 2) / FVW);
+    sx = sc;
+    sy = sc * FIELD_X_STRETCH;
+    cvH = Math.max(1, Math.round(FVH * sy + padY * 2));
+    cv.style.height = `${cvH}px`;
+  } else {
+    cv.style.height = '';
+    cvH = Math.max(1, Math.round(cv.clientHeight || wrapH));
+    const baseFromWidth = (cvW - padX * 2) / (FVW * FIELD_X_STRETCH);
+    const baseFromHeight = (cvH - padY * 2) / FVH;
+    sc = Math.max(0.01, Math.min(baseFromWidth, baseFromHeight));
+    sx = sc * FIELD_X_STRETCH;
+    sy = sc;
+  }
+  cv.width = cvW;
+  cv.height = cvH;
   ox = (cvW - FVW * sx) / 2;
   oy = (cvH - FVH * sy) / 2;
   updateMobileUI();
@@ -2601,36 +2627,43 @@ function drawField() {
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, cvW, cvH);
 
-  const TL = toC(0, F.YMIN), BR = toC(F.W, F.YMAX);
-  const FW = BR.x - TL.x, FH = BR.y - TL.y;
-  const GL_TOP = toC(0, 0), GL_BOT = toC(F.W, 100);
+  const fieldStart = toC(0, F.YMIN);
+  const fieldEnd = toC(F.W, F.YMAX);
+  const fieldLeft = Math.min(fieldStart.x, fieldEnd.x);
+  const fieldRight = Math.max(fieldStart.x, fieldEnd.x);
+  const fieldTop = Math.min(fieldStart.y, fieldEnd.y);
+  const fieldBottom = Math.max(fieldStart.y, fieldEnd.y);
+  const FW = fieldRight - fieldLeft;
+  const FH = fieldBottom - fieldTop;
+  const goalTopY = Math.min(toC(0, 0).y, toC(F.W, 0).y);
+  const goalBottomY = Math.max(toC(0, 100).y, toC(F.W, 100).y);
 
   // ── 2. Field drop shadow ─────────────────────────────────────────────────
   ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,0.6)';
   ctx.shadowBlur = 28;
   ctx.fillStyle = 'rgba(0,0,0,0.01)';
-  ctx.fillRect(TL.x, TL.y, FW, FH);
+  ctx.fillRect(fieldLeft, fieldTop, FW, FH);
   ctx.restore();
 
   // ── 3. Base grass — radial centre-bright ─────────────────────────────────
   const grassGrad = ctx.createRadialGradient(
-    TL.x + FW * 0.5, TL.y + FH * 0.5, FH * 0.04,
-    TL.x + FW * 0.5, TL.y + FH * 0.5, FH * 0.76
+    fieldLeft + FW * 0.5, fieldTop + FH * 0.5, FH * 0.04,
+    fieldLeft + FW * 0.5, fieldTop + FH * 0.5, FH * 0.76
   );
   grassGrad.addColorStop(0,    '#3D9326');
   grassGrad.addColorStop(0.38, '#388C21');
   grassGrad.addColorStop(1,    '#287016');
   ctx.fillStyle = grassGrad;
-  ctx.fillRect(TL.x, TL.y, FW, FH);
+  ctx.fillRect(fieldLeft, fieldTop, FW, FH);
 
   // ── 4. Mow stripes — 16 crisp bands, more contrast ──────────────────────
   const N_STRIPES = 16;
   const bandW = FW / N_STRIPES;
   ctx.save();
-  ctx.beginPath(); ctx.rect(TL.x, TL.y, FW, FH); ctx.clip();
+  ctx.beginPath(); ctx.rect(fieldLeft, fieldTop, FW, FH); ctx.clip();
   for (let si = 0; si < N_STRIPES; si++) {
-    const bx = TL.x + si * bandW;
+    const bx = fieldLeft + si * bandW;
     const sg = ctx.createLinearGradient(bx, 0, bx + bandW, 0);
     if (si % 2 === 0) {
       sg.addColorStop(0,    'rgba(255,255,255,0.000)');
@@ -2644,7 +2677,7 @@ function drawField() {
       sg.addColorStop(1,    'rgba(0,0,0,0.000)');
     }
     ctx.fillStyle = sg;
-    ctx.fillRect(bx, TL.y, bandW, FH);
+    ctx.fillRect(bx, fieldTop, bandW, FH);
   }
   ctx.restore();
 
@@ -2655,29 +2688,29 @@ function drawField() {
     if (pat) {
       ctx.save();
       ctx.globalAlpha = 0.055;
-      ctx.beginPath(); ctx.rect(TL.x, TL.y, FW, FH); ctx.clip();
+      ctx.beginPath(); ctx.rect(fieldLeft, fieldTop, FW, FH); ctx.clip();
       ctx.fillStyle = pat;
-      ctx.fillRect(TL.x, TL.y, FW, FH);
+      ctx.fillRect(fieldLeft, fieldTop, FW, FH);
       ctx.restore();
     }
   }
 
   // ── 6. In-goal areas — darker overlay for visual separation ──────────────
-  const igH_top = GL_TOP.y - TL.y;
-  const igH_bot = BR.y - GL_BOT.y;
+  const igH_top = goalTopY - fieldTop;
+  const igH_bot = fieldBottom - goalBottomY;
   ctx.fillStyle = 'rgba(0,0,0,0.16)';
-  ctx.fillRect(TL.x, TL.y, FW, igH_top);
-  ctx.fillRect(GL_BOT.x, GL_BOT.y, FW, igH_bot);
+  ctx.fillRect(fieldLeft, fieldTop, FW, igH_top);
+  ctx.fillRect(fieldLeft, goalBottomY, FW, igH_bot);
 
   // ── 7. Vignette ──────────────────────────────────────────────────────────
   const vig = ctx.createRadialGradient(
-    TL.x + FW * 0.5, TL.y + FH * 0.5, Math.min(FW, FH) * 0.26,
-    TL.x + FW * 0.5, TL.y + FH * 0.5, Math.max(FW, FH) * 0.78
+    fieldLeft + FW * 0.5, fieldTop + FH * 0.5, Math.min(FW, FH) * 0.26,
+    fieldLeft + FW * 0.5, fieldTop + FH * 0.5, Math.max(FW, FH) * 0.78
   );
   vig.addColorStop(0, 'rgba(0,0,0,0.00)');
   vig.addColorStop(1, 'rgba(0,0,0,0.20)');
   ctx.fillStyle = vig;
-  ctx.fillRect(TL.x, TL.y, FW, FH);
+  ctx.fillRect(fieldLeft, fieldTop, FW, FH);
 
   // ── 8. Line helpers — pixel-aligned for crisp rendering ──────────────────
   function hline(fy, color, lw, dash = [], x0 = 0, x1 = F.W, glow = 0) {
@@ -2734,13 +2767,13 @@ function drawField() {
   hline(50,  T1_C, T1_W, [], 0, F.W, 0.28);
   if (showGainline) {
     const p0 = toC(0, GAINLINE_Y), p1 = toC(68, GAINLINE_Y);
-    const top = toC(0, F.YMIN);
+    const gainLeft = Math.min(p0.x, p1.x);
+    const gainWidth = Math.abs(p1.x - p0.x);
+    const gainY = p0.y;
     ctx.fillStyle = 'rgba(34,197,94,0.07)';
-    ctx.fillRect(p0.x, top.y, p1.x - p0.x, p0.y - top.y);
-
-    const bot = toC(68, F.YMAX);
+    ctx.fillRect(gainLeft, fieldTop, gainWidth, Math.abs(gainY - fieldTop));
     ctx.fillStyle = 'rgba(239,68,68,0.07)';
-    ctx.fillRect(p0.x, p0.y, p1.x - p0.x, bot.y - p0.y);
+    ctx.fillRect(gainLeft, Math.min(gainY, fieldBottom), gainWidth, Math.abs(fieldBottom - gainY));
 
     ctx.save();
     ctx.strokeStyle = 'rgba(251,191,36,0.7)';
@@ -2752,7 +2785,8 @@ function drawField() {
     ctx.fillStyle = 'rgba(251,191,36,0.8)';
     ctx.font = `bold ${Math.max(9, sc * 0.75)}px "Barlow Condensed"`;
     ctx.textAlign = 'right';
-    ctx.fillText('GAINLINE', toC(67, GAINLINE_Y).x, p0.y - 4);
+    const gainLabelY = clamp(gainY + (isMobilePortraitBoard ? 14 : -4), fieldTop + 12, fieldBottom - 6);
+    ctx.fillText('GAINLINE', toC(67, GAINLINE_Y).x, gainLabelY);
     ctx.restore();
   }
   vline(0,  T1_C, T1_W, F.YMIN, F.YMAX, [], 0.22);
@@ -2845,8 +2879,8 @@ function drawField() {
   fieldLabel(34, 105, 'IN-GOAL', 0.48);
 
   // ── 16. Goal posts ────────────────────────────────────────────────────────
-  drawPosts(34, 0, 'top');
-  drawPosts(34, 100, 'bot');
+  drawPosts(34, isMobilePortraitBoard ? 100 : 0, 'top');
+  drawPosts(34, isMobilePortraitBoard ? 0 : 100, 'bot');
 }
 
 function drawPosts(fx, fy, side) {
@@ -2992,7 +3026,7 @@ function playerColorPalette(player) {
 
 function drawPlayer(fx, fy, num, team, selected, isBallCarrier, palette = null) {
   const p = toC(fx, fy);
-  const r = R();
+  const r = isMobileBoardViewport() ? Math.max(R(), 16) : R();
   const fill = palette?.fill || (team === 'A' ? '#2563eb' : '#dc2626');
   const border = palette?.border || (team === 'A' ? '#93c5fd' : '#fca5a5');
   const glow = palette?.glow || (team === 'A' ? '#3b82f6' : '#ef4444');
@@ -5559,18 +5593,51 @@ function toggleMobileDrawer(id) {
 window.toggleMobileDrawer = toggleMobileDrawer;
 
 function updateMobileUI() {
-  const mobileBoardName = document.getElementById('mobileBoardName');
-  const mobilePlayBtn = document.getElementById('mobilePlayBtn');
-  const mobileSequencePlayBtn = document.getElementById('mobileSequencePlayBtn');
-  const mobilePrevStepBtn = document.getElementById('mobilePrevStepBtn');
-  const mobileNextStepBtn = document.getElementById('mobileNextStepBtn');
+  const mobilePhaseCounter = document.getElementById('mobilePhaseCounter');
   const mobileAddAttackBtn = document.getElementById('mobileAddAttackBtn');
   const mobileAddDefenceBtn = document.getElementById('mobileAddDefenceBtn');
-  const mobileBoardSummary = document.getElementById('mobileBoardSummary');
+  const mobileMoreAddAttackBtn = document.getElementById('mobileMoreAddAttackBtn');
+  const mobileMoreAddDefenceBtn = document.getElementById('mobileMoreAddDefenceBtn');
+  const mobileMorePrevPhaseBtn = document.getElementById('mobileMorePrevPhaseBtn');
+  const mobileMoreNextPhaseBtn = document.getElementById('mobileMoreNextPhaseBtn');
+  const mobileMorePrevStepBtn = document.getElementById('mobileMorePrevStepBtn');
+  const mobileMoreNextStepBtn = document.getElementById('mobileMoreNextStepBtn');
+  const mobileMorePlayAllBtn = document.getElementById('mobileMorePlayAllBtn');
   const count = sequenceStepCount();
   const playable = currentPhaseHasPlayablePlayback();
-  const owner = normalizePlayerRef(S.ballOwner);
-  const ownerText = owner ? `Ball: ${owner.team === 'A' ? 'A' : 'D'} #${owner.num}` : (S.ball ? 'Ball: Loose' : 'Ball: Off board');
+
+  syncResponsiveToolbarLabels();
+  syncPlayButtons();
+  if (mobilePhaseCounter) mobilePhaseCounter.textContent = `PHASE ${GamePlan.currentPhase + 1} / ${GamePlan.phases.length}`;
+  [0.25, 0.5, 1, 2].forEach(v => {
+    const chip = document.getElementById('mspd-' + v);
+    if (chip) chip.classList.toggle('active', v === S.animSpd);
+  });
+  if (mobileMorePrevPhaseBtn) mobileMorePrevPhaseBtn.disabled = GamePlan.currentPhase === 0;
+  if (mobileMoreNextPhaseBtn) mobileMoreNextPhaseBtn.disabled = GamePlan.currentPhase >= GamePlan.phases.length - 1;
+  if (mobileMorePrevStepBtn) mobileMorePrevStepBtn.disabled = S.currentStep === 0;
+  if (mobileMoreNextStepBtn) mobileMoreNextStepBtn.disabled = S.currentStep >= count - 1;
+  if (mobileAddAttackBtn) mobileAddAttackBtn.disabled = S.atkUsed.size >= 15;
+  if (mobileAddDefenceBtn) mobileAddDefenceBtn.disabled = S.defUsed.size >= 15;
+  if (mobileMoreAddAttackBtn) mobileMoreAddAttackBtn.disabled = S.atkUsed.size >= 15;
+  if (mobileMoreAddDefenceBtn) mobileMoreAddDefenceBtn.disabled = S.defUsed.size >= 15;
+  if (mobileMorePlayAllBtn) {
+    mobileMorePlayAllBtn.textContent = S.animating && S.playAll ? '⏸ PAUSE ALL' : '▶▶ PLAY ALL';
+    mobileMorePlayAllBtn.disabled = !playable;
+  }
+  MOBILE_DRAWER_IDS.forEach(id => {
+    const section = document.getElementById(`drawer-${id}`);
+    if (!section) return;
+    if (!isMobileViewport()) {
+      section.classList.remove('is-open');
+    }
+  });
+  if (!isMobileViewport()) {
+    closeMobileToolsDropdown();
+    closeMobileBoardMenu();
+    setMobileMoreDrawerOpen(false);
+  }
+  return;
 
   syncResponsiveToolbarLabels();
   syncPlayButtons();
@@ -5978,6 +6045,26 @@ function closeMobileDrawer() {
 window.toggleMobileDrawer = toggleMobileDrawer;
 window.closeMobileDrawer  = closeMobileDrawer;
 
+function setMobileBoardMenuOpen(open) {
+  const menu = document.getElementById('mobileBoardMenu');
+  const btn = document.getElementById('mobileBoardMenuBtn');
+  const isOpen = !!open && isMobileViewport();
+  if (!menu) return;
+  menu.classList.toggle('open', isOpen);
+  menu.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+  if (btn) btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+}
+function toggleMobileBoardMenu() {
+  const menu = document.getElementById('mobileBoardMenu');
+  if (!menu) return;
+  setMobileBoardMenuOpen(!menu.classList.contains('open'));
+}
+function closeMobileBoardMenu() {
+  setMobileBoardMenuOpen(false);
+}
+window.toggleMobileBoardMenu = toggleMobileBoardMenu;
+window.closeMobileBoardMenu = closeMobileBoardMenu;
+
 /* ── Coaching drawer ── */
 function toggleCoachingDrawer() {
   const drawer = document.getElementById('coachingDrawer');
@@ -6097,11 +6184,23 @@ function toggleMobileMoreDrawer() {
   const drawer = document.getElementById('mobileMoreDrawer');
   const btn    = document.getElementById('mobMoreBtn');
   if (!drawer) return;
+  setMobileMoreDrawerOpen(!drawer.classList.contains('open'));
+  return;
   const isOpen = drawer.classList.toggle('open');
   drawer.setAttribute('aria-hidden', String(!isOpen));
   if (btn) btn.textContent = isOpen ? 'MORE ▾' : 'MORE ▴';
 }
 window.toggleMobileMoreDrawer = toggleMobileMoreDrawer;
+
+function setMobileMoreDrawerOpen(open) {
+  const drawer = document.getElementById('mobileMoreDrawer');
+  const btn    = document.getElementById('mobMoreBtn');
+  const isOpen = !!open && isMobileViewport();
+  if (!drawer) return;
+  drawer.classList.toggle('open', isOpen);
+  drawer.setAttribute('aria-hidden', String(!isOpen));
+  if (btn) btn.textContent = isOpen ? 'MORE ▾' : 'MORE ▴';
+}
 
 function clearPaths()  { snapshot(); S.paths=[]; S.passes=[]; S.drawing=null; setHint('Paths cleared. Choose the next action.'); refreshInteractionUI(); render(); }
 function clearSelection() {
@@ -6823,5 +6922,8 @@ document.addEventListener('pointerdown', e => {
     closeMobileToolsDropdown();
   }
 }, { capture: true });
+
+window.goToPhase = goToPhase;
+window.addPhase = addPhase;
 
 
