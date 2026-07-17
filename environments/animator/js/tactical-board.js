@@ -41,7 +41,9 @@ const FIELD_X_STRETCH = 1.7;
 let cvW=0, cvH=0, sc=1, sx=1, sy=1, ox=0, oy=0;
 let isPhoneViewport = false;
 let isMobilePortraitBoard = false;
+let isPhoneLandscapeBoard = false;
 const cv  = document.getElementById('field');
+const supportsPointerEvents = typeof window !== 'undefined' && 'PointerEvent' in window;
 
 function normEvent(e) {
   const src = e.touches && e.touches.length > 0         ? e.touches[0]
@@ -61,11 +63,17 @@ function toC(fx, fy) {
   if (isMobilePortraitBoard) {
     return { x: ox + (fx - F.DX0) * sx, y: oy + (F.DY1 - fy) * sy };
   }
+  if (isPhoneLandscapeBoard) {
+    return { x: ox + (fy - F.DY0) * sx, y: oy + (F.DX1 - fx) * sy };
+  }
   return { x: ox + (fx - F.DX0) * sx, y: oy + (fy - F.DY0) * sy };
 }
 function frC(cx, cy) {
   if (isMobilePortraitBoard) {
     return { x: (cx - ox) / sx + F.DX0, y: F.DY1 - ((cy - oy) / sy) };
+  }
+  if (isPhoneLandscapeBoard) {
+    return { x: F.DX1 - ((cy - oy) / sy), y: (cx - ox) / sx + F.DY0 };
   }
   return { x: (cx - ox) / sx + F.DX0, y: (cy - oy) / sy + F.DY0 };
 }
@@ -202,18 +210,20 @@ function resize() {
   const wrap = document.getElementById('canvasWrap');
   const isPhone = Math.min(window.innerWidth, window.innerHeight) <= 700;
   const MOBILE_PORTRAIT = isPhone && window.innerHeight > window.innerWidth;
+  const PHONE_LANDSCAPE = isPhone && !MOBILE_PORTRAIT;
   isPhoneViewport = isPhone;
   isMobilePortraitBoard = MOBILE_PORTRAIT;
+  isPhoneLandscapeBoard = PHONE_LANDSCAPE;
   document.body.classList.toggle('is-phone', isPhone);
   document.body.classList.toggle('tb-mobile-portrait', MOBILE_PORTRAIT);
   syncMobileNotesPanelHost();
-  const phoneBox = isPhone && !MOBILE_PORTRAIT ? getPhoneCanvasBounds() : null;
+  const phoneBox = null;
   const wrapW = phoneBox?.width || wrap.clientWidth || wrap.getBoundingClientRect().width || cv.clientWidth || window.innerWidth;
   const wrapH = phoneBox?.height || wrap.clientHeight || wrap.getBoundingClientRect().height || cv.clientHeight || window.innerHeight;
-  cvW = MOBILE_PORTRAIT
+  cvW = isPhone
     ? Math.max(1, Math.round(window.innerWidth || document.documentElement.clientWidth || wrapW))
     : Math.max(1, Math.round(wrapW));
-  cvH = MOBILE_PORTRAIT
+  cvH = isPhone
     ? Math.max(1, Math.round(window.innerHeight || document.documentElement.clientHeight || wrapH))
     : Math.max(1, Math.round(wrapH));
   const padX = Math.max(6, Math.min(12, cvW * 0.008));
@@ -225,6 +235,10 @@ function resize() {
     wrap.style.height = '';
     if (MOBILE_PORTRAIT) {
       sc = Math.max(0.01, cvW / FVW);
+      sx = sc;
+      sy = sc;
+    } else if (PHONE_LANDSCAPE) {
+      sc = Math.max(0.01, Math.min(cvW / FVH, cvH / FVW));
       sx = sc;
       sy = sc;
     } else {
@@ -251,6 +265,9 @@ function resize() {
   if (MOBILE_PORTRAIT) {
     ox = (cvW - FVW * sx) / 2;
     oy = (cvH - FVH * sy) / 2;
+  } else if (PHONE_LANDSCAPE) {
+    ox = (cvW - FVH * sx) / 2;
+    oy = (cvH - FVW * sy) / 2;
   } else {
     ox = (cvW - FVW * sx) / 2;
     oy = (cvH - FVH * sy) / 2;
@@ -1114,6 +1131,11 @@ function phasePlaybackTargetIndex(startIdx = GamePlan.currentPhase) {
 }
 
 function currentPhaseHasPlayablePlayback() {
+  if (!isPhoneViewport) return GamePlan.phases.length > 1;
+  return sequenceStepCount() > 1 || (Array.isArray(S.paths) && S.paths.length > 0) || (Array.isArray(S.passes) && S.passes.length > 0);
+}
+
+function projectHasPlayablePlayback() {
   return GamePlan.phases.length > 1;
 }
 
@@ -4124,6 +4146,13 @@ function flashMobilePhaseCounter() {
   setTimeout(() => mobilePhaseCounter.classList.remove('is-flashing'), 420);
 }
 
+function finishEraseInteraction(message = 'Object erased. Back in Move mode.') {
+  returnInteractionToMoveTool();
+  setHint(message);
+  refreshInteractionUI();
+  render();
+}
+
 function handlePointerDown(e) {
   const fp = getF(e);
   const clampedFieldPoint = clampFieldPoint(fp);
@@ -4492,8 +4521,21 @@ function handlePointerDown(e) {
     // 3. Only remove player or ball if nothing else was hit
     if (!removed) {
       const pl = hitPlayer(fp);
-      if (pl) removePlayer(pl.id);
-      else if (hitBall(fp)) { S.ball = null; clearSelectedObject(); }
+      if (pl) {
+        removePlayer(pl.id);
+        finishEraseInteraction(`${pl.team === 'A' ? 'Attack' : 'Defence'} #${pl.num} erased. Back in Move mode.`);
+        return;
+      }
+      if (hitBall(fp)) {
+        S.ball = null;
+        clearSelectedObject();
+        removed = true;
+      }
+    }
+
+    if (removed) {
+      finishEraseInteraction();
+      return;
     }
 
     refreshInteractionUI();
@@ -4814,10 +4856,12 @@ function onPointerUp(e) {
 }
 cv.addEventListener('pointerup', onPointerUp);
 cv.addEventListener('pointercancel', onPointerUp);
-cv.addEventListener('touchstart',  e => handlePointerDown(normEvent(e)), { passive: false });
-cv.addEventListener('touchmove',   e => handlePointerMove(normEvent(e)), { passive: false });
-cv.addEventListener('touchend',    e => onPointerUp(normEvent(e)),       { passive: false });
-cv.addEventListener('touchcancel', e => onPointerUp(normEvent(e)),       { passive: false });
+if (!supportsPointerEvents) {
+  cv.addEventListener('touchstart',  e => handlePointerDown(normEvent(e)), { passive: false });
+  cv.addEventListener('touchmove',   e => handlePointerMove(normEvent(e)), { passive: false });
+  cv.addEventListener('touchend',    e => onPointerUp(normEvent(e)),       { passive: false });
+  cv.addEventListener('touchcancel', e => onPointerUp(normEvent(e)),       { passive: false });
+}
 
 // Canva-style keyboard shortcuts: Delete/Backspace = delete selected, Escape = deselect
 document.addEventListener('keydown', (e) => {
@@ -5198,17 +5242,32 @@ function resolveStepBall(step) {
 function buildSequenceFrame(progress) {
   persistCurrentPhase();
   const localT = clamp(progress, 0, 1);
-  const fromIdx = GamePlan.currentPhase;
-  const toIdx = phasePlaybackTargetIndex(fromIdx);
-  const from = phasePlaybackStepAt(fromIdx);
-  if (toIdx === null) {
-    return {
-      ...from,
-      segmentIndex: fromIdx,
-      localT: 0,
-    };
+  let from = null;
+  let to = null;
+  let segmentIndex = GamePlan.currentPhase;
+
+  if (isPhoneViewport && !S.playAll && sequenceStepCount() > 1) {
+    const stepCount = sequenceStepCount();
+    const fromStepIdx = clamp(S.currentStep, 0, Math.max(0, stepCount - 2));
+    const toStepIdx = clamp(fromStepIdx + 1, 0, stepCount - 1);
+    from = cloneStepState(S.steps[fromStepIdx] || emptyStepState());
+    to = cloneStepState(S.steps[toStepIdx] || from);
+    segmentIndex = fromStepIdx;
+  } else {
+    const fromIdx = GamePlan.currentPhase;
+    const toIdx = phasePlaybackTargetIndex(fromIdx);
+    from = phasePlaybackStepAt(fromIdx);
+    if (toIdx === null) {
+      return {
+        ...from,
+        segmentIndex: fromIdx,
+        localT: 0,
+      };
+    }
+    to = phasePlaybackStepAt(toIdx);
+    segmentIndex = fromIdx;
   }
-  const to = phasePlaybackStepAt(toIdx);
+
   const fromLookup = buildStepLookup(from.players);
   const toLookup = buildStepLookup(to.players);
   const allKeys = new Set([...fromLookup.keys(), ...toLookup.keys()]);
@@ -5247,7 +5306,7 @@ function buildSequenceFrame(progress) {
     annotations: cloneData(from.annotations),
     paths: cloneData(from.paths),
     passes: cloneData(from.passes),
-    segmentIndex: fromIdx,
+    segmentIndex,
     localT,
   };
 }
@@ -5293,7 +5352,9 @@ function resolveLiveAnimatedKickBall(progress) {
 }
 
 function shouldRenderSequencePreview() {
-  return currentPhaseHasPlayablePlayback() && S.animating;
+  if (!S.animating) return false;
+  if (isPhoneViewport && !S.playAll) return sequenceStepCount() > 1;
+  return currentPhaseHasPlayablePlayback();
 }
 
 function gotoStep(index, { snapshotBefore = false } = {}) {
@@ -5457,29 +5518,36 @@ function togglePlay() {
     render();
     return;
   }
-  if (sequenceStepCount() <= 1 || S.currentStep >= sequenceStepCount() - 1) {
-    togglePlayAll();
-    return;
-  }
+  const stepCount = sequenceStepCount();
+  const phoneStepPlayback = isPhoneViewport && stepCount > 1;
+  const phoneLivePlayback = isPhoneViewport && !phoneStepPlayback;
   S.playAll = false;
   persistCurrentPhase();
   if (!currentPhaseHasPlayablePlayback()) {
     stopPlayback(false);
-    setHint('Add another phase to animate the board.');
+    setHint(isPhoneViewport ? 'Add another step or draw movement to animate this phase.' : 'Add another phase to animate the board.');
     refreshInteractionUI();
     return;
   }
-  if (phasePlaybackTargetIndex() === null) {
+  if (!phoneStepPlayback && !phoneLivePlayback && phasePlaybackTargetIndex() === null) {
     stopPlayback(false);
     setHint('This is the last phase. There is no next snapshot to animate to.');
     refreshInteractionUI();
     return;
   }
-  activatePhaseForPlayback(GamePlan.currentPhase, { resetToStart: false });
+  if (phoneStepPlayback) {
+    if (S.currentStep >= stepCount - 1) {
+      S.currentStep = 0;
+      setLiveBoardFromStep(S.steps[0]);
+    }
+  } else if (!phoneLivePlayback) {
+    activatePhaseForPlayback(GamePlan.currentPhase, { resetToStart: false });
+  }
   if (S.animT <= 0 || S.animT >= 1) S.animT = 0;
   S.animating = true;
   const isPlay = S.animating;
   syncPlayButtons();
+  updateMobileUI();
   if (isPlay) { S.lastTs = null; requestAnimationFrame(animLoop); }
 }
 
@@ -5539,6 +5607,30 @@ function animLoop(ts) {
   if (S.lastTs !== null) {
     S.animT = Math.min(1, S.animT + (ts - S.lastTs) / 1000 * S.animSpd / DUR);
     if (S.animT >= 1) {
+      if (isPhoneViewport && !S.playAll && sequenceStepCount() > 1) {
+        const lastStepIdx = sequenceStepCount() - 1;
+        if (S.currentStep < lastStepIdx - 1) {
+          S.currentStep += 1;
+          S.animT = 0;
+          S.lastTs = ts;
+          updateTL();
+          updateMobileUI();
+          render();
+          requestAnimationFrame(animLoop);
+          return;
+        }
+        S.currentStep = lastStepIdx;
+        setLiveBoardFromStep(S.steps[lastStepIdx] || emptyStepState());
+        S.animating = false;
+        S.playAll = false;
+        S.animT = 0;
+        S.lastTs = null;
+        setPlayBtnState();
+        refreshInteractionUI();
+        render();
+        updateTL();
+        return;
+      }
       const targetIdx = phasePlaybackTargetIndex(GamePlan.currentPhase);
       if (targetIdx !== null) {
         activatePhaseForPlayback(targetIdx, { resetToStart: false });
@@ -5692,7 +5784,8 @@ function syncResponsiveToolbarLabels() {
 
 function syncPlayButtons() {
   const compact = isCompactViewport();
-  const playable = currentPhaseHasPlayablePlayback();
+  const singlePlayable = currentPhaseHasPlayablePlayback();
+  const playAllPlayable = projectHasPlayablePlayback();
   const playBtn = document.getElementById('playBtn');
   const playAllBtn = document.getElementById('playAllBtn');
   const mobPlayBtn = document.getElementById('mobPlayBtn');
@@ -5704,23 +5797,23 @@ function syncPlayButtons() {
   const playAllLabel = S.animating && S.playAll ? (compact ? '||' : '\u23f8 PAUSE') : (compact ? '\u25b6\u25b6' : '\u25b6\u25b6 PLAY ALL');
   if (playBtn) {
     playBtn.textContent = singlePlayLabel;
-    playBtn.disabled = !playable || playAllLocked;
+    playBtn.disabled = !singlePlayable || playAllLocked;
   }
   if (playAllBtn) {
     playAllBtn.textContent = playAllLabel;
-    playAllBtn.disabled = !playable;
+    playAllBtn.disabled = !playAllPlayable;
   }
   if (tlPlayBtn) {
     tlPlayBtn.textContent = singlePlayActive ? 'Pause' : 'Play';
-    tlPlayBtn.disabled = !playable || playAllLocked;
+    tlPlayBtn.disabled = !singlePlayable || playAllLocked;
   }
   if (mobPlayBtn) {
     mobPlayBtn.textContent = S.animating ? '\u23f8 PAUSE' : '\u25b6 PLAY';
-    mobPlayBtn.disabled = !playable;
+    mobPlayBtn.disabled = !singlePlayable;
   }
   if (mobileTopPlayBtn) {
     mobileTopPlayBtn.textContent = singlePlayActive ? 'Pause' : 'Play';
-    mobileTopPlayBtn.disabled = !playable || playAllLocked;
+    mobileTopPlayBtn.disabled = !singlePlayable || playAllLocked;
   }
 }
 
@@ -6349,6 +6442,12 @@ function refreshInteractionUI() {
 
 function setTool(t) {
   if (t === S.tool) {
+    if (t === 'erase') {
+      returnInteractionToMoveTool();
+      refreshInteractionUI();
+      render();
+      return;
+    }
     if (t === 'kick' && S.activeKickerId) { cancelArmedKick(); return; }
     if (t === 'pass' && S.activePasserId) {
       clearPassKickState();
@@ -6484,6 +6583,7 @@ function setMobileMoreDrawerOpen(open) {
   if (!drawer) return;
   drawer.classList.toggle('open', isOpen);
   drawer.setAttribute('aria-hidden', String(!isOpen));
+  if (isOpen) drawer.scrollTop = 0;
   if (btn) btn.textContent = isOpen ? 'MORE v' : 'MORE ^';
 }
 
@@ -6496,7 +6596,7 @@ function updateMobileUI() {
   const mobileMorePrevPhaseBtn = document.getElementById('mobileMorePrevPhaseBtn');
   const mobileMoreNextPhaseBtn = document.getElementById('mobileMoreNextPhaseBtn');
   const mobileMorePlayAllBtn = document.getElementById('mobileMorePlayAllBtn');
-  const playable = currentPhaseHasPlayablePlayback();
+  const playAllPlayable = projectHasPlayablePlayback();
 
   syncResponsiveToolbarLabels();
   syncPlayButtons();
@@ -6510,7 +6610,7 @@ function updateMobileUI() {
   if (mobileMoreAddDefenceBtn) mobileMoreAddDefenceBtn.disabled = S.defUsed.size >= 15;
   if (mobileMorePlayAllBtn) {
     mobileMorePlayAllBtn.textContent = S.animating && S.playAll ? 'PAUSE ALL' : 'PLAY ALL';
-    mobileMorePlayAllBtn.disabled = !playable;
+    mobileMorePlayAllBtn.disabled = !playAllPlayable;
   }
   MOBILE_DRAWER_IDS.forEach(id => {
     const section = document.getElementById(`drawer-${id}`);
@@ -7102,21 +7202,23 @@ _trackThumb.addEventListener('pointermove', e => {
 });
 _trackThumb.addEventListener('pointerup', () => trackDrag = false);
 _trackThumb.addEventListener('pointercancel', () => trackDrag = false);
-_trackThumb.addEventListener('touchstart', e => { e.preventDefault(); trackDrag = true; }, { passive: false });
-_trackThumb.addEventListener('touchmove', e => {
-  if (!trackDrag) return;
-  const ne = normEvent(e);
-  const r = document.getElementById('track').getBoundingClientRect();
-  const raw = clamp((ne.clientX - r.left) / r.width, 0, 1);
-  if (!S.animating && sequenceStepCount() > 1) {
-    gotoStep(Math.round(raw * (sequenceStepCount() - 1)));
-    return;
-  }
-  S.animT = raw;
-  updateTL(); render();
-}, { passive: false });
-_trackThumb.addEventListener('touchend',    () => trackDrag = false, { passive: false });
-_trackThumb.addEventListener('touchcancel', () => trackDrag = false, { passive: false });
+if (!supportsPointerEvents) {
+  _trackThumb.addEventListener('touchstart', e => { e.preventDefault(); trackDrag = true; }, { passive: false });
+  _trackThumb.addEventListener('touchmove', e => {
+    if (!trackDrag) return;
+    const ne = normEvent(e);
+    const r = document.getElementById('track').getBoundingClientRect();
+    const raw = clamp((ne.clientX - r.left) / r.width, 0, 1);
+    if (!S.animating && sequenceStepCount() > 1) {
+      gotoStep(Math.round(raw * (sequenceStepCount() - 1)));
+      return;
+    }
+    S.animT = raw;
+    updateTL(); render();
+  }, { passive: false });
+  _trackThumb.addEventListener('touchend',    () => trackDrag = false, { passive: false });
+  _trackThumb.addEventListener('touchcancel', () => trackDrag = false, { passive: false });
+}
 
 //  INIT
 GamePlan.phases = GamePlan.phases.map((phase, index) => normalizePhaseState(phase, index));
@@ -7166,6 +7268,25 @@ document.getElementById('mobileMoreDrawer')?.addEventListener('click', (e) => {
   if (!actionBtn || actionBtn.disabled) return;
   setTimeout(() => setMobileMoreDrawerOpen(false), 0);
 });
+
+let lastPhoneUiActivation = { key: '', target: null, at: -Infinity };
+document.addEventListener('click', (e) => {
+  if (!isPhoneViewport) return;
+  const actionEl = e.target.closest('#topbar button, #bottomPanel button, #mobileBoardMenu button, #mobileNotesSheet button, #playerSelector button');
+  if (!actionEl) return;
+  const key = actionEl.id || actionEl.dataset.tool || actionEl.getAttribute('onclick') || actionEl.textContent.trim();
+  const at = Number.isFinite(e.timeStamp) ? e.timeStamp : performance.now();
+  const isDuplicate = lastPhoneUiActivation.key === key &&
+    lastPhoneUiActivation.target === actionEl &&
+    (at - lastPhoneUiActivation.at) < 450;
+  if (isDuplicate) {
+    e.preventDefault();
+    e.stopImmediatePropagation?.();
+    e.stopPropagation();
+    return;
+  }
+  lastPhoneUiActivation = { key, target: actionEl, at };
+}, true);
 [
   'metaPurpose',
   'metaCoachingPoint1',
