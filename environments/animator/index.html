@@ -9,13 +9,13 @@
   });
 </script>
 <script>
-  window.ANIMATOR_ASSET_VERSION = "20260717-dualstateaudit";
+  window.ANIMATOR_ASSET_VERSION = "20260717-ghostprevious";
 </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tactical Board - Coach Mato</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/tactical-board.css?v=20260717-dualstateaudit">
+<link rel="stylesheet" href="css/tactical-board.css?v=20260717-ghostprevious">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 </head>
@@ -313,6 +313,10 @@
             <span class="mob-stepper-label">GAINLINE</span>
             <button class="mob-toggle-btn" id="mobGainlineBtn" type="button" onclick="toggleGainline()">OFF</button>
           </div>
+          <div class="mob-toggle-row" aria-label="Ghost previous toggle">
+            <span class="mob-stepper-label">GHOST PREV</span>
+            <button class="mob-toggle-btn" id="mobGhostPrevBtn" type="button" onclick="toggleGhostPrevious()">OFF</button>
+          </div>
           <button class="mob-more-btn" id="mobileMoreAddAttackBtn" type="button" onclick="addNextAvailablePlayer('A')">+ ATTACK</button>
           <button class="mob-more-btn" id="mobileMoreAddDefenceBtn" type="button" onclick="addNextAvailablePlayer('D')">+ DEFENCE</button>
           <button class="mob-more-btn" id="mobileMoreBallBtn" type="button" onclick="addBall()">BALL</button>
@@ -370,6 +374,7 @@
           <button class="board-pill tool-btn" data-tool="erase" onclick="setTool('erase')" data-label-desktop="ERASE" data-label-mobile="DEL">ERASE</button>
           <button class="board-pill tool-btn" data-tool="tele" onclick="setTool('tele')" data-label-desktop="TELE" data-label-mobile="TEL">TELE</button>
           <button class="board-pill action-btn" id="gainlineToggleBtn" type="button" onclick="toggleGainline()">GAINLINE</button>
+          <button class="board-pill action-btn" id="ghostPreviousToggleBtn" type="button" onclick="toggleGhostPrevious()" aria-pressed="false">GHOST PREV</button>
           <button class="board-pill action-btn" id="mobileUndoBtn" onclick="undo()" data-label-desktop="UNDO" data-label-mobile="&#8617;">UNDO</button>
           <button class="board-pill action-btn" id="mobileRedoBtn" onclick="redo()" data-label-desktop="REDO" data-label-mobile="&#8618;">REDO</button>
         </div>
@@ -439,6 +444,6 @@
     </div>
   </div>
 </div>
-<script src="js/tactical-board.js?v=20260717-dualstateaudit"></script>
+<script src="js/tactical-board.js?v=20260717-ghostprevious"></script>
 </body>
 </html>

@@ -402,6 +402,7 @@ Object.assign(S, {
   selectedObjectType: null,
   selectedAnnotationIdValue: null,
   currentStepBaseline: null,
+  showGhostPrevious: false,
   moveGuideOrigins: {},
   dragPlayerId: null,
   dragging: null,       // { type:'player'|'group'|'ball', id? }
@@ -3531,6 +3532,7 @@ function drawPathOriginMarker(fx, fy, palette = null) {
 }
 
 function renderPathOriginMarkers(players = S.players, paths = S.paths) {
+  if (!S.showGhostPrevious) return;
   if (isPhoneViewport) return;
   paths.forEach((path) => {
     if (!Array.isArray(path?.pts) || path.pts.length < 2) return;
@@ -3564,6 +3566,7 @@ function drawMovementGuideLine(start, end, color) {
 }
 
 function renderPhoneEditMovementGuides() {
+  if (!S.showGhostPrevious) return;
   if (!isPhoneViewport || S.animating) return;
   const baseStep = S.currentStepBaseline || S.steps?.[S.currentStep];
   const baseLookup = baseStep?.players?.length ? buildStepLookup(baseStep.players) : new Map();
@@ -6620,6 +6623,8 @@ function updateBoardStatus() {
   const toolbarMode = document.getElementById('toolbarModeInline');
   const gainlineBtn = document.getElementById('gainlineToggleBtn');
   const mobGainlineBtn = document.getElementById('mobGainlineBtn');
+  const ghostPrevBtn = document.getElementById('ghostPreviousToggleBtn');
+  const mobGhostPrevBtn = document.getElementById('mobGhostPrevBtn');
   const mobBallBtn = document.querySelector('#mobileMoreDrawer .mob-more-btn[onclick*="addBall"]');
   const count = sequenceStepCount();
   const owner = normalizePlayerRef(S.ballOwner);
@@ -6632,6 +6637,14 @@ function updateBoardStatus() {
   if (mobGainlineBtn) {
     mobGainlineBtn.classList.toggle('is-active', showGainline);
     mobGainlineBtn.textContent = showGainline ? 'ON' : 'OFF';
+  }
+  if (ghostPrevBtn) {
+    ghostPrevBtn.classList.toggle('active', !!S.showGhostPrevious);
+    ghostPrevBtn.setAttribute('aria-pressed', S.showGhostPrevious ? 'true' : 'false');
+  }
+  if (mobGhostPrevBtn) {
+    mobGhostPrevBtn.classList.toggle('is-active', !!S.showGhostPrevious);
+    mobGhostPrevBtn.textContent = S.showGhostPrevious ? 'ON' : 'OFF';
   }
   if (mobBallBtn) mobBallBtn.disabled = !!S.ball;
   if (empty) empty.classList.toggle('hidden', !!S.players.length || !!S.ball || !!S.annotations.length);
@@ -6651,6 +6664,16 @@ function toggleGainline() {
   render();
 }
 window.toggleGainline = toggleGainline;
+
+function toggleGhostPrevious() {
+  if (!claimPhoneDataAction('more:ghost-previous')) return;
+  S.showGhostPrevious = !S.showGhostPrevious;
+  closeRadialMenu();
+  setHint(S.showGhostPrevious ? 'Ghost previous is on. Previous positions render as reference outlines only.' : 'Ghost previous is off. Only the current move keyframe renders as solid tokens.');
+  refreshInteractionUI();
+  render();
+}
+window.toggleGhostPrevious = toggleGhostPrevious;
 
 function updateAnnotationPanel() {
   const copy = document.getElementById('annotationCopy');
