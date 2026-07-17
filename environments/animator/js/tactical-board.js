@@ -37,7 +37,6 @@ let currentPresetId = null;
 const SCHEMA_VERSION = 2;
 
 // Canvas scaling
-const FIELD_X_STRETCH = 1.7;
 let cvW=0, cvH=0, sc=1, sx=1, sy=1, ox=0, oy=0;
 let isPhoneViewport = false;
 let isMobilePortraitBoard = false;
@@ -242,10 +241,10 @@ function resize() {
       sx = sc;
       sy = sc;
     } else {
-      const baseFromWidth = (cvW - padX * 2) / (FVW * FIELD_X_STRETCH);
+      const baseFromWidth = (cvW - padX * 2) / FVW;
       const baseFromHeight = (cvH - padY * 2) / FVH;
       sc = Math.max(0.01, Math.min(baseFromWidth, baseFromHeight));
-      sx = sc * FIELD_X_STRETCH;
+      sx = sc;
       sy = sc;
     }
   } else {
@@ -254,10 +253,10 @@ function resize() {
     wrap.style.width = '';
     wrap.style.height = '';
     cvH = Math.max(1, Math.round(cv.clientHeight || wrapH || (window.innerHeight * 0.6)));
-    const baseFromWidth = (cvW - padX * 2) / (FVW * FIELD_X_STRETCH);
+    const baseFromWidth = (cvW - padX * 2) / FVW;
     const baseFromHeight = (cvH - padY * 2) / FVH;
     sc = Math.max(0.01, Math.min(baseFromWidth, baseFromHeight));
-    sx = sc * FIELD_X_STRETCH;
+    sx = sc;
     sy = sc;
   }
   cv.width = cvW;
@@ -2758,27 +2757,38 @@ function drawField() {
   ctx.fillStyle = grassGrad;
   ctx.fillRect(fieldLeft, fieldTop, FW, FH);
 
-  // ── 4. Mow stripes — 16 crisp bands, more contrast ──────────────────────
-  const N_STRIPES = 16;
-  const bandW = FW / N_STRIPES;
+  // ── 4. Mow stripes — field-axis bands so every orientation keeps the same grass texture ──
+  const N_STRIPES = Math.max(10, S.stripeCount || 12);
+  const stripeFieldLen = (F.YMAX - F.YMIN) / N_STRIPES;
   ctx.save();
   ctx.beginPath(); ctx.rect(fieldLeft, fieldTop, FW, FH); ctx.clip();
   for (let si = 0; si < N_STRIPES; si++) {
-    const bx = fieldLeft + si * bandW;
-    const sg = ctx.createLinearGradient(bx, 0, bx + bandW, 0);
+    const y0 = F.YMIN + si * stripeFieldLen;
+    const y1 = Math.min(F.YMAX, y0 + stripeFieldLen);
+    const p0 = toC(0, y0);
+    const p1 = toC(F.W, y0);
+    const p2 = toC(F.W, y1);
+    const p3 = toC(0, y1);
+    const sg = ctx.createLinearGradient(p0.x, p0.y, p3.x, p3.y);
     if (si % 2 === 0) {
-      sg.addColorStop(0,    'rgba(255,255,255,0.000)');
-      sg.addColorStop(0.28, 'rgba(255,255,255,0.062)');
-      sg.addColorStop(0.72, 'rgba(255,255,255,0.062)');
-      sg.addColorStop(1,    'rgba(255,255,255,0.000)');
+      sg.addColorStop(0, 'rgba(255,255,255,0.012)');
+      sg.addColorStop(0.22, 'rgba(255,255,255,0.064)');
+      sg.addColorStop(0.78, 'rgba(255,255,255,0.064)');
+      sg.addColorStop(1, 'rgba(255,255,255,0.012)');
     } else {
-      sg.addColorStop(0,    'rgba(0,0,0,0.000)');
-      sg.addColorStop(0.28, 'rgba(0,0,0,0.068)');
-      sg.addColorStop(0.72, 'rgba(0,0,0,0.068)');
-      sg.addColorStop(1,    'rgba(0,0,0,0.000)');
+      sg.addColorStop(0, 'rgba(0,0,0,0.010)');
+      sg.addColorStop(0.22, 'rgba(0,0,0,0.070)');
+      sg.addColorStop(0.78, 'rgba(0,0,0,0.070)');
+      sg.addColorStop(1, 'rgba(0,0,0,0.010)');
     }
     ctx.fillStyle = sg;
-    ctx.fillRect(bx, fieldTop, bandW, FH);
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    ctx.lineTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y);
+    ctx.lineTo(p3.x, p3.y);
+    ctx.closePath();
+    ctx.fill();
   }
   ctx.restore();
 
@@ -2788,7 +2798,7 @@ function drawField() {
     const pat = ctx.createPattern(tile, 'repeat');
     if (pat) {
       ctx.save();
-      ctx.globalAlpha = 0.055;
+      ctx.globalAlpha = S.textureStrength || 0.09;
       ctx.beginPath(); ctx.rect(fieldLeft, fieldTop, FW, FH); ctx.clip();
       ctx.fillStyle = pat;
       ctx.fillRect(fieldLeft, fieldTop, FW, FH);
