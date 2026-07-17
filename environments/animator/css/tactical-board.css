@@ -3670,6 +3670,7 @@ body.is-phone #bottomPanel {
   bottom: 0;
   z-index: 170;
   max-height: none;
+  overflow: visible;
   padding-bottom: env(safe-area-inset-bottom);
   background: linear-gradient(180deg, rgba(4, 10, 18, 0.88), rgba(4, 10, 18, 0.98));
   border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -3716,6 +3717,34 @@ body.is-phone #mobileMoreDrawer {
 
 body.is-phone #mobileMoreDrawer.open {
   display: grid;
+}
+
+body.is-phone #mobileCoachToast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--tb-phone-rail-h) + env(safe-area-inset-bottom) + 14px);
+  transform: translateX(-50%) translateY(10px);
+  z-index: 190;
+  min-width: min(320px, calc(100vw - 32px));
+  max-width: min(360px, calc(100vw - 32px));
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(227, 178, 60, 0.22);
+  background: rgba(7, 16, 24, 0.92);
+  color: #f3f1e8;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  text-align: center;
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.32);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+body.is-phone #mobileCoachToast.is-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 body.is-phone .mob-more-list {

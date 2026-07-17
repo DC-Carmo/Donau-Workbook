@@ -377,6 +377,10 @@ function fmtSpd(v) { return v + '×'; }
 const SAVED_PLAYS_KEY = 'coachmato.animator.savedPlays.v1';
 const FIRST_USE_TUTORIAL_KEY = 'coachmato.animator.firstUseTutorial.v1';
 const PROJECT_SCHEMA_VERSION = 4;
+const PHONE_UI_ACTION_GUARD_MS = 420;
+let lastPhoneAddAction = { team: null, at: -Infinity };
+let phoneMoveToastTimer = null;
+let phoneMoveToastShown = false;
 const PROJECT_TYPE = 'coachmato.animator.project';
 const PLAYBACK_TIMELINE_MODEL = 'global_progress_v1';
 const DEFAULT_PLAYBACK_DURATION = 5;
@@ -2812,7 +2816,6 @@ function drawField() {
   // ── 8. Line helpers — pixel-aligned for crisp rendering ──────────────────
   function hline(fy, color, lw, dash = [], x0 = 0, x1 = F.W, glow = 0) {
     const p = toC(x0, fy), q = toC(x1, fy);
-    const py = Math.round(p.y) + 0.5;
     ctx.save();
     if (glow > 0) { ctx.shadowColor = `rgba(255,255,255,${glow})`; ctx.shadowBlur = 5; }
     ctx.strokeStyle = color;
@@ -2821,8 +2824,8 @@ function drawField() {
     ctx.lineJoin = 'miter';
     if (dash.length) ctx.setLineDash(dash);
     ctx.beginPath();
-    ctx.moveTo(Math.round(p.x), py);
-    ctx.lineTo(Math.round(q.x), py);
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(q.x, q.y);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
@@ -2830,7 +2833,6 @@ function drawField() {
 
   function vline(fx, color, lw, fy0 = F.YMIN, fy1 = F.YMAX, dash = [], glow = 0) {
     const p = toC(fx, fy0), q = toC(fx, fy1);
-    const px = Math.round(p.x) + 0.5;
     ctx.save();
     if (glow > 0) { ctx.shadowColor = `rgba(255,255,255,${glow})`; ctx.shadowBlur = 5; }
     ctx.strokeStyle = color;
@@ -2839,8 +2841,8 @@ function drawField() {
     ctx.lineJoin = 'miter';
     if (dash.length) ctx.setLineDash(dash);
     ctx.beginPath();
-    ctx.moveTo(px, Math.round(p.y));
-    ctx.lineTo(px, Math.round(q.y));
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(q.x, q.y);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
@@ -2917,20 +2919,19 @@ function drawField() {
     const ANCHORS = [0, 22, 40, 50, 60, 78, 100];
 
     function syncedDashV(fx, color, lw) {
-      const px = Math.round(toC(fx, 0).x) + 0.5;
       ctx.save();
       ctx.strokeStyle = color;
       ctx.lineWidth   = lw;
       ctx.lineCap     = 'butt';
       ctx.setLineDash([dashPx, gapPx]);
       for (let i = 0; i < ANCHORS.length - 1; i++) {
-        const y0 = Math.round(toC(fx, ANCHORS[i]).y);
-        const y1 = Math.round(toC(fx, ANCHORS[i + 1]).y);
+        const p0 = toC(fx, ANCHORS[i]);
+        const p1 = toC(fx, ANCHORS[i + 1]);
         // Center a dash exactly at y0 (the anchor intersection)
         ctx.lineDashOffset = -dashPx / 2;
         ctx.beginPath();
-        ctx.moveTo(px, y0);
-        ctx.lineTo(px, y1);
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p1.x, p1.y);
         ctx.stroke();
       }
       ctx.setLineDash([]);
@@ -4134,7 +4135,7 @@ function syncSpeedButtonsUI() {
 function updateMobilePhaseCounterLabel() {
   const mobilePhaseCounter = document.getElementById('mobilePhaseCounter');
   if (!mobilePhaseCounter) return;
-  mobilePhaseCounter.textContent = `PHASE ${GamePlan.currentPhase + 1}/${GamePlan.phases.length} · STEP ${S.currentStep + 1}/${sequenceStepCount()}`;
+  mobilePhaseCounter.textContent = `PHASE ${GamePlan.currentPhase + 1}/${GamePlan.phases.length} · MOVE ${S.currentStep + 1}/${sequenceStepCount()}`;
 }
 
 function flashMobilePhaseCounter() {
@@ -4151,6 +4152,22 @@ function finishEraseInteraction(message = 'Object erased. Back in Move mode.') {
   setHint(message);
   refreshInteractionUI();
   render();
+}
+
+function showPhoneMoveToast() {
+  if (!isPhoneViewport || phoneMoveToastShown) return;
+  const toast = document.getElementById('mobileCoachToast');
+  if (!toast) return;
+  phoneMoveToastShown = true;
+  toast.textContent = 'Each MOVE is a moment inside this phase - PLAY runs them in order.';
+  toast.classList.add('is-visible');
+  toast.setAttribute('aria-hidden', 'false');
+  if (phoneMoveToastTimer) clearTimeout(phoneMoveToastTimer);
+  phoneMoveToastTimer = setTimeout(() => {
+    toast.classList.remove('is-visible');
+    toast.setAttribute('aria-hidden', 'true');
+    phoneMoveToastTimer = null;
+  }, 2000);
 }
 
 function handlePointerDown(e) {
@@ -5045,6 +5062,12 @@ function togglePalettePlayer(num, team, event = null) {
 }
 
 function addNextAvailablePlayer(team) {
+  const now = (typeof performance !== 'undefined' && Number.isFinite(performance.now())) ? performance.now() : Date.now();
+  if (isPhoneViewport && lastPhoneAddAction.team === team && (now - lastPhoneAddAction.at) < PHONE_UI_ACTION_GUARD_MS) {
+    console.debug('[animator] skipped duplicate phone add', { team, players: S.players.length });
+    return;
+  }
+  lastPhoneAddAction = { team, at: now };
   const used = team === 'A' ? S.atkUsed : S.defUsed;
   const nextNum = Array.from({ length: 15 }, (_, idx) => idx + 1).find(num => !used.has(num));
   if (!nextNum) {
@@ -5274,9 +5297,9 @@ function buildSequenceFrame(progress) {
   const players = Array.from(allKeys).map(key => {
     const a = fromLookup.get(key) || toLookup.get(key);
     const b = toLookup.get(key) || fromLookup.get(key);
-    const fromPath = a ? phasePathForPlayer(from, a) : null;
-    if (fromPath && Array.isArray(fromPath.pts) && fromPath.pts.length >= 2) {
-      const alongPath = catmullRom(fromPath.pts, localT);
+    const toPath = b ? phasePathForPlayer(to, b) : null;
+    if (toPath && Array.isArray(toPath.pts) && toPath.pts.length >= 2) {
+      const alongPath = catmullRom(toPath.pts, localT);
       return {
         ...(cloneData(a) || cloneData(b) || {}),
         x: alongPath.x,
@@ -5303,9 +5326,9 @@ function buildSequenceFrame(progress) {
     players,
     ball,
     ballOwner: normalizePlayerRef(localT < 0.5 ? from.ballOwner : to.ballOwner),
-    annotations: cloneData(from.annotations),
-    paths: cloneData(from.paths),
-    passes: cloneData(from.passes),
+    annotations: cloneData(to.annotations),
+    paths: cloneData(to.paths),
+    passes: cloneData(to.passes),
     segmentIndex,
     localT,
   };
@@ -5393,10 +5416,11 @@ function addStep() {
   S.currentStep += 1;
   stopPlayback(true);
   setLiveBoardFromStep(next);
-  setHint(`Step ${S.currentStep + 1} added. The previous step was duplicated so you can build the next action from it.`);
+  setHint(`Move ${S.currentStep + 1} added. The previous move was duplicated so you can build the next moment from it.`);
   rebuildPalette();
   refreshInteractionUI();
   flashMobilePhaseCounter();
+  showPhoneMoveToast();
   updateTL();
   render();
 }
@@ -7268,6 +7292,24 @@ document.getElementById('mobileMoreDrawer')?.addEventListener('click', (e) => {
   if (!actionBtn || actionBtn.disabled) return;
   setTimeout(() => setMobileMoreDrawerOpen(false), 0);
 });
+
+function bindSinglePhoneButton(id, handler) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('click', (e) => {
+    if (!isPhoneViewport) return;
+    e.preventDefault();
+    e.stopImmediatePropagation?.();
+    e.stopPropagation();
+    handler();
+  }, true);
+}
+
+bindSinglePhoneButton('mobileRailAddAttackBtn', () => addNextAvailablePlayer('A'));
+bindSinglePhoneButton('mobileRailAddDefenceBtn', () => addNextAvailablePlayer('D'));
+bindSinglePhoneButton('mobileStepBtn', () => addStep());
+bindSinglePhoneButton('mobileRailUndoBtn', () => undo());
+bindSinglePhoneButton('mobMoreBtn', () => toggleMobileMoreDrawer());
 
 let lastPhoneUiActivation = { key: '', target: null, at: -Infinity };
 document.addEventListener('click', (e) => {

@@ -42,7 +42,7 @@
       </button>
     </div>
 
-    <div class="mobile-phase-counter" id="mobilePhaseCounter" aria-live="polite">PHASE 1/1 · STEP 1/1</div>
+    <div class="mobile-phase-counter" id="mobilePhaseCounter" aria-live="polite">PHASE 1/1 · MOVE 1/1</div>
     <button class="c-btn mobile-play-btn" id="mobileTopPlayBtn" type="button" onclick="togglePlay()" aria-label="Play current phase">Play</button>
 
     <div class="tb-actions">
@@ -308,11 +308,12 @@
       <div id="mobileToolGrid">
         <button class="mob-tool-btn" id="mobileRailAddAttackBtn" type="button" onclick="addNextAvailablePlayer('A')">+ ATTACK</button>
         <button class="mob-tool-btn" id="mobileRailAddDefenceBtn" type="button" onclick="addNextAvailablePlayer('D')">+ DEFENCE</button>
-        <button class="mob-tool-btn" id="mobileStepBtn" type="button" onclick="addStep()">+ STEP</button>
+        <button class="mob-tool-btn" id="mobileStepBtn" type="button" onclick="addStep()">+ MOVE</button>
         <button class="mob-tool-btn" id="mobileRailUndoBtn" type="button" onclick="undo()">UNDO</button>
         <button class="mob-tool-btn" data-tool="erase" onclick="setTool('erase')">ERASE</button>
         <button class="mob-tool-btn mob-tool-more" id="mobMoreBtn" onclick="toggleMobileMoreDrawer()">MORE &#9652;&#xFE0E;</button>
       </div>
+      <div id="mobileCoachToast" aria-live="polite" aria-hidden="true"></div>
 
       <div id="compactToolbar" aria-label="Board controls">
 
