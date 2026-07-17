@@ -85,6 +85,8 @@ function syncCanvasResolution(canvas, context, width, height) {
   if (canvas.height !== pxH) canvas.height = pxH;
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.clearRect(0, 0, canvas.width, canvas.height);
+  context.imageSmoothingEnabled = true;
+  if ('imageSmoothingQuality' in context) context.imageSmoothingQuality = 'high';
   context.setTransform(renderDpr, 0, 0, renderDpr, 0, 0);
 }
 
@@ -238,10 +240,10 @@ function getPhoneCanvasBounds() {
   const wrap = document.getElementById('canvasWrap');
   const topbar = document.getElementById('topbar');
   const bottomPanel = document.getElementById('bottomPanel');
-  const viewportW = Math.max(1, Math.round(window.innerWidth || document.documentElement.clientWidth || 0));
-  const viewportH = Math.max(1, Math.round(window.innerHeight || document.documentElement.clientHeight || 0));
-  const topbarH = Math.max(0, Math.round(topbar?.getBoundingClientRect().height || 0));
-  const bottomPanelH = Math.max(0, Math.round(bottomPanel?.getBoundingClientRect().height || 0));
+  const viewportW = Math.max(1, Math.ceil(window.innerWidth || document.documentElement.clientWidth || 0));
+  const viewportH = Math.max(1, Math.ceil(window.innerHeight || document.documentElement.clientHeight || 0));
+  const topbarH = Math.max(0, Math.ceil(topbar?.getBoundingClientRect().height || 0));
+  const bottomPanelH = Math.max(0, Math.ceil(bottomPanel?.getBoundingClientRect().height || 0));
   const wrapStyles = wrap ? window.getComputedStyle(wrap) : null;
   const padX = (parseFloat(wrapStyles?.paddingLeft || '0') || 0) + (parseFloat(wrapStyles?.paddingRight || '0') || 0);
   const padY = (parseFloat(wrapStyles?.paddingTop || '0') || 0) + (parseFloat(wrapStyles?.paddingBottom || '0') || 0);
@@ -4356,6 +4358,14 @@ function getF(e)  { const r=cv.getBoundingClientRect(); return frC(e.clientX-r.l
 function getPx(e) { const r=cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
 const PRT = () => (R() + 1) / sc; // player hit radius in field units
 
+function getPointerSamples(e) {
+  if (typeof e?.getCoalescedEvents === 'function') {
+    const samples = e.getCoalescedEvents();
+    if (Array.isArray(samples) && samples.length) return samples;
+  }
+  return [e];
+}
+
 function hitPlayer(fp) {
   let nearest = null;
   let nearestDist = Infinity;
@@ -4942,18 +4952,20 @@ function handlePointerDown(e) {
 cv.addEventListener('pointerdown', handlePointerDown);
 
 function handlePointerMove(e) {
-  const fp = getF(e);
+  const samples = getPointerSamples(e);
+  const latestSample = samples[samples.length - 1] || e;
+  const fp = getF(latestSample);
   const fieldPoint = clampFieldPoint(fp);
-  updatePointerTapMovement(e);
+  updatePointerTapMovement(latestSample);
 
   if (
     S.pendingGroupPlacement &&
     S.dragging === null &&
     S.pointerTap?.payload?.type === 'pending-group-place' &&
-    S.pointerTap.pointerId === e.pointerId
+    S.pointerTap.pointerId === latestSample.pointerId
   ) {
-    const dx = e.clientX - S.pointerTap.startClientX;
-    const dy = e.clientY - S.pointerTap.startClientY;
+    const dx = latestSample.clientX - S.pointerTap.startClientX;
+    const dy = latestSample.clientY - S.pointerTap.startClientY;
     if (Math.hypot(dx, dy) > PENDING_GROUP_DRAG_PX) {
       S.draggingPendingGroup = true;
     }
@@ -5197,7 +5209,7 @@ function onPointerUp(e) {
     return;
   }
   if (tap && !tap.moved && S.tool === 'move') {
-    if (tap.payload.type === 'player' && isPlayerSelected(tap.payload.id)) {
+    if (tap.payload.type === 'player' && tap.payload.wasSelected && isPlayerSelected(tap.payload.id)) {
       S.dragging = null;
       clearDragPlayer();
       const pl = S.players.find(p => p.id === tap.payload.id);
