@@ -3588,6 +3588,7 @@ body.is-phone .mobile-phase-counter {
   flex: 1 1 auto;
   min-width: 0;
   min-height: 40px;
+  gap: 4px;
   align-items: center;
   justify-content: center;
   padding: 0 8px;
@@ -3603,6 +3604,35 @@ body.is-phone .mobile-phase-counter {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+body.is-phone #mobilePhaseCounter {
+  display: none !important;
+}
+
+body.is-phone .mobile-phase-counter-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.is-phone .mobile-phase-counter-nav {
+  flex: 0 0 44px;
+  min-width: 44px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #f3f1e8;
+  font: inherit;
+  cursor: pointer;
+}
+
+body.is-phone .mobile-phase-counter-nav:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 body.is-phone .mobile-phase-counter.is-flashing {
@@ -3768,6 +3798,72 @@ body.is-phone .mob-speed-row {
 body.is-phone .mob-speed-row .speed-btn {
   min-height: 40px;
   padding: 0;
+}
+
+body.is-phone .mob-stepper-row,
+body.is-phone .mob-toggle-row {
+  display: grid;
+  grid-template-columns: 56px 44px minmax(68px, 1fr) 44px;
+  gap: 6px;
+  align-items: center;
+}
+
+body.is-phone .mob-toggle-row {
+  grid-template-columns: minmax(64px, 1fr) minmax(120px, 1fr);
+}
+
+body.is-phone .mob-stepper-label,
+body.is-phone .mob-stepper-value {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #f3f1e8;
+}
+
+body.is-phone .mob-stepper-label {
+  justify-content: flex-start;
+  padding: 0 8px;
+  color: rgba(243, 241, 232, 0.72);
+}
+
+body.is-phone .mob-stepper-value {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+body.is-phone .mob-stepper-btn,
+body.is-phone .mob-toggle-btn {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f3f1e8;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.96rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+body.is-phone .mob-stepper-btn-danger.is-confirming {
+  border-color: rgba(248, 113, 113, 0.72);
+  background: rgba(127, 29, 29, 0.88);
+  color: #fff4f4;
+}
+
+body.is-phone .mob-toggle-btn.is-active {
+  border-color: rgba(227, 178, 60, 0.28);
+  background: rgba(227, 178, 60, 0.14);
+  color: #f3f1e8;
 }
 
 body.is-phone #mobileBoardMenu,

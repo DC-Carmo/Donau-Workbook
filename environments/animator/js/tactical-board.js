@@ -25,7 +25,7 @@ const MOBILE_TAP_TOGGLE_PX = 5;
 const PENDING_GROUP_DRAG_PX = 8;
 const SNAP_RADIUS = 4; // field units (~4m)
 let GAINLINE_Y = 50;      // default: halfway
-let showGainline = true;
+let showGainline = false;
 let radialMenu = null; // { playerId, x, y } in canvas px
 let teleStrokes = []; // [{ pts:[{x,y}], born: timestamp, color }]
 let teleDrawing = null; // current stroke being drawn
@@ -380,6 +380,8 @@ const PHONE_UI_ACTION_GUARD_MS = 300;
 let lastPhoneAddAction = { team: null, at: -Infinity };
 let phoneMoveToastTimer = null;
 let phoneMoveToastShown = false;
+let phoneDeleteConfirmTimers = { phase: null, move: null };
+let phoneDeleteConfirmState = { phase: false, move: false };
 const PROJECT_TYPE = 'coachmato.animator.project';
 const PLAYBACK_TIMELINE_MODEL = 'global_progress_v1';
 const DEFAULT_PLAYBACK_DURATION = 5;
@@ -960,6 +962,8 @@ function setLiveBoardFromStep(step, { keepSelection = false } = {}) {
 }
 
 function goToPhase(idx) {
+  resetDeleteConfirm('phase');
+  resetDeleteConfirm('move');
   persistCurrentPhase();
   S.animating = false;
   S.playAll = false;
@@ -1018,6 +1022,114 @@ function addPhase() {
   updateSelInfo();
   updatePhaseUI();
   refreshInteractionUI();
+  flashMobilePhaseCounter();
+  render();
+}
+
+function relabelPhases() {
+  GamePlan.phases.forEach((phase, index) => {
+    phase.label = `Phase ${index + 1}`;
+  });
+}
+
+function loadCurrentPhaseBoardState() {
+  const phase = normalizePhaseState(GamePlan.phases[GamePlan.currentPhase], GamePlan.currentPhase);
+  GamePlan.phases[GamePlan.currentPhase] = phase;
+  clearSelectedObject();
+  S.dragging = null;
+  S.drawing = null;
+  clearPassKickState();
+  S.annotationDraft = null;
+  setLiveBoardFromStep(phase.steps[phase.currentStep] || emptyStepState());
+  S.ballOwner = normalizePlayerRef(phase.ballOwner);
+  S.ballAttached = !!phase.ballAttached;
+  applyBallOwnershipVisualState();
+  rebuildPalette();
+  updateSelInfo();
+  updatePhaseUI();
+  refreshInteractionUI();
+}
+
+function addPhaseAfterCurrent() {
+  resetDeleteConfirm('phase');
+  resetDeleteConfirm('move');
+  persistCurrentPhase();
+  const current = serializePhase(S(), GamePlan.currentPhase);
+  const sourceStep = cloneStepState(current.steps?.[Number(current.currentStep)] || current.steps?.[0] || emptyStepState());
+  const carryForwardStep = createCarryForwardStep(sourceStep);
+  const nextPhase = normalizePhaseState({
+    id: crypto.randomUUID(),
+    label: `Phase ${GamePlan.currentPhase + 2}`,
+    notes: '',
+    players: cloneData(carryForwardStep.players),
+    ball: carryForwardStep.ball ? cloneData(carryForwardStep.ball) : null,
+    ballOwner: normalizePlayerRef(carryForwardStep.ballOwner),
+    ballAttached: !!carryForwardStep.ballAttached,
+    paths: [],
+    passes: [],
+    annotations: cloneData(carryForwardStep.annotations || []),
+    steps: [carryForwardStep],
+    currentStep: 0,
+  }, GamePlan.currentPhase + 1);
+  const nextPhaseIndex = GamePlan.currentPhase + 1;
+  snapshot();
+  GamePlan.phases.splice(nextPhaseIndex, 0, nextPhase);
+  relabelPhases();
+  S.animating = false;
+  S.playAll = false;
+  S.lastTs = null;
+  S.animT = 0;
+  GamePlan.currentPhase = nextPhaseIndex;
+  loadCurrentPhaseBoardState();
+  flashMobilePhaseCounter();
+  render();
+}
+
+function resetDeleteConfirm(kind) {
+  if (phoneDeleteConfirmTimers[kind]) {
+    clearTimeout(phoneDeleteConfirmTimers[kind]);
+    phoneDeleteConfirmTimers[kind] = null;
+  }
+  phoneDeleteConfirmState[kind] = false;
+}
+
+function armDeleteConfirm(kind) {
+  resetDeleteConfirm(kind);
+  phoneDeleteConfirmState[kind] = true;
+  phoneDeleteConfirmTimers[kind] = setTimeout(() => {
+    phoneDeleteConfirmState[kind] = false;
+    phoneDeleteConfirmTimers[kind] = null;
+    refreshInteractionUI();
+  }, 3000);
+  refreshInteractionUI();
+}
+
+function confirmDeleteAction(kind) {
+  if (phoneDeleteConfirmState[kind]) {
+    resetDeleteConfirm(kind);
+    return true;
+  }
+  armDeleteConfirm(kind);
+  return false;
+}
+
+function deleteCurrentPhaseWithConfirm() {
+  if (!confirmDeleteAction('phase')) return;
+  resetDeleteConfirm('move');
+  snapshot();
+  persistCurrentPhase();
+  stopPlayback(true);
+  if (GamePlan.phases.length === 1) {
+    GamePlan.currentPhase = 0;
+    GamePlan.phases = [normalizePhaseState({ label: 'Phase 1' }, 0)];
+    setHint('Phase reset. Build the board again from a clean starting phase.');
+  } else {
+    GamePlan.phases.splice(GamePlan.currentPhase, 1);
+    GamePlan.currentPhase = Math.min(GamePlan.currentPhase, GamePlan.phases.length - 1);
+    relabelPhases();
+    setHint(`Phase ${GamePlan.currentPhase + 1} ready after deletion.`);
+  }
+  loadCurrentPhaseBoardState();
   flashMobilePhaseCounter();
   render();
 }
@@ -4189,13 +4301,14 @@ function syncSpeedButtonsUI() {
 }
 
 function updateMobilePhaseCounterLabel() {
-  const mobilePhaseCounter = document.getElementById('mobilePhaseCounter');
-  if (!mobilePhaseCounter) return;
+  const mobilePhaseCounterLabel = document.getElementById('mobilePhaseCounterLabel');
+  if (!mobilePhaseCounterLabel) return;
+  const mobilePhaseCounter = mobilePhaseCounterLabel;
   mobilePhaseCounter.textContent = `PHASE ${GamePlan.currentPhase + 1}/${GamePlan.phases.length} · MOVE ${S.currentStep + 1}/${sequenceStepCount()}`;
 }
 
 function flashMobilePhaseCounter() {
-  const mobilePhaseCounter = document.getElementById('mobilePhaseCounter');
+  const mobilePhaseCounter = document.getElementById('mobilePhasePill');
   if (!mobilePhaseCounter) return;
   mobilePhaseCounter.classList.remove('is-flashing');
   void mobilePhaseCounter.offsetWidth;
@@ -5524,6 +5637,8 @@ function nextStep() {
 }
 
 function addStep() {
+  resetDeleteConfirm('move');
+  resetDeleteConfirm('phase');
   snapshot();
   persistCurrentStep();
   const next = cloneStepState(S.steps[S.currentStep] || liveBoardToStepState());
@@ -5606,6 +5721,31 @@ function deleteStepAt(idx) {
   render();
 }
 window.deleteStepAt = deleteStepAt;
+
+function deleteLastMoveWithConfirm() {
+  if (!confirmDeleteAction('move')) return;
+  resetDeleteConfirm('phase');
+  ensureSteps();
+  snapshot();
+  persistCurrentStep();
+  const lastIdx = Math.max(0, S.steps.length - 1);
+  if (S.steps.length === 1) {
+    S.steps = [emptyStepState()];
+    S.currentStep = 0;
+    setHint('Move 1 reset. Build the phase again from a clean board.');
+  } else {
+    S.steps.splice(lastIdx, 1);
+    S.currentStep = Math.min(S.currentStep, S.steps.length - 1);
+    setHint(`Last move removed. Now on Move ${S.currentStep + 1}.`);
+  }
+  stopPlayback(true);
+  setLiveBoardFromStep(S.steps[S.currentStep]);
+  rebuildPalette();
+  refreshInteractionUI();
+  updateTL();
+  flashMobilePhaseCounter();
+  render();
+}
 
 function updateSequenceUI() {
   const prevBtn = document.getElementById('seqPrevBtn');
@@ -6280,7 +6420,10 @@ function updateBoardStatus() {
   if (text) text.textContent = summary;
   if (toolbarMode) toolbarMode.textContent = `Mode: ${MODE_LABELS[S.tool] || 'Board'}`;
   if (gainlineBtn) gainlineBtn.classList.toggle('active', showGainline);
-  if (mobGainlineBtn) mobGainlineBtn.classList.toggle('active', showGainline);
+  if (mobGainlineBtn) {
+    mobGainlineBtn.classList.toggle('is-active', showGainline);
+    mobGainlineBtn.textContent = showGainline ? 'ON' : 'OFF';
+  }
   if (mobBallBtn) mobBallBtn.disabled = !!S.ball;
   if (empty) empty.classList.toggle('hidden', !!S.players.length || !!S.ball || !!S.annotations.length);
   if (shouldShowFirstUseTutorial() && !_tourActive) {
@@ -6290,6 +6433,8 @@ function updateBoardStatus() {
 
 function toggleGainline() {
   showGainline = !showGainline;
+  resetDeleteConfirm('phase');
+  resetDeleteConfirm('move');
   closeRadialMenu();
   setHint(showGainline ? 'Gainline visible. Drag it in Move mode to reposition it.' : 'Gainline hidden.');
   refreshInteractionUI();
@@ -6727,22 +6872,45 @@ function setMobileMoreDrawerOpen(open) {
 }
 
 function updateMobileUI() {
-  const mobilePhaseCounter = document.getElementById('mobilePhaseCounter');
+  const mobilePhasePill = document.getElementById('mobilePhasePill');
+  const mobilePhaseCounterLabel = document.getElementById('mobilePhaseCounterLabel');
+  const mobilePhasePrevBtn = document.getElementById('mobilePhasePrevBtn');
+  const mobilePhaseNextBtn = document.getElementById('mobilePhaseNextBtn');
+  const mobilePhaseStepperValue = document.getElementById('mobilePhaseStepperValue');
+  const mobileMoveStepperValue = document.getElementById('mobileMoveStepperValue');
+  const mobilePhaseDeleteBtn = document.getElementById('mobilePhaseDeleteBtn');
+  const mobileMoveDeleteBtn = document.getElementById('mobileMoveDeleteBtn');
+  const mobGainlineBtn = document.getElementById('mobGainlineBtn');
   const mobileRailAddAttackBtn = document.getElementById('mobileRailAddAttackBtn');
   const mobileRailAddDefenceBtn = document.getElementById('mobileRailAddDefenceBtn');
   const mobileMoreAddAttackBtn = document.getElementById('mobileMoreAddAttackBtn');
   const mobileMoreAddDefenceBtn = document.getElementById('mobileMoreAddDefenceBtn');
-  const mobileMorePrevPhaseBtn = document.getElementById('mobileMorePrevPhaseBtn');
-  const mobileMoreNextPhaseBtn = document.getElementById('mobileMoreNextPhaseBtn');
   const mobileMorePlayAllBtn = document.getElementById('mobileMorePlayAllBtn');
   const playAllPlayable = projectHasPlayablePlayback();
 
   syncResponsiveToolbarLabels();
   syncPlayButtons();
-  if (mobilePhaseCounter) updateMobilePhaseCounterLabel();
+  if (mobilePhasePill) updateMobilePhaseCounterLabel();
+  if (mobilePhaseCounterLabel) {
+    mobilePhaseCounterLabel.textContent = `PHASE ${GamePlan.currentPhase + 1}/${GamePlan.phases.length} · MOVE ${S.currentStep + 1}/${sequenceStepCount()}`;
+  }
   syncSpeedButtonsUI();
-  if (mobileMorePrevPhaseBtn) mobileMorePrevPhaseBtn.disabled = GamePlan.currentPhase === 0;
-  if (mobileMoreNextPhaseBtn) mobileMoreNextPhaseBtn.disabled = GamePlan.currentPhase >= GamePlan.phases.length - 1;
+  if (mobilePhasePrevBtn) mobilePhasePrevBtn.disabled = GamePlan.currentPhase === 0;
+  if (mobilePhaseNextBtn) mobilePhaseNextBtn.disabled = GamePlan.currentPhase >= GamePlan.phases.length - 1;
+  if (mobilePhaseStepperValue) mobilePhaseStepperValue.textContent = `${GamePlan.currentPhase + 1}/${GamePlan.phases.length}`;
+  if (mobileMoveStepperValue) mobileMoveStepperValue.textContent = `${sequenceStepCount()}/${sequenceStepCount()}`;
+  if (mobilePhaseDeleteBtn) {
+    mobilePhaseDeleteBtn.textContent = phoneDeleteConfirmState.phase ? 'SURE?' : '-';
+    mobilePhaseDeleteBtn.classList.toggle('is-confirming', phoneDeleteConfirmState.phase);
+  }
+  if (mobileMoveDeleteBtn) {
+    mobileMoveDeleteBtn.textContent = phoneDeleteConfirmState.move ? 'SURE?' : '-';
+    mobileMoveDeleteBtn.classList.toggle('is-confirming', phoneDeleteConfirmState.move);
+  }
+  if (mobGainlineBtn) {
+    mobGainlineBtn.textContent = showGainline ? 'ON' : 'OFF';
+    mobGainlineBtn.classList.toggle('is-active', showGainline);
+  }
   if (mobileRailAddAttackBtn) mobileRailAddAttackBtn.disabled = S.atkUsed.size >= 15;
   if (mobileRailAddDefenceBtn) mobileRailAddDefenceBtn.disabled = S.defUsed.size >= 15;
   if (mobileMoreAddAttackBtn) mobileMoreAddAttackBtn.disabled = S.atkUsed.size >= 15;
@@ -6855,6 +7023,8 @@ function cancelActiveBoardInteraction() {
 function clearAll() {
   if (!confirm('Clear all players and paths? This cannot be undone.')) return;
   snapshot();
+  resetDeleteConfirm('phase');
+  resetDeleteConfirm('move');
   currentPresetId = null;
   GamePlan.name = 'New Play';
   GamePlan.currentPhase = 0;
@@ -6868,6 +7038,7 @@ function clearAll() {
   S.drawing=null; S.passFrom=null; S.annotationDraft=null; S.selected=null; S.selectedPlayerId=null; S.selectedPlayerIds=[]; S.selectedGroupId=null; S.selectedAnnotationIdValue=null; S.selectedObjectType=null; S.dragPlayerId=null; S.activePasserId=null; S.activeKickerId=null; S.activeRunSourceId=null; S.highlightedPlayerIds=[]; S.ballAssignCandidate=null; S.selectedPathPid=null; S.selectedPassIdx=null; S.pendingGroupPlacement=null;
   S.animT=0; S.animating=false;
   S.animSpd=1; spdIdx=0;
+  showGainline=false;
   S.nextId=1;
   S.steps=[emptyStepState()]; S.currentStep=0;
   S.atkUsed=new Set(); S.defUsed=new Set();
@@ -7446,6 +7617,12 @@ bindSinglePhoneButton('mobileRailAddDefenceBtn', () => addNextAvailablePlayer('D
 bindSinglePhoneButton('mobileStepBtn', () => addStep());
 bindSinglePhoneButton('mobileRailUndoBtn', () => undo());
 bindSinglePhoneButton('mobMoreBtn', () => toggleMobileMoreDrawer());
+bindSinglePhoneButton('mobilePhasePrevBtn', () => goToPhase(GamePlan.currentPhase - 1));
+bindSinglePhoneButton('mobilePhaseNextBtn', () => goToPhase(GamePlan.currentPhase + 1));
+bindSinglePhoneButton('mobilePhaseAddBtn', () => addPhaseAfterCurrent());
+bindSinglePhoneButton('mobilePhaseDeleteBtn', () => deleteCurrentPhaseWithConfirm());
+bindSinglePhoneButton('mobileMoveAddBtn', () => addStep());
+bindSinglePhoneButton('mobileMoveDeleteBtn', () => deleteLastMoveWithConfirm());
 
 let lastPhoneUiActivation = { key: '', target: null, at: -Infinity };
 document.addEventListener('click', (e) => {

@@ -43,6 +43,11 @@
     </div>
 
     <div class="mobile-phase-counter" id="mobilePhaseCounter" aria-live="polite">PHASE 1/1 · MOVE 1/1</div>
+    <div class="mobile-phase-counter" id="mobilePhasePill" aria-live="polite">
+      <button class="mobile-phase-counter-nav" id="mobilePhasePrevBtn" type="button" aria-label="Previous phase">&#8249;&#xFE0E;</button>
+      <span class="mobile-phase-counter-label" id="mobilePhaseCounterLabel">PHASE 1/1 · MOVE 1/1</span>
+      <button class="mobile-phase-counter-nav" id="mobilePhaseNextBtn" type="button" aria-label="Next phase">&#8250;&#xFE0E;</button>
+    </div>
     <button class="c-btn mobile-play-btn" id="mobileTopPlayBtn" type="button" onclick="togglePlay()" aria-label="Play current phase">Play</button>
 
     <div class="tb-actions">
@@ -288,9 +293,22 @@
       <!-- Mobile 2-row tool grid (CSS hides this on desktop) -->
       <div id="mobileMoreDrawer" aria-hidden="true">
         <div class="mob-more-list">
-          <button class="mob-more-btn" id="mobileMoreAddPhaseBtn" type="button" onclick="addPhase()">+ PHASE</button>
-          <button class="mob-more-btn" id="mobileMorePrevPhaseBtn" type="button" onclick="goToPhase(GamePlan.currentPhase - 1)">PREV PHASE</button>
-          <button class="mob-more-btn" id="mobileMoreNextPhaseBtn" type="button" onclick="goToPhase(GamePlan.currentPhase + 1)">NEXT PHASE</button>
+          <div class="mob-stepper-row" aria-label="Phase stepper">
+            <span class="mob-stepper-label">PHASE</span>
+            <button class="mob-stepper-btn mob-stepper-btn-danger" id="mobilePhaseDeleteBtn" type="button" aria-label="Delete current phase">-</button>
+            <span class="mob-stepper-value" id="mobilePhaseStepperValue">1/1</span>
+            <button class="mob-stepper-btn" id="mobilePhaseAddBtn" type="button" aria-label="Add phase after current phase">+</button>
+          </div>
+          <div class="mob-stepper-row" aria-label="Move stepper">
+            <span class="mob-stepper-label">MOVE</span>
+            <button class="mob-stepper-btn mob-stepper-btn-danger" id="mobileMoveDeleteBtn" type="button" aria-label="Delete last move">-</button>
+            <span class="mob-stepper-value" id="mobileMoveStepperValue">1/1</span>
+            <button class="mob-stepper-btn" id="mobileMoveAddBtn" type="button" aria-label="Add move">+</button>
+          </div>
+          <div class="mob-toggle-row" aria-label="Gainline toggle">
+            <span class="mob-stepper-label">GAINLINE</span>
+            <button class="mob-toggle-btn" id="mobGainlineBtn" type="button" onclick="toggleGainline()">OFF</button>
+          </div>
           <button class="mob-more-btn" id="mobileMoreAddAttackBtn" type="button" onclick="addNextAvailablePlayer('A')">+ ATTACK</button>
           <button class="mob-more-btn" id="mobileMoreAddDefenceBtn" type="button" onclick="addNextAvailablePlayer('D')">+ DEFENCE</button>
           <button class="mob-more-btn" id="mobileMoreBallBtn" type="button" onclick="addBall()">BALL</button>
