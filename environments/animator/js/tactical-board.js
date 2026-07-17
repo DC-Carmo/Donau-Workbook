@@ -2906,15 +2906,15 @@ function drawField() {
     const p3 = toC(0, y1);
     const sg = ctx.createLinearGradient(p0.x, p0.y, p3.x, p3.y);
     if (si % 2 === 0) {
-      sg.addColorStop(0, 'rgba(255,255,255,0.012)');
-      sg.addColorStop(0.22, 'rgba(255,255,255,0.064)');
-      sg.addColorStop(0.78, 'rgba(255,255,255,0.064)');
-      sg.addColorStop(1, 'rgba(255,255,255,0.012)');
+      sg.addColorStop(0, 'rgba(255,255,255,0.018)');
+      sg.addColorStop(0.22, 'rgba(255,255,255,0.092)');
+      sg.addColorStop(0.78, 'rgba(255,255,255,0.092)');
+      sg.addColorStop(1, 'rgba(255,255,255,0.018)');
     } else {
-      sg.addColorStop(0, 'rgba(0,0,0,0.010)');
-      sg.addColorStop(0.22, 'rgba(0,0,0,0.070)');
-      sg.addColorStop(0.78, 'rgba(0,0,0,0.070)');
-      sg.addColorStop(1, 'rgba(0,0,0,0.010)');
+      sg.addColorStop(0, 'rgba(0,0,0,0.016)');
+      sg.addColorStop(0.22, 'rgba(0,0,0,0.102)');
+      sg.addColorStop(0.78, 'rgba(0,0,0,0.102)');
+      sg.addColorStop(1, 'rgba(0,0,0,0.016)');
     }
     ctx.fillStyle = sg;
     ctx.beginPath();
@@ -2933,7 +2933,7 @@ function drawField() {
     const pat = ctx.createPattern(tile, 'repeat');
     if (pat) {
       ctx.save();
-      ctx.globalAlpha = S.textureStrength || 0.09;
+      ctx.globalAlpha = Math.max(0.11, S.textureStrength || 0.09);
       ctx.beginPath(); ctx.rect(fieldLeft, fieldTop, FW, FH); ctx.clip();
       ctx.fillStyle = pat;
       ctx.fillRect(fieldLeft, fieldTop, FW, FH);
@@ -5561,7 +5561,8 @@ function buildSequenceFrame(progress) {
     const b = toLookup.get(key) || fromLookup.get(key);
     const toPath = b ? phasePathForPlayer(motionStep, b) : null;
     if (toPath && Array.isArray(toPath.pts) && toPath.pts.length >= 2) {
-      const alongPath = catmullRom(toPath.pts, localT);
+      const rebasedPts = [{ x: a.x, y: a.y }, ...toPath.pts.slice(1)];
+      const alongPath = catmullRom(rebasedPts, localT);
       return {
         ...(cloneData(a) || cloneData(b) || {}),
         x: alongPath.x,
@@ -5676,7 +5677,7 @@ function addStep() {
   resetDeleteConfirm('phase');
   snapshot();
   persistCurrentStep();
-  const next = cloneStepState(S.steps[S.currentStep] || liveBoardToStepState());
+  const next = createCarryForwardStep(S.steps[S.currentStep] || liveBoardToStepState());
   S.steps.splice(S.currentStep + 1, 0, next);
   S.currentStep += 1;
   stopPlayback(true);
@@ -6901,11 +6902,13 @@ window.toggleMobileMoreDrawer = toggleMobileMoreDrawer;
 
 function setMobileMoreDrawerOpen(open) {
   const drawer = document.getElementById('mobileMoreDrawer');
+  const backdrop = document.getElementById('mobileMoreBackdrop');
   const btn    = document.getElementById('mobMoreBtn');
   const isOpen = !!open && isPhoneViewport;
   if (!drawer) return;
   drawer.classList.toggle('open', isOpen);
   drawer.setAttribute('aria-hidden', String(!isOpen));
+  if (backdrop) backdrop.classList.toggle('open', isOpen);
   if (isOpen) drawer.scrollTop = 0;
   if (btn) btn.textContent = isOpen ? 'MORE v' : 'MORE ^';
 }

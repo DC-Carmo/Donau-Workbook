@@ -3750,6 +3750,19 @@ body.is-phone #mobileMoreDrawer.open {
   display: grid;
 }
 
+body.is-phone #mobileMoreBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 174;
+  display: none;
+  border: 0;
+  background: rgba(3, 8, 14, 0.42);
+}
+
+body.is-phone #mobileMoreBackdrop.open {
+  display: block;
+}
+
 body.is-phone #mobileCoachToast {
   position: fixed;
   left: 50%;
@@ -3982,7 +3995,7 @@ body.is-phone .mobile-notes-sheet {
   grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
   padding: calc(var(--tb-phone-topbar-h) + 10px) 12px calc(var(--tb-phone-rail-h) + 10px);
-  background: var(--tb-phone-surface);
+  background: linear-gradient(180deg, rgba(6, 14, 22, 0.96), rgba(7, 16, 24, 0.98));
 }
 
 body.is-phone #mobileNotesSheetHost {
@@ -3995,11 +4008,101 @@ body.is-phone #mobileNotesSheetHost .sp-notes-panel {
   display: block;
   max-height: none;
   margin: 0;
-  border-top: 0;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  background: rgba(9, 21, 16, 0.96);
+  box-shadow: 0 18px 36px rgba(0,0,0,0.28);
+  border-top: 1px solid rgba(255,255,255,0.08);
 }
 
 body.is-phone #mobileNotesSheetHost .sp-acc-body-inner {
-  gap: 8px;
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+
+body.is-phone #mobileNotesSheetHost .sp-notes-panel-hdr {
+  display: grid;
+  gap: 4px;
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+body.is-phone #mobileNotesSheetHost .sp-notes-panel-label,
+body.is-phone #mobileNotesSheetHost .sp-acc-trigger span:first-child {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(243, 241, 232, 0.7);
+}
+
+body.is-phone #mobileNotesSheetHost .sp-notes-play-name {
+  color: #f3f1e8;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+body.is-phone #mobileNotesSheetHost .sp-acc-section {
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+body.is-phone #mobileNotesSheetHost .sp-acc-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #f3f1e8;
+  box-shadow: none;
+  appearance: none;
+  -webkit-appearance: none;
+  text-align: left;
+}
+
+body.is-phone #mobileNotesSheetHost .sp-acc-chevron {
+  color: rgba(243, 241, 232, 0.72);
+  font-size: 1rem;
+}
+
+body.is-phone #mobileNotesSheetHost .sp-acc-body {
+  background: transparent;
+}
+
+body.is-phone #mobileNotesSheetHost .sp-field-input,
+body.is-phone #mobileNotesSheetHost .sp-field-textarea {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.28);
+  color: #f3f1e8;
+  font-family: 'Barlow', sans-serif;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+body.is-phone #mobileNotesSheetHost .sp-field-textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+body.is-phone #mobileNotesSheetHost .sp-field-input::placeholder,
+body.is-phone #mobileNotesSheetHost .sp-field-textarea::placeholder {
+  color: rgba(243, 241, 232, 0.46);
+}
+
+body.is-phone #mobileNotesSheetHost .sp-field-input:focus,
+body.is-phone #mobileNotesSheetHost .sp-field-textarea:focus {
+  outline: none;
+  border-color: rgba(227, 178, 60, 0.34);
+  box-shadow: 0 0 0 1px rgba(227, 178, 60, 0.18);
 }
 
 body.is-phone .player-token {
