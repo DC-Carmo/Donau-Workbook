@@ -44,6 +44,11 @@ let isMobilePortraitBoard = false;
 let isPhoneLandscapeBoard = false;
 let phoneVerticalPanPx = 0;
 let phoneVerticalOverflowPx = 0;
+let viewportState = null;
+let resizeObserver = null;
+let resizeRaf = 0;
+let dprMediaQuery = null;
+let dprMediaQueryListener = null;
 const cv  = document.getElementById('field');
 const supportsPointerEvents = typeof window !== 'undefined' && 'PointerEvent' in window;
 let staticFieldCanvas = null;
@@ -236,33 +241,87 @@ function syncMobileBoardNameInput() {
   if (mobileInput.value !== desktopInput.value) mobileInput.value = desktopInput.value;
 }
 
-function getPhoneCanvasBounds() {
+function getPhoneViewportState() {
   const wrap = document.getElementById('canvasWrap');
   const topbar = document.getElementById('topbar');
   const bottomPanel = document.getElementById('bottomPanel');
-  const viewportW = Math.max(1, Math.ceil(window.innerWidth || document.documentElement.clientWidth || 0));
-  const viewportH = Math.max(1, Math.ceil(window.innerHeight || document.documentElement.clientHeight || 0));
-  const topbarH = Math.max(0, Math.ceil(topbar?.getBoundingClientRect().height || 0));
-  const bottomPanelH = Math.max(0, Math.ceil(bottomPanel?.getBoundingClientRect().height || 0));
+  const viewportW = Math.max(1, window.innerWidth || document.documentElement.clientWidth || 0);
+  const viewportH = Math.max(1, window.innerHeight || document.documentElement.clientHeight || 0);
+  const topbarH = Math.max(0, topbar?.getBoundingClientRect().height || 0);
+  const bottomPanelH = Math.max(0, bottomPanel?.getBoundingClientRect().height || 0);
   const wrapStyles = wrap ? window.getComputedStyle(wrap) : null;
   const padX = (parseFloat(wrapStyles?.paddingLeft || '0') || 0) + (parseFloat(wrapStyles?.paddingRight || '0') || 0);
   const padY = (parseFloat(wrapStyles?.paddingTop || '0') || 0) + (parseFloat(wrapStyles?.paddingBottom || '0') || 0);
-  const outerHeight = Math.max(1, viewportH - topbarH - bottomPanelH);
+  const availTop = topbarH;
+  const usableBottom = Math.max(availTop + 1, viewportH - bottomPanelH);
+  const availH = Math.max(1, usableBottom - availTop - padY);
+  const availW = Math.max(1, viewportW - padX);
+  const fieldScale = Math.max(0.01, availW / FVW);
+  const fieldCssW = FVW * fieldScale;
+  const fieldCssH = FVH * fieldScale;
+  const baseX = (availW - fieldCssW) / 2;
+  const baseY = (availH - fieldCssH) / 2;
+  const overflow = Math.max(0, fieldCssH - availH);
+  const panMin = overflow > 0 ? (availH - fieldCssH - baseY) : 0;
+  const panMax = overflow > 0 ? -baseY : 0;
   return {
-    top: topbarH,
-    width: Math.max(1, Math.round(viewportW - padX)),
-    height: Math.max(1, Math.round(outerHeight - padY)),
+    availTop,
+    availBottom: availTop + availH,
+    availLeft: 0,
+    availRight: availW,
+    availW,
+    availH,
+    fieldScale,
+    fieldCssW,
+    fieldCssH,
+    baseX,
+    baseY,
+    panMin,
+    panMax,
+    overflow,
+    cssWidth: availW,
+    cssHeight: availH,
   };
 }
 
 function clampPhoneVerticalPan(nextOffset) {
-  if (!phoneVerticalOverflowPx) return 0;
-  const limit = phoneVerticalOverflowPx / 2;
-  return clamp(nextOffset, -limit, limit);
+  if (!viewportState || !viewportState.overflow) return 0;
+  return clamp(nextOffset, viewportState.panMin, viewportState.panMax);
 }
 
 function setPortraitPanOffset(nextOffset) {
   phoneVerticalPanPx = clampPhoneVerticalPan(nextOffset);
+  if (viewportState && viewportState.mode?.startsWith('phone')) {
+    viewportState.panY = phoneVerticalPanPx;
+    viewportState.fieldTop = viewportState.availTop + viewportState.baseY + phoneVerticalPanPx;
+    viewportState.fieldBottom = viewportState.fieldTop + viewportState.fieldCssH;
+    updateViewportStateAssertions();
+  }
+}
+
+function updateViewportStateAssertions() {
+  if (!viewportState) {
+    window.__viewportState = null;
+    return;
+  }
+  const topReachY = viewportState.availTop + viewportState.baseY + viewportState.panMax;
+  const bottomReachY = viewportState.availTop + viewportState.baseY + viewportState.panMin + viewportState.fieldCssH;
+  const panWithinClamp = viewportState.panY >= viewportState.panMin - 1 && viewportState.panY <= viewportState.panMax + 1;
+  const hasPanRange = viewportState.fieldCssH <= viewportState.availH + 1 || (viewportState.panYMax - viewportState.panYMin) > 5;
+  const canaryOk = viewportState.cssWidth < 2000 && viewportState.cssHeight < 2000;
+  window.__viewportState = {
+    ...viewportState,
+    topReachY,
+    bottomReachY,
+    panWithinClamp,
+    hasPanRange,
+    canaryOk,
+  };
+  console.assert(topReachY <= viewportState.availTop + 1, 'Animator viewport: field top not reachable', window.__viewportState);
+  console.assert(bottomReachY >= viewportState.availBottom - 1, 'Animator viewport: field bottom not reachable', window.__viewportState);
+  console.assert(hasPanRange, 'Animator viewport: missing usable pan range', window.__viewportState);
+  console.assert(panWithinClamp, 'Animator viewport: pan outside clamp', window.__viewportState);
+  console.assert(canaryOk, 'Animator viewport: CSS size canary tripped', window.__viewportState);
 }
 
 function translatePathPoints(path, dx, dy) {
@@ -281,19 +340,16 @@ function resize() {
   renderDpr = Math.max(1, window.devicePixelRatio || 1);
   isPhoneViewport = isPhone;
   isMobilePortraitBoard = MOBILE_PORTRAIT;
-  isPhoneLandscapeBoard = false;
+  isPhoneLandscapeBoard = PHONE_LANDSCAPE;
   document.body.classList.toggle('is-phone', isPhone);
   document.body.classList.toggle('tb-mobile-portrait', MOBILE_PORTRAIT);
   syncMobileNotesPanelHost();
-  const phoneBox = isPhone ? getPhoneCanvasBounds() : null;
-  const wrapW = phoneBox?.width || wrap.clientWidth || wrap.getBoundingClientRect().width || cv.clientWidth || window.innerWidth;
-  const wrapH = phoneBox?.height || wrap.clientHeight || wrap.getBoundingClientRect().height || cv.clientHeight || window.innerHeight;
-  cvW = isPhone
-    ? Math.max(1, Math.round(phoneBox?.width || wrapW))
-    : Math.max(1, Math.round(wrapW));
-  cvH = isPhone
-    ? Math.max(1, Math.round(phoneBox?.height || wrapH))
-    : Math.max(1, Math.round(wrapH));
+  const phoneBox = isPhone ? getPhoneViewportState() : null;
+  const wrapRect = wrap.getBoundingClientRect();
+  const wrapW = wrap.clientWidth || wrapRect.width || cv.clientWidth || window.innerWidth;
+  const wrapH = wrap.clientHeight || wrapRect.height || cv.clientHeight || window.innerHeight;
+  cvW = isPhone ? Math.max(1, phoneBox?.cssWidth || wrapW) : Math.max(1, wrapW);
+  cvH = isPhone ? Math.max(1, phoneBox?.cssHeight || wrapH) : Math.max(1, wrapH);
   const padX = Math.max(6, Math.min(12, cvW * 0.008));
   const padY = Math.max(8, Math.min(14, cvH * 0.01));
   if (isPhone) {
@@ -301,37 +357,122 @@ function resize() {
     cv.style.height = `${cvH}px`;
     wrap.style.width = '';
     wrap.style.height = '';
-    sc = Math.max(0.01, (cvW - padX * 2) / FVW);
+    sc = phoneBox.fieldScale;
     sx = sc;
     sy = sc;
+    ox = phoneBox.baseX;
+    phoneVerticalOverflowPx = phoneBox.overflow;
+    phoneVerticalPanPx = clamp(phoneVerticalPanPx, phoneBox.panMin, phoneBox.panMax);
+    oy = phoneBox.baseY + phoneVerticalPanPx;
+    viewportState = {
+      mode: MOBILE_PORTRAIT ? 'phone-portrait' : 'phone-landscape',
+      availTop: phoneBox.availTop,
+      availBottom: phoneBox.availBottom,
+      availH: phoneBox.availH,
+      availW: phoneBox.availW,
+      cssWidth: cvW,
+      cssHeight: cvH,
+      fieldCssW: phoneBox.fieldCssW,
+      fieldCssH: phoneBox.fieldCssH,
+      overflow: phoneBox.overflow,
+      baseX: phoneBox.baseX,
+      baseY: phoneBox.baseY,
+      panY: phoneVerticalPanPx,
+      panYMin: phoneBox.panMin,
+      panYMax: phoneBox.panMax,
+      fieldTop: phoneBox.availTop + oy,
+      fieldBottom: phoneBox.availTop + oy + phoneBox.fieldCssH,
+      dpr: renderDpr,
+    };
   } else {
     cv.style.width = `${cvW}px`;
     cv.style.height = `${cvH}px`;
     wrap.style.width = '';
     wrap.style.height = '';
-    cvH = Math.max(1, Math.round(cv.clientHeight || wrapH || (window.innerHeight * 0.6)));
+    cvH = Math.max(1, cv.clientHeight || wrapH || (window.innerHeight * 0.6));
     const baseFromWidth = (cvW - padX * 2) / (FVW * FIELD_X_STRETCH);
     const baseFromHeight = (cvH - padY * 2) / FVH;
     sc = Math.max(0.01, Math.min(baseFromWidth, baseFromHeight));
     sx = sc * FIELD_X_STRETCH;
     sy = sc;
-  }
-  syncCanvasResolution(cv, ctx, cvW, cvH);
-  invalidateStaticFieldCache();
-  if (isPhone) {
-    phoneVerticalOverflowPx = Math.max(0, FVH * sy - cvH);
-    phoneVerticalPanPx = clampPhoneVerticalPan(phoneVerticalPanPx);
-    ox = (cvW - FVW * sx) / 2;
-    oy = ((cvH - FVH * sy) / 2) + phoneVerticalPanPx;
-  } else {
-    phoneVerticalOverflowPx = 0;
-    phoneVerticalPanPx = 0;
     ox = (cvW - FVW * sx) / 2;
     oy = (cvH - FVH * sy) / 2;
+    phoneVerticalOverflowPx = 0;
+    phoneVerticalPanPx = 0;
+    viewportState = {
+      mode: 'desktop',
+      availTop: 0,
+      availBottom: cvH,
+      availH: cvH,
+      availW: cvW,
+      cssWidth: cvW,
+      cssHeight: cvH,
+      fieldCssW: FVW * sx,
+      fieldCssH: FVH * sy,
+      baseX: ox,
+      baseY: oy,
+      panY: 0,
+      panYMin: 0,
+      panYMax: 0,
+      fieldTop: oy,
+      fieldBottom: oy + (FVH * sy),
+      dpr: renderDpr,
+    };
   }
+  updateViewportStateAssertions();
+  syncCanvasResolution(cv, ctx, cvW, cvH);
+  invalidateStaticFieldCache();
   syncMobileBoardNameInput();
   updateMobileUI();
   render();
+}
+
+function scheduleResizePass() {
+  if (resizeRaf) return;
+  resizeRaf = requestAnimationFrame(() => {
+    resizeRaf = 0;
+    resize();
+  });
+}
+
+function bindDprChangeListener() {
+  if (!window.matchMedia) return;
+  if (dprMediaQuery && dprMediaQueryListener) {
+    if (typeof dprMediaQuery.removeEventListener === 'function') {
+      dprMediaQuery.removeEventListener('change', dprMediaQueryListener);
+    } else if (typeof dprMediaQuery.removeListener === 'function') {
+      dprMediaQuery.removeListener(dprMediaQueryListener);
+    }
+  }
+  dprMediaQueryListener = () => {
+    bindDprChangeListener();
+    scheduleResizePass();
+  };
+  dprMediaQuery = window.matchMedia(`(resolution: ${(window.devicePixelRatio || 1)}dppx)`);
+  if (typeof dprMediaQuery.addEventListener === 'function') {
+    dprMediaQuery.addEventListener('change', dprMediaQueryListener);
+  } else if (typeof dprMediaQuery.addListener === 'function') {
+    dprMediaQuery.addListener(dprMediaQueryListener);
+  }
+}
+
+function bindViewportObservers() {
+  bindDprChangeListener();
+  if (resizeObserver || typeof ResizeObserver !== 'function') {
+    if (typeof ResizeObserver !== 'function' && !window.__animatorResizeFallbackBound) {
+      window.__animatorResizeFallbackBound = true;
+      window.addEventListener('resize', scheduleResizePass);
+      window.addEventListener('orientationchange', scheduleResizePass);
+    }
+    return;
+  }
+  const wrap = document.getElementById('canvasWrap');
+  const topbar = document.getElementById('topbar');
+  const bottomPanel = document.getElementById('bottomPanel');
+  resizeObserver = new ResizeObserver(() => {
+    scheduleResizePass();
+  });
+  [wrap, cv, topbar, bottomPanel].filter(Boolean).forEach((el) => resizeObserver.observe(el));
 }
 
 const GamePlan = {
@@ -2922,7 +3063,7 @@ function drawField() {
   const cacheKey = getStaticFieldCacheKey();
   if (!showGainline && staticFieldCanvas && staticFieldCacheKey === cacheKey) {
     ctx.clearRect(0, 0, cvW, cvH);
-    ctx.drawImage(staticFieldCanvas, 0, 0, staticFieldCanvas.width, staticFieldCanvas.height, 0, 0, cvW, cvH);
+    ctx.drawImage(staticFieldCanvas, 0, 0, staticFieldCanvas.width / renderDpr, staticFieldCanvas.height / renderDpr);
     return;
   }
   ctx.clearRect(0, 0, cvW, cvH);
@@ -3209,7 +3350,10 @@ function drawField() {
   drawTopViewPosts(34, 100);
   if (!showGainline) {
     ensureStaticFieldSnapshotBuffer();
-    staticFieldCtx.drawImage(cv, 0, 0, cv.width, cv.height, 0, 0, cvW, cvH);
+    staticFieldCtx.setTransform(1, 0, 0, 1, 0, 0);
+    staticFieldCtx.clearRect(0, 0, staticFieldCanvas.width, staticFieldCanvas.height);
+    staticFieldCtx.drawImage(cv, 0, 0);
+    staticFieldCtx.setTransform(renderDpr, 0, 0, renderDpr, 0, 0);
     staticFieldCacheKey = cacheKey;
   }
 }
@@ -5080,7 +5224,7 @@ function handlePointerMove(e) {
       const carrier = S.players.find(p => p.isBC);
       if (carrier) updateGainDisplayForY(carrier.y);
     } else if (S.dragging.type === 'portrait-pan') {
-      const deltaY = e.clientY - S.dragging.startClientY;
+      const deltaY = latestSample.clientY - S.dragging.startClientY;
       setPortraitPanOffset(S.dragging.startPan + deltaY);
     } else if (S.dragging.type === 'annotation') {
       const ann = findAnnotationById(S.dragging.id);
@@ -7941,6 +8085,7 @@ let _boardBootstrapped = false;
 function _initBoard() {
   if (_boardBootstrapped) return;
   _boardBootstrapped = true;
+  bindViewportObservers();
   resize();
   ensureSteps();
   currentPresetId = null;
@@ -7962,16 +8107,6 @@ if (document.readyState === 'loading') {
     _initBoard();
   });
 }
-
-window.addEventListener('resize', () => {
-  resize();
-  render();
-});
-
-// On iOS, orientation change fires before new dimensions are ready
-window.addEventListener('orientationchange', () => {
-  setTimeout(() => { resize(); render(); }, 120);
-});
 
 (function initAccordions() {
   ['accPurpose', 'accDecision', 'accCoaching', 'accMistakes'].forEach(function(id) {
