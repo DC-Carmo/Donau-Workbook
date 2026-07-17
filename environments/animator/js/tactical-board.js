@@ -3232,35 +3232,61 @@ function drawPosts(fx, fy, side) {
 function drawTopViewPosts(fx, fy) {
   const dir = fy <= 50 ? -1 : 1;
   const halfSpan = 2.8;
-  const uprightDepth = 2.2;
+  const uprightDepth = isPhoneViewport ? 2.35 : 2.9;
+  const baseDepth = isPhoneViewport ? 0.6 : 0.78;
   const leftBase = toC(fx - halfSpan, fy);
   const rightBase = toC(fx + halfSpan, fy);
   const leftBack = toC(fx - halfSpan, fy + dir * uprightDepth);
   const rightBack = toC(fx + halfSpan, fy + dir * uprightDepth);
-  const postW = Math.max(1.4, sc * 0.14);
-  const dotR = Math.max(1.8, sc * 0.18);
+  const leftStem = toC(fx - halfSpan, fy + dir * baseDepth);
+  const rightStem = toC(fx + halfSpan, fy + dir * baseDepth);
+  const postW = Math.max(isPhoneViewport ? 1.9 : 2.4, sc * (isPhoneViewport ? 0.18 : 0.22));
+  const highlightW = Math.max(1, postW * 0.34);
+  const baseW = Math.max(isPhoneViewport ? 5.5 : 7.2, sc * (isPhoneViewport ? 0.68 : 0.84));
+  const baseH = Math.max(isPhoneViewport ? 2.2 : 2.8, sc * (isPhoneViewport ? 0.28 : 0.34));
+  const baseOffset = dir * (baseH * 0.25);
+  const gold = 'rgba(227,178,60,0.9)';
 
   ctx.save();
   ctx.strokeStyle = 'rgba(0,0,0,0.34)';
-  ctx.lineWidth = postW + 2;
+  ctx.lineWidth = postW + 2.8;
   ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(leftBase.x + 0.8, leftBase.y + 0.8); ctx.lineTo(rightBase.x + 0.8, rightBase.y + 0.8);
-  ctx.moveTo(leftBase.x + 0.8, leftBase.y + 0.8); ctx.lineTo(leftBack.x + 0.8, leftBack.y + 0.8);
-  ctx.moveTo(rightBase.x + 0.8, rightBase.y + 0.8); ctx.lineTo(rightBack.x + 0.8, rightBack.y + 0.8);
+  ctx.moveTo(leftBase.x + 1.1, leftBase.y + 1.1); ctx.lineTo(rightBase.x + 1.1, rightBase.y + 1.1);
+  ctx.moveTo(leftBase.x + 1.1, leftBase.y + 1.1); ctx.lineTo(leftBack.x + 1.1, leftBack.y + 1.1);
+  ctx.moveTo(rightBase.x + 1.1, rightBase.y + 1.1); ctx.lineTo(rightBack.x + 1.1, rightBack.y + 1.1);
   ctx.stroke();
 
-  ctx.strokeStyle = 'rgba(255,249,220,0.95)';
+  ctx.fillStyle = 'rgba(0,0,0,0.26)';
+  ctx.fillRect(leftBase.x - (baseW / 2) + 0.9, leftBase.y - (baseH / 2) + baseOffset + 1.1, baseW, baseH);
+  ctx.fillRect(rightBase.x - (baseW / 2) + 0.9, rightBase.y - (baseH / 2) + baseOffset + 1.1, baseW, baseH);
+
+  ctx.fillStyle = 'rgba(255,250,232,0.95)';
+  ctx.fillRect(leftBase.x - (baseW / 2), leftBase.y - (baseH / 2) + baseOffset, baseW, baseH);
+  ctx.fillRect(rightBase.x - (baseW / 2), rightBase.y - (baseH / 2) + baseOffset, baseW, baseH);
+
+  ctx.strokeStyle = 'rgba(255,249,220,0.96)';
   ctx.lineWidth = postW;
   ctx.beginPath();
   ctx.moveTo(leftBase.x, leftBase.y); ctx.lineTo(rightBase.x, rightBase.y);
-  ctx.moveTo(leftBase.x, leftBase.y); ctx.lineTo(leftBack.x, leftBack.y);
-  ctx.moveTo(rightBase.x, rightBase.y); ctx.lineTo(rightBack.x, rightBack.y);
+  ctx.moveTo(leftStem.x, leftStem.y); ctx.lineTo(leftBack.x, leftBack.y);
+  ctx.moveTo(rightStem.x, rightStem.y); ctx.lineTo(rightBack.x, rightBack.y);
   ctx.stroke();
 
-  ctx.fillStyle = 'rgba(255,249,220,0.92)';
-  ctx.beginPath(); ctx.arc(leftBase.x, leftBase.y, dotR, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(rightBase.x, rightBase.y, dotR, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = gold;
+  ctx.lineWidth = highlightW;
+  ctx.beginPath();
+  ctx.moveTo(leftBase.x, leftBase.y - 0.7); ctx.lineTo(rightBase.x, rightBase.y - 0.7);
+  ctx.moveTo(leftStem.x - 0.7, leftStem.y); ctx.lineTo(leftBack.x - 0.7, leftBack.y);
+  ctx.moveTo(rightStem.x - 0.7, rightStem.y); ctx.lineTo(rightBack.x - 0.7, rightBack.y);
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.44)';
+  ctx.lineWidth = Math.max(0.9, highlightW * 0.7);
+  ctx.beginPath();
+  ctx.moveTo(leftStem.x + 0.7, leftStem.y); ctx.lineTo(leftBack.x + 0.7, leftBack.y);
+  ctx.moveTo(rightStem.x + 0.7, rightStem.y); ctx.lineTo(rightBack.x + 0.7, rightBack.y);
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -3436,6 +3462,7 @@ function drawPathOriginMarker(fx, fy, palette = null) {
 }
 
 function renderPathOriginMarkers(players = S.players, paths = S.paths) {
+  if (isPhoneViewport) return;
   paths.forEach((path) => {
     if (!Array.isArray(path?.pts) || path.pts.length < 2) return;
     const pl = players.find((player) => player.id === path.pid);
