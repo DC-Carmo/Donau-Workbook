@@ -243,23 +243,28 @@ function syncMobileBoardNameInput() {
 }
 
 function getPhoneViewportState() {
+  // SINGLE SOURCE OF TRUTH: the layout (a fixed 100dvh flex/grid column) sizes
+  // the #canvasWrap cell; we read that cell's real client box instead of
+  // recomputing an "available area" from innerHeight minus chrome. This removes
+  // the dual-authority (CSS vs JS) conflict that broke phone field anchoring.
   const wrap = document.getElementById('canvasWrap');
-  const topbar = document.getElementById('topbar');
-  const bottomPanel = document.getElementById('bottomPanel');
-  const viewportW = Math.max(1, window.innerWidth || document.documentElement.clientWidth || 0);
-  const viewportH = Math.max(1, window.innerHeight || document.documentElement.clientHeight || 0);
-  const topbarH = Math.max(0, topbar?.getBoundingClientRect().height || 0);
-  const bottomPanelH = Math.max(0, bottomPanel?.getBoundingClientRect().height || 0);
-  const wrapStyles = wrap ? window.getComputedStyle(wrap) : null;
-  const padX = (parseFloat(wrapStyles?.paddingLeft || '0') || 0) + (parseFloat(wrapStyles?.paddingRight || '0') || 0);
-  const padY = (parseFloat(wrapStyles?.paddingTop || '0') || 0) + (parseFloat(wrapStyles?.paddingBottom || '0') || 0);
-  const availTop = topbarH;
-  const usableBottom = Math.max(availTop + 1, viewportH - bottomPanelH);
-  const availH = Math.max(1, usableBottom - availTop - padY);
-  const availW = Math.max(1, viewportW - padX);
-  const fieldScale = Math.max(0.01, availW / FVW);
-  const fieldCssW = FVW * fieldScale;
-  const fieldCssH = FVH * fieldScale;
+  const rect = wrap ? wrap.getBoundingClientRect() : null;
+  const availW = Math.max(1, wrap ? (wrap.clientWidth || (rect ? rect.width : 0)) : window.innerWidth);
+  const availH = Math.max(1, wrap ? (wrap.clientHeight || (rect ? rect.height : 0)) : window.innerHeight);
+  const availTop = rect ? rect.top : 0;
+  // Fill axis by orientation: portrait fills width (tall field + vertical pan);
+  // landscape fills height so the whole vertical pitch fits, centred, no pan.
+  const isLandscape = !isMobilePortraitBoard;
+  let fieldScale, fieldCssW, fieldCssH;
+  if (isLandscape) {
+    fieldScale = Math.max(0.01, availH / FVH);
+    fieldCssH = availH;
+    fieldCssW = FVW * fieldScale;
+  } else {
+    fieldScale = Math.max(0.01, availW / FVW);
+    fieldCssW = availW;
+    fieldCssH = FVH * fieldScale;
+  }
   const baseX = (availW - fieldCssW) / 2;
   const baseY = (availH - fieldCssH) / 2;
   const overflow = Math.max(0, fieldCssH - availH);
@@ -305,21 +310,30 @@ function updateViewportStateAssertions() {
     window.__viewportState = null;
     return;
   }
+  // When the field is taller than the visible cell it must be pannable to both
+  // edges; when it fits, it is centred and fully visible (no pan required), so
+  // the strict reach checks do not apply.
+  const fieldFits = viewportState.fieldCssH <= viewportState.availH + 1;
   const topReachY = viewportState.availTop + viewportState.baseY + viewportState.panMax;
   const bottomReachY = viewportState.availTop + viewportState.baseY + viewportState.panMin + viewportState.fieldCssH;
   const panWithinClamp = viewportState.panY >= viewportState.panMin - 1 && viewportState.panY <= viewportState.panMax + 1;
-  const hasPanRange = viewportState.fieldCssH <= viewportState.availH + 1 || (viewportState.panYMax - viewportState.panYMin) > 5;
+  const topReachable = fieldFits || topReachY <= viewportState.availTop + 1;
+  const bottomReachable = fieldFits || bottomReachY >= viewportState.availBottom - 1;
+  const hasPanRange = fieldFits || (viewportState.panYMax - viewportState.panYMin) > 5;
   const canaryOk = viewportState.cssWidth < 2000 && viewportState.cssHeight < 2000;
   window.__viewportState = {
     ...viewportState,
+    fieldFits,
     topReachY,
     bottomReachY,
+    topReachable,
+    bottomReachable,
     panWithinClamp,
     hasPanRange,
     canaryOk,
   };
-  console.assert(topReachY <= viewportState.availTop + 1, 'Animator viewport: field top not reachable', window.__viewportState);
-  console.assert(bottomReachY >= viewportState.availBottom - 1, 'Animator viewport: field bottom not reachable', window.__viewportState);
+  console.assert(topReachable, 'Animator viewport: field top not reachable', window.__viewportState);
+  console.assert(bottomReachable, 'Animator viewport: field bottom not reachable', window.__viewportState);
   console.assert(hasPanRange, 'Animator viewport: missing usable pan range', window.__viewportState);
   console.assert(panWithinClamp, 'Animator viewport: pan outside clamp', window.__viewportState);
   console.assert(canaryOk, 'Animator viewport: CSS size canary tripped', window.__viewportState);
