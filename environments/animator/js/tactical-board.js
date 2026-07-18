@@ -44,6 +44,7 @@ let isMobilePortraitBoard = false;
 let isPhoneLandscapeBoard = false;
 let phoneVerticalPanPx = 0;
 let phoneVerticalOverflowPx = 0;
+let phoneUserPanned = false;
 let viewportState = null;
 let resizeObserver = null;
 let resizeRaf = 0;
@@ -334,6 +335,17 @@ function translatePathPoints(path, dx, dy) {
 
 function resize() {
   const wrap = document.getElementById('canvasWrap');
+  const vpW = window.innerWidth || document.documentElement.clientWidth || 0;
+  const vpH = window.innerHeight || document.documentElement.clientHeight || 0;
+  if (vpW < 50 || vpH < 50) {
+    if (!window.__animatorResizeRetry) {
+      window.__animatorResizeRetry = setTimeout(() => {
+        window.__animatorResizeRetry = null;
+        scheduleResizePass();
+      }, 180);
+    }
+    return;
+  }
   const isPhone = Math.min(window.innerWidth, window.innerHeight) <= 700;
   const MOBILE_PORTRAIT = isPhone && window.innerHeight > window.innerWidth;
   const PHONE_LANDSCAPE = isPhone && !MOBILE_PORTRAIT;
@@ -345,6 +357,15 @@ function resize() {
   document.body.classList.toggle('tb-mobile-portrait', MOBILE_PORTRAIT);
   syncMobileNotesPanelHost();
   const phoneBox = isPhone ? getPhoneViewportState() : null;
+  if (isPhone && (phoneBox.availH < 80 || phoneBox.availW < 80)) {
+    if (!window.__animatorResizeRetry) {
+      window.__animatorResizeRetry = setTimeout(() => {
+        window.__animatorResizeRetry = null;
+        scheduleResizePass();
+      }, 180);
+    }
+    return;
+  }
   const wrapRect = wrap.getBoundingClientRect();
   const wrapW = wrap.clientWidth || wrapRect.width || cv.clientWidth || window.innerWidth;
   const wrapH = wrap.clientHeight || wrapRect.height || cv.clientHeight || window.innerHeight;
@@ -362,7 +383,9 @@ function resize() {
     sy = sc;
     ox = phoneBox.baseX;
     phoneVerticalOverflowPx = phoneBox.overflow;
-    phoneVerticalPanPx = clamp(phoneVerticalPanPx, phoneBox.panMin, phoneBox.panMax);
+    phoneVerticalPanPx = phoneUserPanned
+      ? clamp(phoneVerticalPanPx, phoneBox.panMin, phoneBox.panMax)
+      : phoneBox.panMax; // default: top of field visible, overflow below
     oy = phoneBox.baseY + phoneVerticalPanPx;
     viewportState = {
       mode: MOBILE_PORTRAIT ? 'phone-portrait' : 'phone-landscape',
@@ -458,12 +481,14 @@ function bindDprChangeListener() {
 
 function bindViewportObservers() {
   bindDprChangeListener();
+  if (!window.__animatorResizeFallbackBound) {
+    window.__animatorResizeFallbackBound = true;
+    window.addEventListener('resize', scheduleResizePass);
+    window.addEventListener('orientationchange', scheduleResizePass);
+    window.addEventListener('pageshow', scheduleResizePass);
+    document.addEventListener('visibilitychange', scheduleResizePass);
+  }
   if (resizeObserver || typeof ResizeObserver !== 'function') {
-    if (typeof ResizeObserver !== 'function' && !window.__animatorResizeFallbackBound) {
-      window.__animatorResizeFallbackBound = true;
-      window.addEventListener('resize', scheduleResizePass);
-      window.addEventListener('orientationchange', scheduleResizePass);
-    }
     return;
   }
   const wrap = document.getElementById('canvasWrap');
@@ -5225,6 +5250,7 @@ function handlePointerMove(e) {
       if (carrier) updateGainDisplayForY(carrier.y);
     } else if (S.dragging.type === 'portrait-pan') {
       const deltaY = latestSample.clientY - S.dragging.startClientY;
+      phoneUserPanned = true;
       setPortraitPanOffset(S.dragging.startPan + deltaY);
     } else if (S.dragging.type === 'annotation') {
       const ann = findAnnotationById(S.dragging.id);
