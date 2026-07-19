@@ -57,9 +57,9 @@ let staticFieldCtx = null;
 let staticFieldCacheKey = '';
 
 function isVerticalPhoneBoard() {
-  // Vertical (upright) pitch is used ONLY in portrait now. Landscape phones get a
-  // rotated horizontal pitch (see the isPhoneLandscapeBoard branch in toC/frC).
-  return isMobilePortraitBoard;
+  // Upright pitch in BOTH phone orientations. Landscape fills the width and the
+  // length overflows, so the coach scrolls vertically (north-south) through it.
+  return isPhoneViewport;
 }
 
 function normEvent(e) {
@@ -126,21 +126,12 @@ function ensureStaticFieldSnapshotBuffer() {
 }
 
 function toC(fx, fy) {
-  if (isPhoneLandscapeBoard) {
-    // Landscape phone: pitch lies horizontal. Length (fy) -> screen X (fills width),
-    // width (fx) -> screen Y. Attack/downfield runs left -> right.
-    return { x: ox + (fy - F.DY0) * sx, y: oy + (fx - F.DX0) * sy };
-  }
   if (isVerticalPhoneBoard()) {
     return { x: ox + (fx - F.DX0) * sx, y: oy + (F.DY1 - fy) * sy };
   }
   return { x: ox + (fx - F.DX0) * sx, y: oy + (fy - F.DY0) * sy };
 }
 function frC(cx, cy) {
-  if (isPhoneLandscapeBoard) {
-    // Inverse of the landscape transform: screen X -> length (fy), screen Y -> width (fx).
-    return { x: (cy - oy) / sy + F.DX0, y: (cx - ox) / sx + F.DY0 };
-  }
   if (isVerticalPhoneBoard()) {
     return { x: (cx - ox) / sx + F.DX0, y: F.DY1 - ((cy - oy) / sy) };
   }
@@ -265,19 +256,12 @@ function getPhoneViewportState() {
   const availTop = rect ? rect.top : 0;
   // Fill axis by orientation: portrait fills width (tall field + vertical pan);
   // landscape fills height so the whole vertical pitch fits, centred, no pan.
-  const isLandscape = !isMobilePortraitBoard;
-  let fieldScale, fieldCssW, fieldCssH;
-  if (isLandscape) {
-    // Rotated horizontal pitch: its LENGTH (FVH) fills the screen width; its WIDTH
-    // (FVW) runs vertically and pans if it is taller than the cell.
-    fieldScale = Math.max(0.01, availW / FVH);
-    fieldCssW = FVH * fieldScale;   // == availW, fills width, no side bars
-    fieldCssH = FVW * fieldScale;   // vertical extent (may overflow -> vertical pan)
-  } else {
-    fieldScale = Math.max(0.01, availW / FVW);
-    fieldCssW = availW;
-    fieldCssH = FVH * fieldScale;
-  }
+  // Both phone orientations: upright pitch, fill the screen WIDTH (no side bars),
+  // and scroll vertically (north-south) through the length. In landscape the length
+  // simply overflows the shorter cell, so there is more to scroll.
+  const fieldScale = Math.max(0.01, availW / FVW);
+  const fieldCssW = availW;
+  const fieldCssH = FVH * fieldScale;
   const baseX = (availW - fieldCssW) / 2;
   const baseY = (availH - fieldCssH) / 2;
   const overflow = Math.max(0, fieldCssH - availH);
