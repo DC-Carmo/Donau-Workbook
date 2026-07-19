@@ -57,9 +57,9 @@ let staticFieldCtx = null;
 let staticFieldCacheKey = '';
 
 function isVerticalPhoneBoard() {
-  // Upright pitch in BOTH phone orientations. Landscape fills the width and the
-  // length overflows, so the coach scrolls vertically (north-south) through it.
-  return isPhoneViewport;
+  // Upright pitch in PORTRAIT. Landscape rotates to a horizontal pitch (see the
+  // isPhoneLandscapeBoard branch in toC/frC) so the whole pitch fits the wide screen.
+  return isMobilePortraitBoard;
 }
 
 function normEvent(e) {
@@ -126,12 +126,19 @@ function ensureStaticFieldSnapshotBuffer() {
 }
 
 function toC(fx, fy) {
+  if (isPhoneLandscapeBoard) {
+    // Landscape: pitch rotated 90deg. Length (fy) -> screen X, width (fx) -> screen Y.
+    return { x: ox + (fy - F.DY0) * sx, y: oy + (fx - F.DX0) * sy };
+  }
   if (isVerticalPhoneBoard()) {
     return { x: ox + (fx - F.DX0) * sx, y: oy + (F.DY1 - fy) * sy };
   }
   return { x: ox + (fx - F.DX0) * sx, y: oy + (fy - F.DY0) * sy };
 }
 function frC(cx, cy) {
+  if (isPhoneLandscapeBoard) {
+    return { x: (cy - oy) / sy + F.DX0, y: (cx - ox) / sx + F.DY0 };
+  }
   if (isVerticalPhoneBoard()) {
     return { x: (cx - ox) / sx + F.DX0, y: F.DY1 - ((cy - oy) / sy) };
   }
@@ -256,12 +263,19 @@ function getPhoneViewportState() {
   const availTop = rect ? rect.top : 0;
   // Fill axis by orientation: portrait fills width (tall field + vertical pan);
   // landscape fills height so the whole vertical pitch fits, centred, no pan.
-  // Both phone orientations: upright pitch, fill the screen WIDTH (no side bars),
-  // and scroll vertically (north-south) through the length. In landscape the length
-  // simply overflows the shorter cell, so there is more to scroll.
-  const fieldScale = Math.max(0.01, availW / FVW);
-  const fieldCssW = availW;
-  const fieldCssH = FVH * fieldScale;
+  // Portrait: upright pitch, fill screen WIDTH. Landscape: rotated pitch, FIT the
+  // ENTIRE pitch (length -> width axis) so nothing is cut off and no pan is needed.
+  const isLandscape = !isMobilePortraitBoard;
+  let fieldScale, fieldCssW, fieldCssH;
+  if (isLandscape) {
+    fieldScale = Math.max(0.01, Math.min(availW / FVH, availH / FVW));
+    fieldCssW = FVH * fieldScale;   // on-screen length (horizontal)
+    fieldCssH = FVW * fieldScale;   // on-screen width (vertical)
+  } else {
+    fieldScale = Math.max(0.01, availW / FVW);
+    fieldCssW = availW;
+    fieldCssH = FVH * fieldScale;
+  }
   const baseX = (availW - fieldCssW) / 2;
   const baseY = (availH - fieldCssH) / 2;
   const overflow = Math.max(0, fieldCssH - availH);
