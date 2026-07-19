@@ -4299,6 +4299,10 @@ body.is-phone #app {
   min-height: 100dvh;
   max-height: 100dvh;
   overflow: hidden;
+  /* reserve space for the fixed topbar AND the fixed bottom rail so the
+     canvas cell stops above the rail instead of hiding behind it */
+  padding-top: var(--tb-phone-topbar-h);
+  padding-bottom: calc(var(--tb-phone-rail-h) + env(safe-area-inset-bottom));
 }
 body.is-phone #workspace {
   display: grid;
