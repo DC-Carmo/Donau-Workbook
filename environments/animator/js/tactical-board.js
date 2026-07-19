@@ -493,14 +493,29 @@ function bindDprChangeListener() {
   }
 }
 
+function handlePhoneOrientationChange() {
+  // iOS Safari reports stale / zero viewport dimensions for ~200-400ms after
+  // orientationchange. Re-anchor the pan unconditionally (kills any stale pan
+  // that could push the field off-screen when the aspect ratio flips) and re-run
+  // the resize across the settle window; the ResizeObserver on #canvasWrap also
+  // fires once the cell's real size lands.
+  phoneUserPanned = false;
+  scheduleResizePass();
+  setTimeout(scheduleResizePass, 250);
+  setTimeout(scheduleResizePass, 500);
+}
+
 function bindViewportObservers() {
   bindDprChangeListener();
   if (!window.__animatorResizeFallbackBound) {
     window.__animatorResizeFallbackBound = true;
     window.addEventListener('resize', scheduleResizePass);
-    window.addEventListener('orientationchange', scheduleResizePass);
+    window.addEventListener('orientationchange', handlePhoneOrientationChange);
     window.addEventListener('pageshow', scheduleResizePass);
     document.addEventListener('visibilitychange', scheduleResizePass);
+    if (window.visualViewport && typeof window.visualViewport.addEventListener === 'function') {
+      window.visualViewport.addEventListener('resize', scheduleResizePass);
+    }
   }
   if (resizeObserver || typeof ResizeObserver !== 'function') {
     return;
