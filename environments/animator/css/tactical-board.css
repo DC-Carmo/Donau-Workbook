@@ -3149,7 +3149,7 @@ html, body {
 .sp-notes-panel {
   flex-shrink: 0;
   overflow-y: auto;
-  scrollbar-width:   scrollbar-width: thin;
+  scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.08) transparent;
   border-top: 1px solid rgba(255,255,255,0.09);
   max-height: 220px;
@@ -4342,3 +4342,52 @@ body.is-phone #bottomPanel {
   grid-row: 2;
   grid-column: 1;
 }
+
+/* ── Coaching Notes: desktop accordion + fields (2026-07-21) ──
+   Only the mobile sheet had these rules; desktop had none, so the accordion
+   never collapsed and inputs were unstyled. Scoped to body:not(.is-phone) so
+   the mobile notes sheet is untouched. */
+body:not(.is-phone) .sp-notes-panel-hdr {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 8px; padding: 10px 12px 8px;
+}
+body:not(.is-phone) .sp-notes-panel-label {
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 800;
+  font-size: 0.7rem; letter-spacing: 0.16em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+}
+body:not(.is-phone) .sp-notes-play-name {
+  font-size: 0.66rem; color: rgba(227,178,60,0.85); font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;
+}
+body:not(.is-phone) .sp-acc-section { border-top: 1px solid rgba(255,255,255,0.06); }
+body:not(.is-phone) .sp-acc-trigger {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; background: none; border: 0; cursor: pointer; padding: 9px 12px;
+  color: rgba(255,255,255,0.6); font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700; font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+  transition: color 0.15s;
+}
+body:not(.is-phone) .sp-acc-trigger:hover { color: rgba(255,255,255,0.92); }
+body:not(.is-phone) .sp-acc-chevron { transition: transform 0.2s ease; opacity: 0.7; }
+body:not(.is-phone) .sp-acc-open .sp-acc-chevron { transform: rotate(90deg); }
+body:not(.is-phone) .sp-acc-body { overflow: hidden; max-height: 0; transition: max-height 0.25s ease; }
+body:not(.is-phone) .sp-acc-open .sp-acc-body { max-height: 280px; }
+body:not(.is-phone) .sp-acc-body-inner {
+  padding: 2px 12px 12px; display: flex; flex-direction: column; gap: 7px;
+}
+body:not(.is-phone) .sp-field-input,
+body:not(.is-phone) .sp-field-textarea {
+  width: 100%; box-sizing: border-box;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 7px; padding: 7px 9px; color: #eef2f5;
+  font-family: 'Barlow', sans-serif; font-size: 0.78rem; outline: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+body:not(.is-phone) .sp-field-input::placeholder,
+body:not(.is-phone) .sp-field-textarea::placeholder { color: rgba(255,255,255,0.3); }
+body:not(.is-phone) .sp-field-input:focus,
+body:not(.is-phone) .sp-field-textarea:focus {
+  border-color: rgba(227,178,60,0.5); background: rgba(255,255,255,0.06);
+}
+body:not(.is-phone) .sp-field-textarea { resize: vertical; min-height: 44px; line-height: 1.35; }

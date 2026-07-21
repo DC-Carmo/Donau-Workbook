@@ -266,13 +266,17 @@ function getPhoneViewportState() {
   // Portrait: upright pitch, fill screen WIDTH. Landscape: rotated pitch, FIT the
   // ENTIRE pitch (length -> width axis) so nothing is cut off and no pan is needed.
   const isLandscape = !isMobilePortraitBoard;
-  let fieldScale, fieldCssW, fieldCssH;
+  let fieldScale, fieldScaleX, fieldScaleY, fieldCssW, fieldCssH;
   if (isLandscape) {
-    fieldScale = Math.max(0.01, availW / FVH);
-    fieldCssW = FVH * fieldScale;   // on-screen length (horizontal)
-    fieldCssH = FVW * fieldScale;   // on-screen width (vertical)
+    // Rotated pitch fills the WHOLE landscape screen (slight stretch, as desktop does):
+    // length -> full width, width -> full height. Entire pitch, no cut, no pan.
+    fieldScaleX = Math.max(0.01, availW / FVH);
+    fieldScaleY = Math.max(0.01, availH / FVW);
+    fieldScale = Math.min(fieldScaleX, fieldScaleY);
+    fieldCssW = availW;
+    fieldCssH = availH;
   } else {
-    fieldScale = Math.max(0.01, availW / FVW);
+    fieldScale = fieldScaleX = fieldScaleY = Math.max(0.01, availW / FVW);
     fieldCssW = availW;
     fieldCssH = FVH * fieldScale;
   }
@@ -289,6 +293,8 @@ function getPhoneViewportState() {
     availW,
     availH,
     fieldScale,
+    fieldScaleX,
+    fieldScaleY,
     fieldCssW,
     fieldCssH,
     baseX,
@@ -404,8 +410,8 @@ function resize() {
     wrap.style.width = '';
     wrap.style.height = '';
     sc = phoneBox.fieldScale;
-    sx = sc;
-    sy = sc;
+    sx = phoneBox.fieldScaleX || sc;
+    sy = phoneBox.fieldScaleY || sc;
     ox = phoneBox.baseX;
     phoneVerticalOverflowPx = phoneBox.overflow;
     phoneVerticalPanPx = phoneUserPanned
@@ -3185,13 +3191,13 @@ function drawField() {
     const sg = ctx.createLinearGradient(p0.x, p0.y, p3.x, p3.y);
     if (si % 2 === 0) {
       sg.addColorStop(0, 'rgba(255,255,255,0.02)');
-      sg.addColorStop(0.22, 'rgba(255,255,255,0.12)');
-      sg.addColorStop(0.78, 'rgba(255,255,255,0.12)');
+      sg.addColorStop(0.22, 'rgba(255,255,255,0.15)');
+      sg.addColorStop(0.78, 'rgba(255,255,255,0.15)');
       sg.addColorStop(1, 'rgba(255,255,255,0.02)');
     } else {
       sg.addColorStop(0, 'rgba(0,0,0,0.02)');
-      sg.addColorStop(0.22, 'rgba(0,0,0,0.095)');
-      sg.addColorStop(0.78, 'rgba(0,0,0,0.095)');
+      sg.addColorStop(0.22, 'rgba(0,0,0,0.115)');
+      sg.addColorStop(0.78, 'rgba(0,0,0,0.115)');
       sg.addColorStop(1, 'rgba(0,0,0,0.02)');
     }
     ctx.fillStyle = sg;
