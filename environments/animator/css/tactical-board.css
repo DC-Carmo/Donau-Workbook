@@ -4199,7 +4199,7 @@ body.tb-mobile-portrait #mobileMoreDrawer {
 }
 
 body.is-phone:not(.tb-mobile-portrait) {
-  --tb-phone-topbar-h: 46px;
+  --tb-phone-topbar-h: 58px;
   --tb-phone-rail-h: 60px;
 }
 
