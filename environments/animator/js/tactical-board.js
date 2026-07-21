@@ -268,7 +268,7 @@ function getPhoneViewportState() {
   const isLandscape = !isMobilePortraitBoard;
   let fieldScale, fieldCssW, fieldCssH;
   if (isLandscape) {
-    fieldScale = Math.max(0.01, Math.min(availW / FVH, availH / FVW));
+    fieldScale = Math.max(0.01, availW / FVH);
     fieldCssW = FVH * fieldScale;   // on-screen length (horizontal)
     fieldCssH = FVW * fieldScale;   // on-screen width (vertical)
   } else {
@@ -410,7 +410,7 @@ function resize() {
     phoneVerticalOverflowPx = phoneBox.overflow;
     phoneVerticalPanPx = phoneUserPanned
       ? clamp(phoneVerticalPanPx, phoneBox.panMin, phoneBox.panMax)
-      : phoneBox.panMax; // default: top of field visible, overflow below
+      : (isMobilePortraitBoard ? phoneBox.panMax : clamp(0, phoneBox.panMin, phoneBox.panMax)); // portrait top-aligned; landscape centred
     oy = phoneBox.baseY + phoneVerticalPanPx;
     viewportState = {
       mode: MOBILE_PORTRAIT ? 'phone-portrait' : 'phone-landscape',
@@ -3161,8 +3161,8 @@ function drawField() {
 
   // ── 3. Base grass — radial centre-bright ─────────────────────────────────
   const grassGrad = ctx.createRadialGradient(
-    fieldLeft + FW * 0.5, fieldTop + FH * 0.5, FH * 0.04,
-    fieldLeft + FW * 0.5, fieldTop + FH * 0.5, FH * 0.76
+    fieldLeft + FW * 0.5, fieldTop + FH * 0.5, Math.max(FW, FH) * 0.05,
+    fieldLeft + FW * 0.5, fieldTop + FH * 0.5, Math.max(FW, FH) * 0.72
   );
   grassGrad.addColorStop(0,    '#2f8a39');
   grassGrad.addColorStop(0.38, '#256e2e');
@@ -3411,8 +3411,8 @@ function drawField() {
   fieldLabel(34, 105, 'IN-GOAL', 0.56);
 
   // ── 16. Goal posts ────────────────────────────────────────────────────────
-  drawTopViewPosts(34, 0);
-  drawTopViewPosts(34, 100);
+  isPhoneViewport ? drawTopViewPosts(34, 0) : drawPosts(34, 0, 'top');
+  isPhoneViewport ? drawTopViewPosts(34, 100) : drawPosts(34, 100, 'bottom');
   if (!showGainline) {
     ensureStaticFieldSnapshotBuffer();
     staticFieldCtx.setTransform(1, 0, 0, 1, 0, 0);
