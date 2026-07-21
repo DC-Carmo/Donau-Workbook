@@ -3164,14 +3164,14 @@ function drawField() {
     fieldLeft + FW * 0.5, fieldTop + FH * 0.5, FH * 0.04,
     fieldLeft + FW * 0.5, fieldTop + FH * 0.5, FH * 0.76
   );
-  grassGrad.addColorStop(0,    '#3D9326');
-  grassGrad.addColorStop(0.38, '#388C21');
-  grassGrad.addColorStop(1,    '#287016');
+  grassGrad.addColorStop(0,    '#2f8a39');
+  grassGrad.addColorStop(0.38, '#256e2e');
+  grassGrad.addColorStop(1,    '#184f22');
   ctx.fillStyle = grassGrad;
   ctx.fillRect(fieldLeft, fieldTop, FW, FH);
 
   // ── 4. Mow stripes — field-axis bands so every orientation keeps the same grass texture ──
-  const N_STRIPES = Math.max(10, S.stripeCount || 12);
+  const N_STRIPES = Math.max(8, S.stripeCount || 9);
   const stripeFieldLen = (F.YMAX - F.YMIN) / N_STRIPES;
   ctx.save();
   ctx.beginPath(); ctx.rect(fieldLeft, fieldTop, FW, FH); ctx.clip();
@@ -3184,15 +3184,15 @@ function drawField() {
     const p3 = toC(0, y1);
     const sg = ctx.createLinearGradient(p0.x, p0.y, p3.x, p3.y);
     if (si % 2 === 0) {
-      sg.addColorStop(0, 'rgba(255,255,255,0.032)');
-      sg.addColorStop(0.22, 'rgba(255,255,255,0.16)');
-      sg.addColorStop(0.78, 'rgba(255,255,255,0.16)');
-      sg.addColorStop(1, 'rgba(255,255,255,0.032)');
+      sg.addColorStop(0, 'rgba(255,255,255,0.02)');
+      sg.addColorStop(0.22, 'rgba(255,255,255,0.12)');
+      sg.addColorStop(0.78, 'rgba(255,255,255,0.12)');
+      sg.addColorStop(1, 'rgba(255,255,255,0.02)');
     } else {
-      sg.addColorStop(0, 'rgba(0,0,0,0.028)');
-      sg.addColorStop(0.22, 'rgba(0,0,0,0.18)');
-      sg.addColorStop(0.78, 'rgba(0,0,0,0.18)');
-      sg.addColorStop(1, 'rgba(0,0,0,0.028)');
+      sg.addColorStop(0, 'rgba(0,0,0,0.02)');
+      sg.addColorStop(0.22, 'rgba(0,0,0,0.095)');
+      sg.addColorStop(0.78, 'rgba(0,0,0,0.095)');
+      sg.addColorStop(1, 'rgba(0,0,0,0.02)');
     }
     ctx.fillStyle = sg;
     ctx.beginPath();
@@ -3211,7 +3211,7 @@ function drawField() {
     const pat = ctx.createPattern(tile, 'repeat');
     if (pat) {
       ctx.save();
-      ctx.globalAlpha = Math.max(0.16, S.textureStrength || 0.12);
+      ctx.globalAlpha = Math.max(0.04, S.textureStrength || 0.05);
       ctx.beginPath(); ctx.rect(fieldLeft, fieldTop, FW, FH); ctx.clip();
       ctx.fillStyle = pat;
       ctx.fillRect(fieldLeft, fieldTop, FW, FH);
