@@ -268,13 +268,12 @@ function getPhoneViewportState() {
   const isLandscape = !isMobilePortraitBoard;
   let fieldScale, fieldScaleX, fieldScaleY, fieldCssW, fieldCssH;
   if (isLandscape) {
-    // Rotated pitch fills the WHOLE landscape screen (slight stretch, as desktop does):
-    // length -> full width, width -> full height. Entire pitch, no cut, no pan.
-    fieldScaleX = Math.max(0.01, availW / FVH);
-    fieldScaleY = Math.max(0.01, availH / FVW);
-    fieldScale = Math.min(fieldScaleX, fieldScaleY);
-    fieldCssW = availW;
-    fieldCssH = availH;
+    // Proportional FIT: whole rotated pitch, correct rugby shape, centred with a
+    // dark surround. Filling every pixel would distort the pitch (odd lines).
+    fieldScale = Math.max(0.01, Math.min(availW / FVH, availH / FVW));
+    fieldScaleX = fieldScaleY = fieldScale;
+    fieldCssW = FVH * fieldScale;
+    fieldCssH = FVW * fieldScale;
   } else {
     fieldScale = fieldScaleX = fieldScaleY = Math.max(0.01, availW / FVW);
     fieldCssW = availW;
