@@ -3189,15 +3189,15 @@ function drawField() {
     const p3 = toC(0, y1);
     const sg = ctx.createLinearGradient(p0.x, p0.y, p3.x, p3.y);
     if (si % 2 === 0) {
-      sg.addColorStop(0, 'rgba(255,255,255,0.02)');
-      sg.addColorStop(0.22, 'rgba(255,255,255,0.15)');
-      sg.addColorStop(0.78, 'rgba(255,255,255,0.15)');
-      sg.addColorStop(1, 'rgba(255,255,255,0.02)');
+      sg.addColorStop(0, 'rgba(255,255,255,0.04)');
+      sg.addColorStop(0.22, 'rgba(255,255,255,0.22)');
+      sg.addColorStop(0.78, 'rgba(255,255,255,0.22)');
+      sg.addColorStop(1, 'rgba(255,255,255,0.04)');
     } else {
-      sg.addColorStop(0, 'rgba(0,0,0,0.02)');
-      sg.addColorStop(0.22, 'rgba(0,0,0,0.115)');
-      sg.addColorStop(0.78, 'rgba(0,0,0,0.115)');
-      sg.addColorStop(1, 'rgba(0,0,0,0.02)');
+      sg.addColorStop(0, 'rgba(0,0,0,0.03)');
+      sg.addColorStop(0.22, 'rgba(0,0,0,0.17)');
+      sg.addColorStop(0.78, 'rgba(0,0,0,0.17)');
+      sg.addColorStop(1, 'rgba(0,0,0,0.03)');
     }
     ctx.fillStyle = sg;
     ctx.beginPath();
