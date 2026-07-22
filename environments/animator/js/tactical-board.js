@@ -3164,9 +3164,9 @@ function drawField() {
     fieldLeft + FW * 0.5, fieldTop + FH * 0.5, Math.max(FW, FH) * 0.05,
     fieldLeft + FW * 0.5, fieldTop + FH * 0.5, Math.max(FW, FH) * 1.05
   );
-  grassGrad.addColorStop(0,    '#2c8138');
-  grassGrad.addColorStop(0.55, '#277132');
-  grassGrad.addColorStop(1,    '#246a30');
+  grassGrad.addColorStop(0,    '#2a7d36');
+  grassGrad.addColorStop(0.55, '#236b2f');
+  grassGrad.addColorStop(1,    '#1c5828');
   ctx.fillStyle = grassGrad;
   ctx.fillRect(fieldLeft, fieldTop, FW, FH);
 
@@ -3182,7 +3182,7 @@ function drawField() {
     const p1 = toC(F.W, y0);
     const p2 = toC(F.W, y1);
     const p3 = toC(0, y1);
-    ctx.fillStyle = (si % 2 === 0) ? 'rgba(240,255,240,0.20)' : 'rgba(0,0,0,0.20)';
+    ctx.fillStyle = (si % 2 === 0) ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.11)';
     ctx.beginPath();
     ctx.moveTo(p0.x, p0.y);
     ctx.lineTo(p1.x, p1.y);
@@ -3224,7 +3224,7 @@ function drawField() {
     fieldLeft + FW * 0.5, fieldTop + FH * 0.5, Math.max(FW, FH) * 0.78
   );
   vig.addColorStop(0, 'rgba(0,0,0,0.00)');
-  vig.addColorStop(1, 'rgba(0,0,0,0.08)');
+  vig.addColorStop(1, 'rgba(0,0,0,0.06)');
   ctx.fillStyle = vig;
   ctx.fillRect(fieldLeft, fieldTop, FW, FH);
 
