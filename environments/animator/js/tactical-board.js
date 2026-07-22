@@ -3207,23 +3207,16 @@ function drawField() {
     }
   }
 
-  // ── 6. In-goal areas — darker overlay for visual separation ──────────────
-  const igH_top = goalTopY - fieldTop;
-  const igH_bot = fieldBottom - goalBottomY;
-  if (igH_top > 0) {
-    const topGoalGrad = ctx.createLinearGradient(fieldLeft, fieldTop, fieldLeft, goalTopY);
-    topGoalGrad.addColorStop(0, 'rgba(28,74,38,0.92)');
-    topGoalGrad.addColorStop(1, 'rgba(37,94,48,0.84)');
-    ctx.fillStyle = topGoalGrad;
-    ctx.fillRect(fieldLeft, fieldTop, FW, igH_top);
-  }
-  if (igH_bot > 0) {
-    const bottomGoalGrad = ctx.createLinearGradient(fieldLeft, goalBottomY, fieldLeft, fieldBottom);
-    bottomGoalGrad.addColorStop(0, 'rgba(37,94,48,0.84)');
-    bottomGoalGrad.addColorStop(1, 'rgba(28,74,38,0.92)');
-    ctx.fillStyle = bottomGoalGrad;
-    ctx.fillRect(fieldLeft, goalBottomY, FW, igH_bot);
-  }
+  // ── 6. In-goal areas — FIELD-SPACE quads (only the real in-goals in ANY orientation).
+  //    The old screen-axis version filled ~the whole pitch in portrait (flipped Y), which
+  //    flattened the mowing stripes. Draw the two in-goal zones as field polygons instead.
+  [[F.YMIN, 0], [100, F.YMAX]].forEach(function (seg) {
+    const q0 = toC(0, seg[0]), q1 = toC(F.W, seg[0]), q2 = toC(F.W, seg[1]), q3 = toC(0, seg[1]);
+    ctx.fillStyle = 'rgba(22,60,32,0.55)';
+    ctx.beginPath();
+    ctx.moveTo(q0.x, q0.y); ctx.lineTo(q1.x, q1.y); ctx.lineTo(q2.x, q2.y); ctx.lineTo(q3.x, q3.y);
+    ctx.closePath(); ctx.fill();
+  });
 
   // ── 7. Vignette ──────────────────────────────────────────────────────────
   const vig = ctx.createRadialGradient(
