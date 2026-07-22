@@ -3162,11 +3162,11 @@ function drawField() {
   // ── 3. Base grass — radial centre-bright ─────────────────────────────────
   const grassGrad = ctx.createRadialGradient(
     fieldLeft + FW * 0.5, fieldTop + FH * 0.5, Math.max(FW, FH) * 0.05,
-    fieldLeft + FW * 0.5, fieldTop + FH * 0.5, Math.max(FW, FH) * 0.72
+    fieldLeft + FW * 0.5, fieldTop + FH * 0.5, Math.max(FW, FH) * 0.85
   );
-  grassGrad.addColorStop(0,    '#2f8a39');
-  grassGrad.addColorStop(0.38, '#256e2e');
-  grassGrad.addColorStop(1,    '#184f22');
+  grassGrad.addColorStop(0,    '#2e8437');
+  grassGrad.addColorStop(0.55, '#277132');
+  grassGrad.addColorStop(1,    '#20602c');
   ctx.fillStyle = grassGrad;
   ctx.fillRect(fieldLeft, fieldTop, FW, FH);
 
@@ -3182,19 +3182,7 @@ function drawField() {
     const p1 = toC(F.W, y0);
     const p2 = toC(F.W, y1);
     const p3 = toC(0, y1);
-    const sg = ctx.createLinearGradient(p0.x, p0.y, p3.x, p3.y);
-    if (si % 2 === 0) {
-      sg.addColorStop(0, 'rgba(255,255,255,0.04)');
-      sg.addColorStop(0.22, 'rgba(255,255,255,0.22)');
-      sg.addColorStop(0.78, 'rgba(255,255,255,0.22)');
-      sg.addColorStop(1, 'rgba(255,255,255,0.04)');
-    } else {
-      sg.addColorStop(0, 'rgba(0,0,0,0.03)');
-      sg.addColorStop(0.22, 'rgba(0,0,0,0.17)');
-      sg.addColorStop(0.78, 'rgba(0,0,0,0.17)');
-      sg.addColorStop(1, 'rgba(0,0,0,0.03)');
-    }
-    ctx.fillStyle = sg;
+    ctx.fillStyle = (si % 2 === 0) ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.12)';
     ctx.beginPath();
     ctx.moveTo(p0.x, p0.y);
     ctx.lineTo(p1.x, p1.y);
