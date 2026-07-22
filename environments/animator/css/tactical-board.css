@@ -4273,11 +4273,11 @@ body.is-phone:not(.tb-mobile-portrait) .mobile-board-menu-sheet {
 }
 
 body.is-phone:not(.tb-mobile-portrait) #app {
-  padding-top: 0;
+  padding-top: var(--tb-phone-topbar-h);
 }
 
 body.is-phone:not(.tb-mobile-portrait) #workspace {
-  height: 100dvh;
+  min-height: 0;
 }
 
 /* =====================================================================
