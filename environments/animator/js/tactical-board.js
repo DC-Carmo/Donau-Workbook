@@ -3182,7 +3182,7 @@ function drawField() {
     const p1 = toC(F.W, y0);
     const p2 = toC(F.W, y1);
     const p3 = toC(0, y1);
-    ctx.fillStyle = (si % 2 === 0) ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.12)';
+    ctx.fillStyle = (si % 2 === 0) ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.16)';
     ctx.beginPath();
     ctx.moveTo(p0.x, p0.y);
     ctx.lineTo(p1.x, p1.y);
