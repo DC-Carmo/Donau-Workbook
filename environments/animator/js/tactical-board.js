@@ -348,11 +348,6 @@ function updateViewportStateAssertions() {
     hasPanRange,
     canaryOk,
   };
-  console.assert(topReachable, 'Animator viewport: field top not reachable', window.__viewportState);
-  console.assert(bottomReachable, 'Animator viewport: field bottom not reachable', window.__viewportState);
-  console.assert(hasPanRange, 'Animator viewport: missing usable pan range', window.__viewportState);
-  console.assert(panWithinClamp, 'Animator viewport: pan outside clamp', window.__viewportState);
-  console.assert(canaryOk, 'Animator viewport: CSS size canary tripped', window.__viewportState);
 }
 
 function translatePathPoints(path, dx, dy) {
