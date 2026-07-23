@@ -9,8 +9,8 @@
   });
 </script>
 <script>
-  window.ANIMATOR_ASSET_VERSION = "20260722-elegant-landscape-fit";
-  window.__RDA_PITCH_RENDER_VERSION__ = "20260722-elegant-landscape-fit";
+  window.ANIMATOR_ASSET_VERSION = "20260722-play-from-here";
+  window.__RDA_PITCH_RENDER_VERSION__ = "20260722-play-from-here";
 </script>
 <script>
   /* Defeat Safari bfcache serving a stale app after rotate/app-switch. */
@@ -23,7 +23,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tactical Board - Coach Mato</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/tactical-board.css?v=20260722-elegant-landscape-fit">
+<link rel="stylesheet" href="css/tactical-board.css?v=20260722-play-from-here">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 </head>
@@ -47,7 +47,7 @@
       <button class="seq-bar-nav" id="seqBarPrev" onclick="prevStep()" aria-label="Previous step">&#8249;&#xFE0E;</button>
       <div class="seq-bar-chips" id="phaseChipStrip"></div>
       <button class="seq-bar-nav" id="seqBarNext" onclick="nextStep()" aria-label="Next step">&#8250;&#xFE0E;</button>
-      <button class="seq-bar-play" id="seqBarPlay" onclick="toggleSmartPlay()" aria-label="Play sequence">
+      <button class="seq-bar-play" id="seqBarPlay" onclick="toggleSmartPlay()" aria-label="Play from here to the end" title="Play from the current phase through to the end (Space)">
         <span class="seq-bar-play-icon" id="seqBarPlayIcon">&#9654;</span>
         <span class="seq-bar-play-label" id="seqBarPlayLabel">PLAY</span>
       </button>
@@ -452,6 +452,6 @@
     </div>
   </div>
 </div>
-<script src="js/tactical-board.js?v=20260722-elegant-landscape-fit"></script>
+<script src="js/tactical-board.js?v=20260722-play-from-here"></script>
 </body>
 </html>

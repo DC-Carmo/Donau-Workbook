@@ -6194,21 +6194,25 @@ function updateSequenceUI() {
 
 //  ANIMATION
 function toggleSmartPlay() {
-  // If currently playing, pause
+  // PRIMARY PLAY (desktop): run the sequence from the CURRENT phase through every
+  // later phase to the end. Repeat clicks pause, then resume from where it stopped.
+  // Single-move preview stays available via previewCurrentMove()/togglePlay().
   if (S.animating) {
     stopPlayback(false);
+    refreshInteractionUI();
+    updateTL();
+    render();
     return;
   }
-  // If on last step or only 1 step, restart from step 0 then play
-  const count = sequenceStepCount();
-  if (count <= 1 || S.currentStep >= count - 1) {
-    S.currentStep = 0;
-    setLiveBoardFromStep(S.steps[0]);
-    refreshInteractionUI();
-  }
-  // Play from current position
+  togglePlayAll();
+}
+
+// Secondary: preview only the current phase transition (the old single-step play).
+function previewCurrentMove() {
+  if (S.animating) { stopPlayback(false); refreshInteractionUI(); render(); return; }
   togglePlay();
 }
+window.previewCurrentMove = previewCurrentMove;
 window.toggleSmartPlay = toggleSmartPlay;
 
 function togglePlay() {
