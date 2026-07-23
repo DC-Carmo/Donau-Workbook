@@ -1281,6 +1281,7 @@ function goToPhase(idx) {
 
 function addPhase() {
   clearPendingCanonicalPhaseStart();
+  snapshot();
   const current = serializePhase(S(), GamePlan.currentPhase);
   const sourceStep = cloneStepState(current.steps?.[Number(current.currentStep)] || current.steps?.[0] || emptyStepState());
   const carryForwardStep = createCarryForwardStep(sourceStep);
@@ -1350,6 +1351,7 @@ function addPhaseAfterCurrent() {
   if (!claimPhoneDataAction('more:phase:add')) return;
   resetDeleteConfirm('phase');
   resetDeleteConfirm('move');
+  snapshot();
   persistCurrentPhase();
   const current = serializePhase(S(), GamePlan.currentPhase);
   const sourceStep = cloneStepState(current.steps?.[Number(current.currentStep)] || current.steps?.[0] || emptyStepState());
@@ -3380,90 +3382,128 @@ function normalizeProjectRecord(input) {
 }
 
 function snapshot() {
-  persistCurrentPhase();
-  S.history.push(cloneData({
-    phaseIdx: GamePlan.currentPhase,
-    phase: serializePhase(S(), GamePlan.currentPhase),
-    gamePlanName: GamePlan.name,
-    playMetadata: S.playMetadata,
-    projectId: S.projectId,
-    projectMeta: S.projectMeta,
-    projectPlayback: S.projectPlayback,
-  }));
+  ensureWholeGamePlanHistoryStacks();
+  S.history.push(captureWholeGamePlanHistoryEntry());
   if (S.history.length > 30) S.history.shift();
   S.future = [];
 }
-function undo() {
-  clearPendingCanonicalPhaseStart();
-  if (!S.history.length) return;
-  persistCurrentPhase();
-  S.future.push(cloneData({
-    phaseIdx: GamePlan.currentPhase,
-    phase: serializePhase(S(), GamePlan.currentPhase),
-    gamePlanName: GamePlan.name,
+
+function isWholeGamePlanHistoryEntry(entry) {
+  return !!entry
+    && typeof entry === 'object'
+    && entry.historyVersion === 2
+    && Array.isArray(entry.phases)
+    && Number.isFinite(entry.currentPhase);
+}
+
+function ensureWholeGamePlanHistoryStacks() {
+  const hasLegacyHistory = S.history.some(entry => !isWholeGamePlanHistoryEntry(entry))
+    || S.future.some(entry => !isWholeGamePlanHistoryEntry(entry));
+  if (!hasLegacyHistory) return false;
+  S.history = [];
+  S.future = [];
+  return true;
+}
+
+function captureWholeGamePlanHistoryEntry() {
+  const title = currentPlayTitle() || GamePlan.name || 'Untitled Play';
+  const gamePlan = serializeGamePlan(title);
+  return cloneData({
+    historyVersion: 2,
+    gamePlanName: gamePlan.name || title,
+    currentPhase: gamePlan.currentPhase,
+    phases: gamePlan.phases,
     playMetadata: S.playMetadata,
     projectId: S.projectId,
     projectMeta: S.projectMeta,
     projectPlayback: S.projectPlayback,
-  }));
+  });
+}
+
+function restoreWholeGamePlanHistoryEntry(entry) {
+  if (!isWholeGamePlanHistoryEntry(entry)) return false;
+
+  clearPendingCanonicalPhaseStart();
+  stopPlayback(true);
+  S.playAll = false;
+  S.lastTs = null;
+  S.animT = 0;
+
+  const title = typeof entry.gamePlanName === 'string' && entry.gamePlanName.trim()
+    ? entry.gamePlanName.trim()
+    : 'Untitled Play';
+  const restoredPhases = Array.isArray(entry.phases) && entry.phases.length
+    ? entry.phases.map((phase, index) => normalizePhaseState(phase, index))
+    : [normalizePhaseState({ label: 'Phase 1' }, 0)];
+
+  GamePlan.name = title;
+  GamePlan.phases = restoredPhases;
+  GamePlan.currentPhase = clamp(Number(entry.currentPhase), 0, restoredPhases.length - 1);
+
+  const activePhaseIndex = GamePlan.currentPhase;
+  const activePhase = normalizePhaseState(GamePlan.phases[activePhaseIndex], activePhaseIndex);
+  GamePlan.phases[activePhaseIndex] = activePhase;
+
+  clearSelectedObject();
+  S.selectedPlayerIds = [];
+  S.selectedGroupId = null;
+  S.selectedObjectType = null;
+  S.selectedAnnotationIdValue = null;
+  S.dragPlayerId = null;
+  S.dragging = null;
+  S.dragOff = { x: 0, y: 0 };
+  S.drawing = null;
+  S.passFrom = null;
+  S.activePasserId = null;
+  S.activeKickerId = null;
+  S.activeRunSourceId = null;
+  S.highlightedPlayerIds = [];
+  S.pendingGroupPlacement = null;
+  S.annotationDraft = null;
+  S.ballAssignCandidate = null;
+  S.pointerTap = null;
+  S.moveGuideOrigins = {};
+  clearPassKickState();
+
+  setLiveBoardFromStep(activePhase.steps[activePhase.currentStep] || emptyStepState());
+  S.projectId = entry.projectId || null;
+  S.projectMeta = entry.projectMeta || null;
+  S.playMetadata = entry.playMetadata ? cloneData(entry.playMetadata) : null;
+  S.projectPlayback = entry.projectPlayback ? normalizePlaybackSettings(entry.projectPlayback) : null;
+  S.animSpd = S.projectPlayback?.currentSpeed || 1;
+  spdIdx = Math.max(0, SPEEDS.indexOf(S.animSpd));
+
+  document.getElementById('playName').value = title;
+  document.getElementById('spdLabel').textContent = fmtSpd(S.animSpd);
+  setPlayBtnState();
+  updatePresetOptionsUI();
+  updatePhaseUI();
+  rebuildPalette();
+  refreshInteractionUI();
+  updateTL();
+  render();
+  return true;
+}
+
+function undo() {
+  clearPendingCanonicalPhaseStart();
+  ensureWholeGamePlanHistoryStacks();
+  if (!S.history.length) return;
+  S.future.push(captureWholeGamePlanHistoryEntry());
   if (S.future.length > 30) S.future.shift();
   const h = S.history.pop();
-  GamePlan.name = h.gamePlanName || GamePlan.name;
-  GamePlan.currentPhase = clamp(Number.isFinite(h.phaseIdx) ? h.phaseIdx : GamePlan.currentPhase, 0, Math.max(0, GamePlan.phases.length - 1));
-  while (GamePlan.phases.length <= GamePlan.currentPhase) {
-    GamePlan.phases.push(normalizePhaseState({ label: `Phase ${GamePlan.phases.length + 1}` }, GamePlan.phases.length));
-  }
-  GamePlan.phases[GamePlan.currentPhase] = normalizePhaseState(h.phase, GamePlan.currentPhase);
-  const phase = GamePlan.phases[GamePlan.currentPhase];
-  setLiveBoardFromStep(phase.steps[phase.currentStep] || emptyStepState());
-  document.getElementById('playName').value = GamePlan.name || 'Untitled Play';
-  S.playMetadata = normalizeProjectMetadata({ name: GamePlan.name || 'Untitled Play' }, h.playMetadata || {});
-  S.projectId = h.projectId || null;
-  S.projectMeta = h.projectMeta || null;
-  S.projectPlayback = normalizePlaybackSettings(h.projectPlayback || {});
-  clearSelectedObject();
-  clearPassKickState();
-  updatePlayMetadataPanel();
-  updatePhaseUI();
-  rebuildPalette(); refreshInteractionUI();
-  render();
+  restoreWholeGamePlanHistoryEntry(h);
 }
 window.undo = undo;
 function redo() {
   clearPendingCanonicalPhaseStart();
   if (!claimPhoneDataAction('more:redo')) return;
+  ensureWholeGamePlanHistoryStacks();
   if (!S.future.length) return;
-  persistCurrentPhase();
-  S.history.push(cloneData({
-    phaseIdx: GamePlan.currentPhase,
-    phase: serializePhase(S(), GamePlan.currentPhase),
-    gamePlanName: GamePlan.name,
-    playMetadata: S.playMetadata,
-    projectId: S.projectId,
-    projectMeta: S.projectMeta,
-    projectPlayback: S.projectPlayback,
-  }));
+  S.history.push(captureWholeGamePlanHistoryEntry());
   if (S.history.length > 30) S.history.shift();
   const h = S.future.pop();
-  GamePlan.name = h.gamePlanName || GamePlan.name;
-  GamePlan.currentPhase = clamp(Number.isFinite(h.phaseIdx) ? h.phaseIdx : GamePlan.currentPhase, 0, Math.max(0, GamePlan.phases.length - 1));
-  while (GamePlan.phases.length <= GamePlan.currentPhase) {
-    GamePlan.phases.push(normalizePhaseState({ label: `Phase ${GamePlan.phases.length + 1}` }, GamePlan.phases.length));
-  }
-  GamePlan.phases[GamePlan.currentPhase] = normalizePhaseState(h.phase, GamePlan.currentPhase);
-  const phase = GamePlan.phases[GamePlan.currentPhase];
-  setLiveBoardFromStep(phase.steps[phase.currentStep] || emptyStepState());
-  document.getElementById('playName').value = GamePlan.name || 'Untitled Play';
-  S.playMetadata = normalizeProjectMetadata({ name: GamePlan.name || 'Untitled Play' }, h.playMetadata || {});
-  S.projectId = h.projectId || null;
-  S.projectMeta = h.projectMeta || null;
-  S.projectPlayback = normalizePlaybackSettings(h.projectPlayback || {});
-  clearSelectedObject();
-  clearPassKickState();
-  updatePlayMetadataPanel();
-  updatePhaseUI();
-  rebuildPalette(); refreshInteractionUI();
-  render();
+  restoreWholeGamePlanHistoryEntry(h);
 }
 window.redo = redo;
 
