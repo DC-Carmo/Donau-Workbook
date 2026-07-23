@@ -473,6 +473,7 @@ function resize() {
   syncMobileBoardNameInput();
   updateMobileUI();
   render();
+  scheduleSequenceDockPosition();
 }
 
 function scheduleResizePass() {
@@ -524,8 +525,10 @@ function bindViewportObservers() {
     window.addEventListener('orientationchange', handlePhoneOrientationChange);
     window.addEventListener('pageshow', scheduleResizePass);
     document.addEventListener('visibilitychange', scheduleResizePass);
+    document.addEventListener('fullscreenchange', scheduleSequenceDockPosition);
     if (window.visualViewport && typeof window.visualViewport.addEventListener === 'function') {
       window.visualViewport.addEventListener('resize', scheduleResizePass);
+      window.visualViewport.addEventListener('resize', scheduleSequenceDockPosition);
     }
   }
   if (resizeObserver || typeof ResizeObserver !== 'function') {
@@ -772,8 +775,8 @@ const TOUR_STEPS = [
   {
     targetId: 'phaseChipStrip',
     position: 'below',
-    title: 'Build phases',
-    body: 'Tap <strong>+ STEP</strong> to add the next phase of play. Each chip represents one phase - scrub through them to review the sequence.',
+    title: 'Build moves',
+    body: 'Tap <strong>+</strong> to add the next move. Each chip represents one move - scrub through them to review the sequence.',
   },
   {
     targetId: 'playBtn',
@@ -1252,6 +1255,7 @@ function setLiveBoardFromStep(step, { keepSelection = false } = {}) {
 }
 
 function goToPhase(idx) {
+  clearPendingCanonicalPhaseStart();
   resetDeleteConfirm('phase');
   resetDeleteConfirm('move');
   persistCurrentPhase();
@@ -1276,6 +1280,7 @@ function goToPhase(idx) {
 }
 
 function addPhase() {
+  clearPendingCanonicalPhaseStart();
   const current = serializePhase(S(), GamePlan.currentPhase);
   const sourceStep = cloneStepState(current.steps?.[Number(current.currentStep)] || current.steps?.[0] || emptyStepState());
   const carryForwardStep = createCarryForwardStep(sourceStep);
@@ -1341,6 +1346,7 @@ function loadCurrentPhaseBoardState() {
 }
 
 function addPhaseAfterCurrent() {
+  clearPendingCanonicalPhaseStart();
   if (!claimPhoneDataAction('more:phase:add')) return;
   resetDeleteConfirm('phase');
   resetDeleteConfirm('move');
@@ -1537,13 +1543,18 @@ function phasePlaybackTargetIndex(startIdx = GamePlan.currentPhase) {
   return startIdx < GamePlan.phases.length - 1 ? startIdx + 1 : null;
 }
 
+function canonicalPlaybackTargetIndex(startIndex = getCurrentCanonicalMoveIndex()) {
+  const moveCount = getCanonicalMoveCount();
+  if (!Number.isInteger(startIndex) || startIndex < 0 || startIndex >= moveCount - 1) return null;
+  return startIndex + 1;
+}
+
 function currentPhaseHasPlayablePlayback() {
-  if (!isPhoneViewport) return GamePlan.phases.length > 1;
-  return sequenceStepCount() > 1 || (Array.isArray(S.paths) && S.paths.length > 0) || (Array.isArray(S.passes) && S.passes.length > 0);
+  return canonicalPlaybackTargetIndex() !== null;
 }
 
 function projectHasPlayablePlayback() {
-  return GamePlan.phases.length > 1;
+  return canonicalPlaybackTargetIndex() !== null;
 }
 
 function phasePlaybackStepAt(index) {
@@ -1552,6 +1563,336 @@ function phasePlaybackStepAt(index) {
     : GamePlan.phases[index];
   const normalizedPhase = normalizePhaseState(source, index);
   return cloneStepState(normalizedPhase.steps[normalizedPhase.currentStep] || emptyStepState());
+}
+
+function phaseStepCountAt(phaseIndex) {
+  const phase = GamePlan.phases?.[phaseIndex];
+  if (!phase) return 0;
+  return Array.isArray(phase.steps) ? phase.steps.length : 0;
+}
+
+function getCanonicalMoveRefs() {
+  const phases = Array.isArray(GamePlan.phases) ? GamePlan.phases : [];
+  const refs = [];
+  phases.forEach((phase, phaseIndex) => {
+    const stepCount = Array.isArray(phase?.steps) ? phase.steps.length : 0;
+    for (let stepIndex = 0; stepIndex < stepCount; stepIndex += 1) {
+      refs.push({ phaseIndex, stepIndex });
+    }
+  });
+  return refs;
+}
+
+function getCanonicalMoveCount() {
+  return getCanonicalMoveRefs().length;
+}
+
+function getCanonicalMoveRef(index) {
+  const refs = getCanonicalMoveRefs();
+  if (!refs.length) return null;
+  if (!Number.isInteger(index) || index < 0 || index >= refs.length) return null;
+  return refs[index] || null;
+}
+
+function getCurrentCanonicalMoveIndex() {
+  const refs = getCanonicalMoveRefs();
+  if (!refs.length) return -1;
+  if (!Number.isInteger(GamePlan.currentPhase) || !Number.isInteger(S.currentStep)) return -1;
+  const phases = Array.isArray(GamePlan.phases) ? GamePlan.phases : [];
+  if (GamePlan.currentPhase < 0 || GamePlan.currentPhase >= phases.length) return -1;
+  if (S.currentStep < 0 || S.currentStep >= phaseStepCountAt(GamePlan.currentPhase)) return -1;
+  return refs.findIndex(ref => ref.phaseIndex === GamePlan.currentPhase && ref.stepIndex === S.currentStep);
+}
+
+function hasPreviousCanonicalMove() {
+  const currentIndex = getCurrentCanonicalMoveIndex();
+  return currentIndex > 0;
+}
+
+function hasNextCanonicalMove() {
+  const currentIndex = getCurrentCanonicalMoveIndex();
+  return currentIndex >= 0 && currentIndex < getCanonicalMoveCount() - 1;
+}
+
+function clearPendingCanonicalPhaseStart() {
+  if (!pendingCanonicalPhaseStart) return false;
+  pendingCanonicalPhaseStart = false;
+  return true;
+}
+
+function shouldKeepPendingCanonicalPhaseStart() {
+  const currentIndex = getCurrentCanonicalMoveIndex();
+  const moveCount = getCanonicalMoveCount();
+  return pendingCanonicalPhaseStart && moveCount > 0 && currentIndex === moveCount - 1;
+}
+
+function syncPendingCanonicalPhaseStart() {
+  if (!pendingCanonicalPhaseStart) return false;
+  if (shouldKeepPendingCanonicalPhaseStart()) return false;
+  pendingCanonicalPhaseStart = false;
+  return true;
+}
+
+function getCanonicalPhaseStartContext() {
+  syncPendingCanonicalPhaseStart();
+  const currentRef = getCanonicalMoveRef(getCurrentCanonicalMoveIndex());
+  if (!currentRef) return { kind: 'unavailable', currentRef: null, nextRef: null };
+  const nextRef = getCanonicalMoveRef(getCurrentCanonicalMoveIndex() + 1);
+  if (!nextRef) {
+    return {
+      kind: pendingCanonicalPhaseStart ? 'pending-final' : 'final-move',
+      currentRef,
+      nextRef: null,
+    };
+  }
+  if (nextRef.phaseIndex !== currentRef.phaseIndex) {
+    return { kind: 'existing-boundary', currentRef, nextRef };
+  }
+  return { kind: 'split-available', currentRef, nextRef };
+}
+
+function getCanonicalPhaseActionDetails() {
+  const context = getCanonicalPhaseStartContext();
+  if (context.kind === 'unavailable') {
+    return {
+      context,
+      label: 'Start New Phase After This Move',
+      note: '',
+      ariaLabel: 'Phase boundary unavailable',
+      title: 'Select a Move to manage phase boundaries',
+      pressed: false,
+      disabled: true,
+    };
+  }
+  if (context.kind === 'existing-boundary') {
+    return {
+      context,
+      label: 'Remove Phase Break',
+      note: `The next Move starts Group ${context.nextRef.phaseIndex + 1}.`,
+      ariaLabel: 'Remove the phase break after the selected move',
+      title: 'Merge the next group into the current group',
+      pressed: false,
+      disabled: false,
+    };
+  }
+  if (context.kind === 'pending-final') {
+    return {
+      context,
+      label: 'Cancel New Phase',
+      note: 'The next Move will start a new group.',
+      ariaLabel: 'Cancel the pending new phase boundary',
+      title: 'Keep the next added Move in the current group',
+      pressed: true,
+      disabled: false,
+    };
+  }
+  if (context.kind === 'final-move') {
+    return {
+      context,
+      label: 'Next Move Starts New Phase',
+      note: '',
+      ariaLabel: 'Start the next added move in a new phase',
+      title: 'Mark the next added Move to begin a new group',
+      pressed: false,
+      disabled: false,
+    };
+  }
+  return {
+    context,
+    label: 'Start New Phase After This Move',
+    note: 'No phase break after this Move.',
+    ariaLabel: 'Start a new phase after the selected move',
+    title: 'Split the current group after this Move',
+    pressed: false,
+    disabled: false,
+  };
+}
+
+function removeCanonicalPhaseBreakAfterCurrentMove() {
+  const context = getCanonicalPhaseStartContext();
+  if (context.kind !== 'existing-boundary') return false;
+  snapshot();
+  stopPlayback(true);
+  clearPendingCanonicalPhaseStart();
+  const currentPhaseIndex = context.currentRef.phaseIndex;
+  const nextPhaseIndex = context.nextRef.phaseIndex;
+  const currentPhase = normalizePhaseState(GamePlan.phases[currentPhaseIndex], currentPhaseIndex);
+  const nextPhase = normalizePhaseState(GamePlan.phases[nextPhaseIndex], nextPhaseIndex);
+  currentPhase.steps = [
+    ...currentPhase.steps.map(step => cloneStepState(step)),
+    ...nextPhase.steps.map(step => cloneStepState(step)),
+  ];
+  currentPhase.currentStep = clamp(context.currentRef.stepIndex, 0, currentPhase.steps.length - 1);
+  GamePlan.phases[currentPhaseIndex] = normalizePhaseState(currentPhase, currentPhaseIndex);
+  GamePlan.phases.splice(nextPhaseIndex, 1);
+  relabelPhases();
+  GamePlan.currentPhase = currentPhaseIndex;
+  loadCurrentPhaseBoardState();
+  setHint(`Group ${nextPhaseIndex + 1} merged into Group ${currentPhaseIndex + 1}.`);
+  flashMobilePhaseCounter();
+  render();
+  return true;
+}
+
+function startCanonicalPhaseAfterCurrentMove() {
+  const context = getCanonicalPhaseStartContext();
+  if (context.kind === 'unavailable') return false;
+  if (context.kind === 'existing-boundary') {
+    return removeCanonicalPhaseBreakAfterCurrentMove();
+  }
+  if (context.kind === 'pending-final') {
+    clearPendingCanonicalPhaseStart();
+    setHint('Pending new group cancelled. The next Move will stay in the current group.');
+    refreshInteractionUI();
+    return true;
+  }
+  if (context.kind === 'final-move') {
+    pendingCanonicalPhaseStart = true;
+    setHint('The next added Move will start a new group.');
+    refreshInteractionUI();
+    return true;
+  }
+
+  persistCurrentPhase();
+  snapshot();
+  const sourcePhase = normalizePhaseState(serializePhase(S(), GamePlan.currentPhase), GamePlan.currentPhase);
+  const splitAfterStepIndex = context.currentRef.stepIndex;
+  const currentSteps = Array.isArray(sourcePhase.steps) ? sourcePhase.steps : [];
+  const leadingSteps = currentSteps.slice(0, splitAfterStepIndex + 1);
+  const trailingSteps = currentSteps.slice(splitAfterStepIndex + 1);
+  if (!trailingSteps.length) {
+    pendingCanonicalPhaseStart = true;
+    setHint('The next added Move will start a new group.');
+    refreshInteractionUI();
+    return true;
+  }
+
+  sourcePhase.steps = leadingSteps;
+  sourcePhase.currentStep = clamp(splitAfterStepIndex, 0, Math.max(0, leadingSteps.length - 1));
+  const currentPhaseIndex = context.currentRef.phaseIndex;
+  GamePlan.phases[currentPhaseIndex] = normalizePhaseState(sourcePhase, currentPhaseIndex);
+
+  const nextPhaseIndex = currentPhaseIndex + 1;
+  const nextPhase = normalizePhaseState({
+    id: crypto.randomUUID(),
+    label: `Phase ${nextPhaseIndex + 1}`,
+    notes: '',
+    groups: cloneData(sourcePhase.groups || []),
+    steps: trailingSteps,
+    currentStep: 0,
+  }, nextPhaseIndex);
+  GamePlan.phases.splice(nextPhaseIndex, 0, nextPhase);
+  relabelPhases();
+  GamePlan.currentPhase = currentPhaseIndex;
+  loadCurrentPhaseBoardState();
+  setHint(`New group starts at Move ${getCurrentCanonicalMoveIndex() + 2}.`);
+  flashMobilePhaseCounter();
+  render();
+  return true;
+}
+
+function deleteCanonicalMove(index = getCurrentCanonicalMoveIndex()) {
+  syncPendingCanonicalPhaseStart();
+  const moveCount = getCanonicalMoveCount();
+  if (moveCount <= 1) {
+    setHint('A play must contain at least one Move.');
+    refreshInteractionUI();
+    return false;
+  }
+  const targetRef = getCanonicalMoveRef(index);
+  if (!targetRef) return false;
+
+  snapshot();
+  stopPlayback(true);
+  clearPendingCanonicalPhaseStart();
+
+  const targetPhaseIndex = targetRef.phaseIndex;
+  const targetPhase = normalizePhaseState(GamePlan.phases[targetPhaseIndex], targetPhaseIndex);
+  const targetSteps = Array.isArray(targetPhase.steps) ? targetPhase.steps.map(step => cloneStepState(step)) : [];
+  if (targetRef.stepIndex < 0 || targetRef.stepIndex >= targetSteps.length) return false;
+  targetSteps.splice(targetRef.stepIndex, 1);
+
+  const removedGroupNumber = targetSteps.length ? null : targetPhaseIndex + 1;
+  if (targetSteps.length) {
+    targetPhase.steps = targetSteps;
+    targetPhase.currentStep = clamp(targetRef.stepIndex, 0, targetSteps.length - 1);
+    GamePlan.phases[targetPhaseIndex] = normalizePhaseState(targetPhase, targetPhaseIndex);
+  } else {
+    GamePlan.phases.splice(targetPhaseIndex, 1);
+  }
+
+  relabelPhases();
+  const remainingMoveCount = getCanonicalMoveCount();
+  const nextIndex = Math.min(index, remainingMoveCount - 1);
+  const nextRef = getCanonicalMoveRef(nextIndex);
+  if (!nextRef) return false;
+
+  const nextPhase = normalizePhaseState(GamePlan.phases[nextRef.phaseIndex], nextRef.phaseIndex);
+  nextPhase.currentStep = clamp(nextRef.stepIndex, 0, nextPhase.steps.length - 1);
+  GamePlan.phases[nextRef.phaseIndex] = normalizePhaseState(nextPhase, nextRef.phaseIndex);
+  GamePlan.currentPhase = nextRef.phaseIndex;
+  loadCurrentPhaseBoardState();
+  setHint(removedGroupNumber
+    ? `Move ${index + 1} removed. Group ${removedGroupNumber} also removed.`
+    : `Move ${index + 1} removed. Now viewing Move ${nextIndex + 1}.`);
+  flashMobilePhaseCounter();
+  render();
+  return true;
+}
+
+function goToCanonicalMove(index, options = {}) {
+  syncPendingCanonicalPhaseStart();
+  const targetRef = getCanonicalMoveRef(index);
+  if (!targetRef) return false;
+  const targetStepCount = phaseStepCountAt(targetRef.phaseIndex);
+  if (targetStepCount <= 0 || targetRef.stepIndex < 0 || targetRef.stepIndex >= targetStepCount) return false;
+  const samePhase = targetRef.phaseIndex === GamePlan.currentPhase;
+  const targetStepIndex = targetRef.stepIndex;
+
+  if (samePhase) {
+    if (targetStepIndex === S.currentStep) return true;
+    gotoStep(targetStepIndex, options);
+    return true;
+  }
+
+  if (options.snapshotBefore) snapshot();
+  goToPhase(targetRef.phaseIndex);
+  if (S.currentStep !== targetStepIndex) {
+    gotoStep(targetStepIndex, { ...options, snapshotBefore: false });
+  }
+  return true;
+}
+
+function getCanonicalMoveDisplay() {
+  const count = getCanonicalMoveCount();
+  const index = getCurrentCanonicalMoveIndex();
+  return {
+    count,
+    index,
+    current: index >= 0 ? index + 1 : null,
+    hasSelection: index >= 0,
+  };
+}
+
+function goToPreviousCanonicalMove(options = {}) {
+  const currentIndex = getCurrentCanonicalMoveIndex();
+  if (currentIndex <= 0) return false;
+  return goToCanonicalMove(currentIndex - 1, options);
+}
+
+function goToNextCanonicalMove(options = {}) {
+  const currentIndex = getCurrentCanonicalMoveIndex();
+  if (currentIndex < 0) return false;
+  return goToCanonicalMove(currentIndex + 1, options);
+}
+
+function addCanonicalMove() {
+  syncPendingCanonicalPhaseStart();
+  if (pendingCanonicalPhaseStart) {
+    pendingCanonicalPhaseStart = false;
+    return addPhase();
+  }
+  return addStep();
 }
 
 function phasePathForPlayer(step, player) {
@@ -2705,6 +3046,7 @@ function migratePlay(obj) {
 }
 
 function deserializePlay(obj) {
+  clearPendingCanonicalPhaseStart();
   const play = migratePlay(obj);
   if (Array.isArray(play.phases) && play.phases.length) {
     const phases = play.phases.map((phase, index) => normalizePhaseState(phase, index));
@@ -3052,6 +3394,7 @@ function snapshot() {
   S.future = [];
 }
 function undo() {
+  clearPendingCanonicalPhaseStart();
   if (!S.history.length) return;
   persistCurrentPhase();
   S.future.push(cloneData({
@@ -3087,6 +3430,7 @@ function undo() {
 }
 window.undo = undo;
 function redo() {
+  clearPendingCanonicalPhaseStart();
   if (!claimPhoneDataAction('more:redo')) return;
   if (!S.future.length) return;
   persistCurrentPhase();
@@ -5800,7 +6144,7 @@ function currentPlaybackUsesStepSequence() {
 }
 
 function currentPlaybackUsesImplicitMotion() {
-  return currentPhaseHasPlayablePlayback() && phasePlaybackTargetIndex() !== null;
+  return canonicalPlaybackTargetIndex() !== null;
 }
 
 function playbackDurationSeconds() {
@@ -5808,10 +6152,11 @@ function playbackDurationSeconds() {
 }
 
 function currentStepStartProgress() {
-  const steps = sequenceStepCount();
-  if (steps <= 1) return 0;
-  const lastPlayable = Math.max(0, steps - 2);
-  return Math.min(lastPlayable, S.currentStep) / (steps - 1);
+  const currentIndex = getCurrentCanonicalMoveIndex();
+  const moveCount = getCanonicalMoveCount();
+  if (moveCount <= 1 || currentIndex < 0) return 0;
+  const lastPlayable = Math.max(0, moveCount - 2);
+  return Math.min(lastPlayable, currentIndex) / (moveCount - 1);
 }
 
 function stopPlayback(resetProgress = false) {
@@ -5908,37 +6253,56 @@ function computeChainedStepStates() {
   return chained;
 }
 
+function canonicalPlaybackStepAt(ref) {
+  if (!ref) return null;
+  const phase = normalizePhaseState(GamePlan.phases?.[ref.phaseIndex], ref.phaseIndex);
+  if (!Array.isArray(phase.steps) || ref.stepIndex < 0 || ref.stepIndex >= phase.steps.length) return null;
+  return cloneStepState(phase.steps[ref.stepIndex] || emptyStepState());
+}
+
+function activateCanonicalMoveForPlayback(index, { resetProgress = false } = {}) {
+  const ref = getCanonicalMoveRef(index);
+  if (!ref) return false;
+  const phase = normalizePhaseState(GamePlan.phases?.[ref.phaseIndex], ref.phaseIndex);
+  if (!Array.isArray(phase.steps) || ref.stepIndex < 0 || ref.stepIndex >= phase.steps.length) return false;
+  if (resetProgress) S.animT = 0;
+  GamePlan.currentPhase = ref.phaseIndex;
+  phase.currentStep = ref.stepIndex;
+  GamePlan.phases[ref.phaseIndex] = phase;
+  S.currentStep = ref.stepIndex;
+  clearSelectedObject();
+  S.dragging = null;
+  S.drawing = null;
+  clearPassKickState();
+  S.annotationDraft = null;
+  setLiveBoardFromStep(phase.steps[ref.stepIndex] || emptyStepState());
+  rebuildPalette();
+  updateSelInfo();
+  updatePhaseUI();
+  refreshInteractionUI();
+  return true;
+}
+
 function buildSequenceFrame(progress) {
   const localT = clamp(progress, 0, 1);
   let from = null;
   let to = null;
   let motionStep = null;
-  let segmentIndex = GamePlan.currentPhase;
-
-  if (isPhoneViewport && !S.playAll && sequenceStepCount() > 1) {
-    const chainedSteps = computeChainedStepStates();
-    const stepCount = sequenceStepCount();
-    const fromStepIdx = clamp(S.currentStep, 0, Math.max(0, stepCount - 2));
-    const toStepIdx = clamp(fromStepIdx + 1, 0, stepCount - 1);
-    from = cloneStepState(chainedSteps[fromStepIdx] || emptyStepState());
-    to = cloneStepState(chainedSteps[toStepIdx] || from);
-    motionStep = cloneStepState(S.steps[toStepIdx] || to);
-    segmentIndex = fromStepIdx;
-  } else {
-    const fromIdx = GamePlan.currentPhase;
-    const toIdx = phasePlaybackTargetIndex(fromIdx);
-    from = phasePlaybackStepAt(fromIdx);
-    if (toIdx === null) {
-      return {
-        ...from,
-        segmentIndex: fromIdx,
-        localT: 0,
-      };
-    }
-    to = phasePlaybackStepAt(toIdx);
-    motionStep = to;
-    segmentIndex = fromIdx;
+  const fromIdx = getCurrentCanonicalMoveIndex();
+  const toIdx = canonicalPlaybackTargetIndex(fromIdx);
+  const fromRef = getCanonicalMoveRef(fromIdx);
+  const toRef = getCanonicalMoveRef(toIdx);
+  from = canonicalPlaybackStepAt(fromRef) || emptyStepState();
+  if (toIdx === null || !toRef) {
+    return {
+      ...from,
+      segmentIndex: fromIdx,
+      localT: 0,
+    };
   }
+  to = canonicalPlaybackStepAt(toRef) || from;
+  motionStep = to;
+  let segmentIndex = fromIdx;
 
   const fromLookup = buildStepLookup(from.players);
   const toLookup = buildStepLookup(to.players);
@@ -6026,11 +6390,11 @@ function resolveLiveAnimatedKickBall(progress) {
 
 function shouldRenderSequencePreview() {
   if (!S.animating) return false;
-  if (isPhoneViewport && !S.playAll) return sequenceStepCount() > 1;
   return currentPhaseHasPlayablePlayback();
 }
 
 function gotoStep(index, { snapshotBefore = false } = {}) {
+  clearPendingCanonicalPhaseStart();
   ensureSteps();
   const next = clamp(index, 0, S.steps.length - 1);
   if (next === S.currentStep) return;
@@ -6171,7 +6535,404 @@ function deleteLastMoveWithConfirm() {
   render();
 }
 
+let sequenceDockEls = null;
+let sequenceDockAddMoveLock = false;
+let sequenceDockAddMoveLockTimer = null;
+let sequenceDockPositionRaf = 0;
+const SEQUENCE_DOCK_GAP = 18;
+const SEQUENCE_DOCK_FULL_WIDTH = 320;
+const SEQUENCE_DOCK_COMPACT_WIDTH = 180;
+const SEQUENCE_DOCK_COLLAPSED_WIDTH = 148;
+let sequenceDockMode = 'full';
+let sequenceDockView = 'primary';
+let sequenceDockVisible = false;
+let sequenceDockSide = 'right';
+let pendingCanonicalPhaseStart = false;
+
+function setSequenceDockVisibility(isVisible) {
+  if (!sequenceDockEls?.dock) return;
+  sequenceDockVisible = !!isVisible;
+  sequenceDockEls.dock.hidden = !isVisible;
+  if (!isVisible) {
+    sequenceDockView = 'primary';
+    sequenceDockEls.dock.style.left = '-9999px';
+    sequenceDockEls.dock.style.top = '0px';
+  }
+  document.getElementById('emptyState')?.classList.toggle('sequence-dock-suppressed', sequenceDockVisible);
+}
+
+function getRenderedPitchViewportRect() {
+  const canvasRect = cv.getBoundingClientRect();
+  if (canvasRect.width <= 0 || canvasRect.height <= 0) return null;
+  const pitchStart = toC(0, F.YMIN);
+  const pitchEnd = toC(F.W, F.YMAX);
+  return {
+    left: canvasRect.left + Math.min(pitchStart.x, pitchEnd.x),
+    right: canvasRect.left + Math.max(pitchStart.x, pitchEnd.x),
+    top: canvasRect.top + Math.min(pitchStart.y, pitchEnd.y),
+    bottom: canvasRect.top + Math.max(pitchStart.y, pitchEnd.y),
+    width: Math.abs(pitchEnd.x - pitchStart.x),
+    height: Math.abs(pitchEnd.y - pitchStart.y),
+  };
+}
+
+function getSequenceDockPlacement(rightSpace, leftSpace) {
+  const widths = [
+    { mode: 'full', width: SEQUENCE_DOCK_FULL_WIDTH },
+    { mode: 'compact', width: SEQUENCE_DOCK_COMPACT_WIDTH },
+    { mode: 'collapsed', width: SEQUENCE_DOCK_COLLAPSED_WIDTH },
+  ];
+  for (const { mode, width } of widths) {
+    if (rightSpace >= width + SEQUENCE_DOCK_GAP) return { mode, side: 'right', width };
+    if (leftSpace >= width + SEQUENCE_DOCK_GAP) return { mode, side: 'left', width };
+  }
+  return null;
+}
+
+function getSequenceDockModeLabels(mode) {
+  if (mode === 'collapsed') {
+    return {
+      status: `P${GamePlan.currentPhase + 1} · M${S.currentStep + 1}/${sequenceStepCount()}`,
+      prev: 'Previous',
+      next: 'Next',
+      addMove: '+ Move',
+      play: 'Play',
+      more: 'More',
+      back: 'Back',
+      duplicate: 'Duplicate',
+      preview: 'Preview',
+      addPhase: phaseStartContext.kind === 'pending-final' ? 'Cancel Phase' : '+ Phase',
+      deleteMove: 'Delete Move',
+    };
+  }
+  if (mode === 'compact') {
+    return {
+      status: `P${GamePlan.currentPhase + 1} · M${S.currentStep + 1}/${sequenceStepCount()}`,
+      prev: 'Previous',
+      next: 'Next',
+      addMove: '+ Move',
+      play: 'Play',
+      more: 'More',
+      back: 'Back',
+      duplicate: 'Duplicate',
+      preview: 'Preview',
+      addPhase: phaseStartContext.kind === 'pending-final' ? 'Cancel Phase' : 'New Phase',
+      deleteMove: 'Delete Move',
+    };
+  }
+  return {
+    status: `Phase ${GamePlan.currentPhase + 1} of ${GamePlan.phases.length}. Move ${S.currentStep + 1} of ${sequenceStepCount()}.`,
+    prev: 'Previous Move',
+    next: 'Next Move',
+    addMove: 'Add Move',
+    play: 'Play from Here',
+    more: 'More',
+    back: 'Back',
+    duplicate: 'Duplicate Move',
+    preview: 'Preview Move',
+    addPhase: phaseStartContext.kind === 'pending-final' ? 'Cancel New Phase' : 'Start New Phase',
+    deleteMove: 'Delete selected move',
+  };
+}
+
+function focusSequenceDockViewTarget(view) {
+  if (!sequenceDockEls) return;
+  if (view === 'secondary') {
+    const candidates = [
+      sequenceDockEls.duplicate,
+      sequenceDockEls.preview,
+      sequenceDockEls.playbackControl.hidden ? null : sequenceDockEls.playbackControl,
+      sequenceDockEls.addPhase,
+      sequenceDockEls.deleteMove,
+      sequenceDockEls.back,
+    ].filter(Boolean);
+    const target = candidates.find(btn => !btn.disabled) || sequenceDockEls.back;
+    target?.focus();
+    return;
+  }
+  sequenceDockEls.more?.focus();
+}
+
+function setSequenceDockView(view, { focusTarget = false } = {}) {
+  const nextView = sequenceDockMode === 'full' ? 'primary' : (view === 'secondary' ? 'secondary' : 'primary');
+  const changed = sequenceDockView !== nextView;
+  sequenceDockView = nextView;
+  updateSequenceDockUI();
+  if (changed) scheduleSequenceDockPosition();
+  if (focusTarget) {
+    requestAnimationFrame(() => focusSequenceDockViewTarget(nextView));
+  }
+}
+
+function toggleSequenceDockView() {
+  if (sequenceDockMode === 'full') return;
+  setSequenceDockView(sequenceDockView === 'secondary' ? 'primary' : 'secondary', { focusTarget: true });
+}
+
+function positionSequenceControlDock() {
+  sequenceDockPositionRaf = 0;
+  if (!sequenceDockEls?.dock) return;
+  const dock = sequenceDockEls.dock;
+  if (isPhoneViewport) {
+    setSequenceDockVisibility(false);
+    return;
+  }
+
+  const viewportWidth = window.visualViewport?.width || window.innerWidth;
+  const viewportHeight = window.visualViewport?.height || window.innerHeight;
+  const viewportLeft = window.visualViewport?.offsetLeft || 0;
+  const viewportTop = window.visualViewport?.offsetTop || 0;
+  const viewportRight = viewportLeft + viewportWidth;
+
+  const topbar = document.getElementById('topbar');
+  const bottomPanel = document.getElementById('bottomPanel');
+  const smartPanel = document.getElementById('smartPanel');
+  if (!topbar || !bottomPanel) {
+    setSequenceDockVisibility(false);
+    return;
+  }
+
+  const pitchRect = getRenderedPitchViewportRect();
+  if (pitchRect.width <= 0 || pitchRect.height <= 0) {
+    setSequenceDockVisibility(false);
+    return;
+  }
+
+  const previousHidden = dock.hidden;
+  const previousVisibility = dock.style.visibility;
+  dock.hidden = false;
+  dock.style.visibility = 'hidden';
+  const dockRect = dock.getBoundingClientRect();
+  const dockWidth = dockRect.width;
+  const dockHeight = dockRect.height;
+  if (previousHidden) dock.hidden = true;
+  dock.style.visibility = previousVisibility;
+
+  if (dockWidth <= 0 || dockHeight <= 0) {
+    setSequenceDockVisibility(false);
+    return;
+  }
+
+  const safeLeftBoundary = Math.max(
+    viewportLeft,
+    smartPanel?.getBoundingClientRect().right || viewportLeft
+  );
+  const rightSpace = viewportRight - pitchRect.right;
+  const leftSpace = pitchRect.left - safeLeftBoundary;
+  const placement = getSequenceDockPlacement(rightSpace, leftSpace);
+  if (!placement) {
+    setSequenceDockVisibility(false);
+    return;
+  }
+  const previousMode = sequenceDockMode;
+  sequenceDockMode = placement.mode;
+  sequenceDockSide = placement.side;
+  if (sequenceDockMode === 'full' || previousMode !== sequenceDockMode) sequenceDockView = 'primary';
+  updateSequenceDockUI();
+
+  const previousHiddenAfterMode = dock.hidden;
+  const previousVisibilityAfterMode = dock.style.visibility;
+  dock.hidden = false;
+  dock.style.visibility = 'hidden';
+  const activeDockRect = dock.getBoundingClientRect();
+  const activeDockWidth = activeDockRect.width;
+  const activeDockHeight = activeDockRect.height;
+  if (previousHiddenAfterMode) dock.hidden = true;
+  dock.style.visibility = previousVisibilityAfterMode;
+
+  const dockLeft = sequenceDockSide === 'right'
+    ? pitchRect.right + SEQUENCE_DOCK_GAP
+    : pitchRect.left - activeDockWidth - SEQUENCE_DOCK_GAP;
+
+  const topLimit = Math.max(viewportTop + 10, topbar.getBoundingClientRect().bottom + 10);
+  const bottomLimit = Math.min(viewportTop + viewportHeight - activeDockHeight - 10, bottomPanel.getBoundingClientRect().top - activeDockHeight - 10);
+  if (bottomLimit < topLimit) {
+    setSequenceDockVisibility(false);
+    return;
+  }
+
+  const idealTop = pitchRect.top + ((pitchRect.height - activeDockHeight) / 2);
+  const dockTop = clamp(idealTop, topLimit, bottomLimit);
+  setSequenceDockVisibility(true);
+  dock.dataset.mode = sequenceDockMode;
+  dock.dataset.side = sequenceDockSide;
+  dock.dataset.view = sequenceDockView;
+  dock.style.left = `${Math.round(dockLeft)}px`;
+  dock.style.top = `${Math.round(dockTop)}px`;
+  dock.style.right = 'auto';
+}
+
+function scheduleSequenceDockPosition() {
+  if (sequenceDockPositionRaf) return;
+  sequenceDockPositionRaf = requestAnimationFrame(positionSequenceControlDock);
+}
+
+function releaseSequenceDockAddMoveLock() {
+  sequenceDockAddMoveLock = false;
+  if (sequenceDockAddMoveLockTimer) {
+    clearTimeout(sequenceDockAddMoveLockTimer);
+    sequenceDockAddMoveLockTimer = null;
+  }
+  updateSequenceDockUI();
+}
+
+function handleSequenceDockAddMove() {
+  if (sequenceDockAddMoveLock) return;
+  sequenceDockAddMoveLock = true;
+  updateSequenceDockUI();
+  sequenceDockAddMoveLockTimer = setTimeout(releaseSequenceDockAddMoveLock, 350);
+  try {
+    addStep();
+  } catch (err) {
+    releaseSequenceDockAddMoveLock();
+    throw err;
+  }
+}
+
+function confirmDeleteSelectedMoveFromDock() {
+  const moveCount = getCanonicalMoveCount();
+  const moveIndex = getCurrentCanonicalMoveIndex();
+  const targetRef = getCanonicalMoveRef(moveIndex);
+  if (moveCount <= 1 || !targetRef) return;
+  let message = `Delete Move ${moveIndex + 1} of ${moveCount}?`;
+  if (phaseStepCountAt(targetRef.phaseIndex) === 1) {
+    message += `\n\nThis will also remove Group ${targetRef.phaseIndex + 1}.`;
+  }
+  if (!window.confirm(message)) return;
+  deleteCanonicalMove(moveIndex);
+}
+
+function handleSequenceDockPlaybackControl() {
+  if (S.animating) {
+    stopPlayback(false);
+    refreshInteractionUI();
+    updateTL();
+    render();
+    return;
+  }
+  if (S.animT > 0) {
+    if (S.playAll) toggleSmartPlay();
+    else togglePlay();
+    return;
+  }
+  stopPlayback(true);
+  refreshInteractionUI();
+  updateTL();
+  render();
+}
+
+function updateSequenceDockUI() {
+  if (!sequenceDockEls) return;
+  const phaseCount = GamePlan.phases.length;
+  const moveCount = sequenceStepCount();
+  const currentPhase = GamePlan.currentPhase + 1;
+  const currentMove = S.currentStep + 1;
+  const previewPlayable = currentPhaseHasPlayablePlayback();
+  const playFromHerePlayable = projectHasPlayablePlayback();
+  const hasPausedPlayback = !S.animating && S.animT > 0;
+  const isAnimating = !!S.animating;
+  const editingLocked = isAnimating;
+  const showPlaybackControl = isAnimating || hasPausedPlayback;
+  const isFullMode = sequenceDockMode === 'full';
+  const isSecondaryView = !isFullMode && sequenceDockView === 'secondary';
+  const labels = getSequenceDockModeLabels(sequenceDockMode);
+  let playbackControlLabel = '';
+  let playbackControlAria = '';
+
+  if (isAnimating) {
+    playbackControlLabel = 'Pause';
+    playbackControlAria = 'Pause playback';
+  } else if (hasPausedPlayback) {
+    playbackControlLabel = 'Resume';
+    playbackControlAria = S.playAll ? 'Resume playback from here to the end' : 'Resume move preview';
+  }
+
+  sequenceDockEls.dock.dataset.mode = sequenceDockMode;
+  sequenceDockEls.dock.dataset.side = sequenceDockSide;
+  sequenceDockEls.dock.dataset.view = isFullMode ? 'full' : sequenceDockView;
+  sequenceDockEls.phase.textContent = `${currentPhase} / ${phaseCount}`;
+  sequenceDockEls.move.textContent = `${currentMove} / ${moveCount}`;
+  sequenceDockEls.status.textContent = labels.status;
+  sequenceDockEls.prev.textContent = labels.prev;
+  sequenceDockEls.next.textContent = labels.next;
+  sequenceDockEls.addMove.textContent = labels.addMove;
+  sequenceDockEls.play.textContent = labels.play;
+  sequenceDockEls.more.textContent = labels.more;
+  sequenceDockEls.duplicate.textContent = labels.duplicate;
+  sequenceDockEls.preview.textContent = labels.preview;
+  sequenceDockEls.addPhase.textContent = labels.addPhase;
+  sequenceDockEls.deleteMove.textContent = labels.deleteMove;
+  sequenceDockEls.back.textContent = labels.back;
+  sequenceDockEls.prev.disabled = S.currentStep === 0 || editingLocked;
+  sequenceDockEls.next.disabled = S.currentStep >= moveCount - 1 || editingLocked;
+  sequenceDockEls.addMove.disabled = editingLocked || sequenceDockAddMoveLock;
+  sequenceDockEls.duplicate.disabled = editingLocked || moveCount < 1;
+  sequenceDockEls.play.disabled = !playFromHerePlayable;
+  sequenceDockEls.preview.disabled = !previewPlayable;
+  sequenceDockEls.more.hidden = isFullMode;
+  sequenceDockEls.more.disabled = isFullMode;
+  sequenceDockEls.more.tabIndex = isFullMode ? -1 : 0;
+  sequenceDockEls.more.setAttribute('aria-expanded', isSecondaryView ? 'true' : 'false');
+  sequenceDockEls.primaryPanel.hidden = !isFullMode && isSecondaryView;
+  sequenceDockEls.secondaryPanel.hidden = !isFullMode && !isSecondaryView;
+  sequenceDockEls.back.hidden = isFullMode;
+  sequenceDockEls.back.disabled = isFullMode;
+  sequenceDockEls.back.tabIndex = isFullMode || !isSecondaryView ? -1 : 0;
+  sequenceDockEls.playbackControl.hidden = false;
+  sequenceDockEls.playbackControl.disabled = !showPlaybackControl;
+  sequenceDockEls.playbackControl.tabIndex = showPlaybackControl ? 0 : -1;
+  sequenceDockEls.playbackControl.textContent = playbackControlLabel;
+  sequenceDockEls.playbackControl.classList.toggle('sequence-dock__playback-control--inactive', !showPlaybackControl);
+  if (showPlaybackControl) {
+    sequenceDockEls.playbackControl.setAttribute('aria-label', playbackControlAria);
+  } else {
+    sequenceDockEls.playbackControl.removeAttribute('aria-label');
+  }
+  sequenceDockEls.addPhase.disabled = editingLocked;
+  sequenceDockEls.deleteMove.disabled = editingLocked || moveCount < 1;
+}
+
+function initSequenceControlDock() {
+  const dock = document.getElementById('sequenceControlDock');
+  if (!dock) return;
+  sequenceDockEls = {
+    dock,
+    phase: document.getElementById('sequenceDockPhase'),
+    move: document.getElementById('sequenceDockMove'),
+    status: document.getElementById('sequenceDockStatus'),
+    prev: document.getElementById('sequenceDockPrev'),
+    next: document.getElementById('sequenceDockNext'),
+    addMove: document.getElementById('sequenceDockAddMove'),
+    more: document.getElementById('sequenceDockMore'),
+    primaryPanel: document.getElementById('sequenceDockPrimaryPanel'),
+    secondaryPanel: document.getElementById('sequenceDockSecondaryPanel'),
+    duplicate: document.getElementById('sequenceDockDuplicate'),
+    play: document.getElementById('sequenceDockPlay'),
+    preview: document.getElementById('sequenceDockPreview'),
+    playbackControl: document.getElementById('sequenceDockPlaybackControl'),
+    addPhase: document.getElementById('sequenceDockAddPhase'),
+    phaseActionStatus: document.getElementById('sequenceDockPhaseActionStatus'),
+    deleteMove: document.getElementById('sequenceDockDelete'),
+    back: document.getElementById('sequenceDockBack'),
+  };
+
+  sequenceDockEls.prev.addEventListener('click', prevStep);
+  sequenceDockEls.next.addEventListener('click', nextStep);
+  sequenceDockEls.addMove.addEventListener('click', handleSequenceDockAddMove);
+  sequenceDockEls.more.addEventListener('click', toggleSequenceDockView);
+  sequenceDockEls.duplicate.addEventListener('click', duplicateStep);
+  sequenceDockEls.play.addEventListener('click', toggleSmartPlay);
+  sequenceDockEls.preview.addEventListener('click', previewCurrentMove);
+  sequenceDockEls.playbackControl.addEventListener('click', handleSequenceDockPlaybackControl);
+  sequenceDockEls.addPhase.addEventListener('click', handleSequenceDockStartPhase);
+  sequenceDockEls.deleteMove.addEventListener('click', confirmDeleteSelectedMoveFromDock);
+  sequenceDockEls.back.addEventListener('click', () => setSequenceDockView('primary', { focusTarget: true }));
+  updateSequenceDockUI();
+  scheduleSequenceDockPosition();
+}
+
 function updateSequenceUI() {
+  syncPendingCanonicalPhaseStart();
   const prevBtn = document.getElementById('seqPrevBtn');
   const nextBtn = document.getElementById('seqNextBtn');
   const seqBarPrev = document.getElementById('seqBarPrev');
@@ -6190,6 +6951,277 @@ function updateSequenceUI() {
   if (playLabel) playLabel.textContent = S.animating ? 'PAUSE' : 'PLAY';
   if (playBtn) playBtn.disabled = !playable;
   if (tlPlayBtn) tlPlayBtn.disabled = !playable;
+  updateSequenceDockUI();
+  scheduleSequenceDockPosition();
+}
+
+function updatePhaseUI() {
+  const strip = document.getElementById('phaseChipStrip');
+  if (!strip) return;
+  const canonicalRefs = getCanonicalMoveRefs();
+  const currentCanonicalIndex = getCurrentCanonicalMoveIndex();
+  strip.innerHTML = '';
+  canonicalRefs.forEach((ref, index) => {
+    const wrap = document.createElement('span');
+    wrap.className = 'seq-chip-wrap';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `tb-phase-chip${index === currentCanonicalIndex ? ' active' : ''}`;
+    btn.textContent = String(index + 1);
+    btn.title = `Go to Move ${index + 1}`;
+    btn.setAttribute('aria-label', `Go to Move ${index + 1}`);
+    if (index === currentCanonicalIndex) btn.setAttribute('aria-current', 'step');
+    else btn.removeAttribute('aria-current');
+    btn.onclick = () => goToCanonicalMove(index);
+
+    wrap.appendChild(btn);
+    strip.appendChild(wrap);
+  });
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'tb-phase-chip tb-phase-chip-add';
+  addBtn.textContent = '+';
+  addBtn.title = 'Add Move';
+  addBtn.setAttribute('aria-label', 'Add Move');
+  addBtn.onclick = () => addCanonicalMove();
+  strip.appendChild(addBtn);
+}
+
+function getSequenceDockModeLabels(mode) {
+  const canonicalMove = getCanonicalMoveDisplay();
+  const phaseAction = getCanonicalPhaseActionDetails();
+  const moveStatus = canonicalMove.hasSelection
+    ? `Move ${canonicalMove.current} of ${canonicalMove.count}`
+    : 'Move — of —';
+  const compactStatus = canonicalMove.hasSelection
+    ? `M ${canonicalMove.current}/${canonicalMove.count}`
+    : 'M —/—';
+  if (mode === 'collapsed') {
+    return {
+      status: compactStatus,
+      prev: 'Previous',
+      next: 'Next',
+      addMove: '+ Move',
+      play: 'Play',
+      more: 'More',
+      back: 'Back',
+      duplicate: 'Duplicate',
+      preview: 'Preview',
+      addPhase: phaseAction.label,
+      deleteMove: 'Delete Move',
+    };
+  }
+  if (mode === 'compact') {
+    return {
+      status: compactStatus,
+      prev: 'Previous',
+      next: 'Next',
+      addMove: '+ Move',
+      play: 'Play',
+      more: 'More',
+      back: 'Back',
+      duplicate: 'Duplicate',
+      preview: 'Preview',
+      addPhase: phaseAction.label,
+      deleteMove: 'Delete Move',
+    };
+  }
+  return {
+    status: moveStatus,
+    prev: 'Previous Move',
+    next: 'Next Move',
+    addMove: 'Add Move',
+    play: 'Play from Here',
+    more: 'More',
+    back: 'Back',
+    duplicate: 'Duplicate Move',
+    preview: 'Preview Move',
+    addPhase: phaseAction.label,
+    deleteMove: 'Delete selected move',
+  };
+}
+
+function handleSequenceDockAddMove() {
+  if (sequenceDockAddMoveLock) return;
+  sequenceDockAddMoveLock = true;
+  updateSequenceDockUI();
+  sequenceDockAddMoveLockTimer = setTimeout(releaseSequenceDockAddMoveLock, 350);
+  try {
+    addCanonicalMove();
+  } catch (err) {
+    releaseSequenceDockAddMoveLock();
+    throw err;
+  }
+}
+
+function handleSequenceDockStartPhase() {
+  return startCanonicalPhaseAfterCurrentMove();
+}
+
+function updateSequenceDockUI() {
+  if (!sequenceDockEls) return;
+  syncPendingCanonicalPhaseStart();
+  const canonicalMove = getCanonicalMoveDisplay();
+  const phaseAction = getCanonicalPhaseActionDetails();
+  const phaseCount = GamePlan.phases.length;
+  const hasValidPhase = Number.isInteger(GamePlan.currentPhase) && GamePlan.currentPhase >= 0 && GamePlan.currentPhase < phaseCount;
+  const currentPhase = hasValidPhase ? GamePlan.currentPhase + 1 : null;
+  const previewPlayable = currentPhaseHasPlayablePlayback();
+  const playFromHerePlayable = projectHasPlayablePlayback();
+  const hasPausedPlayback = !S.animating && S.animT > 0;
+  const isAnimating = !!S.animating;
+  const editingLocked = isAnimating;
+  const showPlaybackControl = isAnimating || hasPausedPlayback;
+  const isFullMode = sequenceDockMode === 'full';
+  const isSecondaryView = !isFullMode && sequenceDockView === 'secondary';
+  const labels = getSequenceDockModeLabels(sequenceDockMode);
+  const phaseStartPending = phaseAction.pressed;
+  const phaseStartDisabled = editingLocked || canonicalMove.count < 1 || phaseAction.disabled;
+  const deleteDisabled = editingLocked || canonicalMove.count <= 1;
+  let playbackControlLabel = '';
+  let playbackControlAria = '';
+
+  if (isAnimating) {
+    playbackControlLabel = 'Pause';
+    playbackControlAria = 'Pause playback';
+  } else if (hasPausedPlayback) {
+    playbackControlLabel = 'Resume';
+    playbackControlAria = S.playAll ? 'Resume playback from here to the end' : 'Resume move preview';
+  }
+
+  sequenceDockEls.dock.dataset.mode = sequenceDockMode;
+  sequenceDockEls.dock.dataset.side = sequenceDockSide;
+  sequenceDockEls.dock.dataset.view = isFullMode ? 'full' : sequenceDockView;
+  sequenceDockEls.phase.textContent = currentPhase !== null ? `${currentPhase} / ${phaseCount}` : '— / —';
+  sequenceDockEls.move.textContent = canonicalMove.hasSelection ? `${canonicalMove.current} / ${canonicalMove.count}` : '— / —';
+  if (sequenceDockEls.phaseLabel) sequenceDockEls.phaseLabel.textContent = 'Group';
+  if (sequenceDockEls.moveMetaBlock) sequenceDockEls.moveMetaBlock.hidden = true;
+  sequenceDockEls.status.textContent = labels.status;
+  sequenceDockEls.prev.textContent = labels.prev;
+  sequenceDockEls.next.textContent = labels.next;
+  sequenceDockEls.addMove.textContent = labels.addMove;
+  sequenceDockEls.play.textContent = labels.play;
+  sequenceDockEls.more.textContent = labels.more;
+  sequenceDockEls.duplicate.textContent = labels.duplicate;
+  sequenceDockEls.preview.textContent = labels.preview;
+  sequenceDockEls.addPhase.textContent = labels.addPhase;
+  sequenceDockEls.deleteMove.textContent = labels.deleteMove;
+  sequenceDockEls.back.textContent = labels.back;
+  sequenceDockEls.prev.disabled = !hasPreviousCanonicalMove() || editingLocked;
+  sequenceDockEls.next.disabled = !hasNextCanonicalMove() || editingLocked;
+  sequenceDockEls.addMove.disabled = editingLocked || sequenceDockAddMoveLock;
+  sequenceDockEls.duplicate.disabled = editingLocked || canonicalMove.count < 1;
+  sequenceDockEls.play.disabled = !playFromHerePlayable;
+  sequenceDockEls.preview.disabled = !previewPlayable;
+  sequenceDockEls.more.hidden = isFullMode;
+  sequenceDockEls.more.disabled = isFullMode;
+  sequenceDockEls.more.tabIndex = isFullMode ? -1 : 0;
+  sequenceDockEls.more.setAttribute('aria-expanded', isSecondaryView ? 'true' : 'false');
+  sequenceDockEls.primaryPanel.hidden = !isFullMode && isSecondaryView;
+  sequenceDockEls.secondaryPanel.hidden = !isFullMode && !isSecondaryView;
+  sequenceDockEls.back.hidden = isFullMode;
+  sequenceDockEls.back.disabled = isFullMode;
+  sequenceDockEls.back.tabIndex = isFullMode || !isSecondaryView ? -1 : 0;
+  sequenceDockEls.playbackControl.hidden = false;
+  sequenceDockEls.playbackControl.disabled = !showPlaybackControl;
+  sequenceDockEls.playbackControl.tabIndex = showPlaybackControl ? 0 : -1;
+  sequenceDockEls.playbackControl.textContent = playbackControlLabel;
+  sequenceDockEls.playbackControl.classList.toggle('sequence-dock__playback-control--inactive', !showPlaybackControl);
+  if (showPlaybackControl) {
+    sequenceDockEls.playbackControl.setAttribute('aria-label', playbackControlAria);
+  } else {
+    sequenceDockEls.playbackControl.removeAttribute('aria-label');
+  }
+  sequenceDockEls.addPhase.disabled = phaseStartDisabled;
+  sequenceDockEls.addPhase.setAttribute('aria-pressed', phaseStartPending ? 'true' : 'false');
+  sequenceDockEls.addPhase.setAttribute('aria-label', phaseAction.ariaLabel);
+  sequenceDockEls.addPhase.title = phaseAction.title || '';
+  if (sequenceDockEls.phaseActionStatus) {
+    sequenceDockEls.phaseActionStatus.hidden = !phaseAction.note;
+    sequenceDockEls.phaseActionStatus.textContent = phaseAction.note || '';
+  }
+  sequenceDockEls.deleteMove.disabled = deleteDisabled;
+  sequenceDockEls.deleteMove.title = canonicalMove.count <= 1
+    ? 'A play must contain at least one Move'
+    : 'Delete the selected Move';
+}
+
+function initSequenceControlDock() {
+  const dock = document.getElementById('sequenceControlDock');
+  if (!dock) return;
+  sequenceDockEls = {
+    dock,
+    phaseLabel: document.getElementById('sequenceDockPhaseLabel'),
+    phase: document.getElementById('sequenceDockPhase'),
+    move: document.getElementById('sequenceDockMove'),
+    moveMetaBlock: document.getElementById('sequenceDockMoveMetaBlock'),
+    status: document.getElementById('sequenceDockStatus'),
+    prev: document.getElementById('sequenceDockPrev'),
+    next: document.getElementById('sequenceDockNext'),
+    addMove: document.getElementById('sequenceDockAddMove'),
+    more: document.getElementById('sequenceDockMore'),
+    primaryPanel: document.getElementById('sequenceDockPrimaryPanel'),
+    secondaryPanel: document.getElementById('sequenceDockSecondaryPanel'),
+    duplicate: document.getElementById('sequenceDockDuplicate'),
+    play: document.getElementById('sequenceDockPlay'),
+    preview: document.getElementById('sequenceDockPreview'),
+    playbackControl: document.getElementById('sequenceDockPlaybackControl'),
+    addPhase: document.getElementById('sequenceDockAddPhase'),
+    phaseActionStatus: document.getElementById('sequenceDockPhaseActionStatus'),
+    deleteMove: document.getElementById('sequenceDockDelete'),
+    back: document.getElementById('sequenceDockBack'),
+  };
+
+  sequenceDockEls.prev.addEventListener('click', goToPreviousCanonicalMove);
+  sequenceDockEls.next.addEventListener('click', goToNextCanonicalMove);
+  sequenceDockEls.addMove.addEventListener('click', handleSequenceDockAddMove);
+  sequenceDockEls.more.addEventListener('click', toggleSequenceDockView);
+  sequenceDockEls.duplicate.addEventListener('click', duplicateStep);
+  sequenceDockEls.play.addEventListener('click', toggleSmartPlay);
+  sequenceDockEls.preview.addEventListener('click', previewCurrentMove);
+  sequenceDockEls.playbackControl.addEventListener('click', handleSequenceDockPlaybackControl);
+  sequenceDockEls.addPhase.addEventListener('click', handleSequenceDockStartPhase);
+  sequenceDockEls.deleteMove.addEventListener('click', confirmDeleteSelectedMoveFromDock);
+  sequenceDockEls.back.addEventListener('click', () => setSequenceDockView('primary', { focusTarget: true }));
+  updateSequenceDockUI();
+  scheduleSequenceDockPosition();
+}
+
+function updateSequenceUI() {
+  const prevBtn = document.getElementById('seqPrevBtn');
+  const nextBtn = document.getElementById('seqNextBtn');
+  const seqBarPrev = document.getElementById('seqBarPrev');
+  const seqBarNext = document.getElementById('seqBarNext');
+  const seqBarPlay = document.getElementById('seqBarPlay');
+  const playIcon  = document.getElementById('seqBarPlayIcon');
+  const playLabel = document.getElementById('seqBarPlayLabel');
+  const playBtn = document.getElementById('playBtn');
+  const tlPlayBtn = document.getElementById('tlPlayBtn');
+  const playable = currentPhaseHasPlayablePlayback();
+  const playFromHerePlayable = projectHasPlayablePlayback();
+  const hasPrev = hasPreviousCanonicalMove();
+  const hasNext = hasNextCanonicalMove();
+  const canonicalMove = getCanonicalMoveDisplay();
+  updatePhaseUI();
+  if (prevBtn) prevBtn.disabled = !hasPrev;
+  if (nextBtn) nextBtn.disabled = !hasNext;
+  if (seqBarPrev) seqBarPrev.disabled = !hasPrev;
+  if (seqBarNext) seqBarNext.disabled = !hasNext;
+  if (seqBarPrev) seqBarPrev.setAttribute('aria-disabled', String(!hasPrev));
+  if (seqBarNext) seqBarNext.setAttribute('aria-disabled', String(!hasNext));
+  if (seqBarPrev) seqBarPrev.title = canonicalMove.hasSelection ? 'Previous Move' : 'Previous Move unavailable';
+  if (seqBarNext) seqBarNext.title = canonicalMove.hasSelection ? 'Next Move' : 'Next Move unavailable';
+  if (seqBarPlay) seqBarPlay.disabled = !playFromHerePlayable;
+  if (seqBarPlay) seqBarPlay.title = playFromHerePlayable
+    ? 'Play from the current move through to the end'
+    : 'No later move available to play';
+  if (playIcon)  playIcon.innerHTML = S.animating ? '&#9208;' : '&#9654;';
+  if (playLabel) playLabel.textContent = S.animating ? 'PAUSE' : 'PLAY';
+  if (playBtn) playBtn.disabled = !playable;
+  if (tlPlayBtn) tlPlayBtn.disabled = !playable;
+  updateSequenceDockUI();
+  scheduleSequenceDockPosition();
 }
 
 //  ANIMATION
@@ -6225,30 +7257,13 @@ function togglePlay() {
     render();
     return;
   }
-  const stepCount = sequenceStepCount();
-  const phoneStepPlayback = isPhoneViewport && stepCount > 1;
-  const phoneLivePlayback = isPhoneViewport && !phoneStepPlayback;
   S.playAll = false;
   persistCurrentPhase();
   if (!currentPhaseHasPlayablePlayback()) {
     stopPlayback(false);
-    setHint(isPhoneViewport ? 'Add another step or draw movement to animate this phase.' : 'Add another phase to animate the board.');
+    setHint('This is the final move. There is no next move to preview.');
     refreshInteractionUI();
     return;
-  }
-  if (!phoneStepPlayback && !phoneLivePlayback && phasePlaybackTargetIndex() === null) {
-    stopPlayback(false);
-    setHint('This is the last phase. There is no next snapshot to animate to.');
-    refreshInteractionUI();
-    return;
-  }
-  if (phoneStepPlayback) {
-    if (S.currentStep >= stepCount - 1) {
-      S.currentStep = 0;
-      setLiveBoardFromStep(S.steps[0]);
-    }
-  } else if (!phoneLivePlayback) {
-    activatePhaseForPlayback(GamePlan.currentPhase, { resetToStart: false });
   }
   if (S.animT <= 0 || S.animT >= 1) S.animT = 0;
   S.animating = true;
@@ -6267,7 +7282,7 @@ function togglePlayAll() {
     } else {
       if (!currentPhaseHasPlayablePlayback()) {
         stopPlayback(false);
-        setHint('Draw a path, pass, or kick to animate this phase.');
+        setHint('This is the final move. There are no later moves to play.');
         refreshInteractionUI();
         return;
       }
@@ -6285,19 +7300,12 @@ function togglePlayAll() {
   persistCurrentPhase();
   if (!currentPhaseHasPlayablePlayback()) {
     stopPlayback(false);
-    setHint('Add another phase to animate the board.');
-    refreshInteractionUI();
-    return;
-  }
-  if (phasePlaybackTargetIndex() === null) {
-    stopPlayback(false);
-    setHint('This is the last phase. There are no later phases to play.');
+    setHint('This is the final move. There are no later moves to play.');
     refreshInteractionUI();
     return;
   }
 
   S.playAll = true;
-  activatePhaseForPlayback(GamePlan.currentPhase, { resetToStart: false });
   if (S.animT <= 0 || S.animT >= 1) S.animT = 0;
   S.animating = true;
   S.lastTs = null;
@@ -6308,6 +7316,7 @@ function togglePlayAll() {
 }
 window.togglePlayAll = togglePlayAll;
 window.deleteStep = deleteStep;
+window.deleteCanonicalMove = deleteCanonicalMove;
 
 function animLoop(ts) {
   if (!S.animating) return;
@@ -6315,34 +7324,9 @@ function animLoop(ts) {
   if (S.lastTs !== null) {
     S.animT = Math.min(1, S.animT + (ts - S.lastTs) / 1000 * S.animSpd / DUR);
     if (S.animT >= 1) {
-      if (isPhoneViewport && !S.playAll && sequenceStepCount() > 1) {
-        const lastStepIdx = sequenceStepCount() - 1;
-        if (S.currentStep < lastStepIdx - 1) {
-          S.currentStep += 1;
-          S.animT = 0;
-          S.lastTs = ts;
-          updateTL();
-          updateMobileUI();
-          render();
-          requestAnimationFrame(animLoop);
-          return;
-        }
-        S.currentStep = lastStepIdx;
-        setLiveBoardFromStep(S.steps[lastStepIdx] || emptyStepState());
-        S.animating = false;
-        S.playAll = false;
-        S.animT = 0;
-        S.lastTs = null;
-        setPlayBtnState();
-        refreshInteractionUI();
-        render();
-        updateTL();
-        return;
-      }
-      const targetIdx = phasePlaybackTargetIndex(GamePlan.currentPhase);
-      if (targetIdx !== null) {
-        activatePhaseForPlayback(targetIdx, { resetToStart: false });
-        if (S.playAll && phasePlaybackTargetIndex(GamePlan.currentPhase) !== null) {
+      const targetIdx = canonicalPlaybackTargetIndex(getCurrentCanonicalMoveIndex());
+      if (targetIdx !== null && activateCanonicalMoveForPlayback(targetIdx, { resetProgress: true })) {
+        if (S.playAll && canonicalPlaybackTargetIndex(getCurrentCanonicalMoveIndex()) !== null) {
           S.lastTs = ts;
           updateTL();
           render();
@@ -7056,6 +8040,7 @@ function toggleMobileDrawer() {
   panel.classList.add('sp-drawer-open');
   if (backdrop) backdrop.classList.add('open');
   if (toggle) toggle.setAttribute('aria-expanded', 'true');
+  scheduleSequenceDockPosition();
 }
 function closeMobileDrawer() {
   const panel    = document.getElementById('smartPanel');
@@ -7064,6 +8049,7 @@ function closeMobileDrawer() {
   if (panel) panel.classList.remove('sp-drawer-open');
   if (backdrop) backdrop.classList.remove('open');
   if (toggle) toggle.setAttribute('aria-expanded', 'false');
+  scheduleSequenceDockPosition();
 }
 window.toggleMobileDrawer = toggleMobileDrawer;
 window.closeMobileDrawer  = closeMobileDrawer;
@@ -7144,6 +8130,7 @@ function toggleAccordion(id) {
   const trigger = section.querySelector('.sp-acc-trigger');
   if (trigger) trigger.setAttribute('aria-expanded', !isOpen ? 'true' : 'false');
   try { localStorage.setItem('sp-acc-' + id, isOpen ? '0' : '1'); } catch(e) {}
+  scheduleSequenceDockPosition();
 }
 window.toggleAccordion = toggleAccordion;
 
@@ -7173,6 +8160,7 @@ function refreshInteractionUI() {
   updateSequenceUI();
   updateMobileUI();
   updateSmartPanel();
+  scheduleSequenceDockPosition();
 }
 
 function setTool(t) {
@@ -7474,6 +8462,7 @@ function cancelActiveBoardInteraction() {
   return false;
 }
 function clearAll() {
+  clearPendingCanonicalPhaseStart();
   if (!claimPhoneDataAction('more:clear')) return;
   if (!confirm('Clear all players and paths? This cannot be undone.')) return;
   snapshot();
@@ -7496,6 +8485,7 @@ function clearAll() {
   S.nextId=1;
   S.steps=[emptyStepState()]; S.currentStep=0;
   S.atkUsed=new Set(); S.defUsed=new Set();
+  sequenceDockView = 'primary';
   document.getElementById('playName').value='New Play';
   setHint('Board reset. Start by adding players from the left.');
   syncSpeedButtonsUI();
@@ -7663,6 +8653,7 @@ function makeBoardData(nameOverride) {
 }
 
 function applyBoardData(play, { snapshotBefore = true } = {}) {
+  clearPendingCanonicalPhaseStart();
   const project = normalizeProjectRecord(play);
   if (!project) return false;
   if (snapshotBefore) snapshot();
@@ -7688,6 +8679,7 @@ function applyBoardData(play, { snapshotBefore = true } = {}) {
   S.projectPlayback = p.playback;
   S.animSpd = S.projectPlayback?.currentSpeed || 1;
   spdIdx = Math.max(0, SPEEDS.indexOf(S.animSpd));
+  sequenceDockView = 'primary';
   if (p.metadata?.source !== 'preset') currentPresetId = null;
   document.getElementById('playName').value = GamePlan.name || 'Untitled Play';
   syncPlayMetadataTitle();
@@ -7899,6 +8891,7 @@ function triggerImportPlay() {
 }
 
 function importPlayFromFile(file) {
+  clearPendingCanonicalPhaseStart();
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
@@ -7906,6 +8899,7 @@ function importPlayFromFile(file) {
       const raw = JSON.parse(reader.result);
       const play = migratePlay(raw);
       deserializePlay(play);
+      sequenceDockView = 'primary';
       setTool('move');
       setHint(`Imported "${play.meta?.name || 'Untitled Play'}" from JSON.`);
       refreshInteractionUI();
@@ -8136,6 +9130,7 @@ let _boardBootstrapped = false;
 function _initBoard() {
   if (_boardBootstrapped) return;
   _boardBootstrapped = true;
+  initSequenceControlDock();
   bindViewportObservers();
   resize();
   ensureSteps();
