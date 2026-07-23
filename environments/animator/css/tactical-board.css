@@ -203,6 +203,52 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
   background: rgba(248,113,113,0.12);
   color: #f87171;
 }
+.tb-phase-group {
+  display:flex;
+  align-items:center;
+  flex:0 0 auto;
+  gap:7px;
+  padding-left:10px;
+  border-left:1px solid rgba(255,255,255,0.08);
+}
+.tb-phase-group:first-child {
+  padding-left:0;
+  border-left:none;
+}
+.tb-phase-label {
+  flex:0 0 auto;
+  height:32px;
+  padding:0 10px;
+  border-radius:8px;
+  border:1px solid rgba(108,168,139,0.3);
+  background:rgba(255,255,255,0.02);
+  color:var(--muted2);
+  cursor:pointer;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:.68rem;
+  font-weight:800;
+  letter-spacing:0.12em;
+  text-transform:uppercase;
+  white-space:nowrap;
+  transition:border-color .16s ease, background .16s ease, color .16s ease;
+}
+.tb-phase-label:hover,
+.tb-phase-label:focus-visible {
+  border-color:rgba(216,177,77,0.5);
+  color:#fff;
+  background:rgba(255,255,255,0.06);
+}
+.tb-phase-group.active .tb-phase-label {
+  border-color:rgba(227,178,60,0.6);
+  background:rgba(227,178,60,0.14);
+  color:var(--gold);
+}
+.tb-phase-moves {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  flex:0 0 auto;
+}
 .seq-bar {
   flex: 1 1 320px;
   min-width: 0;
@@ -526,42 +572,26 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
 }
 
 #sequenceControlDock .sequence-dock__status {
-  min-height: 2.8em;
-  color: rgba(243, 241, 232, 0.88);
-  font-size: 0.84rem;
-  line-height: 1.4;
-}
-
-#sequenceControlDock .sequence-dock__meta {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 2px;
 }
 
-#sequenceControlDock .sequence-dock__meta-block {
-  display: grid;
-  gap: 4px;
-  padding: 10px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-}
-
-#sequenceControlDock .sequence-dock__meta-label {
+#sequenceControlDock .sequence-dock__status-move {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(243, 241, 232, 0.56);
-}
-
-#sequenceControlDock .sequence-dock__meta-value {
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 1.06rem;
+  font-size: 1.3rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: #f7f1dd;
+  line-height: 1.15;
+}
+
+#sequenceControlDock .sequence-dock__status-phase {
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(243, 241, 232, 0.64);
+  line-height: 1.3;
 }
 
 #sequenceControlDock .sequence-dock__body,
@@ -670,7 +700,7 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
 }
 
 #sequenceControlDock[data-mode="compact"] {
-  --sequence-dock-panel-height: calc((6 * 44px) + (5 * 8px));
+  --sequence-dock-panel-height: calc((7 * 44px) + (6 * 8px) + 24px);
   width: 180px;
   gap: 10px;
   padding: 12px;
@@ -680,22 +710,16 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
   font-size: 0.58rem;
 }
 
-#sequenceControlDock[data-mode="compact"] .sequence-dock__status {
-  min-height: 0;
-  font-size: 0.78rem;
+#sequenceControlDock[data-mode="compact"] .sequence-dock__status-move {
+  font-size: 1.02rem;
+}
+
+#sequenceControlDock[data-mode="compact"] .sequence-dock__status-phase {
+  font-size: 0.68rem;
 }
 
 #sequenceControlDock[data-mode="compact"] .sequence-dock__action-status {
   font-size: 0.6rem;
-}
-
-#sequenceControlDock[data-mode="compact"] .sequence-dock__meta {
-  grid-template-columns: 1fr;
-  gap: 6px;
-}
-
-#sequenceControlDock[data-mode="compact"] .sequence-dock__meta-block {
-  padding: 8px 10px;
 }
 
 #sequenceControlDock[data-mode="compact"] .sequence-dock__grid {
@@ -711,7 +735,7 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
 }
 
 #sequenceControlDock[data-mode="collapsed"] {
-  --sequence-dock-panel-height: calc((6 * 44px) + (5 * 6px));
+  --sequence-dock-panel-height: calc((7 * 44px) + (6 * 6px) + 22px);
   width: 148px;
   gap: 8px;
   padding: 10px;
@@ -721,16 +745,17 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
   gap: 4px;
 }
 
-#sequenceControlDock[data-mode="collapsed"] .sequence-dock__eyebrow,
-#sequenceControlDock[data-mode="collapsed"] .sequence-dock__meta {
+#sequenceControlDock[data-mode="collapsed"] .sequence-dock__eyebrow {
   display: none;
 }
 
-#sequenceControlDock[data-mode="collapsed"] .sequence-dock__status {
-  min-height: 0;
-  font-size: 0.76rem;
+#sequenceControlDock[data-mode="collapsed"] .sequence-dock__status-move {
+  font-size: 0.92rem;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
+}
+
+#sequenceControlDock[data-mode="collapsed"] .sequence-dock__status-phase {
+  font-size: 0.62rem;
 }
 
 #sequenceControlDock[data-mode="collapsed"] .sequence-dock__action-status {

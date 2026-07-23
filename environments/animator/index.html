@@ -302,29 +302,24 @@
     <aside id="sequenceControlDock" class="sequence-dock" aria-label="Sequence Control Dock">
       <div class="sequence-dock__head">
         <span class="sequence-dock__eyebrow">Sequence</span>
-        <div class="sequence-dock__status" id="sequenceDockStatus" aria-live="polite">Phase 1 of 1. Move 1 of 1.</div>
-      </div>
-
-      <div class="sequence-dock__meta" aria-hidden="true">
-        <div class="sequence-dock__meta-block">
-          <span class="sequence-dock__meta-label" id="sequenceDockPhaseLabel">Group</span>
-          <span class="sequence-dock__meta-value" id="sequenceDockPhase">1 / 1</span>
-        </div>
-        <div class="sequence-dock__meta-block" id="sequenceDockMoveMetaBlock">
-          <span class="sequence-dock__meta-label" id="sequenceDockMoveLabel">Move</span>
-          <span class="sequence-dock__meta-value" id="sequenceDockMove">1 / 1</span>
+        <div class="sequence-dock__status" id="sequenceDockStatus" aria-live="polite">
+          <span class="sequence-dock__status-move" id="sequenceDockMoveHeadline">Move 1 of 1</span>
+          <span class="sequence-dock__status-phase" id="sequenceDockPhaseHeadline">Phase 1 of 1</span>
         </div>
       </div>
 
       <div class="sequence-dock__body">
         <div id="sequenceDockPrimaryPanel" class="sequence-dock__panel sequence-dock__panel--primary">
           <div class="sequence-dock__grid sequence-dock__grid--primary">
-            <button id="sequenceDockPrev" class="sequence-dock__btn" type="button" aria-label="Go to previous move">Previous Move</button>
-            <button id="sequenceDockNext" class="sequence-dock__btn" type="button" aria-label="Go to next move">Next Move</button>
+            <button id="sequenceDockPlay" class="sequence-dock__btn sequence-dock__btn--primary sequence-dock__btn--full" type="button" aria-label="Play from the selected move to the end">Play from Here</button>
+            <button id="sequenceDockPlayPhase" class="sequence-dock__btn sequence-dock__btn--accent sequence-dock__btn--full" type="button" aria-label="Play the current Phase from its first move">Play Phase</button>
             <button id="sequenceDockAddMove" class="sequence-dock__btn sequence-dock__btn--accent" type="button" aria-label="Add move after the current move">Add Move</button>
-            <button id="sequenceDockPlay" class="sequence-dock__btn sequence-dock__btn--primary" type="button" aria-label="Play from the selected move to the end">Play from Here</button>
+            <button id="sequenceDockAddPhase" class="sequence-dock__btn" type="button" aria-label="Start a new phase after the selected move">Start New Phase</button>
+            <button id="sequenceDockDelete" class="sequence-dock__btn sequence-dock__btn--danger" type="button" aria-label="Delete selected move">Delete Move</button>
+            <button id="sequenceDockUndo" class="sequence-dock__btn" type="button" aria-label="Undo the last change">Undo</button>
             <button id="sequenceDockMore" class="sequence-dock__btn sequence-dock__btn--ghost sequence-dock__btn--full" type="button" aria-expanded="false" aria-controls="sequenceDockSecondaryPanel">More</button>
           </div>
+          <div id="sequenceDockPhaseActionStatus" class="sequence-dock__action-status" hidden></div>
         </div>
 
         <div id="sequenceDockSecondaryPanel" class="sequence-dock__panel sequence-dock__panel--secondary" hidden>
@@ -332,11 +327,9 @@
             <button id="sequenceDockDuplicate" class="sequence-dock__btn" type="button" aria-label="Duplicate the selected move">Duplicate Move</button>
             <button id="sequenceDockPreview" class="sequence-dock__btn" type="button" aria-label="Preview only the selected move">Preview Move</button>
             <button id="sequenceDockPlaybackControl" class="sequence-dock__btn" type="button" aria-label="Playback state control">Stop</button>
-            <button id="sequenceDockAddPhase" class="sequence-dock__btn sequence-dock__btn--accent" type="button" aria-label="Start a new phase after the selected move">Start New Phase</button>
-            <button id="sequenceDockDelete" class="sequence-dock__btn sequence-dock__btn--danger" type="button" aria-label="Delete selected move">Delete selected move</button>
-            <button id="sequenceDockBack" class="sequence-dock__btn sequence-dock__btn--ghost" type="button" aria-label="Back to primary sequence actions">Back</button>
+            <button id="sequenceDockRedo" class="sequence-dock__btn" type="button" aria-label="Redo the last undone change">Redo</button>
+            <button id="sequenceDockBack" class="sequence-dock__btn sequence-dock__btn--ghost sequence-dock__btn--full" type="button" aria-label="Back to primary sequence actions">Back</button>
           </div>
-          <div id="sequenceDockPhaseActionStatus" class="sequence-dock__action-status" hidden></div>
         </div>
       </div>
     </aside>
