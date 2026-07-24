@@ -251,6 +251,13 @@ function syncMobileBoardNameInput() {
   if (mobileInput.value !== desktopInput.value) mobileInput.value = desktopInput.value;
 }
 
+// Small visual safety margin (CSS px, already DPR-normalized) kept around the
+// complete rendered board - including the goalpost graphics, which extend a
+// little beyond the pitch rectangle itself - so a slightly tight real-device
+// available area never lets either goalpost sit flush against (or behind) the
+// fixed topbar/toolbar edges.
+const PHONE_FIT_SAFETY_INSET_PX = 8;
+
 function getPhoneViewportState() {
   // SINGLE SOURCE OF TRUTH: the layout (a fixed 100dvh flex/grid column) sizes
   // the #canvasWrap cell; we read that cell's real client box instead of
@@ -261,6 +268,7 @@ function getPhoneViewportState() {
   const availW = Math.max(1, wrap ? (wrap.clientWidth || (rect ? rect.width : 0)) : window.innerWidth);
   const availH = Math.max(1, wrap ? (wrap.clientHeight || (rect ? rect.height : 0)) : window.innerHeight);
   const availTop = rect ? rect.top : 0;
+  const usableW = Math.max(1, availW - PHONE_FIT_SAFETY_INSET_PX * 2);
   // Fill axis by orientation: portrait fills width (tall field + vertical pan);
   // landscape fills height so the whole vertical pitch fits, centred, no pan.
   // Portrait: upright pitch, fill screen WIDTH. Landscape: rotated pitch, FIT the
@@ -270,13 +278,19 @@ function getPhoneViewportState() {
   if (isLandscape) {
     // Proportional FIT: whole rotated pitch, correct rugby shape, centred with a
     // dark surround. Filling every pixel would distort the pitch (odd lines).
-    fieldScale = Math.max(0.01, Math.min(availW / FVH, availH / FVW));
+    // The goalposts sit on the length axis, which maps to WIDTH in landscape -
+    // that axis already carries generous natural letterboxing margin (it's
+    // essentially never the constraining one), so only it gets the safety
+    // inset here. HEIGHT is the axis that's actually filled edge-to-edge and
+    // holds no goalpost content, so it stays at full available size rather
+    // than losing pitch scale to a margin it doesn't need.
+    fieldScale = Math.max(0.01, Math.min(usableW / FVH, availH / FVW));
     fieldScaleX = fieldScaleY = fieldScale;
     fieldCssW = FVH * fieldScale;
     fieldCssH = FVW * fieldScale;
   } else {
-    fieldScale = fieldScaleX = fieldScaleY = Math.max(0.01, availW / FVW);
-    fieldCssW = availW;
+    fieldScale = fieldScaleX = fieldScaleY = Math.max(0.01, usableW / FVW);
+    fieldCssW = usableW;
     fieldCssH = FVH * fieldScale;
   }
   const baseX = (availW - fieldCssW) / 2;
@@ -9231,6 +9245,10 @@ document.addEventListener('keydown', e => {
   if (k === 'arrowright') { e.preventDefault(); goToPhase(GamePlan.currentPhase + 1); return; }
   if (k==='escape')     {
     e.preventDefault();
+    if (document.getElementById('mobileMoreDrawer')?.classList.contains('open')) {
+      setMobileMoreDrawerOpen(false);
+      return;
+    }
     if (radialMenu) {
       closeRadialMenu();
       render();
@@ -9334,6 +9352,39 @@ document.getElementById('mobileMoreDrawer')?.addEventListener('click', (e) => {
   if (!actionBtn || actionBtn.disabled) return;
   setTimeout(() => setMobileMoreDrawerOpen(false), 0);
 });
+
+// Tap-outside-to-close for the mobile More drawer, mirroring the existing
+// mobileToolsDropdown outside-closer below. Intercepted at document capture
+// phase on pointerdown, touchstart AND click - earlier than the canvas's own
+// bubble-phase pointerdown handler and earlier than any bindSinglePhoneButton
+// touchend handler - so the swallowed tap never reaches the pitch or another
+// control underneath (no player move/select, no path draw, no other button,
+// including a plain <a href> whose navigation is normally driven by the
+// eventual click, not by pointerdown/touchstart). A single physical tap fires
+// pointerdown, touchstart AND click as three separate events; the drawer is
+// already closed by the first of them, so later ones re-check "was this
+// gesture already swallowed" via a short time window rather than re-testing
+// the (now-closed) drawer's live state, or their own preventDefault would be
+// skipped and the underlying click would still fire.
+let mobileMoreDrawerSwallowUntil = 0;
+function handleMobileMoreDrawerOutsideTap(e) {
+  const drawer = document.getElementById('mobileMoreDrawer');
+  const moreBtn = document.getElementById('mobMoreBtn');
+  const isOutsideOpenDrawer = !!drawer && drawer.classList.contains('open')
+    && !drawer.contains(e.target) && !moreBtn?.contains(e.target);
+  const withinSwallowWindow = Date.now() <= mobileMoreDrawerSwallowUntil;
+  if (!isOutsideOpenDrawer && !withinSwallowWindow) return;
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation?.();
+  if (isOutsideOpenDrawer) {
+    mobileMoreDrawerSwallowUntil = Date.now() + 500;
+    setMobileMoreDrawerOpen(false);
+  }
+}
+document.addEventListener('pointerdown', handleMobileMoreDrawerOutsideTap, { capture: true });
+document.addEventListener('touchstart', handleMobileMoreDrawerOutsideTap, { capture: true, passive: false });
+document.addEventListener('click', handleMobileMoreDrawerOutsideTap, { capture: true });
 
 function bindSinglePhoneButton(id, handler) {
   const el = document.getElementById(id);
