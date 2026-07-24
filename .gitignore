@@ -4,3 +4,8 @@
 .DS_Store
 PLAYER_FEEDBACK.md
 donau-mobile.png
+
+# Local browser-test artifacts
+.edge-headless-seqdock/
+.edge-headless-viewport/
+.edge-headless-*/
