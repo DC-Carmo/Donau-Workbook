@@ -1263,6 +1263,8 @@ function goToPhase(idx) {
   S.playAll = false;
   S.lastTs = null;
   S.animT = 0;
+  canonicalPlaybackBoundaryIndex = null;
+  canonicalPlaybackMode = 'idle';
   GamePlan.currentPhase = Math.max(0, Math.min(idx, GamePlan.phases.length - 1));
   const phase = normalizePhaseState(GamePlan.phases[GamePlan.currentPhase], GamePlan.currentPhase);
   GamePlan.phases[GamePlan.currentPhase] = phase;
@@ -1304,6 +1306,8 @@ function addPhase() {
   S.playAll = false;
   S.lastTs = null;
   S.animT = 0;
+  canonicalPlaybackBoundaryIndex = null;
+  canonicalPlaybackMode = 'idle';
   GamePlan.currentPhase = nextPhaseIndex;
   clearSelectedObject();
   S.dragging = null;
@@ -1378,6 +1382,8 @@ function addPhaseAfterCurrent() {
   S.playAll = false;
   S.lastTs = null;
   S.animT = 0;
+  canonicalPlaybackBoundaryIndex = null;
+  canonicalPlaybackMode = 'idle';
   GamePlan.currentPhase = nextPhaseIndex;
   loadCurrentPhaseBoardState();
   flashMobilePhaseCounter();
@@ -3100,6 +3106,9 @@ function deserializePlay(obj) {
     S.pointerTap = null;
     S.animT = 0;
     S.animating = false;
+    S.playAll = false;
+    canonicalPlaybackBoundaryIndex = null;
+    canonicalPlaybackMode = 'idle';
     S.raf = null;
     S.lastTs = null;
     S.history = [];
@@ -3195,6 +3204,9 @@ function deserializePlay(obj) {
   S.pointerTap = null;
   S.animT = 0;
   S.animating = false;
+  S.playAll = false;
+  canonicalPlaybackBoundaryIndex = null;
+  canonicalPlaybackMode = 'idle';
   S.animSpd = 1;
   S.raf = null;
   S.lastTs = null;
@@ -6221,6 +6233,7 @@ function stopPlayback(resetProgress = false) {
   if (resetProgress) {
     S.animT = 0;
     canonicalPlaybackBoundaryIndex = null;
+    canonicalPlaybackMode = 'idle';
   }
   setPlayBtnState();
 }
@@ -6608,6 +6621,9 @@ let sequenceDockVisible = false;
 let sequenceDockSide = 'right';
 let pendingCanonicalPhaseStart = false;
 let canonicalPlaybackBoundaryIndex = null;
+// Runtime-only playback intent for the shared engine. Never persisted (not part of
+// GamePlan/save/export/import/history) - reset to 'idle' whenever playback fully stops.
+let canonicalPlaybackMode = 'idle'; // 'idle' | 'preview' | 'phase' | 'from-here'
 
 function setSequenceDockVisibility(isVisible) {
   if (!sequenceDockEls?.dock) return;
@@ -6869,9 +6885,8 @@ function handleSequenceDockPlaybackControl() {
     render();
     return;
   }
-  if (S.animT > 0) {
-    if (S.playAll) toggleSmartPlay();
-    else togglePlay();
+  if (isCanonicalPlaybackPaused()) {
+    resumeCanonicalPlayback();
     return;
   }
   stopPlayback(true);
@@ -7135,8 +7150,8 @@ function handleSequenceDockPlayPhase() {
     render();
     return;
   }
-  if (S.animT > 0 && S.playAll && canonicalPlaybackBoundaryIndex !== null) {
-    togglePlayAll();
+  if (isCanonicalPlaybackPaused()) {
+    resumeCanonicalPlayback();
     return;
   }
   playCurrentCanonicalPhase();
@@ -7347,6 +7362,27 @@ function updateSequenceUI() {
 }
 
 //  ANIMATION
+function isCanonicalPlaybackPaused() {
+  return !S.animating && S.animT > 0;
+}
+
+// Resumes whichever session (preview / phase / from-here) is currently paused,
+// using the state it was started with. Never re-derives or redefines the mode.
+function resumeCanonicalPlayback() {
+  if (!currentPhaseHasPlayablePlayback()) {
+    stopPlayback(true);
+    setHint('This is the final move. There is no next move to continue.');
+    refreshInteractionUI();
+    return;
+  }
+  S.animating = true;
+  S.lastTs = null;
+  setPlayBtnState();
+  updateTL();
+  render();
+  requestAnimationFrame(animLoop);
+}
+
 function toggleSmartPlay() {
   // PRIMARY PLAY (desktop): run the sequence from the CURRENT phase through every
   // later phase to the end. Repeat clicks pause, then resume from where it stopped.
@@ -7379,8 +7415,13 @@ function togglePlay() {
     render();
     return;
   }
+  if (isCanonicalPlaybackPaused()) {
+    resumeCanonicalPlayback();
+    return;
+  }
   S.playAll = false;
   canonicalPlaybackBoundaryIndex = null;
+  canonicalPlaybackMode = 'preview';
   persistCurrentPhase();
   if (!currentPhaseHasPlayablePlayback()) {
     stopPlayback(false);
@@ -7388,34 +7429,26 @@ function togglePlay() {
     refreshInteractionUI();
     return;
   }
-  if (S.animT <= 0 || S.animT >= 1) S.animT = 0;
+  S.animT = 0;
   S.animating = true;
-  const isPlay = S.animating;
+  S.lastTs = null;
   setPlayBtnState();
-  if (isPlay) { S.lastTs = null; requestAnimationFrame(animLoop); }
+  requestAnimationFrame(animLoop);
 }
 
 function togglePlayAll() {
   if (!claimPhoneDataAction('more:play-all')) return;
-  if (S.playAll) {
     if (S.animating) {
       S.animating = false;
       S.lastTs = null;
-    } else {
-      if (!currentPhaseHasPlayablePlayback()) {
-        stopPlayback(false);
-        setHint('This is the final move. There are no later moves to play.');
-        refreshInteractionUI();
-        return;
-      }
-      S.animating = true;
-        S.lastTs = null;
-        requestAnimationFrame(animLoop);
-      }
     setPlayBtnState();
     refreshInteractionUI();
     updateTL();
     render();
+    return;
+  }
+  if (isCanonicalPlaybackPaused()) {
+    resumeCanonicalPlayback();
     return;
   }
 
@@ -7428,8 +7461,9 @@ function togglePlayAll() {
   }
 
   canonicalPlaybackBoundaryIndex = null;
+  canonicalPlaybackMode = 'from-here';
   S.playAll = true;
-  if (S.animT <= 0 || S.animT >= 1) S.animT = 0;
+  S.animT = 0;
   S.animating = true;
   S.lastTs = null;
   setPlayBtnState();
@@ -7447,8 +7481,9 @@ function playCurrentCanonicalPhase() {
   persistCurrentPhase();
   goToCanonicalMove(range.firstIndex);
   canonicalPlaybackBoundaryIndex = range.lastIndex;
+  canonicalPlaybackMode = 'phase';
   S.playAll = true;
-  if (S.animT <= 0 || S.animT >= 1) S.animT = 0;
+  S.animT = 0;
   S.animating = true;
   S.lastTs = null;
   setPlayBtnState();
@@ -7482,6 +7517,7 @@ function animLoop(ts) {
       S.animT = 0;
       S.lastTs = null;
       canonicalPlaybackBoundaryIndex = null;
+      canonicalPlaybackMode = 'idle';
       setPlayBtnState();
       refreshInteractionUI();
       render();
@@ -8623,7 +8659,9 @@ function clearAll() {
   S.projectPlayback = null;
   S.annotations = [];
   S.drawing=null; S.passFrom=null; S.annotationDraft=null; S.selected=null; S.selectedPlayerId=null; S.selectedPlayerIds=[]; S.selectedGroupId=null; S.selectedAnnotationIdValue=null; S.selectedObjectType=null; S.dragPlayerId=null; S.activePasserId=null; S.activeKickerId=null; S.activeRunSourceId=null; S.highlightedPlayerIds=[]; S.ballAssignCandidate=null; S.selectedPathPid=null; S.selectedPassIdx=null; S.pendingGroupPlacement=null;
-  S.animT=0; S.animating=false;
+  S.animT=0; S.animating=false; S.playAll=false;
+  canonicalPlaybackBoundaryIndex = null;
+  canonicalPlaybackMode = 'idle';
   S.animSpd=1; spdIdx=0;
   showGainline=false;
   S.nextId=1;
@@ -8812,6 +8850,9 @@ function applyBoardData(play, { snapshotBefore = true } = {}) {
   setLiveBoardFromStep(activePhase.steps[activePhase.currentStep] || emptyStepState());
   S.animT = 0;
   S.animating = false;
+  S.playAll = false;
+  canonicalPlaybackBoundaryIndex = null;
+  canonicalPlaybackMode = 'idle';
   clearSelectedObject();
   S.selectedPlayerIds = [];
   S.drawing = null;
