@@ -311,6 +311,13 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
   gap: 7px;
   padding: 0 12px;
 }
+/* The Quick Actions Dock is the single playback-control authority whenever it
+   is visible (desktop/tablet). Previous/Next stay in the top bar; the
+   duplicated top Play/Pause/Resume control is hidden while the dock is shown.
+   On phone the dock never activates, so this control remains available there. */
+body.sequence-dock-active .seq-bar-play {
+  display: none;
+}
 .seq-bar-play-icon {
   font-size: .92rem;
   line-height: 1;
@@ -700,7 +707,7 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
 }
 
 #sequenceControlDock[data-mode="compact"] {
-  --sequence-dock-panel-height: calc((7 * 44px) + (6 * 8px) + 24px);
+  --sequence-dock-panel-height: calc((9 * 40px) + (8 * 8px) + 24px);
   width: 180px;
   gap: 10px;
   padding: 12px;
@@ -735,7 +742,7 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
 }
 
 #sequenceControlDock[data-mode="collapsed"] {
-  --sequence-dock-panel-height: calc((7 * 44px) + (6 * 6px) + 22px);
+  --sequence-dock-panel-height: calc((9 * 40px) + (8 * 6px) + 22px);
   width: 148px;
   gap: 8px;
   padding: 10px;
@@ -778,7 +785,7 @@ html, body { width:100%; height:100%; overflow:hidden; overflow-x:hidden; backgr
 
 #sequenceControlDock[data-mode="collapsed"] .sequence-dock__btn,
 #sequenceControlDock[data-mode="compact"] .sequence-dock__btn {
-  min-height: 44px;
+  min-height: 40px;
   white-space: normal;
   line-height: 1.15;
 }
@@ -2985,7 +2992,8 @@ html, body {
   font-size: 0.66rem;
   color: rgba(255,255,255,0.55);
 }
-.mob-tool-btn.active {
+.mob-tool-btn.active,
+.mob-more-btn.active {
   background: rgba(16,185,129,0.18);
   border-color: rgba(16,185,129,0.45);
   color: #10b981;
@@ -4012,7 +4020,7 @@ body.is-phone #bottomPanel {
 
 body.is-phone #mobileToolGrid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
   padding: 10px;
 }

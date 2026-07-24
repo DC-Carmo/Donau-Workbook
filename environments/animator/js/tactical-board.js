@@ -381,6 +381,32 @@ function resize() {
   document.body.classList.toggle('is-phone', isPhone);
   document.body.classList.toggle('tb-mobile-portrait', MOBILE_PORTRAIT);
   syncMobileNotesPanelHost();
+  // #canvasWrap's own CSS (several legacy phone blocks disagree on how it is
+  // bounded) is not a reliable source of the truly available pitch area, so
+  // pin it directly from the two elements that ARE reliably positioned: the
+  // fixed topbar and the fixed bottom rail. This guarantees the wrap never
+  // extends past the visible viewport in either orientation (fixes landscape
+  // crop) without touching the legacy CSS blocks themselves.
+  if (isPhone) {
+    const topbarEl = document.getElementById('topbar');
+    const bottomPanelEl = document.getElementById('bottomPanel');
+    const topbarBottom = topbarEl ? Math.ceil(topbarEl.getBoundingClientRect().bottom) : 0;
+    const bottomPanelTop = bottomPanelEl ? Math.floor(bottomPanelEl.getBoundingClientRect().top) : vpH;
+    const availHeightPx = Math.max(0, bottomPanelTop - topbarBottom);
+    wrap.style.position = 'fixed';
+    wrap.style.left = '0px';
+    wrap.style.right = '0px';
+    wrap.style.top = `${topbarBottom}px`;
+    wrap.style.bottom = 'auto';
+    wrap.style.height = `${availHeightPx}px`;
+  } else if (wrap.style.position === 'fixed') {
+    wrap.style.position = '';
+    wrap.style.left = '';
+    wrap.style.right = '';
+    wrap.style.top = '';
+    wrap.style.bottom = '';
+    wrap.style.height = '';
+  }
   const phoneBox = isPhone ? getPhoneViewportState() : null;
   if (isPhone && (phoneBox.availH < 80 || phoneBox.availW < 80)) {
     if (!window.__animatorResizeRetry) {
@@ -1259,6 +1285,7 @@ function goToPhase(idx) {
   resetDeleteConfirm('phase');
   resetDeleteConfirm('move');
   persistCurrentPhase();
+  cancelCanonicalPlaybackFrame();
   S.animating = false;
   S.playAll = false;
   S.lastTs = null;
@@ -1302,6 +1329,7 @@ function addPhase() {
   const nextPhaseIndex = GamePlan.phases.length;
   const nextPhase = normalizePhaseState(current, nextPhaseIndex);
   GamePlan.phases.push(nextPhase);
+  cancelCanonicalPlaybackFrame();
   S.animating = false;
   S.playAll = false;
   S.lastTs = null;
@@ -1378,6 +1406,7 @@ function addPhaseAfterCurrent() {
   snapshot();
   GamePlan.phases.splice(nextPhaseIndex, 0, nextPhase);
   relabelPhases();
+  cancelCanonicalPlaybackFrame();
   S.animating = false;
   S.playAll = false;
   S.lastTs = null;
@@ -4175,8 +4204,13 @@ function drawMovementGuideLine(start, end, color) {
 }
 
 function renderPhoneEditMovementGuides() {
+  // Ghost Preview has no visible effect on phone: its control is not shown
+  // there, and this overlay (the only ghost-related renderer that ever ran
+  // on phone) must stay suppressed even if the underlying desktop preference
+  // (S.showGhostPrevious) is left on from a previous desktop session.
+  if (isPhoneViewport) return;
   if (!S.showGhostPrevious) return;
-  if (!isPhoneViewport || S.animating) return;
+  if (S.animating) return;
   const baseStep = S.currentStepBaseline || S.steps?.[S.currentStep];
   const baseLookup = baseStep?.players?.length ? buildStepLookup(baseStep.players) : new Map();
   S.players.forEach((player) => {
@@ -5997,10 +6031,13 @@ function addPlayerByNum(num, team) {
   if (isPhoneViewport && lastPhoneAddAction.team === team && (now - lastPhoneAddAction.at) < PHONE_DATA_ACTION_GUARD_MS) {
     return;
   }
-  const used = team === 'A' ? S.atkUsed : S.defUsed;
-  if (used.has(num)) return; // already on field
+  if ((team === 'A' ? S.atkUsed : S.defUsed).has(num)) return; // already on field
   lastPhoneAddAction = { team, at: now };
   snapshot();
+  // snapshot() persists the live board into GamePlan.phases[currentPhase] via a
+  // freshly normalized object, so S.atkUsed/S.defUsed (getters proxying into that
+  // phase) may now point at a new Set instance. Re-read them live rather than
+  // reusing a reference captured before snapshot(), or this add is silently lost.
   // Smart placement: stagger across field
   const existing = S.players.filter(p => p.team === team);
   const idx = existing.length;
@@ -6014,7 +6051,7 @@ function addPlayerByNum(num, team) {
     x: clamp(x, 2, 66), y: clamp(y, -8, 108),
     isBC: false
   });
-  used.add(num);
+  (team === 'A' ? S.atkUsed : S.defUsed).add(num);
   completeFirstUseTutorial();
   rebuildPalette();
   setTool('move');
@@ -6228,6 +6265,7 @@ function currentStepStartProgress() {
 }
 
 function stopPlayback(resetProgress = false) {
+  cancelCanonicalPlaybackFrame();
   S.animating = false;
   S.lastTs = null;
   if (resetProgress) {
@@ -6624,6 +6662,14 @@ let canonicalPlaybackBoundaryIndex = null;
 // Runtime-only playback intent for the shared engine. Never persisted (not part of
 // GamePlan/save/export/import/history) - reset to 'idle' whenever playback fully stops.
 let canonicalPlaybackMode = 'idle'; // 'idle' | 'preview' | 'phase' | 'from-here'
+let canonicalPlaybackRafHandle = null;
+
+function cancelCanonicalPlaybackFrame() {
+  if (canonicalPlaybackRafHandle !== null) {
+    cancelAnimationFrame(canonicalPlaybackRafHandle);
+    canonicalPlaybackRafHandle = null;
+  }
+}
 
 function setSequenceDockVisibility(isVisible) {
   if (!sequenceDockEls?.dock) return;
@@ -6635,6 +6681,10 @@ function setSequenceDockVisibility(isVisible) {
     sequenceDockEls.dock.style.top = '0px';
   }
   document.getElementById('emptyState')?.classList.toggle('sequence-dock-suppressed', sequenceDockVisible);
+  // While the dock is visible it is the single playback-control authority;
+  // the duplicated top Play/Pause/Resume control hides (CSS). Phone never
+  // reaches this with isVisible=true, so the top control stays there.
+  document.body.classList.toggle('sequence-dock-active', sequenceDockVisible);
 }
 
 function getRenderedPitchViewportRect() {
@@ -6716,8 +6766,6 @@ function focusSequenceDockViewTarget(view) {
   if (view === 'secondary') {
     const candidates = [
       sequenceDockEls.duplicate,
-      sequenceDockEls.preview,
-      sequenceDockEls.playbackControl.hidden ? null : sequenceDockEls.playbackControl,
       sequenceDockEls.redo,
       sequenceDockEls.back,
     ].filter(Boolean);
@@ -6877,18 +6925,10 @@ function confirmDeleteSelectedMoveFromDock() {
   deleteCanonicalMove(moveIndex);
 }
 
+// Secondary dock control: Stop only. It never resumes - the one universal
+// Pause/Resume control is sequenceDockPlay (see toggleSmartPlay/togglePlayAll).
 function handleSequenceDockPlaybackControl() {
-  if (S.animating) {
-    stopPlayback(false);
-    refreshInteractionUI();
-    updateTL();
-    render();
-    return;
-  }
-  if (isCanonicalPlaybackPaused()) {
-    resumeCanonicalPlayback();
-    return;
-  }
+  if (!S.animating && !isCanonicalPlaybackPaused()) return;
   stopPlayback(true);
   refreshInteractionUI();
   updateTL();
@@ -7050,7 +7090,7 @@ function updatePhaseUI() {
     label.textContent = `Phase ${phaseIndex + 1}`;
     label.title = `Go to Phase ${phaseIndex + 1}`;
     label.setAttribute('aria-label', `Go to Phase ${phaseIndex + 1}, starting at Move ${firstIndexInPhase + 1}`);
-    label.onclick = () => goToCanonicalMove(firstIndexInPhase);
+    label.onclick = () => handleCanonicalMoveChipSelect(firstIndexInPhase);
     group.appendChild(label);
 
     const moves = document.createElement('div');
@@ -7065,7 +7105,7 @@ function updatePhaseUI() {
       btn.setAttribute('aria-label', `Go to Move ${globalIndex + 1}`);
       if (globalIndex === currentCanonicalIndex) btn.setAttribute('aria-current', 'step');
       else btn.removeAttribute('aria-current');
-      btn.onclick = () => goToCanonicalMove(globalIndex);
+      btn.onclick = () => handleCanonicalMoveChipSelect(globalIndex);
       moves.appendChild(btn);
       moveCursor += 1;
     }
@@ -7172,10 +7212,8 @@ function updateSequenceDockUI() {
   const isAnimating = !!S.animating;
   const hasPausedPlayback = !isAnimating && S.animT > 0;
   const anySessionActive = isAnimating || hasPausedPlayback;
-  const boundaryActive = canonicalPlaybackBoundaryIndex !== null;
-  const phaseSessionActive = anySessionActive && boundaryActive;
   const editingLocked = isAnimating;
-  const showPlaybackControl = isAnimating || hasPausedPlayback;
+  const showPlaybackControl = anySessionActive;
   const isFullMode = sequenceDockMode === 'full';
   const isSecondaryView = !isFullMode && sequenceDockView === 'secondary';
   const labels = getSequenceDockModeLabels(sequenceDockMode);
@@ -7184,16 +7222,10 @@ function updateSequenceDockUI() {
   const deleteDisabled = editingLocked || canonicalMove.count <= 1;
   const historyDisabled = editingLocked || !(S.history && S.history.length);
   const futureDisabled = editingLocked || !(S.future && S.future.length);
-  let playbackControlLabel = '';
-  let playbackControlAria = '';
-
-  if (isAnimating) {
-    playbackControlLabel = 'Pause';
-    playbackControlAria = 'Pause playback';
-  } else if (hasPausedPlayback) {
-    playbackControlLabel = 'Resume';
-    playbackControlAria = S.playAll ? 'Resume playback from here to the end' : 'Resume move preview';
-  }
+  // Exactly one universal Pause/Resume control (sequenceDockPlay). The secondary
+  // control is Stop-only; Play Phase and Preview never relabel themselves.
+  const playbackControlLabel = showPlaybackControl ? 'Stop' : '';
+  const playbackControlAria = 'Stop playback';
 
   sequenceDockEls.dock.dataset.mode = sequenceDockMode;
   sequenceDockEls.dock.dataset.side = sequenceDockSide;
@@ -7206,6 +7238,7 @@ function updateSequenceDockUI() {
     ? (isFullMode ? `Phase ${currentPhase} of ${phaseCount}` : `P ${currentPhase}/${phaseCount}`)
     : (isFullMode ? 'Phase — of —' : 'P —/—');
 
+  // sequenceDockPlay is the ONE universal Pause/Resume control in the dock.
   let playLabel = labels.play;
   let playAria = 'Play from the selected move to the end';
   if (anySessionActive) {
@@ -7216,25 +7249,31 @@ function updateSequenceDockUI() {
   sequenceDockEls.play.setAttribute('aria-label', playAria);
   sequenceDockEls.play.disabled = anySessionActive ? false : !playFromHerePlayable;
 
-  let playPhaseLabel = labels.playPhase;
-  let playPhaseTitle = playPhasePlayable ? 'Play this Phase from its first Move' : 'This Phase contains only one Move';
-  let playPhaseAria = playPhasePlayable ? 'Play the current Phase from its first move' : 'Play Phase unavailable: this Phase contains only one Move';
-  if (phaseSessionActive) {
-    playPhaseLabel = isAnimating ? 'Pause' : 'Resume';
-    playPhaseTitle = isAnimating ? 'Pause playback' : 'Resume playing this Phase';
-    playPhaseAria = playPhaseTitle;
-  }
-  sequenceDockEls.playPhase.textContent = playPhaseLabel;
-  sequenceDockEls.playPhase.title = playPhaseTitle;
-  sequenceDockEls.playPhase.setAttribute('aria-label', playPhaseAria);
-  sequenceDockEls.playPhase.disabled = !playPhasePlayable && !phaseSessionActive;
+  // Play Phase and Preview never relabel to Pause/Resume - they only start a
+  // session. While any session is active or paused, they stay on their normal
+  // label and are disabled until the coach stops playback via sequenceDockPlay
+  // or the secondary Stop control.
+  sequenceDockEls.playPhase.textContent = labels.playPhase;
+  sequenceDockEls.playPhase.disabled = anySessionActive || !playPhasePlayable;
+  sequenceDockEls.playPhase.title = anySessionActive
+    ? 'Stop the current playback first'
+    : (playPhasePlayable ? 'Play this Phase from its first Move' : 'This Phase contains only one Move');
+  sequenceDockEls.playPhase.setAttribute('aria-label', anySessionActive
+    ? 'Play Phase unavailable: stop the current playback first'
+    : (playPhasePlayable ? 'Play the current Phase from its first move' : 'Play Phase unavailable: this Phase contains only one Move'));
 
   sequenceDockEls.addMove.textContent = labels.addMove;
   sequenceDockEls.addMove.disabled = editingLocked || sequenceDockAddMoveLock;
   sequenceDockEls.duplicate.textContent = labels.duplicate;
   sequenceDockEls.duplicate.disabled = editingLocked || canonicalMove.count < 1;
   sequenceDockEls.preview.textContent = labels.preview;
-  sequenceDockEls.preview.disabled = !previewPlayable;
+  sequenceDockEls.preview.disabled = anySessionActive || !previewPlayable;
+  sequenceDockEls.preview.title = anySessionActive
+    ? 'Stop the current playback first'
+    : (previewPlayable ? 'Preview the next transition' : 'No later move available to preview');
+  sequenceDockEls.preview.setAttribute('aria-label', anySessionActive
+    ? 'Preview unavailable: stop the current playback first'
+    : (previewPlayable ? 'Preview only the selected move' : 'Preview unavailable: no later move'));
   sequenceDockEls.more.textContent = labels.more;
   sequenceDockEls.more.hidden = isFullMode;
   sequenceDockEls.more.disabled = isFullMode;
@@ -7331,8 +7370,11 @@ function updateSequenceUI() {
   const tlPlayBtn = document.getElementById('tlPlayBtn');
   const playable = currentPhaseHasPlayablePlayback();
   const playFromHerePlayable = projectHasPlayablePlayback();
-  const hasPrev = hasPreviousCanonicalMove();
-  const hasNext = hasNextCanonicalMove();
+  const activeTransition = getActiveCanonicalTransitionRefs();
+  // During an active/paused transition, Previous/Next always target the actual
+  // transition source/target - not just whichever chip is currently highlighted.
+  const hasPrev = activeTransition ? true : hasPreviousCanonicalMove();
+  const hasNext = activeTransition ? true : hasNextCanonicalMove();
   const canonicalMove = getCanonicalMoveDisplay();
   updatePhaseUI();
   if (prevBtn) prevBtn.disabled = !hasPrev;
@@ -7341,8 +7383,12 @@ function updateSequenceUI() {
   if (seqBarNext) seqBarNext.disabled = !hasNext;
   if (seqBarPrev) seqBarPrev.setAttribute('aria-disabled', String(!hasPrev));
   if (seqBarNext) seqBarNext.setAttribute('aria-disabled', String(!hasNext));
-  if (seqBarPrev) seqBarPrev.title = canonicalMove.hasSelection ? 'Previous Move' : 'Previous Move unavailable';
-  if (seqBarNext) seqBarNext.title = canonicalMove.hasSelection ? 'Next Move' : 'Next Move unavailable';
+  if (seqBarPrev) seqBarPrev.title = activeTransition
+    ? 'Stop playback and return to the previous Move'
+    : (canonicalMove.hasSelection ? 'Previous Move' : 'Previous Move unavailable');
+  if (seqBarNext) seqBarNext.title = activeTransition
+    ? 'Stop playback and jump to the next Move'
+    : (canonicalMove.hasSelection ? 'Next Move' : 'Next Move unavailable');
   const isPaused = !S.animating && S.animT > 0;
   const anyPlaybackActive = S.animating || isPaused;
   if (seqBarPlay) seqBarPlay.disabled = anyPlaybackActive ? false : !playFromHerePlayable;
@@ -7380,7 +7426,58 @@ function resumeCanonicalPlayback() {
   setPlayBtnState();
   updateTL();
   render();
-  requestAnimationFrame(animLoop);
+  canonicalPlaybackRafHandle = requestAnimationFrame(animLoop);
+}
+
+// While animating or paused, the canonical transition in flight always has a
+// resolvable source (the still-selected Move) and target (the next Move the
+// engine is animating toward) - independent of which chip happens to be
+// highlighted. Returns null when idle.
+function getActiveCanonicalTransitionRefs() {
+  if (!S.animating && !isCanonicalPlaybackPaused()) return null;
+  const fromIdx = getCurrentCanonicalMoveIndex();
+  const toIdx = canonicalPlaybackTargetIndex(fromIdx);
+  if (fromIdx < 0 || toIdx === null) return null;
+  return { fromIdx, toIdx };
+}
+
+// Fully cancels any active/paused playback session and lands cleanly on the
+// given canonical Move index, selected and editable. Shared by transport
+// (Previous/Next), Move chips and Phase labels - never a second engine.
+function cancelPlaybackAndSelect(index) {
+  stopPlayback(true);
+  activateCanonicalMoveForPlayback(index, { resetProgress: true });
+  updateTL();
+  render();
+}
+
+function handleCanonicalPrevious() {
+  const transition = getActiveCanonicalTransitionRefs();
+  if (transition) {
+    cancelPlaybackAndSelect(transition.fromIdx);
+    return;
+  }
+  goToPreviousCanonicalMove();
+}
+window.handleCanonicalPrevious = handleCanonicalPrevious;
+
+function handleCanonicalNext() {
+  const transition = getActiveCanonicalTransitionRefs();
+  if (transition) {
+    cancelPlaybackAndSelect(transition.toIdx);
+    return;
+  }
+  goToNextCanonicalMove();
+}
+window.handleCanonicalNext = handleCanonicalNext;
+
+function handleCanonicalMoveChipSelect(index) {
+  const transition = getActiveCanonicalTransitionRefs();
+  if (transition) {
+    cancelPlaybackAndSelect(index);
+    return;
+  }
+  goToCanonicalMove(index);
 }
 
 function toggleSmartPlay() {
@@ -7433,7 +7530,7 @@ function togglePlay() {
   S.animating = true;
   S.lastTs = null;
   setPlayBtnState();
-  requestAnimationFrame(animLoop);
+  canonicalPlaybackRafHandle = requestAnimationFrame(animLoop);
 }
 
 function togglePlayAll() {
@@ -7469,7 +7566,7 @@ function togglePlayAll() {
   setPlayBtnState();
   updateTL();
   render();
-  requestAnimationFrame(animLoop);
+  canonicalPlaybackRafHandle = requestAnimationFrame(animLoop);
 }
 window.togglePlayAll = togglePlayAll;
 window.deleteStep = deleteStep;
@@ -7489,7 +7586,7 @@ function playCurrentCanonicalPhase() {
   setPlayBtnState();
   updateTL();
   render();
-  requestAnimationFrame(animLoop);
+  canonicalPlaybackRafHandle = requestAnimationFrame(animLoop);
 }
 window.playCurrentCanonicalPhase = playCurrentCanonicalPhase;
 
@@ -7508,7 +7605,7 @@ function animLoop(ts) {
           S.lastTs = ts;
           updateTL();
           render();
-          requestAnimationFrame(animLoop);
+          canonicalPlaybackRafHandle = requestAnimationFrame(animLoop);
           return;
         }
       }
@@ -7518,6 +7615,7 @@ function animLoop(ts) {
       S.lastTs = null;
       canonicalPlaybackBoundaryIndex = null;
       canonicalPlaybackMode = 'idle';
+      canonicalPlaybackRafHandle = null;
       setPlayBtnState();
       refreshInteractionUI();
       render();
@@ -7527,7 +7625,7 @@ function animLoop(ts) {
   }
   S.lastTs = ts;
   render(); updateTL();
-  if (S.animating) requestAnimationFrame(animLoop);
+  if (S.animating) canonicalPlaybackRafHandle = requestAnimationFrame(animLoop);
 }
 function setPlayBtnState() {
   syncPlayButtons();
@@ -7684,8 +7782,13 @@ function syncPlayButtons() {
     mobPlayBtn.disabled = !singlePlayable;
   }
   if (mobileTopPlayBtn) {
-    mobileTopPlayBtn.textContent = singlePlayActive ? 'Pause' : 'Play';
-    mobileTopPlayBtn.disabled = !singlePlayable || playAllLocked;
+    // Universal Pause/Resume control on phone (mirrors the desktop dock's
+    // sequenceDockPlay): idle -> Play from Here; while any session (Preview,
+    // Play Phase or Play from Here, however it was started) is active or
+    // paused, this becomes the single Pause/Resume control for it.
+    const mobileSessionActive = S.animating || isCanonicalPlaybackPaused();
+    mobileTopPlayBtn.textContent = S.animating ? 'Pause' : (isCanonicalPlaybackPaused() ? 'Resume' : 'Play');
+    mobileTopPlayBtn.disabled = mobileSessionActive ? false : !playAllPlayable;
   }
 }
 
@@ -8504,9 +8607,8 @@ function updateMobileUI() {
   const mobGainlineBtn = document.getElementById('mobGainlineBtn');
   const mobileRailAddAttackBtn = document.getElementById('mobileRailAddAttackBtn');
   const mobileRailAddDefenceBtn = document.getElementById('mobileRailAddDefenceBtn');
-  const mobileMoreAddAttackBtn = document.getElementById('mobileMoreAddAttackBtn');
-  const mobileMoreAddDefenceBtn = document.getElementById('mobileMoreAddDefenceBtn');
-  const mobileMorePlayAllBtn = document.getElementById('mobileMorePlayAllBtn');
+  const mobileMorePlayPhaseBtn = document.getElementById('mobileMorePlayPhaseBtn');
+  const mobileMorePreviewBtn = document.getElementById('mobileMorePreviewBtn');
   const playAllPlayable = projectHasPlayablePlayback();
 
   syncResponsiveToolbarLabels();
@@ -8516,8 +8618,15 @@ function updateMobileUI() {
     mobilePhaseCounterLabel.textContent = `PHASE ${GamePlan.currentPhase + 1}/${GamePlan.phases.length} · MOVE ${S.currentStep + 1}/${sequenceStepCount()}`;
   }
   syncSpeedButtonsUI();
-  if (mobilePhasePrevBtn) mobilePhasePrevBtn.disabled = GamePlan.currentPhase === 0;
-  if (mobilePhaseNextBtn) mobilePhaseNextBtn.disabled = GamePlan.currentPhase >= GamePlan.phases.length - 1;
+  // Header chevrons step canonical Moves (see the bindSinglePhoneButton wiring
+  // below), so their disabled state follows the canonical Move boundary, not
+  // the current Phase's boundary.
+  {
+    const canonicalIndex = getCurrentCanonicalMoveIndex();
+    const canonicalCount = getCanonicalMoveCount();
+    if (mobilePhasePrevBtn) mobilePhasePrevBtn.disabled = canonicalIndex <= 0;
+    if (mobilePhaseNextBtn) mobilePhaseNextBtn.disabled = canonicalIndex < 0 || canonicalIndex >= canonicalCount - 1;
+  }
   if (mobilePhaseStepperValue) mobilePhaseStepperValue.textContent = `${GamePlan.currentPhase + 1}/${GamePlan.phases.length}`;
   if (mobileMoveStepperValue) mobileMoveStepperValue.textContent = `${sequenceStepCount()}/${sequenceStepCount()}`;
   if (mobilePhaseDeleteBtn) {
@@ -8534,11 +8643,25 @@ function updateMobileUI() {
   }
   if (mobileRailAddAttackBtn) mobileRailAddAttackBtn.disabled = S.atkUsed.size >= 15;
   if (mobileRailAddDefenceBtn) mobileRailAddDefenceBtn.disabled = S.defUsed.size >= 15;
-  if (mobileMoreAddAttackBtn) mobileMoreAddAttackBtn.disabled = S.atkUsed.size >= 15;
-  if (mobileMoreAddDefenceBtn) mobileMoreAddDefenceBtn.disabled = S.defUsed.size >= 15;
-  if (mobileMorePlayAllBtn) {
-    mobileMorePlayAllBtn.textContent = S.animating && S.playAll ? 'PAUSE ALL' : 'PLAY ALL';
-    mobileMorePlayAllBtn.disabled = !playAllPlayable;
+  // Play Phase / Preview Move (More panel): same rule as the desktop dock -
+  // keep their normal label at all times, disable while any playback session
+  // (started from either of them or from the top Play control) is active or
+  // paused, so the top control remains the single Pause/Resume authority.
+  const mobileAnySessionActive = S.animating || isCanonicalPlaybackPaused();
+  if (mobileMorePlayPhaseBtn) {
+    const phaseRange = getCanonicalPhasePlaybackRange();
+    const playPhasePlayable = !!phaseRange && phaseRange.moveCount > 1;
+    mobileMorePlayPhaseBtn.disabled = mobileAnySessionActive || !playPhasePlayable;
+    mobileMorePlayPhaseBtn.title = mobileAnySessionActive
+      ? 'Stop the current playback first'
+      : (playPhasePlayable ? 'Play this Phase from its first Move' : 'This Phase contains only one Move');
+  }
+  if (mobileMorePreviewBtn) {
+    const previewPlayable = currentPhaseHasPlayablePlayback();
+    mobileMorePreviewBtn.disabled = mobileAnySessionActive || !previewPlayable;
+    mobileMorePreviewBtn.title = mobileAnySessionActive
+      ? 'Stop the current playback first'
+      : (previewPlayable ? 'Preview the next transition' : 'No later move available to preview');
   }
   MOBILE_DRAWER_IDS.forEach(id => {
     const section = document.getElementById(`drawer-${id}`);
@@ -9250,11 +9373,14 @@ bindSinglePhoneButton('mobileRailAddDefenceBtn', () => addNextAvailablePlayer('D
 bindSinglePhoneButton('mobileStepBtn', () => addStep());
 bindSinglePhoneButton('mobileRailUndoBtn', () => undo());
 bindSinglePhoneButton('mobMoreBtn', () => toggleMobileMoreDrawer());
-bindSinglePhoneButton('mobilePhasePrevBtn', () => goToPhase(GamePlan.currentPhase - 1));
-bindSinglePhoneButton('mobilePhaseNextBtn', () => goToPhase(GamePlan.currentPhase + 1));
+// The top header chevrons step one canonical Move at a time (matching the
+// "MOVE X/Y" half of the header label), sharing the same transport-interrupt
+// behaviour as the desktop seq-bar Previous/Next: mid-playback they cancel and
+// land on the transition's source/destination Move rather than stepping Phases.
+bindSinglePhoneButton('mobilePhasePrevBtn', () => handleCanonicalPrevious());
+bindSinglePhoneButton('mobilePhaseNextBtn', () => handleCanonicalNext());
 bindSinglePhoneButton('mobilePhaseAddBtn', () => addPhaseAfterCurrent());
 bindSinglePhoneButton('mobilePhaseDeleteBtn', () => deleteCurrentPhaseWithConfirm());
-bindSinglePhoneButton('mobileMoveAddBtn', () => addStep());
 bindSinglePhoneButton('mobileMoveDeleteBtn', () => deleteLastMoveWithConfirm());
 
 let lastPhoneUiActivation = { key: '', target: null, at: -Infinity };
