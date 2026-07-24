@@ -265,6 +265,16 @@ const PHONE_FIT_SAFETY_INSET_PX = 8;
 // that side gets more guaranteed clearance than the top.
 const PHONE_PORTRAIT_TOP_INSET_PX = 8;
 const PHONE_PORTRAIT_BOTTOM_INSET_PX = 20;
+// Explicit, verified minimum clearances for the portrait bottom-fit check
+// below (distinct from the insets above, which drive the initial placement -
+// this is the hard invariant that placement is then verified against).
+const PHONE_PORTRAIT_BOTTOM_CLEARANCE_MIN_PX = 16;
+const PHONE_PORTRAIT_TOP_CLEARANCE_MIN_PX = 8;
+// A selected player's halo/selection ring is a few FIXED canvas px beyond the
+// player circle (see drawPlayer: r+3 on mobile, r>=16), not scaled by field
+// units, so it is added on top of the field's own display-bounds margin
+// (F.DY1) when checking how far the complete rendered board can extend.
+const PHONE_RENDERED_MARKER_HALO_PX = 24;
 
 // window.visualViewport reflects what is ACTUALLY visible in Safari (it can
 // differ from window.innerWidth/innerHeight while the dynamic toolbar is
@@ -351,6 +361,34 @@ function getPhoneViewportState() {
       baseY = PHONE_PORTRAIT_TOP_INSET_PX + (slack - minInsets) / 2;
     } else {
       baseY = Math.max(0, Math.min(PHONE_PORTRAIT_TOP_INSET_PX, slack));
+    }
+    // Explicit verify+correct against the hard clearance invariant (distinct
+    // from the insets above, which only set the initial placement): the
+    // complete rendered board - fieldCssH already spans the field's own
+    // display-bounds margin past the goalpost, plus the selection-halo's
+    // fixed-pixel overshoot beyond that - must clear the toolbar edge by at
+    // least the minimum bottom clearance, in real measured px.
+    const maxRenderedBottom = availH - PHONE_PORTRAIT_BOTTOM_CLEARANCE_MIN_PX;
+    let renderedBottom = baseY + fieldCssH + PHONE_RENDERED_MARKER_HALO_PX;
+    if (renderedBottom > maxRenderedBottom) {
+      const overflowPx = renderedBottom - maxRenderedBottom;
+      const shiftedBaseY = baseY - overflowPx;
+      if (shiftedBaseY >= PHONE_PORTRAIT_TOP_CLEARANCE_MIN_PX) {
+        baseY = shiftedBaseY;
+      } else {
+        // Shifting alone cannot satisfy both clearances - reduce scale
+        // minimally and uniformly (never distort width vs height) until it can.
+        baseY = PHONE_PORTRAIT_TOP_CLEARANCE_MIN_PX;
+        const availableForBoard = maxRenderedBottom - baseY - PHONE_RENDERED_MARKER_HALO_PX;
+        const shrinkRatio = Math.max(0.1, Math.min(1, availableForBoard / fieldCssH));
+        if (shrinkRatio < 1) {
+          fieldScale *= shrinkRatio;
+          fieldScaleX = fieldScaleY = fieldScale;
+          fieldCssH = FVH * fieldScale;
+          fieldCssW = FVW * fieldScale;
+          baseX = (availW - fieldCssW) / 2;
+        }
+      }
     }
   }
   const overflow = Math.max(0, fieldCssH - availH);
@@ -461,6 +499,26 @@ function resize() {
     }
     return;
   }
+  // Safari can fire orientationchange/resize with visualViewport/innerWidth
+  // still reporting the PREVIOUS orientation's dimensions for one event,
+  // before the real ones land, while #canvasWrap's own live CSS box (pinned
+  // via left:0/right:0, which the browser reflows immediately and
+  // independently of JS) has already flipped to the new one.
+  // document.documentElement.clientWidth/Height is a second, independently-
+  // updated source of the current layout viewport; when it disagrees with
+  // vpW/vpH on which axis is longer, this pass's dimensions are stale - the
+  // fit below would be computed for the wrong orientation (this is the
+  // "pitch disappears/collapses to an absurd scale" bug). Skip this pass
+  // entirely (leaving whatever was last painted on screen untouched) and let
+  // the next scheduled pass - orientationchange's own +250ms/+500ms
+  // catch-ups, or the ResizeObserver on #canvasWrap/#topbar/#bottomPanel,
+  // which will have settled - apply the real geometry instead.
+  const docW = document.documentElement.clientWidth;
+  const docH = document.documentElement.clientHeight;
+  if (docW > 0 && docH > 0 && (vpW > vpH) !== (docW > docH)) {
+    scheduleResizePass();
+    return;
+  }
   const isPhone = Math.min(vpW, vpH) <= 700;
   const MOBILE_PORTRAIT = isPhone && vpH > vpW;
   const PHONE_LANDSCAPE = isPhone && !MOBILE_PORTRAIT;
@@ -508,14 +566,35 @@ function resize() {
     wrap.style.height = '';
   }
   const phoneBox = isPhone ? getPhoneViewportState() : null;
-  if (isPhone && (phoneBox.availH < 80 || phoneBox.availW < 80)) {
-    if (!window.__animatorResizeRetry) {
-      window.__animatorResizeRetry = setTimeout(() => {
-        window.__animatorResizeRetry = null;
-        scheduleResizePass();
-      }, 180);
+  // Defence in depth beyond the orientation cross-check above: reject any
+  // pass whose computed fit is too small to be usable, contains a non-finite
+  // value, or has collapsed/exploded in scale (the rendered board grossly
+  // exceeding the available box - the signature of a fit computed from a
+  // mismatched dimension pair). Rejecting here means resize() returns before
+  // touching any wrap/canvas/global scale state, so the field never blanks
+  // or distorts - whatever was last painted stays on screen until the
+  // already-scheduled catch-up pass supplies settled measurements.
+  if (isPhone) {
+    const nums = phoneBox && [phoneBox.availW, phoneBox.availH, phoneBox.fieldScale, phoneBox.fieldCssW, phoneBox.fieldCssH, phoneBox.baseX, phoneBox.baseY];
+    // fieldCssW must never exceed availW by much in either orientation, but
+    // fieldCssH legitimately exceeds availH in portrait (that's the existing,
+    // supported vertical-pan/overflow case) - only landscape's height (which
+    // is always meant to fit exactly, never pan) is checked against it.
+    const isValid = !!phoneBox
+      && nums.every(Number.isFinite)
+      && phoneBox.availH >= 80 && phoneBox.availW >= 80
+      && phoneBox.fieldScale > 0
+      && phoneBox.fieldCssW <= phoneBox.availW * 1.25
+      && (MOBILE_PORTRAIT || phoneBox.fieldCssH <= phoneBox.availH * 1.25);
+    if (!isValid) {
+      if (!window.__animatorResizeRetry) {
+        window.__animatorResizeRetry = setTimeout(() => {
+          window.__animatorResizeRetry = null;
+          scheduleResizePass();
+        }, 180);
+      }
+      return;
     }
-    return;
   }
   const wrapRect = wrap.getBoundingClientRect();
   const wrapW = wrap.clientWidth || wrapRect.width || cv.clientWidth || window.innerWidth;
