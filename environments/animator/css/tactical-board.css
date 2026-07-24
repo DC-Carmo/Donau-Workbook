@@ -4025,6 +4025,14 @@ body.is-phone #mobileToolGrid {
   padding: 10px;
 }
 
+/* Default (portrait/desktop): the rail wrapper divs are invisible to layout,
+   so their five buttons are direct grid items of #mobileToolGrid above,
+   unchanged from before the wrappers existed. Only phone landscape (further
+   below) turns a .mob-rail into a real vertical column. */
+.mob-rail {
+  display: contents;
+}
+
 body.is-phone .mob-tool-btn,
 body.is-phone .mob-more-btn {
   display: inline-flex;
@@ -4518,9 +4526,13 @@ body.tb-mobile-portrait #mobileMoreDrawer {
 body.is-phone:not(.tb-mobile-portrait) {
   /* Trimmed to just above the actual button content (36-40px) plus their
      existing padding, so the saved vertical space goes to the pitch instead
-     of unused chrome margin - the buttons themselves are unchanged. */
+     of unused chrome margin - the buttons themselves are unchanged.
+     --tb-phone-rail-h intentionally stays at its shared is-phone value here:
+     the bottom bar itself is removed below via an explicit min-height:0 on
+     #bottomPanel, so this variable's other consumers (toast, notes sheet)
+     are left untouched rather than being changed by cascade side effect. */
   --tb-phone-topbar-h: 46px;
-  --tb-phone-rail-h: 52px;
+  --tb-phone-rail-w: 64px;
 }
 
 body.is-phone:not(.tb-mobile-portrait) #topbar {
@@ -4555,29 +4567,71 @@ body.is-phone:not(.tb-mobile-portrait) #canvasWrap {
 }
 
 body.is-phone:not(.tb-mobile-portrait) #bottomPanel {
-  min-height: var(--tb-phone-rail-h);
-  background: linear-gradient(180deg, rgba(4, 10, 18, 0.12), rgba(4, 10, 18, 0.62));
-  backdrop-filter: blur(10px);
-  border-top-color: rgba(255, 255, 255, 0.12);
+  /* The five primary actions no longer live in a horizontal bottom bar in
+     landscape (see #mobileToolGrid below) - #bottomPanel reserves no height
+     at all now, so the recovered space goes straight to the pitch. It stays
+     position:fixed with overflow:visible purely as an anchor; its fixed-
+     position children (drawer, backdrop, toolGrid) size themselves. */
+  min-height: 0;
+  height: 0;
+  padding: 0;
+  border-top: 0;
+  background: none;
+  backdrop-filter: none;
   box-shadow: none;
+  overflow: visible;
 }
 
+body.is-phone:not(.tb-mobile-portrait) #app {
+  padding-top: var(--tb-phone-topbar-h);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Side rails: #mobileToolGrid becomes a full-height transparent strip so the
+   empty centre (over the pitch) never intercepts taps; each .mob-rail
+   (real columns only here - display:contents in portrait, see base rule)
+   re-enables pointer-events for its own buttons only. */
 body.is-phone:not(.tb-mobile-portrait) #mobileToolGrid {
-  gap: 6px;
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--tb-phone-topbar-h);
+  bottom: env(safe-area-inset-bottom, 0px);
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
   padding: 6px;
+  gap: 0;
+  pointer-events: none;
+  z-index: 172;
+}
+
+body.is-phone:not(.tb-mobile-portrait) .mob-rail {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  gap: 6px;
+  width: var(--tb-phone-rail-w);
+  pointer-events: auto;
 }
 
 body.is-phone:not(.tb-mobile-portrait) .mob-tool-btn,
 body.is-phone:not(.tb-mobile-portrait) .mob-more-btn {
-  min-height: 40px;
-  font-size: 0.66rem;
-  padding: 0 6px;
+  min-height: 44px;
+  min-width: 44px;
+  font-size: 0.62rem;
+  line-height: 1.15;
+  padding: 2px 4px;
+  white-space: normal;
+  word-break: break-word;
 }
 
 body.is-phone:not(.tb-mobile-portrait) #mobileMoreDrawer {
   left: 0;
   right: 0;
-  bottom: var(--tb-phone-rail-h);
+  bottom: env(safe-area-inset-bottom, 0px);
   height: min(50dvh, 420px);
   max-height: min(50dvh, 420px);
   padding: 10px;
@@ -4590,10 +4644,6 @@ body.is-phone:not(.tb-mobile-portrait) #mobileMoreDrawer {
 body.is-phone:not(.tb-mobile-portrait) .mobile-board-menu-sheet {
   top: calc(var(--tb-phone-topbar-h) + 6px + env(safe-area-inset-top));
   max-height: calc(100dvh - var(--tb-phone-topbar-h) - 12px - env(safe-area-inset-top));
-}
-
-body.is-phone:not(.tb-mobile-portrait) #app {
-  padding-top: var(--tb-phone-topbar-h);
 }
 
 body.is-phone:not(.tb-mobile-portrait) #workspace {

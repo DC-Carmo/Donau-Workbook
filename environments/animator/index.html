@@ -370,11 +370,19 @@
         </div>
       </div>
       <div id="mobileToolGrid">
-        <button class="mob-tool-btn" id="mobileRailAddAttackBtn" type="button" onclick="addNextAvailablePlayer('A')">+ ATTACK</button>
-        <button class="mob-tool-btn" id="mobileRailAddDefenceBtn" type="button" onclick="addNextAvailablePlayer('D')">+ DEFENCE</button>
-        <button class="mob-tool-btn" id="mobileStepBtn" type="button" onclick="addStep()">+ MOVE</button>
-        <button class="mob-tool-btn" id="mobileRailUndoBtn" type="button" onclick="undo()">UNDO</button>
-        <button class="mob-tool-btn mob-tool-more" id="mobMoreBtn" onclick="toggleMobileMoreDrawer()">MORE &#9652;&#xFE0E;</button>
+        <!-- .mob-rail is `display:contents` in portrait (buttons flow directly
+             into the existing 5-column grid, unchanged) and becomes a real
+             vertical rail only in phone landscape, where these same two
+             groups render as fixed side columns in the pitch letterboxing. -->
+        <div id="mobileRailLeft" class="mob-rail">
+          <button class="mob-tool-btn" id="mobileRailAddAttackBtn" type="button" onclick="addNextAvailablePlayer('A')">+ ATTACK</button>
+          <button class="mob-tool-btn" id="mobileRailAddDefenceBtn" type="button" onclick="addNextAvailablePlayer('D')">+ DEFENCE</button>
+        </div>
+        <div id="mobileRailRight" class="mob-rail">
+          <button class="mob-tool-btn" id="mobileStepBtn" type="button" onclick="addStep()">+ MOVE</button>
+          <button class="mob-tool-btn" id="mobileRailUndoBtn" type="button" onclick="undo()">UNDO</button>
+          <button class="mob-tool-btn mob-tool-more" id="mobMoreBtn" onclick="toggleMobileMoreDrawer()">MORE &#9652;&#xFE0E;</button>
+        </div>
       </div>
       <div id="mobileCoachToast" aria-live="polite" aria-hidden="true"></div>
 

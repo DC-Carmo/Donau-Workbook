@@ -257,6 +257,36 @@ function syncMobileBoardNameInput() {
 // available area never lets either goalpost sit flush against (or behind) the
 // fixed topbar/toolbar edges.
 const PHONE_FIT_SAFETY_INSET_PX = 8;
+// Portrait uses an intentionally asymmetric top/bottom margin around the
+// complete rendered board rather than pure centring: the fixed bottom
+// toolbar sits directly below the pitch, and a selected player's halo ring
+// (a few fixed canvas px beyond the player itself, not scaled by field
+// units) can extend past the goalpost/field bounds near the bottom edge, so
+// that side gets more guaranteed clearance than the top.
+const PHONE_PORTRAIT_TOP_INSET_PX = 8;
+const PHONE_PORTRAIT_BOTTOM_INSET_PX = 20;
+
+// window.visualViewport reflects what is ACTUALLY visible in Safari (it can
+// differ from window.innerWidth/innerHeight while the dynamic toolbar is
+// showing/hiding), so it is the source of truth for phone fitting; innerWidth
+///innerHeight remain the fallback for browsers without it.
+function getVisualViewportBox() {
+  const vv = window.visualViewport;
+  if (vv) {
+    return {
+      width: vv.width,
+      height: vv.height,
+      offsetLeft: vv.offsetLeft || 0,
+      offsetTop: vv.offsetTop || 0,
+    };
+  }
+  return {
+    width: window.innerWidth || document.documentElement.clientWidth || 0,
+    height: window.innerHeight || document.documentElement.clientHeight || 0,
+    offsetLeft: 0,
+    offsetTop: 0,
+  };
+}
 
 function getPhoneViewportState() {
   // SINGLE SOURCE OF TRUTH: the layout (a fixed 100dvh flex/grid column) sizes
@@ -265,36 +295,64 @@ function getPhoneViewportState() {
   // the dual-authority (CSS vs JS) conflict that broke phone field anchoring.
   const wrap = document.getElementById('canvasWrap');
   const rect = wrap ? wrap.getBoundingClientRect() : null;
-  const availW = Math.max(1, wrap ? (wrap.clientWidth || (rect ? rect.width : 0)) : window.innerWidth);
-  const availH = Math.max(1, wrap ? (wrap.clientHeight || (rect ? rect.height : 0)) : window.innerHeight);
-  const availTop = rect ? rect.top : 0;
-  const usableW = Math.max(1, availW - PHONE_FIT_SAFETY_INSET_PX * 2);
+  let availW = Math.max(1, wrap ? (wrap.clientWidth || (rect ? rect.width : 0)) : window.innerWidth);
+  let availH = Math.max(1, wrap ? (wrap.clientHeight || (rect ? rect.height : 0)) : window.innerHeight);
+  let availTop = rect ? rect.top : 0;
+  // Clamp the measured wrap box against the true visual viewport so a stale
+  // or momentarily-larger layout viewport (Safari's toolbar mid-transition)
+  // never claims screen space that isn't actually visible right now.
+  const vv = getVisualViewportBox();
+  const vvTop = vv.offsetTop;
+  const vvBottom = vv.offsetTop + vv.height;
+  const clampedTop = Math.max(availTop, vvTop);
+  const clampedBottom = Math.min(availTop + availH, vvBottom);
+  availH = Math.max(1, clampedBottom - clampedTop);
+  availTop = clampedTop;
+  availW = Math.max(1, Math.min(availW, vv.width));
   // Fill axis by orientation: portrait fills width (tall field + vertical pan);
   // landscape fills height so the whole vertical pitch fits, centred, no pan.
   // Portrait: upright pitch, fill screen WIDTH. Landscape: rotated pitch, FIT the
   // ENTIRE pitch (length -> width axis) so nothing is cut off and no pan is needed.
   const isLandscape = !isMobilePortraitBoard;
-  let fieldScale, fieldScaleX, fieldScaleY, fieldCssW, fieldCssH;
+  let fieldScale, fieldScaleX, fieldScaleY, fieldCssW, fieldCssH, baseX, baseY;
   if (isLandscape) {
     // Proportional FIT: whole rotated pitch, correct rugby shape, centred with a
     // dark surround. Filling every pixel would distort the pitch (odd lines).
-    // The goalposts sit on the length axis, which maps to WIDTH in landscape -
-    // that axis already carries generous natural letterboxing margin (it's
-    // essentially never the constraining one), so only it gets the safety
-    // inset here. HEIGHT is the axis that's actually filled edge-to-edge and
-    // holds no goalpost content, so it stays at full available size rather
-    // than losing pitch scale to a margin it doesn't need.
-    fieldScale = Math.max(0.01, Math.min(usableW / FVH, availH / FVW));
+    // The goalposts sit on the length axis, which maps to WIDTH in landscape.
+    // The side rails (see CSS) live in that same width axis, so their real
+    // rendered width is subtracted directly - not a flat safety inset - to
+    // find the true central width left for the pitch. HEIGHT is the axis
+    // that's actually filled edge-to-edge and holds no goalpost/rail content,
+    // so it stays at full available size rather than losing pitch scale to a
+    // margin it doesn't need.
+    const railLeftEl = document.getElementById('mobileRailLeft');
+    const railRightEl = document.getElementById('mobileRailRight');
+    const railLeftW = railLeftEl ? railLeftEl.getBoundingClientRect().width : 0;
+    const railRightW = railRightEl ? railRightEl.getBoundingClientRect().width : 0;
+    const usableLandscapeW = Math.max(1, availW - railLeftW - railRightW - PHONE_FIT_SAFETY_INSET_PX);
+    fieldScale = Math.max(0.01, Math.min(usableLandscapeW / FVH, availH / FVW));
     fieldScaleX = fieldScaleY = fieldScale;
     fieldCssW = FVH * fieldScale;
     fieldCssH = FVW * fieldScale;
+    baseX = (availW - fieldCssW) / 2;
+    baseY = (availH - fieldCssH) / 2;
   } else {
+    const usableW = Math.max(1, availW - PHONE_FIT_SAFETY_INSET_PX * 2);
     fieldScale = fieldScaleX = fieldScaleY = Math.max(0.01, usableW / FVW);
     fieldCssW = usableW;
     fieldCssH = FVH * fieldScale;
+    baseX = (availW - fieldCssW) / 2;
+    // Asymmetric vertical placement: guarantee at least the top/bottom insets,
+    // splitting any additional slack evenly beyond those minimums so the
+    // board still reads as roughly centred when there's plenty of headroom.
+    const slack = availH - fieldCssH;
+    const minInsets = PHONE_PORTRAIT_TOP_INSET_PX + PHONE_PORTRAIT_BOTTOM_INSET_PX;
+    if (slack >= minInsets) {
+      baseY = PHONE_PORTRAIT_TOP_INSET_PX + (slack - minInsets) / 2;
+    } else {
+      baseY = Math.max(0, Math.min(PHONE_PORTRAIT_TOP_INSET_PX, slack));
+    }
   }
-  const baseX = (availW - fieldCssW) / 2;
-  const baseY = (availH - fieldCssH) / 2;
   const overflow = Math.max(0, fieldCssH - availH);
   const panMin = overflow > 0 ? (availH - fieldCssH - baseY) : 0;
   const panMax = overflow > 0 ? -baseY : 0;
@@ -372,10 +430,28 @@ function translatePathPoints(path, dx, dy) {
   }));
 }
 
+// Measures env(safe-area-inset-bottom) in real CSS px via a throwaway probe
+// element - there is no direct JS API for CSS environment variables. Cheap
+// enough to call on every resize pass rather than caching a value that could
+// go stale across an orientation change.
+function measureSafeAreaInsetBottomPx() {
+  try {
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;left:0;bottom:0;width:0;height:0;padding-bottom:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none;';
+    document.body.appendChild(probe);
+    const px = probe.getBoundingClientRect().height;
+    document.body.removeChild(probe);
+    return Number.isFinite(px) ? px : 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
 function resize() {
   const wrap = document.getElementById('canvasWrap');
-  const vpW = window.innerWidth || document.documentElement.clientWidth || 0;
-  const vpH = window.innerHeight || document.documentElement.clientHeight || 0;
+  const vv = getVisualViewportBox();
+  const vpW = vv.width || window.innerWidth || document.documentElement.clientWidth || 0;
+  const vpH = vv.height || window.innerHeight || document.documentElement.clientHeight || 0;
   if (vpW < 50 || vpH < 50) {
     if (!window.__animatorResizeRetry) {
       window.__animatorResizeRetry = setTimeout(() => {
@@ -385,8 +461,8 @@ function resize() {
     }
     return;
   }
-  const isPhone = Math.min(window.innerWidth, window.innerHeight) <= 700;
-  const MOBILE_PORTRAIT = isPhone && window.innerHeight > window.innerWidth;
+  const isPhone = Math.min(vpW, vpH) <= 700;
+  const MOBILE_PORTRAIT = isPhone && vpH > vpW;
   const PHONE_LANDSCAPE = isPhone && !MOBILE_PORTRAIT;
   renderDpr = Math.max(1, window.devicePixelRatio || 1);
   isPhoneViewport = isPhone;
@@ -397,16 +473,26 @@ function resize() {
   syncMobileNotesPanelHost();
   // #canvasWrap's own CSS (several legacy phone blocks disagree on how it is
   // bounded) is not a reliable source of the truly available pitch area, so
-  // pin it directly from the two elements that ARE reliably positioned: the
-  // fixed topbar and the fixed bottom rail. This guarantees the wrap never
+  // pin it directly from real measurements. This guarantees the wrap never
   // extends past the visible viewport in either orientation (fixes landscape
   // crop) without touching the legacy CSS blocks themselves.
   if (isPhone) {
     const topbarEl = document.getElementById('topbar');
-    const bottomPanelEl = document.getElementById('bottomPanel');
     const topbarBottom = topbarEl ? Math.ceil(topbarEl.getBoundingClientRect().bottom) : 0;
-    const bottomPanelTop = bottomPanelEl ? Math.floor(bottomPanelEl.getBoundingClientRect().top) : vpH;
-    const availHeightPx = Math.max(0, bottomPanelTop - topbarBottom);
+    let bottomBoundary;
+    if (MOBILE_PORTRAIT) {
+      // Portrait: the horizontal toolbar still reserves real height - clear
+      // its actual measured top edge (getBoundingClientRect, not a CSS
+      // variable guess).
+      const bottomPanelEl = document.getElementById('bottomPanel');
+      bottomBoundary = bottomPanelEl ? Math.floor(bottomPanelEl.getBoundingClientRect().top) : vpH;
+    } else {
+      // Landscape: the bottom strip reserves no height any more (the five
+      // actions live in side rails instead - see CSS), so the wrap extends
+      // to the true visible viewport bottom, minus the device safe area.
+      bottomBoundary = Math.floor(vv.offsetTop + vv.height - measureSafeAreaInsetBottomPx());
+    }
+    const availHeightPx = Math.max(0, bottomBoundary - topbarBottom);
     wrap.style.position = 'fixed';
     wrap.style.left = '0px';
     wrap.style.right = '0px';
@@ -569,6 +655,11 @@ function bindViewportObservers() {
     if (window.visualViewport && typeof window.visualViewport.addEventListener === 'function') {
       window.visualViewport.addEventListener('resize', scheduleResizePass);
       window.visualViewport.addEventListener('resize', scheduleSequenceDockPosition);
+      // Safari can pan the visual viewport (e.g. while the on-screen keyboard
+      // or the dynamic toolbar is animating) without firing its own resize -
+      // the phone fit reads visualViewport.offsetTop/offsetTop+height, so it
+      // needs to re-run on scroll too, not just resize.
+      window.visualViewport.addEventListener('scroll', scheduleResizePass);
     }
   }
   if (resizeObserver || typeof ResizeObserver !== 'function') {
@@ -8607,6 +8698,7 @@ function setMobileMoreDrawerOpen(open) {
   if (backdrop) backdrop.classList.toggle('open', isOpen);
   if (isOpen) drawer.scrollTop = 0;
   if (btn) btn.textContent = isOpen ? 'MORE v' : 'MORE ^';
+  scheduleResizePass();
 }
 
 function updateMobileUI() {
