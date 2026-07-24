@@ -268,35 +268,45 @@
     <button id="spMobileToggle" class="sp-mobile-toggle" onclick="toggleMobileDrawer()" aria-label="Open coaching panel" aria-expanded="false">✎</button>
     <div id="spMobileBackdrop" class="sp-mobile-backdrop" onclick="closeMobileDrawer()"></div>
 
-    <div id="canvasWrap">
-      <canvas id="field"></canvas>
-      <div id="radialMenu" aria-hidden="true"></div>
+    <!-- #canvasHost: the phone pitch HOST. It owns layout position (fixed
+         between header/toolbar or header/rails), centring and letterboxing.
+         #canvasWrap is the BOARD element inside it, sized either by natural
+         aspect-ratio (contain modes: landscape, portrait Fit Full Pitch) or
+         by a fixed width with natural height (portrait editing view, which
+         the host then scrolls). See tactical-board.css's "PHONE PITCH LAYOUT
+         - AUTHORITATIVE SOURCE OF TRUTH" section. Desktop/tablet are
+         unaffected: #canvasHost is inert there (see base CSS rule). -->
+    <div id="canvasHost">
+      <div id="canvasWrap">
+        <canvas id="field"></canvas>
+        <div id="radialMenu" aria-hidden="true"></div>
 
-      <!-- Floating delete/deselect bar — appears when annotation is selected -->
-      <div id="floatDeleteBar" hidden>
-        <button id="floatDeleteBtn" onclick="deleteSelected()">&#10005; Delete</button>
-        <button id="floatDeselectBtn" onclick="clearSelection()">Deselect</button>
+        <!-- Floating delete/deselect bar — appears when annotation is selected -->
+        <div id="floatDeleteBar" hidden>
+          <button id="floatDeleteBtn" onclick="deleteSelected()">&#10005; Delete</button>
+          <button id="floatDeselectBtn" onclick="clearSelection()">Deselect</button>
+        </div>
+
+        <div id="boardStatus" class="board-status">
+          <span class="board-status-mode" id="boardModeLabel">Move</span>
+          <span class="board-status-copy" id="boardStatusText">Mode: Move · Step 1 of 1 · Ball: Off board</span>
+        </div>
+
+        <div id="fieldAccent" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+
+        <div id="emptyState" class="empty-state">
+          <div class="empty-state-kicker">Start Here</div>
+          <div class="empty-state-title">Build your first board state</div>
+          <div class="empty-state-copy">Add players from the bottom rail, place the ball, then choose a tool to draw movement.</div>
+        </div>
+
+        <div id="hint">MOVE - drag any player or ball</div>
+
       </div>
-
-      <div id="boardStatus" class="board-status">
-        <span class="board-status-mode" id="boardModeLabel">Move</span>
-        <span class="board-status-copy" id="boardStatusText">Mode: Move · Step 1 of 1 · Ball: Off board</span>
-      </div>
-
-      <div id="fieldAccent" aria-hidden="true">
-        <span></span>
-        <span></span>
-        <span></span>
-      </div>
-
-      <div id="emptyState" class="empty-state">
-        <div class="empty-state-kicker">Start Here</div>
-        <div class="empty-state-title">Build your first board state</div>
-        <div class="empty-state-copy">Add players from the bottom rail, place the ball, then choose a tool to draw movement.</div>
-      </div>
-
-      <div id="hint">MOVE - drag any player or ball</div>
-
     </div>
 
     <aside id="sequenceControlDock" class="sequence-dock" aria-label="Sequence Control Dock">
@@ -367,6 +377,10 @@
           <button class="mob-more-btn" id="mobileMoreNotesBtn" type="button" onclick="openMobileNotesSheet()">NOTES</button>
           <button class="mob-more-btn" id="mobileMoreRedoBtn" type="button" onclick="redo()">&#8618; REDO</button>
           <button class="mob-more-btn" id="mobileMoreClearBtn" type="button" onclick="clearAll()">CLEAR</button>
+          <!-- Placed last so it doesn't push the pre-existing playback/notes/
+               redo/clear rows further down the scrollable drawer (portrait-
+               only feature; see PHONE PITCH LAYOUT CSS section). -->
+          <button class="mob-more-btn" id="mobileMoreFitPitchBtn" type="button" onclick="toggleMobileFitFullPitch()">FIT FULL PITCH</button>
         </div>
       </div>
       <div id="mobileToolGrid">

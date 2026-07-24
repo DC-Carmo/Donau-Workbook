@@ -45,6 +45,12 @@ let isPhoneLandscapeBoard = false;
 let phoneVerticalPanPx = 0;
 let phoneVerticalOverflowPx = 0;
 let phoneUserPanned = false;
+// Portrait-only "Fit Full Pitch" mode (toggled from More): temporarily
+// contain-fits the whole pitch instead of the default large editing view.
+// Never persisted; auto-returns to editing view on the triggers listed at
+// its toggle function below.
+let mobileFitFullPitch = false;
+let mobilePortraitScrollTop = null; // last editing-view scroll position, restored across landscape<->portrait
 let viewportState = null;
 let resizeObserver = null;
 let resizeRaf = 0;
@@ -251,35 +257,13 @@ function syncMobileBoardNameInput() {
   if (mobileInput.value !== desktopInput.value) mobileInput.value = desktopInput.value;
 }
 
-// Small visual safety margin (CSS px, already DPR-normalized) kept around the
-// complete rendered board - including the goalpost graphics, which extend a
-// little beyond the pitch rectangle itself - so a slightly tight real-device
-// available area never lets either goalpost sit flush against (or behind) the
-// fixed topbar/toolbar edges.
-const PHONE_FIT_SAFETY_INSET_PX = 8;
-// Portrait uses an intentionally asymmetric top/bottom margin around the
-// complete rendered board rather than pure centring: the fixed bottom
-// toolbar sits directly below the pitch, and a selected player's halo ring
-// (a few fixed canvas px beyond the player itself, not scaled by field
-// units) can extend past the goalpost/field bounds near the bottom edge, so
-// that side gets more guaranteed clearance than the top.
-const PHONE_PORTRAIT_TOP_INSET_PX = 8;
-const PHONE_PORTRAIT_BOTTOM_INSET_PX = 20;
-// Explicit, verified minimum clearances for the portrait bottom-fit check
-// below (distinct from the insets above, which drive the initial placement -
-// this is the hard invariant that placement is then verified against).
-const PHONE_PORTRAIT_BOTTOM_CLEARANCE_MIN_PX = 16;
-const PHONE_PORTRAIT_TOP_CLEARANCE_MIN_PX = 8;
-// A selected player's halo/selection ring is a few FIXED canvas px beyond the
-// player circle (see drawPlayer: r+3 on mobile, r>=16), not scaled by field
-// units, so it is added on top of the field's own display-bounds margin
-// (F.DY1) when checking how far the complete rendered board can extend.
-const PHONE_RENDERED_MARKER_HALO_PX = 24;
-
 // window.visualViewport reflects what is ACTUALLY visible in Safari (it can
 // differ from window.innerWidth/innerHeight while the dynamic toolbar is
-// showing/hiding), so it is the source of truth for phone fitting; innerWidth
-///innerHeight remain the fallback for browsers without it.
+// showing/hiding). It is used ONLY to establish the outer visible phone
+// region for orientation/size classification below - never as the source of
+// canvas geometry (that always comes from #canvasWrap's own settled
+// getBoundingClientRect(), after CSS layout - aspect-ratio, contain sizing,
+// flex centring - has done all the real fitting work).
 function getVisualViewportBox() {
   const vv = window.visualViewport;
   if (vv) {
@@ -298,137 +282,45 @@ function getVisualViewportBox() {
   };
 }
 
+// Reads the FINAL, CSS-settled #canvasWrap box and derives the render
+// transform from it directly - no independent fit math. CSS (aspect-ratio,
+// max-width/max-height, flex centring, or the portrait scroller's 96% width)
+// has already decided the board's exact size and position; this only
+// translates that measured box into the sc/sx/sy/ox/oy the renderer needs.
 function getPhoneViewportState() {
-  // SINGLE SOURCE OF TRUTH: the layout (a fixed 100dvh flex/grid column) sizes
-  // the #canvasWrap cell; we read that cell's real client box instead of
-  // recomputing an "available area" from innerHeight minus chrome. This removes
-  // the dual-authority (CSS vs JS) conflict that broke phone field anchoring.
   const wrap = document.getElementById('canvasWrap');
   const rect = wrap ? wrap.getBoundingClientRect() : null;
-  let availW = Math.max(1, wrap ? (wrap.clientWidth || (rect ? rect.width : 0)) : window.innerWidth);
-  let availH = Math.max(1, wrap ? (wrap.clientHeight || (rect ? rect.height : 0)) : window.innerHeight);
-  let availTop = rect ? rect.top : 0;
-  // Clamp the measured wrap box against the true visual viewport so a stale
-  // or momentarily-larger layout viewport (Safari's toolbar mid-transition)
-  // never claims screen space that isn't actually visible right now.
-  const vv = getVisualViewportBox();
-  const vvTop = vv.offsetTop;
-  const vvBottom = vv.offsetTop + vv.height;
-  const clampedTop = Math.max(availTop, vvTop);
-  const clampedBottom = Math.min(availTop + availH, vvBottom);
-  availH = Math.max(1, clampedBottom - clampedTop);
-  availTop = clampedTop;
-  availW = Math.max(1, Math.min(availW, vv.width));
-  // Fill axis by orientation: portrait fills width (tall field + vertical pan);
-  // landscape fills height so the whole vertical pitch fits, centred, no pan.
-  // Portrait: upright pitch, fill screen WIDTH. Landscape: rotated pitch, FIT the
-  // ENTIRE pitch (length -> width axis) so nothing is cut off and no pan is needed.
+  const availW = rect ? rect.width : 0;
+  const availH = rect ? rect.height : 0;
   const isLandscape = !isMobilePortraitBoard;
-  let fieldScale, fieldScaleX, fieldScaleY, fieldCssW, fieldCssH, baseX, baseY;
-  if (isLandscape) {
-    // Proportional FIT: whole rotated pitch, correct rugby shape, centred with a
-    // dark surround. Filling every pixel would distort the pitch (odd lines).
-    // The goalposts sit on the length axis, which maps to WIDTH in landscape.
-    // The side rails (see CSS) live in that same width axis, so their real
-    // rendered width is subtracted directly - not a flat safety inset - to
-    // find the true central width left for the pitch. HEIGHT is the axis
-    // that's actually filled edge-to-edge and holds no goalpost/rail content,
-    // so it stays at full available size rather than losing pitch scale to a
-    // margin it doesn't need.
-    const railLeftEl = document.getElementById('mobileRailLeft');
-    const railRightEl = document.getElementById('mobileRailRight');
-    const railLeftW = railLeftEl ? railLeftEl.getBoundingClientRect().width : 0;
-    const railRightW = railRightEl ? railRightEl.getBoundingClientRect().width : 0;
-    const usableLandscapeW = Math.max(1, availW - railLeftW - railRightW - PHONE_FIT_SAFETY_INSET_PX);
-    fieldScale = Math.max(0.01, Math.min(usableLandscapeW / FVH, availH / FVW));
-    fieldScaleX = fieldScaleY = fieldScale;
-    fieldCssW = FVH * fieldScale;
-    fieldCssH = FVW * fieldScale;
-    baseX = (availW - fieldCssW) / 2;
-    baseY = (availH - fieldCssH) / 2;
-  } else {
-    const usableW = Math.max(1, availW - PHONE_FIT_SAFETY_INSET_PX * 2);
-    fieldScale = fieldScaleX = fieldScaleY = Math.max(0.01, usableW / FVW);
-    fieldCssW = usableW;
-    fieldCssH = FVH * fieldScale;
-    baseX = (availW - fieldCssW) / 2;
-    // Asymmetric vertical placement: guarantee at least the top/bottom insets,
-    // splitting any additional slack evenly beyond those minimums so the
-    // board still reads as roughly centred when there's plenty of headroom.
-    const slack = availH - fieldCssH;
-    const minInsets = PHONE_PORTRAIT_TOP_INSET_PX + PHONE_PORTRAIT_BOTTOM_INSET_PX;
-    if (slack >= minInsets) {
-      baseY = PHONE_PORTRAIT_TOP_INSET_PX + (slack - minInsets) / 2;
-    } else {
-      baseY = Math.max(0, Math.min(PHONE_PORTRAIT_TOP_INSET_PX, slack));
-    }
-    // Explicit verify+correct against the hard clearance invariant (distinct
-    // from the insets above, which only set the initial placement): the
-    // complete rendered board - fieldCssH already spans the field's own
-    // display-bounds margin past the goalpost, plus the selection-halo's
-    // fixed-pixel overshoot beyond that - must clear the toolbar edge by at
-    // least the minimum bottom clearance, in real measured px.
-    const maxRenderedBottom = availH - PHONE_PORTRAIT_BOTTOM_CLEARANCE_MIN_PX;
-    let renderedBottom = baseY + fieldCssH + PHONE_RENDERED_MARKER_HALO_PX;
-    if (renderedBottom > maxRenderedBottom) {
-      const overflowPx = renderedBottom - maxRenderedBottom;
-      const shiftedBaseY = baseY - overflowPx;
-      if (shiftedBaseY >= PHONE_PORTRAIT_TOP_CLEARANCE_MIN_PX) {
-        baseY = shiftedBaseY;
-      } else {
-        // Shifting alone cannot satisfy both clearances - reduce scale
-        // minimally and uniformly (never distort width vs height) until it can.
-        baseY = PHONE_PORTRAIT_TOP_CLEARANCE_MIN_PX;
-        const availableForBoard = maxRenderedBottom - baseY - PHONE_RENDERED_MARKER_HALO_PX;
-        const shrinkRatio = Math.max(0.1, Math.min(1, availableForBoard / fieldCssH));
-        if (shrinkRatio < 1) {
-          fieldScale *= shrinkRatio;
-          fieldScaleX = fieldScaleY = fieldScale;
-          fieldCssH = FVH * fieldScale;
-          fieldCssW = FVW * fieldScale;
-          baseX = (availW - fieldCssW) / 2;
-        }
-      }
-    }
-  }
-  const overflow = Math.max(0, fieldCssH - availH);
-  const panMin = overflow > 0 ? (availH - fieldCssH - baseY) : 0;
-  const panMax = overflow > 0 ? -baseY : 0;
+  // Landscape: pitch length (FVH) maps to the wrap's width axis, width (FVW)
+  // to its height axis (rotated). Portrait: upright, straight mapping.
+  const fieldScaleX = isLandscape ? availW / FVH : availW / FVW;
+  const fieldScaleY = isLandscape ? availH / FVW : availH / FVH;
+  const fieldScale = fieldScaleX;
+  const host = document.getElementById('canvasHost');
+  const overflow = host ? Math.max(0, host.scrollHeight - host.clientHeight) : 0;
   return {
-    availTop,
-    availBottom: availTop + availH,
-    availLeft: 0,
-    availRight: availW,
+    availTop: rect ? rect.top : 0,
+    availBottom: rect ? rect.bottom : 0,
+    availLeft: rect ? rect.left : 0,
+    availRight: rect ? rect.right : 0,
     availW,
     availH,
     fieldScale,
     fieldScaleX,
     fieldScaleY,
-    fieldCssW,
-    fieldCssH,
-    baseX,
-    baseY,
-    panMin,
-    panMax,
+    // The board fills #canvasWrap exactly (no letterboxing WITHIN it - all
+    // letterboxing/margin now happens outside, in #canvasHost, via CSS), so
+    // the rendered board IS the wrap and the offset within it is always 0.
+    fieldCssW: availW,
+    fieldCssH: availH,
+    baseX: 0,
+    baseY: 0,
     overflow,
     cssWidth: availW,
     cssHeight: availH,
   };
-}
-
-function clampPhoneVerticalPan(nextOffset) {
-  if (!viewportState || !viewportState.overflow) return 0;
-  return clamp(nextOffset, viewportState.panMin, viewportState.panMax);
-}
-
-function setPortraitPanOffset(nextOffset) {
-  phoneVerticalPanPx = clampPhoneVerticalPan(nextOffset);
-  if (viewportState && viewportState.mode?.startsWith('phone')) {
-    viewportState.panY = phoneVerticalPanPx;
-    viewportState.fieldTop = viewportState.availTop + viewportState.baseY + phoneVerticalPanPx;
-    viewportState.fieldBottom = viewportState.fieldTop + viewportState.fieldCssH;
-    updateViewportStateAssertions();
-  }
 }
 
 function updateViewportStateAssertions() {
@@ -436,26 +328,10 @@ function updateViewportStateAssertions() {
     window.__viewportState = null;
     return;
   }
-  // When the field is taller than the visible cell it must be pannable to both
-  // edges; when it fits, it is centred and fully visible (no pan required), so
-  // the strict reach checks do not apply.
-  const fieldFits = viewportState.fieldCssH <= viewportState.availH + 1;
-  const topReachY = viewportState.availTop + viewportState.baseY + viewportState.panMax;
-  const bottomReachY = viewportState.availTop + viewportState.baseY + viewportState.panMin + viewportState.fieldCssH;
-  const panWithinClamp = viewportState.panY >= viewportState.panMin - 1 && viewportState.panY <= viewportState.panMax + 1;
-  const topReachable = fieldFits || topReachY <= viewportState.availTop + 1;
-  const bottomReachable = fieldFits || bottomReachY >= viewportState.availBottom - 1;
-  const hasPanRange = fieldFits || (viewportState.panYMax - viewportState.panYMin) > 5;
-  const canaryOk = viewportState.cssWidth < 2000 && viewportState.cssHeight < 2000;
+  const canaryOk = viewportState.cssWidth > 0 && viewportState.cssHeight > 0
+    && viewportState.cssWidth < 4000 && viewportState.cssHeight < 4000;
   window.__viewportState = {
     ...viewportState,
-    fieldFits,
-    topReachY,
-    bottomReachY,
-    topReachable,
-    bottomReachable,
-    panWithinClamp,
-    hasPanRange,
     canaryOk,
   };
 }
@@ -466,23 +342,6 @@ function translatePathPoints(path, dx, dy) {
     x: pt.x + dx,
     y: pt.y + dy,
   }));
-}
-
-// Measures env(safe-area-inset-bottom) in real CSS px via a throwaway probe
-// element - there is no direct JS API for CSS environment variables. Cheap
-// enough to call on every resize pass rather than caching a value that could
-// go stale across an orientation change.
-function measureSafeAreaInsetBottomPx() {
-  try {
-    const probe = document.createElement('div');
-    probe.style.cssText = 'position:fixed;left:0;bottom:0;width:0;height:0;padding-bottom:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none;';
-    document.body.appendChild(probe);
-    const px = probe.getBoundingClientRect().height;
-    document.body.removeChild(probe);
-    return Number.isFinite(px) ? px : 0;
-  } catch (e) {
-    return 0;
-  }
 }
 
 function resize() {
@@ -501,14 +360,13 @@ function resize() {
   }
   // Safari can fire orientationchange/resize with visualViewport/innerWidth
   // still reporting the PREVIOUS orientation's dimensions for one event,
-  // before the real ones land, while #canvasWrap's own live CSS box (pinned
-  // via left:0/right:0, which the browser reflows immediately and
-  // independently of JS) has already flipped to the new one.
-  // document.documentElement.clientWidth/Height is a second, independently-
-  // updated source of the current layout viewport; when it disagrees with
-  // vpW/vpH on which axis is longer, this pass's dimensions are stale - the
-  // fit below would be computed for the wrong orientation (this is the
-  // "pitch disappears/collapses to an absurd scale" bug). Skip this pass
+  // before the real ones land, while #canvasWrap's own live CSS box (driven
+  // by the browser's own reflow, independent of JS) has already flipped to
+  // the new one. document.documentElement.clientWidth/Height is a second,
+  // independently-updated source of the current layout viewport; when it
+  // disagrees with vpW/vpH on which axis is longer, this pass's dimensions
+  // are stale - classifying orientation from them would toggle the wrong
+  // is-phone/tb-mobile-portrait CSS classes for one pass. Skip this pass
   // entirely (leaving whatever was last painted on screen untouched) and let
   // the next scheduled pass - orientationchange's own +250ms/+500ms
   // catch-ups, or the ResizeObserver on #canvasWrap/#topbar/#bottomPanel,
@@ -528,64 +386,21 @@ function resize() {
   isPhoneLandscapeBoard = PHONE_LANDSCAPE;
   document.body.classList.toggle('is-phone', isPhone);
   document.body.classList.toggle('tb-mobile-portrait', MOBILE_PORTRAIT);
+  document.body.classList.toggle('tb-fit-full-pitch', isPhone && MOBILE_PORTRAIT && mobileFitFullPitch);
   syncMobileNotesPanelHost();
-  // #canvasWrap's own CSS (several legacy phone blocks disagree on how it is
-  // bounded) is not a reliable source of the truly available pitch area, so
-  // pin it directly from real measurements. This guarantees the wrap never
-  // extends past the visible viewport in either orientation (fixes landscape
-  // crop) without touching the legacy CSS blocks themselves.
-  if (isPhone) {
-    const topbarEl = document.getElementById('topbar');
-    const topbarBottom = topbarEl ? Math.ceil(topbarEl.getBoundingClientRect().bottom) : 0;
-    let bottomBoundary;
-    if (MOBILE_PORTRAIT) {
-      // Portrait: the horizontal toolbar still reserves real height - clear
-      // its actual measured top edge (getBoundingClientRect, not a CSS
-      // variable guess).
-      const bottomPanelEl = document.getElementById('bottomPanel');
-      bottomBoundary = bottomPanelEl ? Math.floor(bottomPanelEl.getBoundingClientRect().top) : vpH;
-    } else {
-      // Landscape: the bottom strip reserves no height any more (the five
-      // actions live in side rails instead - see CSS), so the wrap extends
-      // to the true visible viewport bottom, minus the device safe area.
-      bottomBoundary = Math.floor(vv.offsetTop + vv.height - measureSafeAreaInsetBottomPx());
-    }
-    const availHeightPx = Math.max(0, bottomBoundary - topbarBottom);
-    wrap.style.position = 'fixed';
-    wrap.style.left = '0px';
-    wrap.style.right = '0px';
-    wrap.style.top = `${topbarBottom}px`;
-    wrap.style.bottom = 'auto';
-    wrap.style.height = `${availHeightPx}px`;
-  } else if (wrap.style.position === 'fixed') {
-    wrap.style.position = '';
-    wrap.style.left = '';
-    wrap.style.right = '';
-    wrap.style.top = '';
-    wrap.style.bottom = '';
-    wrap.style.height = '';
-  }
   const phoneBox = isPhone ? getPhoneViewportState() : null;
-  // Defence in depth beyond the orientation cross-check above: reject any
-  // pass whose computed fit is too small to be usable, contains a non-finite
-  // value, or has collapsed/exploded in scale (the rendered board grossly
-  // exceeding the available box - the signature of a fit computed from a
-  // mismatched dimension pair). Rejecting here means resize() returns before
-  // touching any wrap/canvas/global scale state, so the field never blanks
-  // or distorts - whatever was last painted stays on screen until the
-  // already-scheduled catch-up pass supplies settled measurements.
+  // CSS (aspect-ratio / max-width+max-height / the portrait scroller's fixed
+  // width) now does 100% of the phone board's sizing and positioning; this
+  // just validates the SETTLED result before using it. A momentarily-invalid
+  // rect (0-size, non-finite - e.g. mid-transition before the class toggle
+  // above has been painted) is rejected WITHOUT touching cv/sc/sx/sy/ox/oy,
+  // so whatever was last rendered stays on screen (never blanks) and one
+  // rAF retry is scheduled to pick up the settled geometry.
   if (isPhone) {
-    const nums = phoneBox && [phoneBox.availW, phoneBox.availH, phoneBox.fieldScale, phoneBox.fieldCssW, phoneBox.fieldCssH, phoneBox.baseX, phoneBox.baseY];
-    // fieldCssW must never exceed availW by much in either orientation, but
-    // fieldCssH legitimately exceeds availH in portrait (that's the existing,
-    // supported vertical-pan/overflow case) - only landscape's height (which
-    // is always meant to fit exactly, never pan) is checked against it.
-    const isValid = !!phoneBox
-      && nums.every(Number.isFinite)
-      && phoneBox.availH >= 80 && phoneBox.availW >= 80
-      && phoneBox.fieldScale > 0
-      && phoneBox.fieldCssW <= phoneBox.availW * 1.25
-      && (MOBILE_PORTRAIT || phoneBox.fieldCssH <= phoneBox.availH * 1.25);
+    const nums = phoneBox && [phoneBox.availW, phoneBox.availH, phoneBox.fieldScale, phoneBox.fieldScaleX, phoneBox.fieldScaleY];
+    const isValid = !!phoneBox && nums.every(Number.isFinite)
+      && phoneBox.availW > 0 && phoneBox.availH > 0
+      && phoneBox.fieldScale > 0;
     if (!isValid) {
       if (!window.__animatorResizeRetry) {
         window.__animatorResizeRetry = setTimeout(() => {
@@ -606,17 +421,18 @@ function resize() {
   if (isPhone) {
     cv.style.width = `${cvW}px`;
     cv.style.height = `${cvH}px`;
-    wrap.style.width = '';
-    wrap.style.height = '';
     sc = phoneBox.fieldScale;
     sx = phoneBox.fieldScaleX || sc;
     sy = phoneBox.fieldScaleY || sc;
-    ox = phoneBox.baseX;
+    // The board fills #canvasWrap exactly now - no letterboxing offset
+    // inside it, and panning is native #canvasHost scroll (see
+    // startPortraitPan/its pointermove handler), not a render-transform
+    // offset - so there is nothing left for ox/oy/phoneVerticalPanPx to do.
+    ox = 0;
+    oy = 0;
+    phoneVerticalPanPx = 0;
     phoneVerticalOverflowPx = phoneBox.overflow;
-    phoneVerticalPanPx = phoneUserPanned
-      ? clamp(phoneVerticalPanPx, phoneBox.panMin, phoneBox.panMax)
-      : (isMobilePortraitBoard ? phoneBox.panMax : clamp(0, phoneBox.panMin, phoneBox.panMax)); // portrait top-aligned; landscape centred
-    oy = phoneBox.baseY + phoneVerticalPanPx;
+    handleMobilePortraitScrollLifecycle(MOBILE_PORTRAIT);
     viewportState = {
       mode: MOBILE_PORTRAIT ? 'phone-portrait' : 'phone-landscape',
       availTop: phoneBox.availTop,
@@ -628,13 +444,13 @@ function resize() {
       fieldCssW: phoneBox.fieldCssW,
       fieldCssH: phoneBox.fieldCssH,
       overflow: phoneBox.overflow,
-      baseX: phoneBox.baseX,
-      baseY: phoneBox.baseY,
-      panY: phoneVerticalPanPx,
-      panYMin: phoneBox.panMin,
-      panYMax: phoneBox.panMax,
-      fieldTop: phoneBox.availTop + oy,
-      fieldBottom: phoneBox.availTop + oy + phoneBox.fieldCssH,
+      baseX: 0,
+      baseY: 0,
+      panY: 0,
+      panYMin: 0,
+      panYMax: 0,
+      fieldTop: phoneBox.availTop,
+      fieldBottom: phoneBox.availBottom,
       dpr: renderDpr,
     };
   } else {
@@ -2408,6 +2224,10 @@ function selectPlayer(id, { highlightedIds = [] } = {}) {
   S.ballAssignCandidate = id;
   S.highlightedPlayerIds = Array.isArray(highlightedIds) ? [...highlightedIds] : [];
   syncLegacySelectionState();
+  // Covers select, drag-start (selectPlayer runs at the top of a player
+  // drag) and add-player (addPlayerByNum selects the new player) in one
+  // hook - all three are "return to editing view" triggers.
+  if (id !== null) mobileAutoReturnFromFitFullPitch();
 }
 
 function selectedPlayers() {
@@ -5287,11 +5107,12 @@ function consumePointerTap(pointerId) {
 
 function startPortraitPan(pointerId, point, payload = { type: 'portrait-pan' }) {
   if (!isPhoneViewport || phoneVerticalOverflowPx <= 0 || !point) return false;
+  const host = document.getElementById('canvasHost');
   closeRadialMenu();
   S.dragging = {
     type: 'portrait-pan',
     startClientY: point.clientY,
-    startPan: phoneVerticalPanPx,
+    startScrollTop: host ? host.scrollTop : 0,
   };
   beginPointerTap(pointerId, payload, point);
   try { cv.setPointerCapture(pointerId); } catch(_) {}
@@ -5900,9 +5721,14 @@ function handlePointerMove(e) {
       const carrier = S.players.find(p => p.isBC);
       if (carrier) updateGainDisplayForY(carrier.y);
     } else if (S.dragging.type === 'portrait-pan') {
+      // Direct-manipulation drag-to-pan: dragging down reveals content above
+      // (scrollTop decreases), matching the content following the finger.
+      // #canvasHost is a real native scroll container now, so this is the
+      // only place panning happens - there is no render-transform pan offset
+      // any more (ox/oy stay 0; see resize()).
       const deltaY = latestSample.clientY - S.dragging.startClientY;
-      phoneUserPanned = true;
-      setPortraitPanOffset(S.dragging.startPan + deltaY);
+      const host = document.getElementById('canvasHost');
+      if (host) host.scrollTop = S.dragging.startScrollTop - deltaY;
     } else if (S.dragging.type === 'annotation') {
       const ann = findAnnotationById(S.dragging.id);
       if (ann) {
@@ -7639,9 +7465,10 @@ function handleCanonicalPrevious() {
   const transition = getActiveCanonicalTransitionRefs();
   if (transition) {
     cancelPlaybackAndSelect(transition.fromIdx);
-    return;
+  } else {
+    goToPreviousCanonicalMove();
   }
-  goToPreviousCanonicalMove();
+  mobileAutoReturnFromFitFullPitch();
 }
 window.handleCanonicalPrevious = handleCanonicalPrevious;
 
@@ -7649,9 +7476,10 @@ function handleCanonicalNext() {
   const transition = getActiveCanonicalTransitionRefs();
   if (transition) {
     cancelPlaybackAndSelect(transition.toIdx);
-    return;
+  } else {
+    goToNextCanonicalMove();
   }
-  goToNextCanonicalMove();
+  mobileAutoReturnFromFitFullPitch();
 }
 window.handleCanonicalNext = handleCanonicalNext;
 
@@ -7659,9 +7487,10 @@ function handleCanonicalMoveChipSelect(index) {
   const transition = getActiveCanonicalTransitionRefs();
   if (transition) {
     cancelPlaybackAndSelect(index);
-    return;
+  } else {
+    goToCanonicalMove(index);
   }
-  goToCanonicalMove(index);
+  mobileAutoReturnFromFitFullPitch();
 }
 
 function toggleSmartPlay() {
@@ -8780,6 +8609,83 @@ function setMobileMoreDrawerOpen(open) {
   scheduleResizePass();
 }
 
+// ---- Portrait editing-view scroll lifecycle -------------------------------
+
+// The halfway line (field y=50) sits exactly at the vertical midpoint of the
+// field's own display bounds (F.DY0..F.DY1 are symmetric around 50), which
+// is exactly #canvasWrap's own vertical centre - so centring the wrap's
+// centre in #canvasHost's viewport centres the halfway line.
+function centerPortraitHalfwayLine() {
+  const host = document.getElementById('canvasHost');
+  const wrap = document.getElementById('canvasWrap');
+  if (!host || !wrap) return;
+  host.scrollTop = Math.max(0, (wrap.offsetHeight - host.clientHeight) / 2);
+}
+
+function restorePortraitScrollPosition() {
+  const host = document.getElementById('canvasHost');
+  if (!host) return;
+  if (Number.isFinite(mobilePortraitScrollTop)) {
+    const maxScroll = Math.max(0, host.scrollHeight - host.clientHeight);
+    host.scrollTop = Math.max(0, Math.min(mobilePortraitScrollTop, maxScroll));
+  } else {
+    centerPortraitHalfwayLine();
+  }
+}
+
+let mobileLastKnownPortraitState = null; // null=unknown (first phone entry), then true/false
+
+// Called from resize() on every settled phone pass. Detects genuine
+// orientation TRANSITIONS (not every resize) to: save the editing-view
+// scroll position when leaving portrait, and restore it (or centre the
+// halfway line, for a first-ever entry) when (re)entering it.
+function handleMobilePortraitScrollLifecycle(isPortraitNow) {
+  const wasPortrait = mobileLastKnownPortraitState;
+  if (wasPortrait === true && !isPortraitNow) {
+    const host = document.getElementById('canvasHost');
+    if (host && !mobileFitFullPitch) mobilePortraitScrollTop = host.scrollTop;
+  }
+  const enteringPortrait = isPortraitNow && wasPortrait !== true;
+  mobileLastKnownPortraitState = isPortraitNow;
+  if (enteringPortrait && !mobileFitFullPitch) {
+    // Wait for the scroll container's CSS (overflow-y:auto, natural tall
+    // #canvasWrap) to be the settled, active layout before reading/writing
+    // scrollTop - one rAF for this resize pass's own layout, one more so any
+    // dependent reflow (e.g. the toolbar/header switching modes too) settles.
+    requestAnimationFrame(() => requestAnimationFrame(restorePortraitScrollPosition));
+  }
+}
+
+function mobileAutoReturnFromFitFullPitch() {
+  if (mobileFitFullPitch) toggleMobileFitFullPitch(false);
+}
+
+// Portrait-only. Temporarily contain-fits the whole pitch (both goalposts
+// visible, no scroll) instead of the default large, scrollable editing view.
+// Auto-returns to editing view on the next player select/drag/add or Move
+// change (mobileAutoReturnFromFitFullPitch's call sites); pressing the same
+// More button again also toggles it back manually - never a second,
+// duplicate playback/view control.
+function toggleMobileFitFullPitch(forceValue) {
+  if (!isMobilePortraitBoard) return;
+  const next = typeof forceValue === 'boolean' ? forceValue : !mobileFitFullPitch;
+  if (next === mobileFitFullPitch) return;
+  if (next) {
+    // Entering: remember the editing-view scroll position so returning to it
+    // (whether via auto-return or a manual second press) restores exactly.
+    const host = document.getElementById('canvasHost');
+    if (host) mobilePortraitScrollTop = host.scrollTop;
+  }
+  mobileFitFullPitch = next;
+  const btn = document.getElementById('mobileMoreFitPitchBtn');
+  if (btn) btn.textContent = mobileFitFullPitch ? 'EDITING VIEW' : 'FIT FULL PITCH';
+  scheduleResizePass();
+  if (!mobileFitFullPitch) {
+    requestAnimationFrame(() => requestAnimationFrame(restorePortraitScrollPosition));
+  }
+}
+window.toggleMobileFitFullPitch = toggleMobileFitFullPitch;
+
 function updateMobileUI() {
   const mobilePhasePill = document.getElementById('mobilePhasePill');
   const mobilePhaseCounterLabel = document.getElementById('mobilePhaseCounterLabel');
@@ -8847,6 +8753,13 @@ function updateMobileUI() {
     mobileMorePreviewBtn.title = mobileAnySessionActive
       ? 'Stop the current playback first'
       : (previewPlayable ? 'Preview the next transition' : 'No later move available to preview');
+  }
+  const mobileMoreFitPitchBtn = document.getElementById('mobileMoreFitPitchBtn');
+  if (mobileMoreFitPitchBtn) {
+    // Portrait-only view toggle - not meaningful in landscape (already a
+    // contain-fit presentation view with no editing-view/scroll mode).
+    mobileMoreFitPitchBtn.disabled = !isMobilePortraitBoard;
+    mobileMoreFitPitchBtn.textContent = mobileFitFullPitch ? 'EDITING VIEW' : 'FIT FULL PITCH';
   }
   MOBILE_DRAWER_IDS.forEach(id => {
     const section = document.getElementById(`drawer-${id}`);

@@ -1356,6 +1356,35 @@ body.is-phone #sequenceControlDock {
 }
 
 /* CANVAS AREA */
+/* #canvasHost wraps #canvasWrap (added for the phone pitch layout rework -
+   see the "PHONE PITCH LAYOUT" section near the end of this file). On
+   desktop/tablet it must stay perfectly transparent to the pre-existing
+   layout: it is now the actual #workspace grid item in #canvasWrap's place,
+   and CSS Grid items stretch to fill their cell in both axes by default
+   (align-items/justify-items: stretch) - same as #canvasWrap did before -
+   so it deliberately does NOT set an explicit width/height:100% here: doing
+   so forces percentage resolution against the grid row's own "1fr" track,
+   which depends circularly on the item's content size and collapses the row.
+   It DOES need an explicit grid-column/grid-row though: #canvasWrap used to
+   be the direct grid child with explicit column2/row1 placement, and without
+   that same explicit placement here, #canvasHost falls into CSS Grid
+   auto-placement - which (verified empirically) gets shoved into an
+   implicit row 3 by #smartPanel's row-spanning placement and the mobile-only
+   #spMobileToggle/#spMobileBackdrop auto-placed items ahead of it in DOM
+   order, collapsing row 1 and hiding the sequence dock. Only #canvasWrap
+   (a normal block, not itself a grid item) needs the explicit 100%/100%
+   fill, now that #canvasHost's real stretched size is definite. */
+body:not(.is-phone) #canvasHost {
+  display: block;
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  min-height: 0;
+}
+body:not(.is-phone) #canvasWrap {
+  width: 100%;
+  height: 100%;
+}
 #canvasWrap {
   min-width:0;
   position:relative;
@@ -3574,20 +3603,10 @@ html, body {
   display: none;
 }
 
-body.tb-mobile-portrait #workspace {
-  /* Late, explicit override chosen for the cascade fix:
-     the desktop grid is declared later in this file, so the mobile single-column
-     workspace has to be reasserted here at the end to prevent the ghost sidebar column. */
-  display: grid !important;
-  grid-template-columns: minmax(0, 1fr) !important;
-  grid-template-rows: minmax(0, 1fr) auto;
-  overflow: hidden;
-}
-
-body.tb-mobile-portrait #canvasWrap,
-body.tb-mobile-portrait #bottomPanel {
-  grid-column: 1 / -1 !important;
-}
+/* #workspace/#canvasWrap/#bottomPanel grid layout for phone: superseded by
+   the "PHONE PITCH LAYOUT - AUTHORITATIVE SOURCE OF TRUTH" section at the
+   end of this file (no !important needed there - it wins on cascade order
+   alone at equal specificity). Neutralized here rather than left competing. */
 
 body.tb-mobile-portrait #topbar {
   padding: 8px 10px;
@@ -3758,20 +3777,9 @@ body.tb-mobile-portrait #mobileMenuNotesHost .sp-acc-body-inner {
   gap: 8px;
 }
 
-body.tb-mobile-portrait #canvasWrap {
-  min-width: 0;
-  min-height: 0;
-  padding: 8px 8px 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-}
-
-body.tb-mobile-portrait #field {
-  width: 100%;
-  min-height: 0;
-}
+/* #canvasWrap/#field sizing and scroll for phone portrait: superseded by the
+   "PHONE PITCH LAYOUT - AUTHORITATIVE SOURCE OF TRUTH" section (#canvasHost
+   is now the scroll container, not #canvasWrap). Neutralized here. */
 
 body.tb-mobile-portrait #bottomPanel {
   max-height: none;
@@ -3980,29 +3988,11 @@ body.is-phone .mobile-menu-btn {
   grid-column: auto;
 }
 
-body.is-phone #workspace {
-  height: calc(100dvh - var(--tb-phone-topbar-h));
-}
-
-body.is-phone #canvasWrap {
-  position: fixed;
-  top: var(--tb-phone-topbar-h);
-  left: 0;
-  right: 0;
-  bottom: var(--tb-phone-rail-h);
-  min-width: 0;
-  min-height: 0;
-  padding: 10px 10px 12px;
-  overflow: hidden;
-  overscroll-behavior: none;
-}
-
-body.is-phone #field {
-  display: block;
-  width: 100%;
-  min-height: 0;
-  margin: 0 auto;
-}
+/* #workspace/#canvasWrap/#field position/sizing for phone: superseded by the
+   "PHONE PITCH LAYOUT - AUTHORITATIVE SOURCE OF TRUTH" section at the end of
+   this file. #bottomPanel below keeps its real, still-needed styling
+   (position/background/shadow/safe-area) - only its grid placement is set
+   there now. */
 
 body.is-phone #bottomPanel {
   position: fixed;
@@ -4435,23 +4425,9 @@ body.is-phone .player-token {
   min-height: 32px;
 }
 
-body.tb-mobile-portrait #canvasWrap {
-  top: 0;
-  bottom: 0;
-  padding: 0;
-}
-
-body.tb-mobile-portrait #field {
-  margin: 0;
-}
-
-body.tb-mobile-portrait #app {
-  padding-top: 0;
-}
-
-body.tb-mobile-portrait #workspace {
-  height: 100dvh;
-}
+/* #canvasWrap/#field/#app/#workspace phone-portrait position/sizing:
+   superseded by the "PHONE PITCH LAYOUT - AUTHORITATIVE SOURCE OF TRUTH"
+   section. Neutralized here rather than left competing. */
 
 body.tb-mobile-portrait #topbar {
   grid-template-columns: auto minmax(0, 1fr) auto auto;
@@ -4559,12 +4535,8 @@ body.is-phone:not(.tb-mobile-portrait) .mobile-menu-btn {
   background: rgba(7, 16, 24, 0.44);
 }
 
-body.is-phone:not(.tb-mobile-portrait) #canvasWrap {
-  top: 0;
-  bottom: 0;
-  padding: 0;
-  overflow: hidden;
-}
+/* #canvasWrap position/sizing for phone landscape: superseded by the
+   "PHONE PITCH LAYOUT - AUTHORITATIVE SOURCE OF TRUTH" section. */
 
 body.is-phone:not(.tb-mobile-portrait) #bottomPanel {
   /* The five primary actions no longer live in a horizontal bottom bar in
@@ -4585,6 +4557,12 @@ body.is-phone:not(.tb-mobile-portrait) #bottomPanel {
 body.is-phone:not(.tb-mobile-portrait) #app {
   padding-top: var(--tb-phone-topbar-h);
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+body.is-phone:not(.tb-mobile-portrait) #canvasHost {
+  /* #canvasHost's base bottom uses --tb-phone-rail-h (the portrait toolbar
+     height) - landscape has no bottom toolbar (side rails instead), so it
+     only needs the device safe area, matching #app's padding-bottom above. */
+  bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* Side rails: #mobileToolGrid becomes a full-height transparent strip so the
@@ -4651,14 +4629,33 @@ body.is-phone:not(.tb-mobile-portrait) #workspace {
 }
 
 /* =====================================================================
-   PHONE LAYOUT - SINGLE AUTHORITATIVE BLOCK  (2026-07-18 viewport fix)
-   Ends the dual-authority (CSS vs JS) sizing conflict. One fixed 100dvh
-   grid column owns the layout: topbar (auto) | canvas cell (1fr) | rail
-   (auto). #canvasWrap therefore has a real bounded height, and the JS
-   reads that cell's clientWidth/clientHeight rather than computing its
-   own available area. Covers BOTH phone orientations. Selectors are
-   body.is-phone <id> (specificity 0,2,1) so they beat every legacy
-   mobile rule regardless of source order. Desktop is untouched.
+   PHONE PITCH LAYOUT - AUTHORITATIVE SOURCE OF TRUTH  (2026-07-25 rework)
+   Replaces the old "SINGLE AUTHORITATIVE BLOCK" (grid-cell + JS-computed
+   pixel geometry). CSS alone now owns the pitch host's position AND the
+   board's size in every phone mode; JS only reads the settled
+   #canvasWrap.getBoundingClientRect() afterwards to set the canvas bitmap
+   resolution and render transform (see resize()/getPhoneViewportState()).
+
+   Structure: #canvasHost (fixed, between the topbar and the toolbar/rails/
+   safe-area) > #canvasWrap (the board - #field and all pitch overlays fill
+   it at 100%/100%, unchanged). Three phone modes, selected by body class:
+
+     1. Portrait EDITING VIEW (default portrait; .tb-fit-full-pitch absent)
+        #canvasHost scrolls vertically; #canvasWrap is ~96% of the host's
+        width with its NATURAL (upright) aspect ratio - it is usually taller
+        than the host, which is the point (large, close-to-full-width pitch,
+        reachable by scrolling, never scaled down to fit the whole height).
+
+     2. Portrait FIT FULL PITCH (body.tb-fit-full-pitch, toggled from More)
+        #canvasHost centers with no scroll; #canvasWrap contain-fits the
+        upright aspect ratio within it (both goalposts visible, no crop).
+
+     3. Landscape PRESENTATION VIEW (body.is-phone:not(.tb-mobile-portrait))
+        #canvasHost centers with no scroll, padded to reserve the two side
+        rails; #canvasWrap contain-fits the ROTATED aspect ratio within it.
+
+   Desktop/tablet: #canvasHost/#canvasWrap rules here are all body.is-phone-
+   scoped, so they do not apply outside phone viewports.
    ===================================================================== */
 body.is-phone {
   overflow: hidden;
@@ -4669,38 +4666,52 @@ body.is-phone #app {
   min-height: 100dvh;
   max-height: 100dvh;
   overflow: hidden;
-  /* reserve space for the fixed topbar AND the fixed bottom rail so the
-     canvas cell stops above the rail instead of hiding behind it */
   padding-top: var(--tb-phone-topbar-h);
   padding-bottom: calc(var(--tb-phone-rail-h) + env(safe-area-inset-bottom));
 }
 body.is-phone #workspace {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto;
+  /* #canvasHost and #bottomPanel are both position:fixed (see their own
+     rules), so #workspace no longer arranges them via grid/flex - it is
+     just a non-clipping ancestor. */
   min-height: 0;
   overflow: hidden;
+}
+body.is-phone #canvasHost {
+  position: fixed;
+  top: var(--tb-phone-topbar-h);
+  left: 0;
+  right: 0;
+  bottom: calc(var(--tb-phone-rail-h) + env(safe-area-inset-bottom));
+  overflow: hidden;
+  overscroll-behavior: contain;
 }
 body.is-phone #canvasWrap {
-  grid-row: 1;
-  grid-column: 1;
   position: relative;
   display: block;
-  flex-direction: initial;
-  align-items: initial;
-  justify-content: initial;
-  gap: 0;
+  margin: 0 auto;
   padding: 0;
-  margin: 0;
+  min-width: 0;
   min-height: 0;
+  border-radius: 0;
+  /* A legacy, lower-specificity "#canvasWrap { flex: 1; ... }" rule earlier
+     in this file (an older, unrelated desktop layout pass) sets flex-basis
+     to a non-auto value. #canvasHost is a flex container, so - regardless of
+     this rule's higher specificity for width/height - a non-auto flex-basis
+     drives an item's MAIN-AXIS size instead of its width/height property,
+     silently ignoring everything set below. flex:none stops #canvasWrap
+     from being flex-sized at all, so width/height (or aspect-ratio) are
+     what actually apply. */
+  flex: none;
+  /* Portrait EDITING VIEW (default): ~96% width, natural (taller) height -
+     #canvasHost scrolls to reach it all. Overridden below for the other
+     two modes. */
+  width: 96%;
+  max-width: 96%;
   height: auto;
   max-height: none;
-  overflow: hidden;
-  border-radius: 0;
+  aspect-ratio: 69.2 / 121.6;
 }
 body.is-phone #field {
-  order: initial;
-  flex: initial;
   display: block;
   width: 100%;
   height: 100%;
@@ -4708,9 +4719,56 @@ body.is-phone #field {
   max-height: none;
   border-radius: 0;
 }
-body.is-phone #bottomPanel {
-  grid-row: 2;
-  grid-column: 1;
+
+/* Mode 1: portrait EDITING VIEW - real vertical scroll, natural pitch size. */
+body.is-phone.tb-mobile-portrait:not(.tb-fit-full-pitch) #canvasHost {
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mode 2: portrait FIT FULL PITCH - contain-fit, upright ratio, no scroll.
+   #canvasHost is a size query container so #canvasWrap can express its
+   width/height as a true two-axis CSS contain-fit (min() of the width-bound
+   and height-bound candidate sizes, in cqw/cqh units): a plain aspect-ratio
+   + max-width/max-height:100% does NOT reliably pick the binding axis for a
+   non-replaced element (verified empirically - it can let width fill 100%
+   even when the aspect-ratio-derived height then busts max-height, unlike
+   an <img>/<canvas>'s intrinsic-ratio sizing). Container query units give
+   the same "largest safe contain scale" result without that gap. */
+body.is-phone.tb-mobile-portrait.tb-fit-full-pitch #canvasHost {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  container-type: size;
+}
+body.is-phone.tb-mobile-portrait.tb-fit-full-pitch #canvasWrap {
+  width: min(96cqw, 96cqh * 69.2 / 121.6);
+  height: min(96cqh, 96cqw * 121.6 / 69.2);
+  max-width: none;
+  max-height: none;
+  aspect-ratio: auto;
+}
+
+/* Mode 3: landscape PRESENTATION VIEW - contain-fit, rotated ratio, side
+   rails reserved via host padding, no scroll. Same container-query
+   contain-fit technique as Fit Full Pitch above, rotated ratio. */
+body.is-phone:not(.tb-mobile-portrait) #canvasHost {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding-left: calc(var(--tb-phone-rail-w) + 8px);
+  padding-right: calc(var(--tb-phone-rail-w) + 8px);
+  container-type: size;
+}
+body.is-phone:not(.tb-mobile-portrait) #canvasWrap {
+  width: min(100cqw, 96cqh * 121.6 / 69.2);
+  height: min(96cqh, 100cqw * 69.2 / 121.6);
+  max-width: none;
+  max-height: none;
+  aspect-ratio: auto;
 }
 
 /* ── Coaching Notes: desktop accordion + fields (2026-07-21) ──
