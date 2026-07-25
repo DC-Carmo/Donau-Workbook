@@ -757,8 +757,11 @@ const SPEEDS = [1, 2, 3];
 let   spdIdx = 0;
 function fmtSpd(v) { return v + '×'; }
 const SAVED_PLAYS_KEY = 'coachmato.animator.savedPlays.v1';
+const RECOVERY_DRAFT_KEY = 'rugby-gameplan:animator:recovery-draft:v1';
+const RECOVERY_DRAFT_VERSION = 1;
 const FIRST_USE_TUTORIAL_KEY = 'coachmato.animator.firstUseTutorial.v1';
 const PROJECT_SCHEMA_VERSION = 4;
+const AUTOSAVE_DEBOUNCE_MS = 800;
 const PHONE_UI_ACTION_GUARD_MS = 300;
 const PHONE_DATA_ACTION_GUARD_MS = 400;
 let lastPhoneAddAction = { team: null, at: -Infinity };
@@ -3156,6 +3159,242 @@ function currentPlayTitle() {
   return document.getElementById('playName').value.trim() || 'Untitled Play';
 }
 
+let autosaveTimer = null;
+let autosaveState = 'saved';
+let autosaveLastFingerprint = '';
+let autosaveStartupNotice = '';
+let autosavePromptDeferredThisSession = false;
+let recoveryPromptContext = null;
+let autosaveStatusEls = null;
+
+function getAutosaveStatusElements() {
+  if (autosaveStatusEls) return autosaveStatusEls;
+  autosaveStatusEls = {
+    status: document.getElementById('autosaveStatus'),
+    prompt: document.getElementById('recoveryDraftPrompt'),
+    promptMessage: document.getElementById('recoveryDraftMessage'),
+    restoreBtn: document.getElementById('recoveryDraftRestoreBtn'),
+    discardBtn: document.getElementById('recoveryDraftDiscardBtn'),
+    laterBtn: document.getElementById('recoveryDraftLaterBtn'),
+  };
+  return autosaveStatusEls;
+}
+
+function setAutosaveStatus(state, label = '') {
+  autosaveState = state;
+  const el = getAutosaveStatusElements().status;
+  if (!el) return;
+  const text = label || (state === 'saving'
+    ? 'Saving...'
+    : state === 'unsaved'
+      ? 'Unsaved'
+      : state === 'failed'
+        ? 'Save failed'
+        : 'Saved');
+  el.dataset.state = state;
+  el.textContent = text;
+}
+
+function stripProjectVolatileFields(project) {
+  const normalized = cloneData(project);
+  delete normalized.id;
+  delete normalized.savedAt;
+  if (normalized.metadata) {
+    delete normalized.metadata.createdAt;
+    delete normalized.metadata.updatedAt;
+  }
+  return normalized;
+}
+
+function getCurrentRecoveryFingerprint() {
+  return JSON.stringify(stripProjectVolatileFields(makeBoardData()));
+}
+
+function buildRecoveryDraftEnvelope() {
+  const payload = makeBoardData();
+  return {
+    recoveryVersion: RECOVERY_DRAFT_VERSION,
+    savedAt: nowIso(),
+    source: 'autosave',
+    appSchemaVersion: PROJECT_SCHEMA_VERSION || null,
+    projectId: S.projectId || null,
+    projectName: currentPlayTitle() || null,
+    payload,
+  };
+}
+
+function removeRecoveryDraft() {
+  try {
+    localStorage.removeItem(RECOVERY_DRAFT_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function quarantineRecoveryDraft(message = 'A recovery draft could not be opened.') {
+  removeRecoveryDraft();
+  autosaveStartupNotice = message;
+}
+
+function isMeaningfulRecoveryProject(project) {
+  if (!project) return false;
+  const activePhase = project.phases?.[project.currentPhase] || project.phases?.[0];
+  const activeStep = activePhase?.steps?.[activePhase.currentStep] || activePhase?.steps?.[0] || null;
+  const metadata = project.metadata || {};
+  const hasBoardContent = (project.phases?.length || 0) > 1
+    || (activePhase?.steps?.length || 0) > 1
+    || (activeStep?.players?.length || 0) > 0
+    || !!activeStep?.ball
+    || (activeStep?.paths?.length || 0) > 0
+    || (activeStep?.passes?.length || 0) > 0
+    || (activeStep?.annotations?.length || 0) > 0;
+  const hasMetadataContent = !!String(metadata.purpose || '').trim()
+    || (Array.isArray(metadata.coachingPoints) && metadata.coachingPoints.some(Boolean))
+    || !!String(metadata.decisionCue || '').trim()
+    || (Array.isArray(metadata.commonMistakes) && metadata.commonMistakes.some(Boolean));
+  const hasCustomName = !!String(project.name || '').trim() && String(project.name || '').trim() !== 'New Play';
+  return hasBoardContent || hasMetadataContent || hasCustomName;
+}
+
+function readRecoveryDraftEnvelope() {
+  try {
+    const raw = localStorage.getItem(RECOVERY_DRAFT_KEY);
+    if (!raw) return null;
+    const envelope = JSON.parse(raw);
+    if (!envelope || typeof envelope !== 'object') {
+      quarantineRecoveryDraft();
+      return null;
+    }
+    if (envelope.recoveryVersion !== RECOVERY_DRAFT_VERSION) {
+      quarantineRecoveryDraft();
+      return null;
+    }
+    if (envelope.source !== 'autosave' || !envelope.payload) {
+      quarantineRecoveryDraft();
+      return null;
+    }
+    const project = normalizeProjectRecord(envelope.payload);
+    if (!project) {
+      quarantineRecoveryDraft();
+      return null;
+    }
+    return { envelope, project };
+  } catch {
+    quarantineRecoveryDraft();
+    return null;
+  }
+}
+
+function isAutosaveInteractionBusy() {
+  return !!(S.dragging || S.drawing || S.animating || trackDrag);
+}
+
+function scheduleAutosave({ immediate = false } = {}) {
+  clearTimeout(autosaveTimer);
+  autosaveTimer = null;
+  if (immediate) {
+    writeRecoveryDraftNow({ force: true });
+    return;
+  }
+  setAutosaveStatus('unsaved');
+  autosaveTimer = setTimeout(() => {
+    autosaveTimer = null;
+    writeRecoveryDraftNow();
+  }, AUTOSAVE_DEBOUNCE_MS);
+}
+
+function writeRecoveryDraftNow({ force = false } = {}) {
+  clearTimeout(autosaveTimer);
+  autosaveTimer = null;
+  if (!force && isAutosaveInteractionBusy()) {
+    scheduleAutosave();
+    return false;
+  }
+  try {
+    const envelope = buildRecoveryDraftEnvelope();
+    const fingerprint = JSON.stringify(stripProjectVolatileFields(envelope.payload));
+    if (!force && fingerprint === autosaveLastFingerprint) {
+      setAutosaveStatus('saved');
+      return true;
+    }
+    setAutosaveStatus('saving');
+    localStorage.setItem(RECOVERY_DRAFT_KEY, JSON.stringify(envelope));
+    autosaveLastFingerprint = fingerprint;
+    setAutosaveStatus('saved');
+    return true;
+  } catch {
+    setAutosaveStatus('failed');
+    return false;
+  }
+}
+
+function replaceRecoveryDraftWithCurrentBoard() {
+  writeRecoveryDraftNow({ force: true });
+}
+
+function showRecoveryDraftPrompt(context) {
+  if (!context || autosavePromptDeferredThisSession) return;
+  recoveryPromptContext = context;
+  const els = getAutosaveStatusElements();
+  if (!els.prompt || !els.promptMessage) return;
+  const savedAtLabel = context.envelope.savedAt
+    ? new Date(context.envelope.savedAt).toLocaleString()
+    : 'an earlier time';
+  els.promptMessage.textContent = `We found an unsaved play from ${savedAtLabel}.`;
+  els.prompt.hidden = false;
+  els.restoreBtn?.focus();
+}
+
+function hideRecoveryDraftPrompt({ deferForSession = false } = {}) {
+  const els = getAutosaveStatusElements();
+  if (els.prompt) els.prompt.hidden = true;
+  if (deferForSession) autosavePromptDeferredThisSession = true;
+  recoveryPromptContext = null;
+}
+
+function restoreRecoveryDraftFromPrompt() {
+  if (!recoveryPromptContext) return;
+  try {
+    if (applyBoardData(recoveryPromptContext.envelope.payload, { snapshotBefore: false })) {
+      S.history = [];
+      S.future = [];
+      stopPlayback(true);
+      replaceRecoveryDraftWithCurrentBoard();
+      setHint(`Recovered unsaved play from ${new Date(recoveryPromptContext.envelope.savedAt).toLocaleString()}.`);
+    }
+  } catch {
+    quarantineRecoveryDraft();
+  }
+  hideRecoveryDraftPrompt();
+}
+
+function discardRecoveryDraftFromPrompt() {
+  removeRecoveryDraft();
+  setAutosaveStatus('saved');
+  hideRecoveryDraftPrompt();
+}
+
+function maybeOfferRecoveryDraftOnStartup() {
+  const recovery = readRecoveryDraftEnvelope();
+  if (autosaveStartupNotice) {
+    setHint(autosaveStartupNotice);
+    autosaveStartupNotice = '';
+  }
+  if (!recovery || !isMeaningfulRecoveryProject(recovery.project)) {
+    autosaveLastFingerprint = getCurrentRecoveryFingerprint();
+    setAutosaveStatus('saved');
+    return;
+  }
+  showRecoveryDraftPrompt(recovery);
+  autosaveLastFingerprint = JSON.stringify(stripProjectVolatileFields(recovery.project));
+  setAutosaveStatus('saved');
+}
+
+function flushAutosaveOnPageHide() {
+  writeRecoveryDraftNow({ force: true });
+}
+
 function serializePlay() {
   const stamp = Date.now();
   return {
@@ -3242,6 +3481,7 @@ function deserializePlay(obj) {
     refreshInteractionUI();
     updateTL();
     render();
+    replaceRecoveryDraftWithCurrentBoard();
     return;
   }
   const players = Array.isArray(play.players) ? cloneData(play.players) : [];
@@ -3355,6 +3595,7 @@ function deserializePlay(obj) {
   updateTL();
   setTab('atk');
   setTool('move');
+  replaceRecoveryDraftWithCurrentBoard();
 }
 
 function buildPlayMetadata() {
@@ -3534,6 +3775,7 @@ function snapshot() {
   S.history.push(captureWholeGamePlanHistoryEntry());
   if (S.history.length > 30) S.history.shift();
   S.future = [];
+  scheduleAutosave();
 }
 
 function isWholeGamePlanHistoryEntry(entry) {
@@ -3641,6 +3883,7 @@ function undo() {
   if (S.future.length > 30) S.future.shift();
   const h = S.history.pop();
   restoreWholeGamePlanHistoryEntry(h);
+  scheduleAutosave();
 }
 window.undo = undo;
 function redo() {
@@ -3652,6 +3895,7 @@ function redo() {
   if (S.history.length > 30) S.history.shift();
   const h = S.future.pop();
   restoreWholeGamePlanHistoryEntry(h);
+  scheduleAutosave();
 }
 window.redo = redo;
 
@@ -8326,6 +8570,7 @@ function updatePlayMetadataFromInputs() {
     }
   );
   updatePlayMetadataPanel();
+  scheduleAutosave();
 }
 
 function focusSelectedNoteInput(selectAll = false) {
@@ -8342,6 +8587,7 @@ function updateSelectedNoteText(value) {
   const ann = selectedAnnotation();
   if (!ann || ann.type !== 'note') return;
   ann.text = (value || '').trim() || ANNOTATION_NOTE_DEFAULT;
+  scheduleAutosave();
   refreshInteractionUI();
   render();
 }
@@ -8982,6 +9228,8 @@ function clearAll() {
   updateAnnotationPanel();
   updatePhaseUI();
   setPlayBtnState(); rebuildPalette(); refreshInteractionUI(); updateTL(); render();
+  removeRecoveryDraft();
+  replaceRecoveryDraftWithCurrentBoard();
 }
 
 function updateSelInfo() {
@@ -9186,6 +9434,7 @@ function applyBoardData(play, { snapshotBefore = true } = {}) {
   render();
   setTool('move');
   completeFirstUseTutorial();
+  replaceRecoveryDraftWithCurrentBoard();
   return true;
 }
 
@@ -9227,6 +9476,7 @@ function saveCurrentPlay() {
   refreshSavedPlayList();
   setHint(`Saved "${entry.name}" locally.`);
   refreshInteractionUI();
+  replaceRecoveryDraftWithCurrentBoard();
 }
 
 function refreshSavedPlayList() {
@@ -9297,6 +9547,7 @@ function exportPlayData(play) {
   URL.revokeObjectURL(url);
   setHint(`Exported "${project.name}" as JSON.`);
   refreshInteractionUI();
+  replaceRecoveryDraftWithCurrentBoard();
 }
 
 async function exportPDF() {
@@ -9359,6 +9610,7 @@ async function exportPDF() {
   doc.save(`${playName || 'play'}.pdf`);
   setHint(`Exported "${playName}" as PDF.`);
   refreshInteractionUI();
+  replaceRecoveryDraftWithCurrentBoard();
 }
 window.exportPDF = exportPDF;
 
@@ -9376,6 +9628,7 @@ function exportCurrentPlay() {
   URL.revokeObjectURL(url);
   setHint(`Exported "${play.meta.name}" as JSON.`);
   refreshInteractionUI();
+  replaceRecoveryDraftWithCurrentBoard();
 }
 
 function triggerImportPlay() {
@@ -9494,6 +9747,7 @@ document.getElementById('playName').addEventListener('input', () => {
   GamePlan.name = currentPlayTitle();
   syncPlayMetadataTitle();
   syncMobileBoardNameInput();
+  scheduleAutosave();
   refreshInteractionUI();
 });
 document.getElementById('mobilePlayNameInput')?.addEventListener('input', (e) => {
@@ -9504,8 +9758,19 @@ document.getElementById('mobilePlayNameInput')?.addEventListener('input', (e) =>
   }
   GamePlan.name = currentPlayTitle();
   syncPlayMetadataTitle();
+  scheduleAutosave();
   refreshInteractionUI();
 });
+getAutosaveStatusElements().restoreBtn?.addEventListener('click', restoreRecoveryDraftFromPrompt);
+getAutosaveStatusElements().discardBtn?.addEventListener('click', discardRecoveryDraftFromPrompt);
+getAutosaveStatusElements().laterBtn?.addEventListener('click', () => hideRecoveryDraftPrompt({ deferForSession: true }));
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') flushAutosaveOnPageHide();
+});
+window.addEventListener('pagehide', flushAutosaveOnPageHide);
+window.addEventListener('beforeunload', flushAutosaveOnPageHide);
+setAutosaveStatus('saved');
+maybeOfferRecoveryDraftOnStartup();
 window.serializePlay = serializePlay;
 window.deserializePlay = deserializePlay;
 window.migratePlay = migratePlay;
@@ -9713,5 +9978,3 @@ document.addEventListener('pointerdown', e => {
 
 window.goToPhase = goToPhase;
 window.addPhase = addPhase;
-
-

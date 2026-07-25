@@ -64,11 +64,26 @@
     <div class="tb-actions">
       <a class="c-btn tb-portal" href="../../index.html"
          onclick="event.preventDefault(); location.href='../../index.html'"><span>&#8249;</span> Portal</a>
+      <div id="autosaveStatus" class="tb-autosave-status" aria-live="polite">Saved</div>
       <button class="c-btn" id="mobileSaveBtn" onclick="saveCurrentPlay()">Save</button>
       <button class="c-btn primary desktop-only" onclick="exportPDF()">Export PDF</button>
       <button class="c-btn desktop-only" onclick="exportCurrentPlay()">Export JSON</button>
       <button class="c-btn desktop-only" onclick="triggerImportPlay()">Import</button>
       <button class="c-btn mobile-menu-btn" id="mobileBoardMenuBtn" type="button" onclick="toggleMobileBoardMenu()" aria-label="Open board menu" aria-expanded="false" aria-controls="mobileBoardMenu">Menu</button>
+    </div>
+  </div>
+
+  <div id="recoveryDraftPrompt" class="tb-recovery-prompt" hidden>
+    <div class="tb-recovery-prompt__backdrop"></div>
+    <div class="tb-recovery-prompt__dialog" role="dialog" aria-modal="true" aria-labelledby="recoveryDraftTitle">
+      <div class="tb-recovery-prompt__kicker">Recovery Draft</div>
+      <h2 id="recoveryDraftTitle" class="tb-recovery-prompt__title">Unsaved play found</h2>
+      <p id="recoveryDraftMessage" class="tb-recovery-prompt__body">We found an unsaved play.</p>
+      <div class="tb-recovery-prompt__actions">
+        <button id="recoveryDraftRestoreBtn" class="c-btn primary" type="button">Restore</button>
+        <button id="recoveryDraftDiscardBtn" class="c-btn" type="button">Discard</button>
+        <button id="recoveryDraftLaterBtn" class="c-btn" type="button">Not now</button>
+      </div>
     </div>
   </div>
 
