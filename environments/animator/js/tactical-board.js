@@ -8842,7 +8842,7 @@ function setTool(t) {
   document.querySelectorAll('[data-tool]').forEach(b => b.classList.remove('active'));
   document.querySelectorAll(`[data-tool="${t}"]`).forEach(b => b.classList.add('active'));
   cv.style.cursor = t === 'move' ? 'default' : 'crosshair';
-  if (t === 'run' && isPhoneViewport && S.selectedPlayerId !== null && !selectedGroup()) {
+  if (t === 'run' && S.selectedPlayerId !== null && !selectedGroup()) {
     const selectedPlayer = S.players.find(player => player.id === S.selectedPlayerId) || null;
     if (selectedPlayer) {
       setArmedRunSource(selectedPlayer.id);
@@ -8852,7 +8852,7 @@ function setTool(t) {
     } else {
       setHint(HINTS[t] || '');
     }
-  } else if ((t === 'pass' || t === 'kick') && isPhoneViewport && S.selectedPlayerId !== null && !selectedGroup()) {
+  } else if ((t === 'pass' || t === 'kick') && S.selectedPlayerId !== null && !selectedGroup()) {
     const selectedPlayer = S.players.find(player => player.id === S.selectedPlayerId) || null;
     if (selectedPlayer) {
       setWorkflowSource(selectedPlayer.id, t);
