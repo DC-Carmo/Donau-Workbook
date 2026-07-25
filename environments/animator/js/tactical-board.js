@@ -221,10 +221,33 @@ function renderRadialMenu() {
     btn.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
-      if (radialMenu?.playerId) selectPlayer(radialMenu.playerId);
-      if (action.tool) setTool(action.tool);
-      if (action.fn) action.fn();
+      const sourcePlayerId = radialMenu?.playerId ?? null;
       closeRadialMenu();
+      if (action.tool) {
+        if (
+          S.tool === action.tool ||
+          activeWorkflowPlayerId() ||
+          S.activeRunSourceId ||
+          S.drawing
+        ) {
+          clearPassKickState();
+          clearArmedRunState();
+          clearSelectedObject();
+          clearDragPlayer();
+          S.drawing = null;
+          S.pointerTap = null;
+          S.tool = 'move';
+        }
+        if (sourcePlayerId !== null) {
+          const sourcePlayer = S.players.find(player => player.id === sourcePlayerId) || null;
+          if (sourcePlayer) {
+            selectPlayer(sourcePlayer.id, { highlightedIds: [sourcePlayer.id] });
+          }
+        }
+        setTool(action.tool);
+        return;
+      }
+      if (action.fn) action.fn();
     });
     menu.appendChild(btn);
   });
