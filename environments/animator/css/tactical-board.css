@@ -4607,8 +4607,13 @@ body.is-phone:not(.tb-mobile-portrait) .mob-more-btn {
 }
 
 body.is-phone:not(.tb-mobile-portrait) #mobileMoreDrawer {
-  left: 0;
-  right: 0;
+  /* Inset off both rail columns (matching #mobileMoreBackdrop below) - the
+     drawer is deliberately stacked ABOVE #mobileToolGrid (see the "Landscape
+     More-drawer stacking" comment), so a full-width left:0/right:0 drawer
+     would visually cover #mobMoreBtn itself, leaving no way to tap MORE a
+     second time to close it. */
+  left: calc(var(--tb-phone-rail-w) + 8px);
+  right: calc(var(--tb-phone-rail-w) + 8px);
   bottom: env(safe-area-inset-bottom, 0px);
   height: min(50dvh, 420px);
   max-height: min(50dvh, 420px);
@@ -4792,6 +4797,47 @@ body.is-phone:not(.tb-mobile-portrait) #canvasWrap {
   max-height: none;
   aspect-ratio: auto;
   pointer-events: auto;
+}
+
+/* Landscape More-drawer stacking: #mobileMoreBackdrop/#mobileMoreDrawer used
+   to be DOM descendants of #bottomPanel (base rule, z-index:170), which is
+   its own stacking context (position:fixed + explicit z-index) - so their
+   own z-index:174/175 only ordered them against #mobileToolGrid (also a
+   #bottomPanel descendant) WITHIN that context. Against #canvasHost's
+   landscape z-index:173, the comparison happened one level up, at
+   #bottomPanel(170) vs #canvasHost(173) - #bottomPanel lost regardless of
+   what its children's own z-index said, trapping the drawer under the pitch
+   whenever they overlapped.
+
+   Elevating #bottomPanel itself (even conditionally, only while the drawer
+   is open) is NOT the fix: #mobileToolGrid - a position:fixed, full-width
+   sibling - rides along with any #bottomPanel elevation and reproduces the
+   exact blank-canvas defect this branch already fixed once (a position:
+   fixed, full-width, higher-z-index-than-#canvasHost sibling gets the
+   canvas's compositor layer treated as occluded and skipped, even wherever
+   it has no opaque content - confirmed empirically both as a permanent
+   #bottomPanel bump, which blanked a fresh drawer-closed load, and as a
+   :has(#mobileMoreDrawer.open)-scoped one, which blanked the pitch the
+   instant the drawer opened).
+
+   Real fix: #mobileMoreBackdrop/#mobileMoreDrawer were moved in index.html
+   to be direct children of #app (siblings of #canvasHost), escaping
+   #bottomPanel's stacking context entirely - their existing global
+   z-index:174/175 now compares directly against #canvasHost's 173 and wins,
+   with no #bottomPanel/#mobileToolGrid element ever being elevated. Moving a
+   position:fixed element doesn't change its computed position in any mode
+   (portrait included), only which stacking context governs it.
+
+   #mobileToolGrid/the rails need no z-index fix - they already paint/hit-
+   test fine below #canvasHost because #canvasHost has no opaque content and
+   pointer-events:none outside its own centred #canvasWrap (see above). The
+   backdrop is instead inset off the rail columns below, so its full-screen
+   dismiss-tap catcher never spatially overlaps them - no rail button can
+   become unclickable regardless of z-order. */
+body.is-phone:not(.tb-mobile-portrait) #mobileMoreBackdrop {
+  left: calc(var(--tb-phone-rail-w) + 8px);
+  right: calc(var(--tb-phone-rail-w) + 8px);
+  width: auto;
 }
 
 /* ── Coaching Notes: desktop accordion + fields (2026-07-21) ──
