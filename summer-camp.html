@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RDA Summer Camp 2027 | Rugby Development Academy — Vienna</title>
+<meta name="description" content="The RDA Summer Camp — a residential rugby development camp an hour from Vienna. Elite coaching, modern methods, individual player reports and unforgettable teamwork. Register your interest.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --black:#080b09; --panel:#0d1712; --panel-2:#12201a;
+    --green:#0D1F17; --green-2:#1A2E24; --gold:#E3B23C; --gold-soft:#f0c766;
+    --text:#FFFFFF; --muted:#9aa0a0; --line:rgba(255,255,255,.09);
+    --card:rgba(255,255,255,.035); --card-bd:rgba(227,178,60,.16);
+    --maxw:1180px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:"Inter",system-ui,sans-serif;background:var(--black);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  h1,h2,h3,h4,.dspl{font-family:"Bebas Neue",sans-serif;font-weight:400;letter-spacing:.5px;line-height:.96}
+  a{color:inherit;text-decoration:none}
+  img{display:block;max-width:100%}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  .gold{color:var(--gold)}
+  .eyebrow{font-size:13px;letter-spacing:3.5px;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:14px}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:14px;letter-spacing:1.2px;text-transform:uppercase;
+    padding:15px 28px;border-radius:7px;cursor:pointer;transition:transform .15s,box-shadow .2s,background .2s,border-color .2s;border:none}
+  .btn-gold{background:var(--gold);color:#0a0a0a;box-shadow:0 10px 30px rgba(227,178,60,.25)}
+  .btn-gold:hover{transform:translateY(-2px);box-shadow:0 14px 36px rgba(227,178,60,.4)}
+  .btn-ghost{background:rgba(255,255,255,.03);color:#fff;border:1.5px solid rgba(255,255,255,.22)}
+  .btn-ghost:hover{border-color:var(--gold);color:var(--gold)}
+
+  /* NAV */
+  .nav{position:fixed;inset:0 0 auto 0;z-index:60;display:flex;align-items:center;justify-content:space-between;
+    padding:15px 24px;transition:background .3s,border-color .3s;border-bottom:1px solid transparent}
+  .nav.solid{background:rgba(8,11,9,.92);backdrop-filter:blur(12px);border-bottom-color:var(--line)}
+  .brand{display:flex;align-items:center;gap:11px;line-height:1}
+  .brand .ball{width:36px;height:36px;flex:0 0 auto;object-fit:contain}
+  .brand .wm{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:30px;letter-spacing:1px}
+  .nav-links{display:flex;gap:26px;align-items:center;font-size:13px;letter-spacing:1.4px;text-transform:uppercase;font-weight:600}
+  .nav-links a{color:var(--muted);transition:color .2s}
+  .nav-links a:hover{color:#fff}
+  .nav .btn{padding:11px 20px}
+  @media(max-width:860px){.nav-links{display:none}}
+
+  /* HERO */
+  .hero{position:relative;min-height:100vh;display:flex;align-items:center;padding:120px 0 70px;overflow:hidden}
+  .hero-bg{position:absolute;inset:0;background:url('assets/donau/images/camp/camp-hero.jpg') center/cover no-repeat;transform:scale(1.05);z-index:0}
+  .hero-scrim{position:absolute;inset:0;z-index:1;background:
+     linear-gradient(90deg,rgba(8,11,9,.94) 0%,rgba(8,11,9,.72) 42%,rgba(8,11,9,.35) 100%),
+     linear-gradient(0deg,rgba(8,11,9,.95) 0%,rgba(8,11,9,0) 45%)}
+  .hero .wrap{position:relative;z-index:2;width:100%}
+  .hero-brand{display:flex;align-items:center;gap:14px;margin-bottom:22px}
+  .hero-brand .hero-ball{width:60px;height:60px;filter:drop-shadow(0 6px 16px rgba(0,0,0,.6))}
+  .hero-brand .hero-wm{font-family:"Barlow Condensed",sans-serif;font-weight:800;font-size:48px;letter-spacing:1.5px;line-height:1;text-shadow:0 4px 18px rgba(0,0,0,.5)}
+  .hero h1{font-size:clamp(52px,9vw,116px);text-transform:uppercase}
+  .hero h1 .yr{color:var(--gold)}
+  .hero .lead{font-size:clamp(18px,2.3vw,23px);color:#d7dad8;max-width:560px;margin:20px 0 20px;font-weight:300}
+  .hero-meta{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:30px}
+  .chip{display:inline-flex;align-items:center;gap:7px;font-size:13px;letter-spacing:1px;text-transform:uppercase;font-weight:600;
+    color:#eee;border:1px solid var(--card-bd);background:rgba(8,11,9,.5);border-radius:100px;padding:8px 15px}
+  .chip svg{width:15px;height:15px;stroke:var(--gold);fill:none}
+  .hero-cta{display:flex;gap:13px;flex-wrap:wrap}
+
+  /* FACT STRIP */
+  .strip{background:var(--panel);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .strip-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
+  .strip .it{padding:26px 22px;text-align:center;border-right:1px solid var(--line)}
+  .strip .it:last-child{border-right:none}
+  .strip .k{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:6px}
+  .strip .v{font-family:"Bebas Neue";font-size:27px;letter-spacing:.5px}
+  @media(max-width:760px){.strip-grid{grid-template-columns:1fr 1fr}.strip .it:nth-child(2){border-right:none}.strip .it{border-bottom:1px solid var(--line)}}
+
+  /* CAMPS / DATES */
+  .camps-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  .camp-card{position:relative;background:var(--card);border:1px solid var(--card-bd);border-radius:16px;padding:32px 28px;text-align:center;transition:transform .25s,border-color .25s}
+  .camp-card:hover{transform:translateY(-5px);border-color:rgba(227,178,60,.5)}
+  .camp-card.featured{border-color:var(--gold);background:linear-gradient(160deg,rgba(227,178,60,.12),rgba(255,255,255,.02))}
+  .camp-card .cc-flag{position:absolute;top:0;right:0;background:var(--gold);color:#0a0a0a;font-weight:800;font-size:11px;letter-spacing:1.5px;padding:5px 13px;border-bottom-left-radius:10px;text-transform:uppercase}
+  .camp-card .cc-tag{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:14px}
+  .camp-card .cc-date{font-family:"Bebas Neue";font-size:42px;line-height:1;letter-spacing:1px}
+  .camp-card .cc-yr{font-family:"Bebas Neue";font-size:22px;color:var(--muted);margin-bottom:14px}
+  .camp-card .cc-sub{color:var(--muted);font-weight:300;font-size:14.5px;margin-bottom:22px}
+  @media(max-width:760px){.camps-grid{grid-template-columns:1fr}}
+
+  section{padding:92px 0}
+  .sec-head{max-width:720px;margin:0 auto 54px;text-align:center}
+  .sec-head h2{font-size:clamp(38px,5.4vw,66px);text-transform:uppercase}
+  .sec-head p{color:var(--muted);font-size:18px;margin-top:14px;font-weight:300}
+
+  /* WHY (feature cards over photo split) */
+  .why{background:linear-gradient(180deg,var(--black),var(--panel))}
+  .why-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:44px;align-items:center}
+  .why-list{display:grid;gap:20px}
+  .feat{display:flex;gap:16px;align-items:flex-start}
+  .feat .ic{flex:0 0 auto;width:46px;height:46px;border-radius:11px;background:rgba(227,178,60,.12);display:grid;place-items:center}
+  .feat .ic svg{width:24px;height:24px;stroke:var(--gold);fill:none}
+  .feat h3{font-size:24px;text-transform:uppercase;margin-bottom:3px}
+  .feat p{color:var(--muted);font-weight:300;font-size:15.5px}
+  .why-photo{border-radius:16px;overflow:hidden;border:1px solid var(--card-bd);box-shadow:0 30px 60px rgba(0,0,0,.5);aspect-ratio:3/4}
+  .why-photo img{width:100%;height:100%;object-fit:cover}
+  @media(max-width:860px){.why-grid{grid-template-columns:1fr;gap:34px}.why-photo{aspect-ratio:16/10;max-height:420px}}
+
+  /* BAND */
+  .band{position:relative;height:340px;background:url('assets/donau/images/camp/camp-band.jpg') center/cover fixed no-repeat;display:flex;align-items:center;justify-content:center;text-align:center}
+  .band::after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(8,11,9,.85),rgba(8,11,9,.55))}
+  .band .q{position:relative;z-index:2;max-width:760px;padding:0 24px}
+  .band .q p{font-family:"Bebas Neue";font-size:clamp(28px,4.4vw,48px);text-transform:uppercase;line-height:1.02}
+  @media(max-width:760px){.band{background-attachment:scroll;height:280px}}
+
+  /* TIMETABLE */
+  .day{background:var(--panel)}
+  .tt{max-width:760px;margin:0 auto;border:1px solid var(--card-bd);border-radius:16px;overflow:hidden;background:var(--card)}
+  .tt-row{display:grid;grid-template-columns:130px 1fr;border-bottom:1px solid var(--line)}
+  .tt-row:last-child{border-bottom:none}
+  .tt-row .t{padding:16px 18px;font-family:"Bebas Neue";font-size:20px;letter-spacing:1px;color:var(--gold);border-right:1px solid var(--line);background:rgba(0,0,0,.2)}
+  .tt-row .d{padding:16px 18px}
+  .tt-row .d b{display:block;font-weight:600;font-size:15.5px}
+  .tt-row .d span{color:var(--muted);font-size:14px;font-weight:300}
+  .day .note{text-align:center;color:var(--muted);font-size:14px;margin-top:18px;font-weight:300}
+
+  /* FACILITIES */
+  .fac-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center}
+  .fac-photo{border-radius:16px;overflow:hidden;border:1px solid var(--card-bd);box-shadow:0 30px 60px rgba(0,0,0,.5)}
+  .fac-photo img{width:100%;height:100%;object-fit:cover;aspect-ratio:4/3}
+  .fac-tags{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+  .fac-tags span{font-size:13.5px;color:#e6e7e6;border:1px solid var(--card-bd);border-radius:100px;padding:8px 15px;background:rgba(255,255,255,.02)}
+  .fac-copy p{color:var(--muted);font-weight:300;font-size:16.5px;margin-bottom:12px}
+  @media(max-width:860px){.fac-grid{grid-template-columns:1fr;gap:28px}}
+
+  /* METHOD (board proof) */
+  .method{background:linear-gradient(180deg,var(--panel),var(--black))}
+  .method-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center}
+  .method-photos{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .method-photos img{border-radius:12px;border:1px solid var(--card-bd);width:100%;height:100%;object-fit:cover;aspect-ratio:3/4}
+  .method-copy .promise{font-family:"Bebas Neue";font-size:26px;color:var(--gold);letter-spacing:1px;margin:14px 0}
+  .method-copy p{color:var(--muted);font-weight:300;font-size:16.5px;margin-bottom:14px}
+  .method-copy a.more{color:var(--gold);font-weight:600;text-transform:uppercase;letter-spacing:1px;font-size:13.5px}
+  @media(max-width:860px){.method-grid{grid-template-columns:1fr;gap:28px}}
+
+  /* SAFETY + BRING */
+  .care-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  .panel{background:var(--card);border:1px solid var(--card-bd);border-radius:16px;padding:32px}
+  .panel h3{font-size:28px;text-transform:uppercase;margin-bottom:16px}
+  .panel ul{list-style:none;display:grid;gap:11px}
+  .panel li{display:flex;gap:10px;align-items:flex-start;color:var(--muted);font-weight:300;font-size:15.5px}
+  .panel li svg{flex:0 0 auto;width:19px;height:19px;stroke:var(--gold);fill:none;margin-top:3px}
+  .bring-cols{columns:2;column-gap:22px}
+  .bring-cols li{break-inside:avoid;margin-bottom:9px}
+  @media(max-width:860px){.care-grid{grid-template-columns:1fr}.bring-cols{columns:1}}
+
+  /* FOUNDERS */
+  .founders{text-align:center}
+  .founder-row{display:flex;justify-content:center;gap:40px;flex-wrap:wrap;margin-top:10px}
+  .founder{max-width:340px}
+  .founder .nm{font-family:"Bebas Neue";font-size:30px;letter-spacing:1px}
+  .founder .rl{color:var(--gold);font-size:13px;letter-spacing:2px;text-transform:uppercase;font-weight:700;margin-bottom:8px}
+  .founder p{color:var(--muted);font-weight:300;font-size:15.5px}
+
+  /* REGISTER */
+  .reg{background:
+      radial-gradient(700px 400px at 80% 10%,rgba(31,107,58,.22),transparent 60%),
+      linear-gradient(180deg,var(--black),var(--green))}
+  .reg-inner{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--gold);border-radius:22px;overflow:hidden;background:linear-gradient(155deg,rgba(227,178,60,.08),rgba(255,255,255,.015))}
+  .reg-copy{padding:48px}
+  .reg-copy h2{font-size:clamp(34px,4.6vw,56px);text-transform:uppercase;line-height:.96}
+  .reg-copy p{color:var(--muted);font-weight:300;margin:14px 0 22px;font-size:16.5px}
+  .reg-copy .assure{display:flex;gap:10px;align-items:flex-start;color:#d7dad8;font-size:15px;font-weight:300;margin-bottom:10px}
+  .reg-copy .assure svg{flex:0 0 auto;width:19px;height:19px;stroke:var(--gold);fill:none;margin-top:3px}
+  .reg-form{background:rgba(8,11,9,.55);padding:48px 40px;display:flex;flex-direction:column;justify-content:center}
+  .field{margin-bottom:15px}
+  .field label{display:block;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:7px;font-weight:600}
+  .field input,.field select{width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);border-radius:8px;
+    padding:13px 14px;color:#fff;font-family:"Inter";font-size:15px;transition:border-color .2s}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--gold)}
+  .field select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath fill='%23E3B23C' d='M6 8L0 0h12z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 15px center}
+  .reg-form .btn-gold{width:100%;margin-top:8px;justify-content:center}
+  .form-note{font-size:12.5px;color:var(--muted);margin-top:12px;text-align:center;font-weight:300}
+  .form-done{display:none;text-align:center;padding:16px}
+  .form-done.show{display:block}
+  .form-done .ck{width:62px;height:62px;border-radius:50%;background:rgba(227,178,60,.15);display:grid;place-items:center;margin:0 auto 14px}
+  @media(max-width:860px){.reg-inner{grid-template-columns:1fr}.reg-copy{padding:38px 30px}.reg-form{padding:38px 30px}}
+
+  /* FOOTER */
+  footer{background:#05070605;background:#050706;border-top:1px solid var(--line);padding:52px 0 30px}
+  .foot-grid{display:flex;justify-content:space-between;flex-wrap:wrap;gap:28px;margin-bottom:32px}
+  .foot-brand{max-width:340px}
+  .foot-brand p{color:var(--muted);font-weight:300;margin-top:12px;font-size:14.5px}
+  .foot-col h4{font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:13px}
+  .foot-col a{display:block;color:var(--muted);margin-bottom:9px;font-weight:300;transition:color .2s}
+  .foot-col a:hover{color:#fff}
+  .foot-bottom{border-top:1px solid var(--line);padding-top:20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;color:var(--muted);font-size:13.5px;font-weight:300}
+
+  .reveal{opacity:0;transform:translateY(28px);transition:opacity .7s ease,transform .7s ease}
+  .reveal.in{opacity:1;transform:none}
+</style>
+</head>
+<body id="top">
+
+<!-- NAV -->
+<nav class="nav" id="nav">
+  <a class="brand" href="#top" aria-label="RDA home">
+    <img class="ball" src="assets/donau/images/rugby_ball_fire_scalable_bottom_right_fixed.svg" alt="" aria-hidden="true">
+    <span class="wm">RDA</span>
+  </a>
+  <div class="nav-links">
+    <a href="#about">The Camp</a>
+    <a href="#dates">Dates</a>
+    <a href="#day">A Typical Day</a>
+    <a href="#facilities">Facilities</a>
+    <a href="#method">The Method</a>
+    <a href="#register">Register</a>
+  </div>
+  <a href="#register" class="btn btn-gold">Register interest →</a>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-scrim"></div>
+  <div class="wrap">
+    <div class="hero-brand"><img class="hero-ball" src="assets/donau/images/rugby_ball_fire_scalable_bottom_right_fixed.svg" alt="Rugby Development Academy"><span class="hero-wm">RDA</span></div>
+    <h1>Summer Camp<br><span class="yr">2027</span></h1>
+    <p class="lead">A residential rugby development camp an hour from Vienna. Elite coaching, modern methods, and the RDA way of seeing the game — for players who want the next level.</p>
+    <div class="hero-meta">
+      <span class="chip"><svg viewBox="0 0 24 24"><path d="M3 7h18v13H3z"/><path d="M8 3v4M16 3v4M3 11h18"/></svg> Two camps · Summer 2027</span>
+      <span class="chip"><svg viewBox="0 0 24 24"><path d="M12 21s-7-5.2-7-11a7 7 0 0114 0c0 5.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg> Landessportzentrum VIVA, Austria</span>
+      <span class="chip"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg> U16 &amp; U18 · residential</span>
+    </div>
+    <div class="hero-cta">
+      <a href="#register" class="btn btn-gold">Register your interest</a>
+      <a href="#day" class="btn btn-ghost">See a typical day</a>
+    </div>
+  </div>
+</header>
+
+<!-- FACT STRIP -->
+<div class="strip">
+  <div class="wrap"><div class="strip-grid">
+    <div class="it"><div class="k">Camps</div><div class="v">Two · 2027</div></div>
+    <div class="it"><div class="k">Ages</div><div class="v">U16 &amp; U18</div></div>
+    <div class="it"><div class="k">Where</div><div class="v">1h from Vienna</div></div>
+    <div class="it"><div class="k">Places</div><div class="v">Limited</div></div>
+  </div></div>
+</div>
+
+<!-- CAMPS / DATES -->
+<section id="dates">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="eyebrow">Summer 2027 · limited places</div>
+      <h2>Choose your camp</h2>
+      <p>Two residential camps this summer. Book both and your player trains twice — at a better price.</p>
+    </div>
+    <div class="camps-grid reveal">
+      <div class="camp-card">
+        <div class="cc-tag">Camp 1</div>
+        <div class="cc-date">5–9 July</div>
+        <div class="cc-yr">2027</div>
+        <div class="cc-sub">Mon–Fri · residential · U16 &amp; U18</div>
+        <a href="#register" class="btn btn-ghost">Register interest</a>
+      </div>
+      <div class="camp-card featured">
+        <div class="cc-flag">Best value</div>
+        <div class="cc-tag">Both camps</div>
+        <div class="cc-date">Two weeks</div>
+        <div class="cc-yr">July + Aug/Sep</div>
+        <div class="cc-sub">Save when you book both camps</div>
+        <a href="#register" class="btn btn-gold">Get the bundle</a>
+      </div>
+      <div class="camp-card">
+        <div class="cc-tag">Camp 2</div>
+        <div class="cc-date">30 Aug–3 Sep</div>
+        <div class="cc-yr">2027</div>
+        <div class="cc-sub">Mon–Fri · residential · U16 &amp; U18</div>
+        <a href="#register" class="btn btn-ghost">Register interest</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WHY / ABOUT -->
+<section class="why" id="about">
+  <div class="wrap why-grid">
+    <div class="reveal">
+      <div class="eyebrow">Why the RDA Camp</div>
+      <h2 style="font-size:clamp(34px,4.8vw,56px);text-transform:uppercase;margin-bottom:26px">More than a camp.<br>A step up.</h2>
+      <div class="why-list">
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24"><path d="M12 2l2.5 5 5.5.8-4 3.9.9 5.5L12 17l-4.9 2.6.9-5.5-4-3.9 5.5-.8z"/></svg></div><div><h3>Elite, expert coaching</h3><p>Small groups and a high coach-to-player ratio, led by experienced coaches and guest specialists.</p></div></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg></div><div><h3>A modern method</h3><p>Players analyse tactics on the RDA Tactical Board and take home an individual player report.</p></div></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 5-3.5 8-7 9-3.5-1-7-4-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div><div><h3>Safe &amp; structured</h3><p>Controlled, technical contact under expert supervision, with an on-site physiotherapist.</p></div></div>
+        <div class="feat"><div class="ic"><svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="3.5"/><circle cx="17" cy="15" r="3"/><path d="M2 20c0-3 3-4.5 7-4.5"/></svg></div><div><h3>Teamwork &amp; memories</h3><p>New friendships, teambuilding and recovery — days on the pitch and evenings that players remember.</p></div></div>
+      </div>
+    </div>
+    <div class="why-photo reveal"><img src="assets/donau/images/camp/camp-huddle.jpg" alt="RDA camp players in a team huddle"></div>
+  </div>
+</section>
+
+<!-- BAND -->
+<div class="band"><div class="q"><p>Develop. Perform. Succeed.</p></div></div>
+
+<!-- TYPICAL DAY -->
+<section class="day" id="day">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="eyebrow">On the ground</div>
+      <h2>A typical day</h2>
+      <p>Structured from breakfast to evening — technical coaching, real match scenarios, strength work and recovery.</p>
+    </div>
+    <div class="tt reveal">
+      <div class="tt-row"><div class="t">07:30</div><div class="d"><b>Breakfast</b><span>Fuel for the day</span></div></div>
+      <div class="tt-row"><div class="t">09:00</div><div class="d"><b>Gym seminar &amp; S&amp;C · Pitch session (Attack)</b><span>Groups rotate between strength work and skills</span></div></div>
+      <div class="tt-row"><div class="t">10:30</div><div class="d"><b>Pitch session (Defence)</b><span>Technical, controlled and game-realistic</span></div></div>
+      <div class="tt-row"><div class="t">12:00</div><div class="d"><b>Lunch</b></div></div>
+      <div class="tt-row"><div class="t">13:30</div><div class="d"><b>Positioning clinic &amp; pitch session</b><span>Position-specific coaching</span></div></div>
+      <div class="tt-row"><div class="t">15:30</div><div class="d"><b>Pitch session · swimming at the lake</b><span>Neufelder See</span></div></div>
+      <div class="tt-row"><div class="t">16:45</div><div class="d"><b>Rest &amp; reflect</b></div></div>
+      <div class="tt-row"><div class="t">18:00</div><div class="d"><b>Dinner</b></div></div>
+      <div class="tt-row"><div class="t">19:00</div><div class="d"><b>Teambuilding, recovery &amp; recreation</b><span>The part players never forget</span></div></div>
+    </div>
+    <p class="note reveal">Sample schedule — final timetable confirmed closer to the camp and subject to change.</p>
+  </div>
+</section>
+
+<!-- FACILITIES -->
+<section id="facilities">
+  <div class="wrap fac-grid">
+    <div class="fac-photo reveal"><img src="assets/donau/images/camp/camp-session.jpg" alt="Coaching session on the pitch at the RDA camp"></div>
+    <div class="fac-copy reveal">
+      <div class="eyebrow">Facilities &amp; accommodation</div>
+      <h2 style="font-size:clamp(32px,4.4vw,52px);text-transform:uppercase;margin-bottom:16px">Landessportzentrum VIVA</h2>
+      <p>Players board in clean, modern rooms and train at a full sports centre an hour from Vienna — everything on one site, so the days flow from pitch to recovery.</p>
+      <div class="fac-tags">
+        <span>2 grass pitches</span><span>Artificial turf</span><span>Fitness room</span><span>Sauna</span><span>Climbing wall</span><span>Table tennis</span><span>Bowling</span><span>Lake swimming</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- METHOD (board as proof) -->
+<section class="method" id="method">
+  <div class="wrap method-grid">
+    <div class="method-copy reveal">
+      <div class="eyebrow">The RDA method</div>
+      <h2 style="font-size:clamp(32px,4.4vw,52px);text-transform:uppercase">Train like the pros</h2>
+      <div class="promise">See the game. Then play it.</div>
+      <p>Camp isn't just drills. Players break down attack and defence on the <b style="color:#fff">RDA Tactical Board</b> — the same tool coaches use to build and animate plays — then take it onto the grass. Strength, speed and testing round out a genuinely modern development week.</p>
+      <p>Every player leaves with an <b style="color:#fff">individual report</b> on their development.</p>
+      <a class="more" href="environments/animator/" target="_blank" rel="noopener">Explore the RDA Tactical Board →</a>
+    </div>
+    <div class="method-photos reveal">
+      <img src="assets/donau/images/camp/camp-testing.jpg" alt="Speed and agility testing">
+      <img src="assets/donau/images/camp/camp-gym.jpg" alt="Strength and conditioning session">
+    </div>
+  </div>
+</section>
+
+<!-- SAFETY + WHAT TO BRING -->
+<section>
+  <div class="wrap care-grid">
+    <div class="panel reveal">
+      <h3>Safety &amp; wellbeing</h3>
+      <ul>
+        <li><svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 5-3.5 8-7 9-3.5-1-7-4-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg> Controlled, technical contact under expert supervision</li>
+        <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> On-site physiotherapist during the camp</li>
+        <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Parents notified immediately in case of illness or injury</li>
+        <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Health form completed for every player before arrival</li>
+      </ul>
+    </div>
+    <div class="panel reveal">
+      <h3>What to bring</h3>
+      <ul class="bring-cols">
+        <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> E-Card</li>
+        <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Rugby boots</li>
+        <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Runners &amp; flip-flops</li>
+        <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Gum shield</li>
+        <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Rugby &amp; sports socks</li>
+        <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Swimwear</li>
+        <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Large water bottle</li>
+        <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Rain jacket</li>
+        <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Blister plasters</li>
+        <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Sunscreen</li>
+        <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Snacks</li>
+        <li><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Evening wear</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- FOUNDERS -->
+<section class="founders">
+  <div class="wrap reveal">
+    <div class="eyebrow">Who runs it</div>
+    <h2 style="font-size:clamp(32px,4.4vw,52px);text-transform:uppercase;margin-bottom:10px">Led by the RDA founders</h2>
+    <div class="founder-row">
+      <div class="founder"><div class="nm">Diego 'Mato' dos Santos</div><div class="rl">Founder &amp; Coach</div><p>Co-founder of the Rugby Development Academy, focused on modern, player-first coaching.</p></div>
+      <div class="founder"><div class="nm">Robert Schneider</div><div class="rl">Founder &amp; Coach</div><p>Co-founder of the Rugby Development Academy, committed to safe, high-quality development.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- REGISTER -->
+<section class="reg" id="register">
+  <div class="wrap">
+    <div class="reg-inner reveal">
+      <div class="reg-copy">
+        <div class="eyebrow">Places are limited</div>
+        <h2>Register your interest</h2>
+        <p>No payment now — register your interest and we'll send pricing and booking details as soon as places open. Book both camps for the best price — first to register, first to book.</p>
+        <div class="assure"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Be first in line when booking opens</div>
+        <div class="assure"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Only camp updates — no spam, ever</div>
+        <div class="assure"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Questions welcome at contact@rugbydevelopmentacademy.com</div>
+      </div>
+      <div class="reg-form">
+        <div id="formLive">
+          <form name="camp-interest" method="POST" data-netlify="true" netlify-honeypot="bot-field" id="campForm" onsubmit="return submitCamp(event)">
+            <input type="hidden" name="form-name" value="camp-interest">
+            <p style="display:none"><label>Leave blank: <input name="bot-field"></label></p>
+            <div class="field"><label for="n">Your name</label><input id="n" name="name" type="text" placeholder="Parent or player name" required></div>
+            <div class="field"><label for="e">Email</label><input id="e" name="email" type="email" placeholder="you@email.com" required></div>
+            <div class="field"><label for="r">I'm a…</label>
+              <select id="r" name="role" required><option value="" disabled selected>Select one</option><option>Parent / guardian</option><option>Player</option><option>Coach / club</option></select></div>
+            <div class="field"><label for="c">Which camp?</label>
+              <select id="c" name="camp" required><option value="" disabled selected>Select</option><option>Camp 1 — 5–9 Jul 2027</option><option>Camp 2 — 30 Aug–3 Sep 2027</option><option>Both camps (best value)</option></select></div>
+            <div class="field"><label for="a">Player age group</label>
+              <select id="a" name="age_group" required><option value="" disabled selected>Select age group</option><option>U16</option><option>U18</option><option>Other / not sure</option></select></div>
+            <button type="submit" class="btn btn-gold">Notify me about the camp</button>
+            <p class="form-note">We'll only email you about the RDA Summer Camp.</p>
+          </form>
+        </div>
+        <div class="form-done" id="formDone">
+          <div class="ck"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#E3B23C" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg></div>
+          <h3 style="color:var(--gold);font-size:30px">You're on the list!</h3>
+          <p style="color:var(--muted);font-weight:300;margin-top:8px">Thanks — we'll be in touch with dates, pricing and booking as soon as they're confirmed.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="#top"><img class="ball" src="assets/donau/images/rugby_ball_fire_scalable_bottom_right_fixed.svg" alt="" aria-hidden="true"><span class="wm">RDA</span></a>
+        <p>Rugby Development Academy — the RDA Summer Camp, the Tactical Board and coaching environments. Based in Vienna.</p>
+      </div>
+      <div class="foot-col">
+        <h4>Camp</h4>
+        <a href="#about">The camp</a><a href="#day">A typical day</a><a href="#facilities">Facilities</a><a href="#register">Register interest</a>
+      </div>
+      <div class="foot-col">
+        <h4>RDA</h4>
+        <a href="environments/animator/" target="_blank" rel="noopener">Tactical Board</a>
+        <a href="index.html">Academy home</a>
+        <a href="#method">For clubs →</a>
+      </div>
+      <div class="foot-col">
+        <h4>Get in touch</h4>
+        <a href="mailto:contact@rugbydevelopmentacademy.com">contact@rugbydevelopmentacademy.com</a>
+        <a href="https://ko-fi.com/rugbydevelopmentacademy" target="_blank" rel="noopener">Support RDA</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© <span id="yr"></span> Rugby Development Academy</span>
+      <span>Develop. Perform. Succeed.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('yr').textContent=new Date().getFullYear();
+  const nav=document.getElementById('nav');
+  addEventListener('scroll',()=>nav.classList.toggle('solid',scrollY>40),{passive:true});
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in')}),{threshold:.12});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+  function submitCamp(e){
+    const f=e.target; if(!f.checkValidity()) return true;
+    try{fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(new FormData(f)).toString()}).catch(()=>{});}catch(_){}
+    document.getElementById('formLive').style.display='none';
+    document.getElementById('formDone').classList.add('show');
+    e.preventDefault(); return false;
+  }
+</script>
+</body>
+</html>
