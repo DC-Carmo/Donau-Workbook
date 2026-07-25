@@ -282,6 +282,74 @@ function getVisualViewportBox() {
   };
 }
 
+// Phone LANDSCAPE only: #canvasHost/the side rails are the only things CSS
+// positions. This measures their settled boxes and writes #canvasWrap's
+// exact pixel rectangle (position:absolute; left/top/width/height) directly,
+// contain-fitting the complete rendered-board's rotated aspect ratio into
+// the space between the rails. Root-caused via empirical Playwright testing:
+// the previous container-query (cqw/cqh) contain-fit technique measured as
+// numerically correct in every geometry/computed-style check, yet the canvas
+// painted nothing visible on screen in real Chrome (confirmed with
+// canvas.toDataURL() showing a fully correct render while the actual
+// composited page showed none) - isolated specifically to a canvas
+// descendant of a container-query-sized, flex-centred #canvasWrap in phone
+// landscape. Explicit absolute positioning does not exhibit it. This is the
+// only function that writes #canvasWrap's landscape geometry.
+const LANDSCAPE_BOARD_ASPECT = FVH / FVW; // rotated: pitch length / pitch width
+const LANDSCAPE_RAIL_GAP_PX = 8;
+function applyPhoneLandscapeWrapGeometry() {
+  const host = document.getElementById('canvasHost');
+  const wrap = document.getElementById('canvasWrap');
+  const railLeft = document.getElementById('mobileRailLeft');
+  const railRight = document.getElementById('mobileRailRight');
+  if (!host || !wrap || !railLeft || !railRight) return false;
+  const hostRect = host.getBoundingClientRect();
+  const leftRailRect = railLeft.getBoundingClientRect();
+  const rightRailRect = railRight.getBoundingClientRect();
+  const usableLeft = Math.max(hostRect.left, leftRailRect.right + LANDSCAPE_RAIL_GAP_PX);
+  const usableRight = Math.min(hostRect.right, rightRailRect.left - LANDSCAPE_RAIL_GAP_PX);
+  const usableTop = hostRect.top;
+  const usableBottom = hostRect.bottom;
+  const availableWidth = usableRight - usableLeft;
+  const availableHeight = usableBottom - usableTop;
+  if (!Number.isFinite(availableWidth) || !Number.isFinite(availableHeight)
+    || availableWidth <= 0 || availableHeight <= 0) {
+    return false;
+  }
+  const widthFromHeight = availableHeight * LANDSCAPE_BOARD_ASPECT;
+  const heightFromWidth = availableWidth / LANDSCAPE_BOARD_ASPECT;
+  let wrapWidth, wrapHeight;
+  if (widthFromHeight <= availableWidth) {
+    wrapWidth = widthFromHeight;
+    wrapHeight = availableHeight;
+  } else {
+    wrapWidth = availableWidth;
+    wrapHeight = heightFromWidth;
+  }
+  if (!Number.isFinite(wrapWidth) || !Number.isFinite(wrapHeight) || wrapWidth <= 0 || wrapHeight <= 0) {
+    return false;
+  }
+  const wrapLeft = usableLeft + (availableWidth - wrapWidth) / 2;
+  const wrapTop = usableTop + (availableHeight - wrapHeight) / 2;
+  // #canvasWrap is position:absolute inside the position:fixed #canvasHost
+  // (zero padding/border on the host in this mode), so its containing block
+  // origin IS hostRect's own top-left - convert back to host-relative px.
+  wrap.style.left = `${wrapLeft - hostRect.left}px`;
+  wrap.style.top = `${wrapTop - hostRect.top}px`;
+  wrap.style.width = `${wrapWidth}px`;
+  wrap.style.height = `${wrapHeight}px`;
+  return true;
+}
+
+function clearPhoneLandscapeWrapGeometry() {
+  const wrap = document.getElementById('canvasWrap');
+  if (!wrap) return;
+  wrap.style.left = '';
+  wrap.style.top = '';
+  wrap.style.width = '';
+  wrap.style.height = '';
+}
+
 // Reads the FINAL, CSS-settled #canvasWrap box and derives the render
 // transform from it directly - no independent fit math. CSS (aspect-ratio,
 // max-width/max-height, flex centring, or the portrait scroller's 96% width)
@@ -388,18 +456,37 @@ function resize() {
   document.body.classList.toggle('tb-mobile-portrait', MOBILE_PORTRAIT);
   document.body.classList.toggle('tb-fit-full-pitch', isPhone && MOBILE_PORTRAIT && mobileFitFullPitch);
   syncMobileNotesPanelHost();
+  // Landscape only: write #canvasWrap's explicit pixel geometry from the
+  // settled host/rail rects BEFORE reading it below (see
+  // applyPhoneLandscapeWrapGeometry's doc comment for why this replaced the
+  // former CSS-only container-query sizing). Any other mode clears leftover
+  // inline geometry so it can't leak into portrait/desktop's own CSS sizing.
+  if (isPhone && PHONE_LANDSCAPE) {
+    if (!applyPhoneLandscapeWrapGeometry()) {
+      if (!window.__animatorResizeRetry) {
+        window.__animatorResizeRetry = setTimeout(() => {
+          window.__animatorResizeRetry = null;
+          scheduleResizePass();
+        }, 180);
+      }
+      return;
+    }
+  } else {
+    clearPhoneLandscapeWrapGeometry();
+  }
   const phoneBox = isPhone ? getPhoneViewportState() : null;
   // CSS (aspect-ratio / max-width+max-height / the portrait scroller's fixed
   // width) now does 100% of the phone board's sizing and positioning; this
   // just validates the SETTLED result before using it. A momentarily-invalid
-  // rect (0-size, non-finite - e.g. mid-transition before the class toggle
-  // above has been painted) is rejected WITHOUT touching cv/sc/sx/sy/ox/oy,
-  // so whatever was last rendered stays on screen (never blanks) and one
-  // rAF retry is scheduled to pick up the settled geometry.
+  // rect (0-size, non-finite, or implausibly small - e.g. mid-transition
+  // before the class toggle above has been painted) is rejected WITHOUT
+  // touching cv/sc/sx/sy/ox/oy, so whatever was last rendered stays on
+  // screen (never blanks) and one rAF retry is scheduled to pick up the
+  // settled geometry.
   if (isPhone) {
     const nums = phoneBox && [phoneBox.availW, phoneBox.availH, phoneBox.fieldScale, phoneBox.fieldScaleX, phoneBox.fieldScaleY];
     const isValid = !!phoneBox && nums.every(Number.isFinite)
-      && phoneBox.availW > 0 && phoneBox.availH > 0
+      && phoneBox.availW > 100 && phoneBox.availH > 100
       && phoneBox.fieldScale > 0;
     if (!isValid) {
       if (!window.__animatorResizeRetry) {

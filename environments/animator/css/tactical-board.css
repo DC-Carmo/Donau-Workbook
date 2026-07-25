@@ -4751,24 +4751,47 @@ body.is-phone.tb-mobile-portrait.tb-fit-full-pitch #canvasWrap {
   aspect-ratio: auto;
 }
 
-/* Mode 3: landscape PRESENTATION VIEW - contain-fit, rotated ratio, side
-   rails reserved via host padding, no scroll. Same container-query
-   contain-fit technique as Fit Full Pitch above, rotated ratio. */
+/* Mode 3: landscape PRESENTATION VIEW - deterministic JS-measured geometry
+   (see applyPhoneLandscapeWrapGeometry in tactical-board.js), not the
+   container-query contain-fit technique Fit Full Pitch uses above - CSS here
+   only keeps the host's fixed rect and hidden overflow; JS measures
+   #canvasHost/#mobileRailLeft/#mobileRailRight after layout settles and
+   writes #canvasWrap's left/top/width/height explicitly.
+
+   The actual blank-canvas defect (root-caused empirically: canvas.toDataURL()
+   proved the board rendered correctly while the real composited paint showed
+   nothing, in headless AND headed Chromium, and the live deployed page) was
+   NOT the container-query sizing - Fit Full Pitch uses the identical cqw/
+   container-type:size technique and never exhibited it. It was #mobileToolGrid:
+   a position:fixed, left:0/right:0 (full width), z-index:172 flex container
+   that only exists in landscape (portrait's toolbar is a normal in-flow
+   bottom bar, not an overlay) sitting stacking-order-ABOVE #canvasHost, which
+   had no z-index of its own. Even with pointer-events:none and no visible
+   background, that higher fixed sibling caused the canvas's compositor layer
+   to be treated as occluded and skipped from painting entirely - confirmed
+   by toggling #mobileToolGrid to display:none (canvas immediately painted)
+   and, non-destructively, by giving #canvasHost a higher z-index (same
+   fix, applied below) - both restored the on-screen paint with the exact
+   same measured geometry throughout. */
 body.is-phone:not(.tb-mobile-portrait) #canvasHost {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
-  padding-left: calc(var(--tb-phone-rail-w) + 8px);
-  padding-right: calc(var(--tb-phone-rail-w) + 8px);
-  container-type: size;
+  /* Must outrank #mobileToolGrid's z-index:172 - see comment above. */
+  z-index: 173;
+  /* #canvasHost's own box still spans the full host width (0 to full width),
+     even though the painted board only occupies its centred #canvasWrap -
+     outranking #mobileToolGrid for PAINT would otherwise also outrank it for
+     HIT-TESTING across that whole box, silently swallowing taps on the
+     MORE/rail buttons that live outside #canvasWrap's own rect. none here
+     lets those taps fall through to #mobileToolGrid's real buttons;
+     #canvasWrap restores auto so the board itself stays fully interactive. */
+  pointer-events: none;
 }
 body.is-phone:not(.tb-mobile-portrait) #canvasWrap {
-  width: min(100cqw, 96cqh * 121.6 / 69.2);
-  height: min(96cqh, 100cqw * 69.2 / 121.6);
+  position: absolute;
   max-width: none;
   max-height: none;
   aspect-ratio: auto;
+  pointer-events: auto;
 }
 
 /* ── Coaching Notes: desktop accordion + fields (2026-07-21) ──
