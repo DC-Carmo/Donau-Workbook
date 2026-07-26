@@ -5580,7 +5580,9 @@ function addKickToFieldTarget(fieldPoint) {
   applyBallOwnershipVisualState();
   clearPassKickState();
   clearSelectedObject();
-  setHint('Kick to field drawn.');
+  clearDragPlayer();
+  // A completed field-target Kick is a one-shot action: auto-return to Move.
+  returnInteractionToMoveTool();
   refreshInteractionUI();
   render();
   return true;
@@ -5943,7 +5945,10 @@ function handlePointerDown(e) {
         }
         clearPassKickState();
         clearSelectedObject();
-        setHint(S.tool === 'pass' ? 'Pass added.' : 'Kick to player added.');
+        clearDragPlayer();
+        // A completed Pass/Kick is a one-shot action: auto-return to Move so
+        // the coach can immediately select another player.
+        returnInteractionToMoveTool();
         refreshInteractionUI();
       } else {
         // Clicked same player again: cancel
@@ -6403,6 +6408,16 @@ function finishDraw() {
     S.paths = S.paths.filter(p => p.pid !== S.drawing.pid);
     S.paths.push({ pid:S.drawing.pid, pts:simplified, color:col });
     commitLiveBoardToCurrentStep();
+    S.drawing = null;
+    clearArmedRunState();
+    clearSelectedObject();
+    // A successfully completed Run path is a one-shot action: auto-return to
+    // Move so the coach can immediately select another player, matching
+    // Pass/Kick/Arrow's completion behavior.
+    returnInteractionToMoveTool();
+    refreshInteractionUI();
+    render();
+    return;
   }
   S.drawing = null;
   clearArmedRunState();
@@ -6444,12 +6459,15 @@ function finishAnnotationDraft() {
   snapshot();
   S.annotations.push(draft);
   commitLiveBoardToCurrentStep();
-  // A radial one-shot Arrow auto-returns to Move instead of staying selected
-  // in the Arrow tool: the arrow itself, its Undo history entry, and the
+  // Arrow is a one-shot action, rail or radial alike: auto-return to Move
+  // instead of staying selected in the Arrow tool. The only difference
+  // between the two entry points is the start point (player-anchored for a
+  // radial activation, free-start for the rail) - completion behavior is now
+  // identical. The arrow itself, its Undo history entry, and the
   // save/restore schema are all untouched above - only the post-commit
-  // interaction state differs from the rail Arrow's "stay selected, keep
+  // interaction state differs from zone/box/note's "stay selected, keep
   // drawing" flow.
-  if (draft.type === 'arrow' && S.radialArrowSourcePlayerId !== null && S.radialArrowSourcePlayerId !== undefined) {
+  if (draft.type === 'arrow') {
     S.radialArrowSourcePlayerId = null;
     clearSelectedObject();
     completeFirstUseTutorial();
@@ -8936,37 +8954,13 @@ function setTool(t) {
   // prevents a stale flag from an abandoned radial attempt silently making a
   // later, unrelated rail Arrow click player-anchored.
   S.radialArrowSourcePlayerId = null;
-  if (t === S.tool) {
-    if (t === 'erase') {
-      returnInteractionToMoveTool();
-      refreshInteractionUI();
-      render();
-      return;
-    }
-    if (t === 'kick' && S.activeKickerId) { cancelArmedKick(); return; }
-    if (t === 'pass' && S.activePasserId) {
-      clearPassKickState();
-      clearSelectedObject();
-      clearDragPlayer();
-      S.pointerTap = null;
-      returnInteractionToMoveTool();
-      refreshInteractionUI();
-      render();
-      return;
-    }
-    if (t === 'run' && S.activeRunSourceId) { cancelArmedRun(); return; }
-    if (t === 'pass' || t === 'kick' || t === 'run') {
-      clearPassKickState();
-      clearArmedRunState();
-      clearSelectedObject();
-      clearDragPlayer();
-      S.drawing = null;
-      S.pointerTap = null;
-      returnInteractionToMoveTool();
-      refreshInteractionUI();
-      render();
-      return;
-    }
+  if (t === S.tool && t !== 'move') {
+    // Second click on the already-active rail tool: cancel it and return to
+    // Move. One canonical helper (also used by Escape) replaces the previous
+    // ad-hoc per-tool special cases here, so every tool - not just
+    // erase/pass/kick/run - toggles off the same way.
+    cancelActiveBoardInteraction();
+    return;
   }
   const switchingAwayFromKick = t !== 'kick' && S.activeKickerId;
   const switchingAwayFromRun = t !== 'run' && S.activeRunSourceId;
@@ -9280,86 +9274,47 @@ window.clearSelection = clearSelection;
 
 function cancelActiveBoardInteraction() {
   closeMobileToolsDropdown();
-  // A radial one-shot Arrow cancels all the way back to Move (armed-but-not-
-  // yet-dragging or mid-drag alike) rather than the generic annotationDraft
-  // branch below, which just clears the draft and leaves the rail Arrow tool
-  // armed for another attempt - that "keep drawing" behavior is correct for
-  // the rail, but a cancelled radial one-shot must not leave the coach stuck
-  // in the Arrow tool with no player selected.
-  if (S.radialArrowSourcePlayerId !== null && S.radialArrowSourcePlayerId !== undefined) {
-    S.radialArrowSourcePlayerId = null;
-    S.annotationDraft = null;
-    S.dragging = null;
-    S.pointerTap = null;
-    returnInteractionToMoveTool();
-    refreshInteractionUI();
-    render();
-    return true;
-  }
-  if (S.annotationDraft) {
-    S.annotationDraft = null;
-    S.dragging = null;
-    S.pointerTap = null;
-    setHint(`${MODE_LABELS[S.tool] || 'Tool'} cancelled.`);
-    updateAnnotationPanel();
-    refreshInteractionUI();
-    render();
-    return true;
-  }
-  if (S.drawing) {
-    S.drawing = null;
-    clearArmedRunState();
-    S.dragging = null;
-    S.pointerTap = null;
-    setHint('Run path cancelled.');
-    refreshInteractionUI();
-    render();
-    return true;
-  }
-  if (teleDrawing) {
-    teleDrawing = null;
-    S.dragging = null;
-    S.pointerTap = null;
-    clearHighlightedPlayers();
-    setHint('Telestrator cancelled.');
-    refreshInteractionUI();
-    render();
-    return true;
-  }
-  if (activeWorkflowPlayerId()) {
-    if (S.tool === 'kick' && S.activeKickerId) {
-      return cancelArmedKick();
-    }
-    clearPassKickState();
-    clearSelectedObject();
-    clearDragPlayer();
-    S.pointerTap = null;
-    returnInteractionToMoveTool();
-    refreshInteractionUI();
-    render();
-    return true;
-  }
-  if (S.activeRunSourceId) {
-    return cancelArmedRun();
-  }
-  if (S.tool === 'pass' || S.tool === 'kick' || S.tool === 'run') {
-    clearPassKickState();
-    clearArmedRunState();
-    clearSelectedObject();
-    clearDragPlayer();
-    S.drawing = null;
-    S.pointerTap = null;
-    returnInteractionToMoveTool();
-    refreshInteractionUI();
-    render();
-    return true;
-  }
-  if (S.selectedPlayerId !== null || S.selectedGroupId !== null || isBallSelected() || selectedAnnotationId() || S.selectedPassIdx !== null || S.selectedPathPid !== null) {
-    clearSelection();
-    return true;
-  }
-  closeMobileToolsDropdown();
-  return false;
+  // Single canonical "cancel everything, land on Move" path - shared by
+  // Escape and by setTool()'s same-tool-click toggle, so a second click on
+  // any active rail tool and pressing Escape always produce the exact same
+  // safe, neutral result, no matter which tool was active or how far into
+  // its interaction (armed-but-idle, mid-draft, mid-drag) the coach got.
+  const hadInteraction = !!(
+    (S.radialArrowSourcePlayerId !== null && S.radialArrowSourcePlayerId !== undefined) ||
+    S.annotationDraft ||
+    S.drawing ||
+    teleDrawing ||
+    activeWorkflowPlayerId() ||
+    S.activeRunSourceId ||
+    S.tool !== 'move' ||
+    S.selectedPlayerId !== null ||
+    S.selectedGroupId !== null ||
+    isBallSelected() ||
+    selectedAnnotationId() ||
+    S.selectedPassIdx !== null ||
+    S.selectedPathPid !== null
+  );
+  if (!hadInteraction) return false;
+
+  S.radialArrowSourcePlayerId = null;
+  S.annotationDraft = null;
+  S.drawing = null;
+  teleDrawing = null;
+  clearPassKickState();
+  clearArmedRunState();
+  clearSelectedObject();
+  clearDragPlayer();
+  clearPendingGroupPlacement();
+  clearHighlightedPlayers();
+  S.selectedPassIdx = null;
+  S.selectedPathPid = null;
+  S.dragging = null;
+  S.pointerTap = null;
+  returnInteractionToMoveTool();
+  updateAnnotationPanel();
+  refreshInteractionUI();
+  render();
+  return true;
 }
 function clearAll() {
   clearPendingCanonicalPhaseStart();
