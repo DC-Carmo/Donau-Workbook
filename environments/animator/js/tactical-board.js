@@ -221,6 +221,12 @@ function activateRadialAction(action, sourcePlayerId) {
     resetRadialToolInteractionState(action.tool);
     ensureRadialSourcePlayerSelected(sourcePlayer.id);
     setTool(action.tool);
+    // Arrow armed from the radial is a one-shot, player-anchored draw: mark it
+    // (after setTool(), which unconditionally clears it first) so
+    // handlePointerDown starts the arrow at this player's position and
+    // finishAnnotationDraft auto-returns to Move once it commits. Any other
+    // radial tool leaves it at setTool()'s cleared default.
+    if (action.tool === 'arrow') S.radialArrowSourcePlayerId = sourcePlayer.id;
     return true;
   }
 
@@ -819,6 +825,11 @@ Object.assign(S, {
   activePasserId: null,
   activeKickerId: null,
   activeRunSourceId: null,
+  // Set only while an Arrow armed from the player radial menu is awaiting its
+  // draw gesture or draft commit - marks the in-flight annotationDraft as a
+  // one-shot, player-anchored Arrow (see activateRadialAction/handlePointerDown/
+  // finishAnnotationDraft). Always null for the rail Arrow tool.
+  radialArrowSourcePlayerId: null,
   highlightedPlayerIds: [],
   pendingGroupPlacement: null,
   history: [],          // undo stack (snapshots)
@@ -5833,10 +5844,18 @@ function handlePointerDown(e) {
   }
 
   else if (S.tool === 'arrow') {
+    // A radial one-shot Arrow is anchored to the source player: the drag only
+    // controls the end point, same field-unit coordinates (pl.x/pl.y) used
+    // for Pass/Kick lines - no canvas/pixel conversion or hard-coded offset
+    // needed since annotations already store field-unit start/end points.
+    const radialSource = S.radialArrowSourcePlayerId !== null && S.radialArrowSourcePlayerId !== undefined
+      ? S.players.find(player => player.id === S.radialArrowSourcePlayerId) || null
+      : null;
+    const start = radialSource ? { x: radialSource.x, y: radialSource.y } : { x: fp.x, y: fp.y };
     S.annotationDraft = normalizeAnnotation({
       id: mkAnnotationId(),
       type: 'arrow',
-      start: { x: fp.x, y: fp.y },
+      start,
       end: { x: fp.x, y: fp.y },
       color: annotationColor('arrow'),
     });
@@ -6425,6 +6444,20 @@ function finishAnnotationDraft() {
   snapshot();
   S.annotations.push(draft);
   commitLiveBoardToCurrentStep();
+  // A radial one-shot Arrow auto-returns to Move instead of staying selected
+  // in the Arrow tool: the arrow itself, its Undo history entry, and the
+  // save/restore schema are all untouched above - only the post-commit
+  // interaction state differs from the rail Arrow's "stay selected, keep
+  // drawing" flow.
+  if (draft.type === 'arrow' && S.radialArrowSourcePlayerId !== null && S.radialArrowSourcePlayerId !== undefined) {
+    S.radialArrowSourcePlayerId = null;
+    clearSelectedObject();
+    completeFirstUseTutorial();
+    returnInteractionToMoveTool();
+    refreshInteractionUI();
+    render();
+    return;
+  }
   selectAnnotationById(draft.id);
   completeFirstUseTutorial();
   setHint(`${MODE_LABELS[draft.type] || 'Annotation'} placed — selected. Press Delete to remove, or click it again to reposition.`);
@@ -8896,6 +8929,13 @@ function refreshInteractionUI() {
 }
 
 function setTool(t) {
+  // Any call to setTool() - rail click or radial dispatch alike - starts by
+  // treating a prior radial one-shot Arrow as abandoned. activateRadialAction()
+  // re-arms it immediately after calling setTool('arrow') below, so the flag
+  // still ends up correctly set for a genuine radial activation; this only
+  // prevents a stale flag from an abandoned radial attempt silently making a
+  // later, unrelated rail Arrow click player-anchored.
+  S.radialArrowSourcePlayerId = null;
   if (t === S.tool) {
     if (t === 'erase') {
       returnInteractionToMoveTool();
@@ -9240,6 +9280,22 @@ window.clearSelection = clearSelection;
 
 function cancelActiveBoardInteraction() {
   closeMobileToolsDropdown();
+  // A radial one-shot Arrow cancels all the way back to Move (armed-but-not-
+  // yet-dragging or mid-drag alike) rather than the generic annotationDraft
+  // branch below, which just clears the draft and leaves the rail Arrow tool
+  // armed for another attempt - that "keep drawing" behavior is correct for
+  // the rail, but a cancelled radial one-shot must not leave the coach stuck
+  // in the Arrow tool with no player selected.
+  if (S.radialArrowSourcePlayerId !== null && S.radialArrowSourcePlayerId !== undefined) {
+    S.radialArrowSourcePlayerId = null;
+    S.annotationDraft = null;
+    S.dragging = null;
+    S.pointerTap = null;
+    returnInteractionToMoveTool();
+    refreshInteractionUI();
+    render();
+    return true;
+  }
   if (S.annotationDraft) {
     S.annotationDraft = null;
     S.dragging = null;
