@@ -269,7 +269,7 @@ function renderRadialMenu() {
   menu.classList.add('visible');
 
   const actions = [
-    { label: 'Run', icon: '&rarr;', tool: 'run' },
+    { label: 'Arrow', icon: '&#8599;', tool: 'arrow', ariaLabel: 'Draw tactical arrow' },
     { label: 'Pass', icon: '~', tool: 'pass' },
     { label: 'Kick', icon: '&uarr;', tool: 'kick' },
     { label: 'Ball', icon: '&#9679;', kind: 'ball' },
@@ -285,6 +285,7 @@ function renderRadialMenu() {
     btn.style.left = `${center.x + Math.cos(angle) * radius}px`;
     btn.style.top = `${center.y + Math.sin(angle) * radius}px`;
     btn.innerHTML = `<span>${action.icon}</span><span>${action.label}</span>`;
+    if (action.ariaLabel) btn.setAttribute('aria-label', action.ariaLabel);
     let pointerHandled = false;
     const handleActivation = (event) => {
       event.preventDefault();
