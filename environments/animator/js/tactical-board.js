@@ -189,25 +189,32 @@ function ensureRadialSourcePlayerSelected(sourcePlayerId) {
 }
 
 function resetRadialToolInteractionState(nextTool) {
-  const shouldReset = (
-    S.tool === nextTool ||
-    activeWorkflowPlayerId() ||
-    S.activeRunSourceId ||
-    S.drawing
-  );
-  if (!shouldReset) return;
-  clearPassKickState();
-  clearArmedRunState();
+  const staleTool = S.tool === nextTool;
+  const hasWorkflow = !!activeWorkflowPlayerId();
+  const hasRunSource = !!S.activeRunSourceId;
+  const hasDrawing = !!S.drawing;
+  if (!staleTool && !hasWorkflow && !hasRunSource && !hasDrawing) return;
+  // Only clear the specific stale field(s) actually present, instead of
+  // unconditionally clearing both pass/kick AND run state (each clear also
+  // resets the highlight + legacy selection mirror, so doing both when only
+  // one is stale is pure extra churn on the selected-player visuals).
+  if (hasWorkflow) clearPassKickState();
+  if (hasRunSource) clearArmedRunState();
   clearDragPlayer();
-  S.drawing = null;
+  if (hasDrawing) S.drawing = null;
   S.pointerTap = null;
-  if (S.tool === nextTool) S.tool = 'move';
+  if (staleTool) S.tool = 'move';
 }
 
 function activateRadialAction(action, sourcePlayerId) {
   closeRadialMenu();
   if (!action || sourcePlayerId === null || sourcePlayerId === undefined) return false;
-  const sourcePlayer = ensureRadialSourcePlayerSelected(sourcePlayerId);
+  // Look up (don't yet re-select) the source player: the two-tap gesture that
+  // opens the radial menu already left it selected, so the one confirming
+  // selectPlayer() call below - after any stale tool state is cleared - is
+  // enough. Selecting it again here too would just be a second, redundant
+  // reselect of the same player before we've even touched the tool state.
+  const sourcePlayer = S.players.find(player => player.id === sourcePlayerId) || null;
   if (!sourcePlayer) return false;
 
   if (action.tool) {
