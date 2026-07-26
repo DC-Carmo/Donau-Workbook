@@ -2595,6 +2595,7 @@ html, body {
   flex-direction: column;
   gap: 1px;
   transition: border-color .15s, background .15s;
+  touch-action: none;
 }
 
 .radial-btn:hover {

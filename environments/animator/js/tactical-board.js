@@ -181,6 +181,66 @@ function closeRadialMenu() {
   }
 }
 
+function ensureRadialSourcePlayerSelected(sourcePlayerId) {
+  const sourcePlayer = S.players.find(player => player.id === sourcePlayerId) || null;
+  if (!sourcePlayer) return null;
+  selectPlayer(sourcePlayer.id, { highlightedIds: [sourcePlayer.id] });
+  return sourcePlayer;
+}
+
+function resetRadialToolInteractionState(nextTool) {
+  const shouldReset = (
+    S.tool === nextTool ||
+    activeWorkflowPlayerId() ||
+    S.activeRunSourceId ||
+    S.drawing
+  );
+  if (!shouldReset) return;
+  clearPassKickState();
+  clearArmedRunState();
+  clearDragPlayer();
+  S.drawing = null;
+  S.pointerTap = null;
+  if (S.tool === nextTool) S.tool = 'move';
+}
+
+function activateRadialAction(action, sourcePlayerId) {
+  closeRadialMenu();
+  if (!action || sourcePlayerId === null || sourcePlayerId === undefined) return false;
+  const sourcePlayer = ensureRadialSourcePlayerSelected(sourcePlayerId);
+  if (!sourcePlayer) return false;
+
+  if (action.tool) {
+    resetRadialToolInteractionState(action.tool);
+    ensureRadialSourcePlayerSelected(sourcePlayer.id);
+    setTool(action.tool);
+    return true;
+  }
+
+  if (action.kind === 'ball') {
+    ensureRadialSourcePlayerSelected(sourcePlayer.id);
+    addBall();
+    return true;
+  }
+
+  if (action.kind === 'remove') {
+    ensureRadialSourcePlayerSelected(sourcePlayer.id);
+    deleteSelected();
+    return true;
+  }
+
+  return false;
+}
+
+function radialEventTargetsMenu(event) {
+  const path = typeof event?.composedPath === 'function' ? event.composedPath() : [];
+  return path.some((node) => {
+    if (!node || typeof node !== 'object') return false;
+    if (node.id === 'radialMenu') return true;
+    return !!node.classList?.contains('radial-btn');
+  });
+}
+
 function renderRadialMenu() {
   const menu = document.getElementById('radialMenu');
   if (!menu) return;
@@ -201,53 +261,45 @@ function renderRadialMenu() {
   menu.innerHTML = '';
   menu.classList.add('visible');
 
-  const ACTIONS = [
-    { label: 'Run', icon: '→', tool: 'run' },
+  const actions = [
+    { label: 'Run', icon: '&rarr;', tool: 'run' },
     { label: 'Pass', icon: '~', tool: 'pass' },
-    { label: 'Kick', icon: '⬆', tool: 'kick' },
-    { label: 'Ball', icon: '●', fn: () => giveBall(radialMenu.playerId) },
-    { label: 'Remove', icon: '✕', fn: () => { snapshot(); removePlayer(radialMenu.playerId); }, danger: true },
+    { label: 'Kick', icon: '&uarr;', tool: 'kick' },
+    { label: 'Ball', icon: '&#9679;', kind: 'ball' },
+    { label: 'Remove', icon: '&#10005;', kind: 'remove', danger: true },
   ];
 
   const radius = 52;
-  ACTIONS.forEach((action, index) => {
-    const angle = (-Math.PI / 2) + (index * (Math.PI * 2 / ACTIONS.length));
+  actions.forEach((action, index) => {
+    const angle = (-Math.PI / 2) + (index * (Math.PI * 2 / actions.length));
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = `radial-btn${action.danger ? ' danger' : ''}`;
     btn.style.left = `${center.x + Math.cos(angle) * radius}px`;
     btn.style.top = `${center.y + Math.sin(angle) * radius}px`;
     btn.innerHTML = `<span>${action.icon}</span><span>${action.label}</span>`;
-    btn.addEventListener('click', (event) => {
+    let pointerHandled = false;
+    const handleActivation = (event) => {
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation?.();
       const sourcePlayerId = radialMenu?.playerId ?? null;
-      closeRadialMenu();
-      if (action.tool) {
-        if (
-          S.tool === action.tool ||
-          activeWorkflowPlayerId() ||
-          S.activeRunSourceId ||
-          S.drawing
-        ) {
-          clearPassKickState();
-          clearArmedRunState();
-          clearSelectedObject();
-          clearDragPlayer();
-          S.drawing = null;
-          S.pointerTap = null;
-          S.tool = 'move';
-        }
-        if (sourcePlayerId !== null) {
-          const sourcePlayer = S.players.find(player => player.id === sourcePlayerId) || null;
-          if (sourcePlayer) {
-            selectPlayer(sourcePlayer.id, { highlightedIds: [sourcePlayer.id] });
-          }
-        }
-        setTool(action.tool);
+      activateRadialAction(action, sourcePlayerId);
+    };
+    btn.addEventListener('pointerdown', (event) => {
+      pointerHandled = true;
+      handleActivation(event);
+    });
+    btn.addEventListener('click', (event) => {
+      if (event.detail !== 0 || pointerHandled) {
+        pointerHandled = false;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
         return;
       }
-      if (action.fn) action.fn();
+      pointerHandled = false;
+      handleActivation(event);
     });
     menu.appendChild(btn);
   });
@@ -9800,6 +9852,7 @@ window.migratePlay = migratePlay;
 
 document.addEventListener('pointerdown', e => {
   if (!radialMenu) return;
+  if (radialEventTargetsMenu(e)) return;
   const menu = document.getElementById('radialMenu');
   if (menu && !menu.contains(e.target)) {
     closeRadialMenu();
