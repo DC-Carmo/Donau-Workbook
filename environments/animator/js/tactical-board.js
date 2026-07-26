@@ -9016,12 +9016,19 @@ function setMobileMoreDrawerOpen(open) {
   const btn    = document.getElementById('mobMoreBtn');
   const isOpen = !!open && isPhoneViewport;
   if (!drawer) return;
+  // updateMobileUI() calls this unconditionally on every resize() pass (to
+  // force the drawer closed off-phone) - scheduleResizePass() must only fire
+  // when the drawer's open state actually flips, or resize() -> updateMobileUI()
+  // -> setMobileMoreDrawerOpen(false) -> scheduleResizePass() -> next-frame
+  // resize() forms an unconditional, self-perpetuating render loop that never
+  // settles even at complete idle.
+  const wasOpen = drawer.classList.contains('open');
   drawer.classList.toggle('open', isOpen);
   drawer.setAttribute('aria-hidden', String(!isOpen));
   if (backdrop) backdrop.classList.toggle('open', isOpen);
   if (isOpen) drawer.scrollTop = 0;
   if (btn) btn.textContent = isOpen ? 'MORE v' : 'MORE ^';
-  scheduleResizePass();
+  if (isOpen !== wasOpen) scheduleResizePass();
 }
 
 // ---- Portrait editing-view scroll lifecycle -------------------------------
