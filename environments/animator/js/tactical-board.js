@@ -1389,7 +1389,27 @@ function serializePhase(phase = S(), index = GamePlan.currentPhase) {
 
 function persistCurrentPhase() {
   persistCurrentStep();
-  GamePlan.phases[GamePlan.currentPhase] = normalizePhaseState(serializePhase(S(), GamePlan.currentPhase), GamePlan.currentPhase);
+  // normalizePhaseState()/serializePhase() derive their top-level .passes/.paths
+  // from the just-persisted .steps[currentStep], which is in the SERIALIZED
+  // shape needed for storage (passes keyed by fromNum/fromT/toNum/toT, paths
+  // keyed by num/team) - that shape is only valid inside .steps. S.passes and
+  // S.paths are getters straight into this same phase object's top-level
+  // .passes/.paths, so assigning the round-tripped result there directly would
+  // replace the live, id-keyed runtime shape (pass.from/pass.to are player
+  // ids; path.pid/path.color) with the serialized one, breaking every
+  // id-based lookup against S.players (silently corrupting or dropping the
+  // pass/path next time anything reads it as live state). Capture fresh,
+  // independent clones of the actual live arrays first and restore them onto
+  // the persisted phase object afterward, so persisting never mutates - or
+  // leaves a serialized-shaped copy of - runtime Pass/Kick/path state. The
+  // exported/autosaved payload is unaffected: it's built from .steps, not
+  // from these top-level fields.
+  const livePasses = cloneData(S.passes);
+  const livePaths = cloneData(S.paths);
+  const persistedPhase = normalizePhaseState(serializePhase(S(), GamePlan.currentPhase), GamePlan.currentPhase);
+  persistedPhase.passes = livePasses;
+  persistedPhase.paths = livePaths;
+  GamePlan.phases[GamePlan.currentPhase] = persistedPhase;
 }
 
 function serializeGamePlan(nameOverride) {
