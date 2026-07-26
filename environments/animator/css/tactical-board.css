@@ -2575,7 +2575,13 @@ html, body {
 
 #radialMenu.visible {
   display: block;
-  pointer-events: all;
+  /* Deliberately still pointer-events: none (inherited from #radialMenu above)
+     even while visible: this container spans the entire viewport (inset: 0),
+     so giving IT pointer-events would make it swallow every tap anywhere on
+     screen - including taps meant to hit a different player or empty pitch
+     to dismiss the menu - before they ever reach the canvas underneath.
+     Only the five .radial-btn circles need to be clickable; they opt back
+     into pointer-events individually below. */
 }
 
 .radial-btn {
@@ -2596,6 +2602,7 @@ html, body {
   gap: 1px;
   transition: border-color .15s, background .15s;
   touch-action: none;
+  pointer-events: auto;
 }
 
 .radial-btn:hover {

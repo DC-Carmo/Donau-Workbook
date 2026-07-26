@@ -5641,6 +5641,47 @@ function handlePointerDown(e) {
   const clampedFieldPoint = clampFieldPoint(fp);
   const canvasPoint = getPx(e);
 
+  // Canonical radial-menu dismissal: a radial menu can only be open while
+  // S.tool === 'move' (choosing any action closes it and arms a tool via
+  // activateRadialAction()), so any pointerdown reaching the canvas while one
+  // is still open is - by definition - a tap outside the menu itself
+  // (composedPath already ruled that case out via radialEventTargetsMenu in
+  // the separate document-level listener; that listener only ever sees this
+  // same event AFTER this handler, since it bubbles from the canvas up to
+  // document). Handling the close here, before the normal 'move' tool logic
+  // below runs for the same event, is what prevents two known-broken
+  // outcomes: (1) tapping the same still-selected player instantly reopening
+  // the menu on this same gesture's pointerup (the previous bug - closing
+  // only in the document-level listener left wasSelected/isPlayerSelected
+  // both true for that tap, so onPointerUp's "tap an already-selected player"
+  // branch fired again), and (2) an empty-pitch tap meant only to dismiss the
+  // menu instead falling through into starting an unrelated board
+  // interaction underneath it.
+  if (radialMenu) {
+    const priorPlayerId = radialMenu.playerId;
+    closeRadialMenu();
+    const tappedPlayer = hitPlayer(fp);
+    if (!tappedPlayer) {
+      // Tapped empty pitch (or anything else non-player): full dismiss -
+      // clear the selection and return to Move, swallowing this gesture so
+      // it can't also start a drag/annotation/etc. underneath the menu.
+      clearSelectedObject();
+      returnInteractionToMoveTool();
+      refreshInteractionUI();
+      render();
+      return;
+    }
+    if (tappedPlayer.id === priorPlayerId) {
+      // Tapped the same player the menu was open for: close without
+      // reopening from this same gesture.
+      refreshInteractionUI();
+      render();
+      return;
+    }
+    // Tapped a different player: let the normal 'move' tool selection logic
+    // below run for this same event, selecting the new player normally.
+  }
+
   if (S.tool === 'move') {
     const pl = hitPlayer(fp);
     const ballHit = !pl && hitBall(fp);
