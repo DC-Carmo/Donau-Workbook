@@ -856,6 +856,12 @@ const RECOVERY_DRAFT_VERSION = 1;
 const FIRST_USE_TUTORIAL_KEY = 'coachmato.animator.firstUseTutorial.v1';
 const PROJECT_SCHEMA_VERSION = 4;
 const AUTOSAVE_DEBOUNCE_MS = 800;
+const PLAY_FILE_TYPE = 'rugby-gameplan-play';
+const PLAY_FILE_VERSION = 1;
+const PLAY_FILE_GENERATOR = 'Rugby GamePlan Tactical Board';
+const IMPORT_MAX_STRING_LENGTH = 4000;
+const IMPORT_MAX_NAME_LENGTH = 120;
+const IMPORT_MAX_ID_LENGTH = 120;
 const PHONE_UI_ACTION_GUARD_MS = 300;
 const PHONE_DATA_ACTION_GUARD_MS = 400;
 let lastPhoneAddAction = { team: null, at: -Infinity };
@@ -3882,6 +3888,387 @@ function normalizeProjectRecord(input) {
 
   if (project.savedAt) normalized.savedAt = project.savedAt;
   return normalized;
+}
+
+function isPlainObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+const FORBIDDEN_IMPORT_KEYS = ['__proto__', 'prototype', 'constructor'];
+
+// Scans the RAW parsed JSON tree (before sanitizeImportedValue's strip-and-
+// continue pass) for an exact forbidden key anywhere in the object/array
+// tree, so a file containing one can be rejected outright instead of
+// silently sanitized. JSON.parse always assigns parsed keys - including
+// "__proto__" - as genuine OWN data properties (never through the special
+// object-literal accessor), so Object.getOwnPropertyNames + reading via the
+// property descriptor (never `value[key]`, which could invoke a getter on
+// non-JSON-parse input) is both sufficient and safe here; inherited
+// properties are never visited since getOwnPropertyNames only ever returns
+// a value's own keys.
+function findForbiddenImportKey(value, path = 'root') {
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      const found = findForbiddenImportKey(value[i], `${path}[${i}]`);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (!value || typeof value !== 'object') return null;
+  const keys = Object.getOwnPropertyNames(value);
+  for (const key of keys) {
+    if (FORBIDDEN_IMPORT_KEYS.includes(key)) {
+      return { key, path: `${path}.${key}` };
+    }
+  }
+  for (const key of keys) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    const found = findForbiddenImportKey(descriptor?.value, `${path}.${key}`);
+    if (found) return found;
+  }
+  return null;
+}
+
+function sanitizeImportedValue(value, repairNotes, path = 'root') {
+  if (Array.isArray(value)) {
+    return value.map((item, index) => sanitizeImportedValue(item, repairNotes, `${path}[${index}]`));
+  }
+  if (typeof value === 'string') {
+    return value.length > IMPORT_MAX_STRING_LENGTH ? value.slice(0, IMPORT_MAX_STRING_LENGTH) : value;
+  }
+  if (!value || typeof value !== 'object') return value;
+  if (!isPlainObject(value)) {
+    repairNotes.push(`Unsupported value at ${path} was ignored.`);
+    return {};
+  }
+  const clean = {};
+  Object.keys(value).forEach((key) => {
+    if (key === '__proto__' || key === 'prototype' || key === 'constructor') {
+      repairNotes.push(`Unsafe field "${key}" was ignored.`);
+      return;
+    }
+    clean[key] = sanitizeImportedValue(value[key], repairNotes, `${path}.${key}`);
+  });
+  return clean;
+}
+
+function boundImportedString(value, maxLength = IMPORT_MAX_STRING_LENGTH, fallback = '') {
+  if (typeof value !== 'string') return fallback;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, maxLength) : fallback;
+}
+
+function sanitizeImportedText(value, maxLength = IMPORT_MAX_STRING_LENGTH, fallback = '') {
+  const bounded = boundImportedString(value, maxLength, fallback);
+  return bounded
+    .replace(/[<>]/g, '')
+    .replace(/[\u0000-\u001f\u007f]/g, '')
+    .trim() || fallback;
+}
+
+function isFiniteCoordinate(value) {
+  const n = Number(value);
+  return Number.isFinite(n);
+}
+
+function countInvalidPlayers(players) {
+  if (!Array.isArray(players)) return 0;
+  return players.reduce((count, player) => {
+    const team = player?.team === 'A' || player?.team === 'D';
+    return count + (team && isFiniteCoordinate(player?.num) && isFiniteCoordinate(player?.x) && isFiniteCoordinate(player?.y) ? 0 : 1);
+  }, 0);
+}
+
+function countInvalidPaths(paths) {
+  if (!Array.isArray(paths)) return 0;
+  return paths.reduce((count, path) => count + (normalizeStepPath(path) ? 0 : 1), 0);
+}
+
+function countInvalidPasses(passes) {
+  if (!Array.isArray(passes)) return 0;
+  return passes.reduce((count, pass) => count + (normalizeStepPass(pass) ? 0 : 1), 0);
+}
+
+function countInvalidAnnotations(annotations) {
+  if (!Array.isArray(annotations)) return 0;
+  return annotations.reduce((count, annotation) => count + (normalizeAnnotation(annotation) ? 0 : 1), 0);
+}
+
+function addRepairCount(repairCounts, key, amount = 1) {
+  if (!amount) return;
+  repairCounts[key] = (repairCounts[key] || 0) + amount;
+}
+
+function summarizeRepairCounts(repairCounts) {
+  const labels = {
+    metadataDefaults: 'metadata defaults applied',
+    notesDefaults: 'missing notes defaulted',
+    ballDefaults: 'ball state defaulted',
+    currentPhaseClamped: 'current phase clamped',
+    currentStepClamped: 'current move clamped',
+    emptyPhaseRepaired: 'empty phase repaired',
+    invalidPlayers: 'invalid player entries skipped',
+    invalidPaths: 'invalid paths skipped',
+    invalidPasses: 'invalid passes skipped',
+    invalidAnnotations: 'invalid annotations skipped',
+    legacyMigrated: 'legacy file migrated',
+    unsafeFields: 'unsafe fields ignored',
+  };
+  return Object.entries(repairCounts)
+    .filter(([, count]) => count > 0)
+    .map(([key, count]) => `${count} ${labels[key] || key}`);
+}
+
+function analyzeImportedProjectRepairs(sourceInput, normalizedProject, repairCounts, repairNotes) {
+  const sourceProject = sourceInput?.project || sourceInput?.play || sourceInput;
+  if (!sourceProject || typeof sourceProject !== 'object') return;
+  const sourcePhases = Array.isArray(sourceProject.phases) && sourceProject.phases.length
+    ? sourceProject.phases
+    : [sourceProject];
+  const normalizedPhases = normalizedProject.phases || [];
+
+  if (!isPlainObject(sourceProject.metadata)) addRepairCount(repairCounts, 'metadataDefaults');
+  if (Number.isFinite(sourceProject.currentPhase) && normalizedProject.currentPhase !== Number(sourceProject.currentPhase)) {
+    addRepairCount(repairCounts, 'currentPhaseClamped');
+  }
+
+  sourcePhases.forEach((phase, phaseIndex) => {
+    const normalizedPhase = normalizedPhases[phaseIndex] || normalizedPhases[0];
+    if (!isPlainObject(phase)) {
+      addRepairCount(repairCounts, 'emptyPhaseRepaired');
+      return;
+    }
+    if (typeof phase.notes !== 'string') addRepairCount(repairCounts, 'notesDefaults');
+    if (phase.ball === undefined || phase.ball === null || normalizeBallPosition(phase.ball) === null) {
+      if (phase.ball !== undefined) addRepairCount(repairCounts, 'ballDefaults');
+    }
+    const sourceSteps = Array.isArray(phase.steps) && phase.steps.length ? phase.steps : [phase];
+    if (!Array.isArray(phase.steps) || !phase.steps.length) addRepairCount(repairCounts, 'emptyPhaseRepaired');
+    if (Number.isFinite(phase.currentStep) && normalizedPhase && normalizedPhase.currentStep !== Number(phase.currentStep)) {
+      addRepairCount(repairCounts, 'currentStepClamped');
+    }
+    sourceSteps.forEach((step) => {
+      addRepairCount(repairCounts, 'invalidPlayers', countInvalidPlayers(step?.players));
+      addRepairCount(repairCounts, 'invalidPaths', countInvalidPaths(step?.paths));
+      addRepairCount(repairCounts, 'invalidPasses', countInvalidPasses(step?.passes));
+      addRepairCount(repairCounts, 'invalidAnnotations', countInvalidAnnotations(step?.annotations));
+    });
+  });
+
+  const unsafeCount = repairNotes.filter(note => note.startsWith('Unsafe field')).length;
+  if (unsafeCount) addRepairCount(repairCounts, 'unsafeFields', unsafeCount);
+}
+
+function buildCanonicalPlayEnvelope(project) {
+  return {
+    fileType: PLAY_FILE_TYPE,
+    fileVersion: PLAY_FILE_VERSION,
+    appSchemaVersion: PROJECT_SCHEMA_VERSION,
+    exportedAt: nowIso(),
+    generator: PLAY_FILE_GENERATOR,
+    payload: project,
+  };
+}
+
+function sanitizeExportFilename(name) {
+  let safe = typeof name === 'string' ? name : '';
+  if (safe.normalize) safe = safe.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+  safe = safe
+    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[.-]+|[.-]+$/g, '')
+    .replace(/\.json$/i, '')
+    .slice(0, 80);
+  return safe || 'rugby-gameplan-play';
+}
+
+function buildExportDownload(filename, jsonValue) {
+  const blob = new Blob([JSON.stringify(jsonValue, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${sanitizeExportFilename(filename)}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function validateExportProject(project) {
+  const normalized = normalizeProjectRecord(project);
+  if (!normalized || !Array.isArray(normalized.phases) || !normalized.phases.length) {
+    throw new Error('Export validation failed.');
+  }
+  normalized.name = sanitizeImportedText(normalized.name, IMPORT_MAX_NAME_LENGTH, 'Untitled Play');
+  normalized.id = sanitizeImportedText(normalized.id, IMPORT_MAX_ID_LENGTH, mkProjectId());
+  return normalized;
+}
+
+function sanitizeNormalizedProjectTextFields(project) {
+  project.name = sanitizeImportedText(project.name, IMPORT_MAX_NAME_LENGTH, 'Untitled Play');
+  project.id = sanitizeImportedText(project.id, IMPORT_MAX_ID_LENGTH, mkProjectId());
+  project.cat = sanitizeImportedText(project.cat, 80, 'Saved Board');
+  if (project.metadata && typeof project.metadata === 'object') {
+    project.metadata.title = sanitizeImportedText(project.metadata.title, IMPORT_MAX_NAME_LENGTH, project.name);
+    project.metadata.purpose = sanitizeImportedText(project.metadata.purpose, 600, '');
+    project.metadata.decisionCue = sanitizeImportedText(project.metadata.decisionCue, 600, '');
+    project.metadata.source = sanitizeImportedText(project.metadata.source, 80, 'animator');
+    project.metadata.coachingPoints = Array.isArray(project.metadata.coachingPoints)
+      ? project.metadata.coachingPoints.map(item => sanitizeImportedText(item, 240, '')).filter(Boolean).slice(0, 3)
+      : [];
+    project.metadata.commonMistakes = Array.isArray(project.metadata.commonMistakes)
+      ? project.metadata.commonMistakes.map(item => sanitizeImportedText(item, 240, '')).filter(Boolean).slice(0, 3)
+      : [];
+  }
+  if (Array.isArray(project.phases)) {
+    project.phases = project.phases.map((phase, phaseIndex) => ({
+      ...phase,
+      id: sanitizeImportedText(phase.id, IMPORT_MAX_ID_LENGTH, `phase_${phaseIndex + 1}`),
+      label: sanitizeImportedText(phase.label, 120, `Phase ${phaseIndex + 1}`),
+      notes: sanitizeImportedText(phase.notes, 1000, ''),
+      annotations: Array.isArray(phase.annotations)
+        ? phase.annotations.map((annotation) => annotation?.type === 'note'
+          ? { ...annotation, text: sanitizeImportedText(annotation.text, 240, ANNOTATION_NOTE_DEFAULT) }
+          : annotation)
+        : [],
+      steps: Array.isArray(phase.steps)
+        ? phase.steps.map((step) => ({
+          ...step,
+          annotations: Array.isArray(step.annotations)
+            ? step.annotations.map((annotation) => annotation?.type === 'note'
+              ? { ...annotation, text: sanitizeImportedText(annotation.text, 240, ANNOTATION_NOTE_DEFAULT) }
+              : annotation)
+            : [],
+        }))
+        : phase.steps,
+    }));
+  }
+  return project;
+}
+
+function detectImportedPlayFormat(value) {
+  if (!isPlainObject(value)) {
+    throw new Error('This file is not a valid Rugby GamePlan play.');
+  }
+  if ('fileType' in value || 'fileVersion' in value || 'payload' in value) return 'envelope';
+  if (Number.isFinite(value.version)) return 'legacy-play';
+  if ('project' in value || 'play' in value || 'schemaVersion' in value || 'projectType' in value || Array.isArray(value.phases) || Array.isArray(value.players) || Array.isArray(value.steps)) {
+    return 'project';
+  }
+  throw new Error('This file is not a valid Rugby GamePlan play.');
+}
+
+function isMeaningfulBoardProject(project) {
+  return isMeaningfulRecoveryProject(project);
+}
+
+function buildImportSuccessMessage(importResult) {
+  if (importResult.repairSummary.length) {
+    return `Play imported with ${importResult.repairSummary.length} repair${importResult.repairSummary.length === 1 ? '' : 's'}.`;
+  }
+  return 'Play imported.';
+}
+
+function prepareImportedProject(rawValue) {
+  // Reject a file containing a forbidden key OUTRIGHT, before any migration,
+  // normalization, or sanitization runs - not silently stripped and allowed
+  // to continue. This must run first: sanitizeImportedValue() below already
+  // strips these same keys as a defense-in-depth fallback, but by the time
+  // it would run, the "strip and continue" behavior is exactly what this
+  // check exists to replace.
+  const forbidden = findForbiddenImportKey(rawValue);
+  if (forbidden) {
+    console.error(`Import rejected: forbidden key "${forbidden.key}" found at ${forbidden.path}`);
+    throw new Error('This file contains unsafe object keys and cannot be imported.');
+  }
+
+  const repairNotes = [];
+  const repairCounts = {};
+  const sanitizedRoot = sanitizeImportedValue(rawValue, repairNotes);
+  const format = detectImportedPlayFormat(sanitizedRoot);
+  let sourceValue = sanitizedRoot;
+  let importCategory = 'current';
+
+  if (format === 'envelope') {
+    if (sanitizedRoot.fileType !== PLAY_FILE_TYPE) {
+      throw new Error('This file is not a valid Rugby GamePlan play.');
+    }
+    const fileVersion = Number(sanitizedRoot.fileVersion);
+    if (!Number.isFinite(fileVersion) || fileVersion < 1) {
+      throw new Error('This play could not be imported. Your current board was not changed.');
+    }
+    if (fileVersion > PLAY_FILE_VERSION) {
+      throw new Error('This play was created by a newer version of Rugby GamePlan and cannot be opened here yet.');
+    }
+    const appSchemaVersion = Number(sanitizedRoot.appSchemaVersion);
+    if (Number.isFinite(appSchemaVersion) && appSchemaVersion > PROJECT_SCHEMA_VERSION) {
+      throw new Error('This play was created by a newer version of Rugby GamePlan and cannot be opened here yet.');
+    }
+    if (!sanitizedRoot.payload || typeof sanitizedRoot.payload !== 'object') {
+      throw new Error('This play could not be imported. Your current board was not changed.');
+    }
+    sourceValue = sanitizedRoot.payload;
+  } else if (format === 'legacy-play') {
+    let migrated;
+    try {
+      migrated = migratePlay(sanitizedRoot);
+    } catch (err) {
+      const message = String(err?.message || '');
+      if (message.startsWith('Unsupported play version')) {
+        throw new Error('This play was created by a newer version of Rugby GamePlan and cannot be opened here yet.');
+      }
+      if (message.startsWith('Invalid play JSON')) {
+        throw new Error('This file is not a valid Rugby GamePlan play.');
+      }
+      throw err;
+    }
+    if (sanitizedRoot.version !== migrated.version) addRepairCount(repairCounts, 'legacyMigrated');
+    importCategory = sanitizedRoot.version === migrated.version ? 'current' : 'legacy';
+    sourceValue = migrated;
+  }
+
+  const rawProject = sourceValue?.project || sourceValue?.play || sourceValue;
+  if (Number.isFinite(rawProject?.schemaVersion) && rawProject.schemaVersion > PROJECT_SCHEMA_VERSION) {
+    throw new Error('This play was created by a newer version of Rugby GamePlan and cannot be opened here yet.');
+  }
+
+  const normalizedProject = normalizeProjectRecord(sourceValue);
+  if (!normalizedProject) {
+    throw new Error('This play could not be imported. Your current board was not changed.');
+  }
+
+  sanitizeNormalizedProjectTextFields(normalizedProject);
+  normalizedProject.currentPhase = clamp(Number(normalizedProject.currentPhase) || 0, 0, Math.max(0, (normalizedProject.phases?.length || 1) - 1));
+  normalizedProject.metadata = normalizeProjectMetadata(normalizedProject, normalizedProject.metadata);
+
+  analyzeImportedProjectRepairs(sourceValue, normalizedProject, repairCounts, repairNotes);
+  const repairSummary = summarizeRepairCounts(repairCounts);
+  if (repairSummary.length) importCategory = importCategory === 'current' ? 'repairable' : importCategory;
+
+  return {
+    category: importCategory,
+    format,
+    project: normalizedProject,
+    repairSummary,
+    repairNotes,
+    displayName: normalizedProject.name || 'Untitled Play',
+  };
+}
+
+function applyImportedProject(importResult) {
+  stopPlayback(true);
+  if (!applyBoardData(importResult.project, { snapshotBefore: false })) {
+    throw new Error('This play could not be imported. Your current board was not changed.');
+  }
+  S.history = [];
+  S.future = [];
+  sequenceDockView = 'primary';
+  setTool('move');
+  setHint(buildImportSuccessMessage(importResult));
+  refreshInteractionUI();
 }
 
 function snapshot() {
@@ -9686,27 +10073,16 @@ function deleteSavedPlay(id, name) {
 }
 
 function exportPlayData(play) {
-  const project = normalizeProjectRecord(play) || makeBoardData();
-  const payload = {
-    schemaVersion: PROJECT_SCHEMA_VERSION,
-    projectType: PROJECT_TYPE,
-    exportedAt: nowIso(),
-    project: {
-      name: project.name,
-      currentPhase: project.currentPhase,
-      phases: project.phases,
-    },
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  const safeName = (project.name || 'untitled-play').replace(/[^\w-]+/g, '_');
-  link.href = url;
-  link.download = `${safeName}.json`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  let project;
+  try {
+    project = validateExportProject(normalizeProjectRecord(play) || makeBoardData());
+  } catch {
+    setHint('Export failed. The current play data could not be validated.');
+    refreshInteractionUI();
+    return;
+  }
+  const payload = buildCanonicalPlayEnvelope(project);
+  buildExportDownload(project.name, payload);
   setHint(`Exported "${project.name}" as JSON.`);
   refreshInteractionUI();
   replaceRecoveryDraftWithCurrentBoard();
@@ -9777,20 +10153,7 @@ async function exportPDF() {
 window.exportPDF = exportPDF;
 
 function exportCurrentPlay() {
-  const play = serializePlay();
-  const blob = new Blob([JSON.stringify(play, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  const safeName = (play.meta.name || 'untitled-play').replace(/[^\w-]+/g, '_');
-  link.href = url;
-  link.download = `${safeName}.json`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-  setHint(`Exported "${play.meta.name}" as JSON.`);
-  refreshInteractionUI();
-  replaceRecoveryDraftWithCurrentBoard();
+  exportPlayData(makeBoardData());
 }
 
 function triggerImportPlay() {
@@ -9804,20 +10167,32 @@ function importPlayFromFile(file) {
   const reader = new FileReader();
   reader.onload = () => {
     try {
-      const raw = JSON.parse(reader.result);
-      const play = migratePlay(raw);
-      deserializePlay(play);
-      sequenceDockView = 'primary';
-      setTool('move');
-      setHint(`Imported "${play.meta?.name || 'Untitled Play'}" from JSON.`);
-      refreshInteractionUI();
+      let parsed;
+      try {
+        parsed = JSON.parse(reader.result);
+      } catch {
+        throw new Error('This file is not a valid Rugby GamePlan play.');
+      }
+      const importResult = prepareImportedProject(parsed);
+      if (isMeaningfulBoardProject(makeBoardData())) {
+        const message = 'Importing this play will replace the current board.';
+        if (!window.confirm(message)) {
+          setHint('Import cancelled.');
+          refreshInteractionUI();
+          return;
+        }
+      }
+      applyImportedProject(importResult);
     } catch (err) {
       console.error('Import failed:', err);
-      setHint(`Import failed: ${err.message}`);
+      const message = typeof err?.message === 'string' && err.message
+        ? err.message
+        : 'This play could not be imported. Your current board was not changed.';
+      setHint(message);
       refreshInteractionUI();
     }
   };
-  reader.readAsText(file);
+  reader.readAsText(file, 'utf-8');
 }
 
 
