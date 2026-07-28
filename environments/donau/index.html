@@ -1,18 +1,18 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 
- 
 
-<html lang="en"> 
 
-<head> 
+<html lang="en">
 
-<meta charset="UTF-8"> 
+<head>
 
-<meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+<meta charset="UTF-8">
 
-<title>Rugby Union Donau Game Plan</title> 
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"> 
+<title>Rugby Union Donau Game Plan</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="../../css/base.css?v=20260609h">
 <link rel="stylesheet" href="../../css/overlays.css?v=20260609b">
@@ -849,32 +849,412 @@
     overflow: visible !important;
   }
 }
+
+@media (min-width: 901px) {
+  html,
+  body {
+    width: 100%;
+    height: auto;
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  body {
+    padding-bottom: 92px;
+  }
+
+  .slide {
+    position: relative;
+    inset: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .slide.active {
+    padding-bottom: 88px;
+  }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 140;
+    min-height: 74px;
+    padding: 14px 24px 12px;
+    gap: 14px;
+  }
+
+  .topbar-right {
+    gap: 10px;
+  }
+
+  .motto {
+    display: none;
+  }
+
+  .workspace-map {
+    display: none !important;
+  }
+
+  .workspace-shell-status {
+    min-width: clamp(190px, 24vw, 280px);
+    align-items: flex-start;
+    padding: 8px 12px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.035);
+  }
+
+  .workspace-shell-value {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .workspace-contents-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(46, 139, 87, 0.24);
+    background: rgba(46, 139, 87, 0.08);
+    color: var(--text);
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 2.1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+  }
+
+  .workspace-contents-toggle:hover,
+  .workspace-contents-toggle:focus-visible,
+  .workspace-contents-toggle[aria-expanded="true"] {
+    border-color: rgba(46, 139, 87, 0.46);
+    background: rgba(46, 139, 87, 0.16);
+    transform: translateY(-1px);
+  }
+
+  .desktop-contents-popover[hidden] {
+    display: none !important;
+  }
+
+  .desktop-contents-popover {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+  }
+
+  .desktop-contents-popover__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(4, 10, 16, 0.52);
+    backdrop-filter: blur(6px);
+  }
+
+  .desktop-contents-popover__panel {
+    position: absolute;
+    top: 86px;
+    right: 24px;
+    width: min(720px, calc(100vw - 48px));
+    max-height: min(72vh, 760px);
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    border-radius: 22px;
+    overflow: hidden;
+    border: 1px solid rgba(46, 139, 87, 0.18);
+    background: linear-gradient(180deg, rgba(10, 24, 39, 0.98), rgba(8, 20, 34, 0.98));
+    box-shadow: 0 36px 80px rgba(0, 0, 0, 0.34);
+  }
+
+  .desktop-contents-popover__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 22px 16px;
+    border-bottom: 1px solid rgba(46, 139, 87, 0.14);
+  }
+
+  .desktop-contents-popover__kicker {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 0.66rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .desktop-contents-popover__title {
+    margin-top: 4px;
+    font-family: "Anton", sans-serif;
+    font-size: 1.4rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  .desktop-contents-popover__close {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+    font-size: 1.2rem;
+    cursor: pointer;
+  }
+
+  .desktop-contents-popover__body {
+    padding: 18px 22px 22px;
+    overflow: auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .desktop-contents-group {
+    display: grid;
+    gap: 10px;
+    align-content: start;
+  }
+
+  .desktop-contents-group__title {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(240, 244, 240, 0.68);
+  }
+
+  .desktop-contents-item {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    padding: 12px 14px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+  }
+
+  .desktop-contents-item:hover,
+  .desktop-contents-item:focus-visible,
+  .desktop-contents-item.active {
+    border-color: rgba(46, 139, 87, 0.34);
+    background: rgba(46, 139, 87, 0.11);
+    transform: translateY(-1px);
+  }
+
+  .desktop-contents-item__num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    border: 1px solid rgba(46, 139, 87, 0.28);
+    background: rgba(46, 139, 87, 0.08);
+    font-family: "Anton", sans-serif;
+    font-size: 0.94rem;
+    letter-spacing: 1px;
+  }
+
+  .desktop-contents-item__copy {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+  }
+
+  .desktop-contents-item__eyebrow {
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 0.62rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .desktop-contents-item__title {
+    font-size: 0.94rem;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--text);
+  }
+
+  .cover-shell {
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.92fr);
+    gap: 26px;
+    align-items: start;
+    padding: 32px 28px 40px;
+    overflow: visible;
+  }
+
+  .cover-left,
+  .cover-right {
+    min-height: 0;
+  }
+
+  .cover-left {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-height: min(62vh, 720px);
+    padding: 28px 22px;
+    border-radius: 28px;
+    border: 1px solid rgba(46, 139, 87, 0.16);
+    background:
+      radial-gradient(circle at top, rgba(46, 139, 87, 0.18), transparent 42%),
+      linear-gradient(180deg, rgba(10, 25, 40, 0.98), rgba(7, 18, 30, 0.98));
+    box-shadow: 0 28px 70px rgba(0, 0, 0, 0.24);
+  }
+
+  .cover-crest {
+    width: clamp(148px, 16vw, 188px);
+    height: auto;
+    object-fit: contain;
+    margin-bottom: 18px;
+  }
+
+  .cover-left .hero {
+    margin-bottom: 16px;
+  }
+
+  .cover-lead {
+    max-width: 560px;
+    color: rgba(240, 244, 240, 0.72);
+    font-size: 1rem;
+    line-height: 1.7;
+  }
+
+  .cover-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 24px;
+  }
+
+  .cover-scroll-cta,
+  .cover-intro-btn {
+    min-height: 48px;
+    padding: 0 18px;
+    border-radius: 999px;
+  }
+
+  .cover-scroll-cta {
+    border: 1px solid rgba(46, 139, 87, 0.32);
+    background: rgba(46, 139, 87, 0.12);
+    color: var(--text);
+    font-family: "Barlow Condensed", sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .cover-right.cover-aside-card {
+    display: flex;
+    align-items: stretch;
+    padding: 0;
+    background: transparent;
+  }
+
+  .cover-right-body {
+    width: 100%;
+    min-height: 100%;
+    border-radius: 26px;
+    padding: 24px 24px 28px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background:
+      linear-gradient(180deg, rgba(14, 32, 52, 0.96), rgba(8, 21, 36, 0.98)),
+      radial-gradient(circle at top right, rgba(214, 181, 111, 0.08), transparent 36%);
+    box-shadow: 0 22px 58px rgba(0, 0, 0, 0.24);
+  }
+
+  .sl-header,
+  .sl-body {
+    overflow: visible;
+  }
+
+  .nav {
+    gap: 12px;
+  }
+
+  .nav-btn {
+    border-radius: 999px;
+    padding: 10px 18px;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1260px) {
+  .desktop-contents-popover__body {
+    grid-template-columns: 1fr;
+  }
+
+  .cover-shell {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding-top: 24px;
+  }
+
+  .cover-left {
+    min-height: auto;
+    padding-block: 34px;
+  }
+}
 </style>
 
- 
 
-</head> 
+
+</head>
 
 <body>
 
 <a href="#s1" class="sr-only" id="skipLink">Skip to content</a>
 
-<div class="progress" role="progressbar" aria-valuenow="1" aria-valuemin="1" aria-valuemax="11" aria-label="Slide progress"><div class="progress-fill" id="pFill" style="width:9.09%"></div></div> 
+<div class="progress" role="progressbar" aria-valuenow="1" aria-valuemin="1" aria-valuemax="11" aria-label="Slide progress"><div class="progress-fill" id="pFill" style="width:9.09%"></div></div>
 
- 
+<div class="desktop-contents-popover" id="desktopContentsPopover" hidden>
+  <div class="desktop-contents-popover__backdrop" data-contents-dismiss="true"></div>
+  <div class="desktop-contents-popover__panel" role="dialog" aria-modal="true" aria-labelledby="desktopContentsTitle">
+    <div class="desktop-contents-popover__head">
+      <div>
+        <div class="desktop-contents-popover__kicker">Contents</div>
+        <h2 class="desktop-contents-popover__title" id="desktopContentsTitle">Sections</h2>
+      </div>
+      <button class="desktop-contents-popover__close" type="button" aria-label="Close sections menu" onclick="setDesktopContentsOpen(false)">&times;</button>
+    </div>
+    <div class="desktop-contents-popover__body" id="desktopContentsList"></div>
+  </div>
+</div>
 
-<!-- SLIDE 1: COVER --> 
 
- 
 
-<div class="slide active" id="s1"> 
+<!-- SLIDE 1: COVER -->
 
-  <div class="topbar"> 
+
+
+<div class="slide active" id="s1">
+
+  <div class="topbar">
 
     <div class="topbar-logo" onclick="goTo(1)">
       <img src="../../assets/donau/branding/RugbyUnionDonauLogo2024.svg" style="height:30px;width:auto;object-fit:contain;" alt="Rugby Union Donau"/>
       <div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Club Performance Workspace</div></div>
-    </div> 
+    </div>
 
     <div class="topbar-right">
       <div class="motto">WORK ETHIC &middot; ATTACK &middot; BELIEF</div>
@@ -883,22 +1263,30 @@
 
   </div>
 
-  <div style="flex:1;display:flex;overflow:hidden;">
+  <div class="cover-shell">
 
     <div class="cover-left">
 
-      <img src="../../assets/donau/branding/RugbyUnionDonauLogo2024.svg" class="fadeup" style="width:160px;height:auto;object-fit:contain;margin-bottom:16px;" alt="Rugby Union Donau"/>
+      <img src="../../assets/donau/branding/RugbyUnionDonauLogo2024.svg" class="fadeup cover-crest" alt="Rugby Union Donau"/>
 
       <h1 class="hero fadeup">GAME<br><span style="color:var(--green);">PLAN</span></h1>
 
+      <div class="cover-lead fadeup">
+        Premium coaching workspace for performance standards, attack clarity, development habits, and club alignment.
+      </div>
+
+      <div class="cover-actions fadeup">
+        <button class="cover-scroll-cta" type="button" onclick="scrollCurrentSectionDown()">
+          Explore this section <span aria-hidden="true">&#8595;</span>
+        </button>
+        <button class="coach-intro-btn cover-intro-btn" onclick="openOverlay('ovCoach')" aria-haspopup="dialog">
+          Coach Introduction <span style="font-size:.65rem;opacity:.6;">&#9654;</span>
+        </button>
+      </div>
+
     </div>
 
-    <div class="cover-right">
-
-      <button class="coach-intro-btn fadeup" onclick="openOverlay('ovCoach')" aria-haspopup="dialog">
-        Coach Introduction <span style="font-size:.65rem;opacity:.6;">&#9654;</span>
-      </button>
-
+    <div class="cover-right cover-aside-card">
       <div class="cover-right-body">
 
         <img src="../../assets/donau/branding/RugbyUnionDonauLogo2024.svg" class="fadeup" style="width:108px;height:auto;object-fit:contain;opacity:0.42;" alt=""/>
@@ -939,13 +1327,13 @@
 
     </div>
 
-  </div> 
+  </div>
 
-</div> 
+</div>
 
- 
 
-<!-- SLIDE 2: TEAM STANDARDS --> 
+
+<!-- SLIDE 2: TEAM STANDARDS -->
 
 <div class="slide" id="s2">
 
@@ -1033,38 +1421,38 @@
 
   </div>
 
-</div> 
+</div>
 
- 
 
-<!-- SLIDE 3: ATTACK SYSTEM --> 
 
- 
+<!-- SLIDE 3: ATTACK SYSTEM -->
 
-<div class="slide" id="s3"> 
 
-  <div class="topbar"> 
+
+<div class="slide" id="s3">
+
+  <div class="topbar">
 
     <div class="topbar-logo" onclick="goTo(1)">
       <img src="../../assets/donau/branding/RugbyUnionDonauLogo2024.svg" style="height:30px;width:auto;object-fit:contain;" alt="Rugby Union Donau"/>
       <div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Game Plan ? Attack System</div></div>
     </div>
 
-    <div class="topbar-right"><div class="motto">WORK ETHIC ? <span>ATTACK</span> ? BELIEF</div><div class="slide-num">03 / 06</div></div> 
+    <div class="topbar-right"><div class="motto">WORK ETHIC ? <span>ATTACK</span> ? BELIEF</div><div class="slide-num">03 / 06</div></div>
 
-  </div> 
+  </div>
 
-  <div class="sl-header fadeup"> 
+  <div class="sl-header fadeup">
 
-    <h2 class="section">Attack System</h2> 
+    <h2 class="section">Attack System</h2>
 
-    <div class="tag">Select a category</div> 
+    <div class="tag">Select a category</div>
 
-  </div> 
+  </div>
 
-  <div class="sl-body"> 
+  <div class="sl-body">
 
-    <div class="attack-sidebar"> 
+    <div class="attack-sidebar">
 
       <button class="field-areas-label-btn" id="fieldAreasBtn" onclick="toggleFieldMap()" aria-expanded="false" aria-controls="fieldMapPanel">
         Field Areas <span class="field-areas-map-arrow">&#9660;</span>
@@ -1124,20 +1512,20 @@
           </div>
         </div>
 
-      </div> 
+      </div>
 
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.68rem;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Direction Calls</div> 
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.68rem;letter-spacing:2.5px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Direction Calls</div>
 
-      <div class="terminology-grid" style="margin-bottom:16px;"> 
+      <div class="terminology-grid" style="margin-bottom:16px;">
         <div class="term-chip"><div class="term-key">BLACK</div><div class="term-val">Off 9 to pod</div></div>
 
         <div class="term-chip"><div class="term-key">RED</div><div class="term-val">Off 9 to 10/12</div></div>
 
         <div class="term-chip"><div class="term-key">SUNSHINE</div><div class="term-val">Change direction off 9</div></div>
 
-        <div class="term-chip"><div class="term-key">PINK</div><div class="term-val">Off 9 out the back to playmaker</div></div> 
+        <div class="term-chip"><div class="term-key">PINK</div><div class="term-val">Off 9 out the back to playmaker</div></div>
 
-      </div> 
+      </div>
 
       <button class="field-areas-label-btn" id="forwardPodsBtn" onclick="toggleForwardPodsMap()" aria-expanded="false" aria-controls="forwardPodsMapPanel" style="margin-top:16px;">
         Forward Pods <span class="field-areas-map-arrow">&#9660;</span>
@@ -1153,9 +1541,9 @@
         <img src="../../assets/donau/images/Forwards Role.png" alt="Forward Pods Structure" onclick="openFieldLightbox('../../assets/donau/images/Forwards Role.png','Forward Pods Structure')" title="Click to enlarge"/>
       </div>
 
-    </div> 
+    </div>
 
-    <div class="attack-main"> 
+    <div class="attack-main">
 
       <div class="zone-btns" role="tablist" aria-label="Attack categories">
 
@@ -1167,21 +1555,21 @@
 
         <button class="zone-btn" role="tab" aria-selected="false" onclick="setCategory('calls',this)">Calls Glossary</button>
 
-      </div> 
+      </div>
 
-      <div class="attack-content" id="attackContent"></div> 
+      <div class="attack-content" id="attackContent"></div>
 
-    </div> 
+    </div>
 
-  </div> 
+  </div>
 
-</div> 
+</div>
 
- 
+
 
 <!-- -->
 
- 
+
 
 <div class="slide" id="s4">
 
@@ -1259,103 +1647,103 @@
 
 </div>
 
- 
+
 
 <!-- -->
 
- 
-
-<div class="slide" id="s5"> 
-
-  <div class="topbar"> 
-
-    <div class="topbar-logo" onclick="goTo(1)"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Game Plan ? Defence</div></div></div> 
-
-    <div class="topbar-right"><div class="motto">WORK ETHIC ? <span>ATTACK</span> ? BELIEF</div><div class="slide-num">05 / 06</div></div> 
-
-  </div> 
-
-  <div class="sl-header fadeup"> 
-
-    <h2 class="section">Defensive System</h2> 
-
-    <div class="tag">Select side & zone</div> 
-
-  </div> 
-
-  <div class="sl-body"> 
-
-    <div class="def-left"> 
-
-      <div class="attitude-block fadeup"> 
-
-        <h4>Mindset - Total Commitment</h4> 
-
-        <ul> 
-
-          <li>Workrate - relentless + discipline</li> 
-
-          <li>Inside the ball - Hunt Hard / Concrete</li> 
-
-          <li>On the ball - Accelerate through contact</li> 
-
-          <li>Outside the ball - Square up</li> 
-
-          <li>Violence at contact - bodies in front</li> 
 
 
+<div class="slide" id="s5">
 
-        </ul> 
+  <div class="topbar">
 
-      </div> 
+    <div class="topbar-logo" onclick="goTo(1)"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">Game Plan ? Defence</div></div></div>
 
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Line Principles - 13 On Feet / 2 @ Breakdown</div> 
+    <div class="topbar-right"><div class="motto">WORK ETHIC ? <span>ATTACK</span> ? BELIEF</div><div class="slide-num">05 / 06</div></div>
 
-      <div class="role-grid fadeup"> 
+  </div>
 
-        <div class="role-card"><div class="rc-role">AXE</div><div class="rc-desc">1st tackler - low chop, dominant tackle. Roll away if non-dominant with ruck.</div></div> 
+  <div class="sl-header fadeup">
 
-        <div class="role-card"><div class="rc-role">HUNT</div><div class="rc-desc">Inside defender - attack the ball if space; fight to slow ball if bodies present.</div></div> 
+    <h2 class="section">Defensive System</h2>
 
-        <div class="role-card"><div class="rc-role">DOUBLE HUNT</div><div class="rc-desc">2nd inside defender at the tackle - reads breakdown, decides counter ruck.</div></div> 
+    <div class="tag">Select side & zone</div>
 
-        <div class="role-card"><div class="rc-role">COP</div><div class="rc-desc">Outside the Axe - holds width, organises fold, 2nd tackler if overs run.</div></div> 
+  </div>
 
-      </div> 
+  <div class="sl-body">
 
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;margin-top:10px;">Defensive Calls</div> 
+    <div class="def-left">
 
-      <table class="call-table fadeup"> 
+      <div class="attitude-block fadeup">
 
-        <thead><tr><th>Call</th><th>Action</th></tr></thead> 
+        <h4>Mindset - Total Commitment</h4>
 
-        <tbody> 
+        <ul>
 
-          <tr><td>READY, UP</td><td>Line call led by '1' defender</td></tr> 
+          <li>Workrate - relentless + discipline</li>
 
-          <tr><td>HAMMER</td><td>Linespeed call when we have good numbers</td></tr> 
+          <li>Inside the ball - Hunt Hard / Concrete</li>
 
-          <tr><td>HOVER</td><td>Movement call when we have poor numbers</td></tr> 
+          <li>On the ball - Accelerate through contact</li>
 
-          <tr><td>STORM</td><td>Red Zone change-up - aggressive up-and-in, 100% commitment</td></tr> 
+          <li>Outside the ball - Square up</li>
 
-          <tr><td>RED</td><td>Linebreak / tap defence call</td></tr> 
+          <li>Violence at contact - bodies in front</li>
 
-          <tr><td>ICE</td><td>Counter ruck</td></tr> 
 
-          <tr><td>SPACE</td><td>Get past the ball</td></tr> 
 
-          <tr><td>STEAL</td><td>Pilfer attempt</td></tr> 
+        </ul>
 
-        </tbody> 
+      </div>
 
-      </table> 
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Line Principles - 13 On Feet / 2 @ Breakdown</div>
 
-    </div> 
+      <div class="role-grid fadeup">
 
-    <div class="def-right"> 
+        <div class="role-card"><div class="rc-role">AXE</div><div class="rc-desc">1st tackler - low chop, dominant tackle. Roll away if non-dominant with ruck.</div></div>
 
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Scrum Defence by Side & Zone</div> 
+        <div class="role-card"><div class="rc-role">HUNT</div><div class="rc-desc">Inside defender - attack the ball if space; fight to slow ball if bodies present.</div></div>
+
+        <div class="role-card"><div class="rc-role">DOUBLE HUNT</div><div class="rc-desc">2nd inside defender at the tackle - reads breakdown, decides counter ruck.</div></div>
+
+        <div class="role-card"><div class="rc-role">COP</div><div class="rc-desc">Outside the Axe - holds width, organises fold, 2nd tackler if overs run.</div></div>
+
+      </div>
+
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;margin-top:10px;">Defensive Calls</div>
+
+      <table class="call-table fadeup">
+
+        <thead><tr><th>Call</th><th>Action</th></tr></thead>
+
+        <tbody>
+
+          <tr><td>READY, UP</td><td>Line call led by '1' defender</td></tr>
+
+          <tr><td>HAMMER</td><td>Linespeed call when we have good numbers</td></tr>
+
+          <tr><td>HOVER</td><td>Movement call when we have poor numbers</td></tr>
+
+          <tr><td>STORM</td><td>Red Zone change-up - aggressive up-and-in, 100% commitment</td></tr>
+
+          <tr><td>RED</td><td>Linebreak / tap defence call</td></tr>
+
+          <tr><td>ICE</td><td>Counter ruck</td></tr>
+
+          <tr><td>SPACE</td><td>Get past the ball</td></tr>
+
+          <tr><td>STEAL</td><td>Pilfer attempt</td></tr>
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+    <div class="def-right">
+
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.7rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Scrum Defence by Side & Zone</div>
 
       <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;" role="tablist" aria-label="Defence field sides">
 
@@ -1365,70 +1753,70 @@
 
         <button class="zone-tab" role="tab" aria-selected="false" onclick="setDefSide('cfs',this)">Centre Field</button>
 
-      </div> 
+      </div>
 
-      <div id="defContent"></div> 
+      <div id="defContent"></div>
 
-    </div> 
+    </div>
 
-  </div> 
+  </div>
 
-</div> 
+</div>
 
- 
+
 
 <!-- -->
 
- 
 
-<div class="slide" id="s6"> 
 
-  <div class="topbar"> 
+<div class="slide" id="s6">
 
-    <div class="topbar-logo" onclick="goTo(1)"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">AI Coaching Assistant</div></div></div> 
+  <div class="topbar">
 
-    <div class="topbar-right"><div class="motto">WORK ETHIC ? <span>ATTACK</span> ? BELIEF</div><div class="slide-num">06 / 06</div></div> 
+    <div class="topbar-logo" onclick="goTo(1)"><div class="wallaby-icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="topbar-title">Rugby Union Donau</div><div class="topbar-sub">AI Coaching Assistant</div></div></div>
 
-  </div> 
+    <div class="topbar-right"><div class="motto">WORK ETHIC ? <span>ATTACK</span> ? BELIEF</div><div class="slide-num">06 / 06</div></div>
 
-  <div class="sl-header fadeup"> 
+  </div>
 
-    <h2 class="section">Ask the Playbook</h2> 
+  <div class="sl-header fadeup">
 
-    <div class="tag">Powered by Claude AI</div> 
+    <h2 class="section">Ask the Playbook</h2>
 
-  </div> 
+    <div class="tag">Powered by Claude AI</div>
 
-  <div class="sl-body"> 
+  </div>
 
-    <div class="chat-area"> 
+  <div class="sl-body">
 
-      <div class="chat-msgs" id="chatMsgs" role="log" aria-label="Chat messages" aria-live="polite"> 
+    <div class="chat-area">
 
-        <div class="msg ai"> 
+      <div class="chat-msgs" id="chatMsgs" role="log" aria-label="Chat messages" aria-live="polite">
 
-          <div class="msg-label">AI Coach</div> 
+        <div class="msg ai">
 
-          <div class="msg-bubble">Ask me about the Donau game model: attack structure, field zones, forward pods, backs calls, lineout options, defence principles, exits, roles, and coaching cues.</div> 
+          <div class="msg-label">AI Coach</div>
 
-        </div> 
+          <div class="msg-bubble">Ask me about the Donau game model: attack structure, field zones, forward pods, backs calls, lineout options, defence principles, exits, roles, and coaching cues.</div>
 
-      </div> 
+        </div>
 
-      <div class="chat-input-row"> 
+      </div>
+
+      <div class="chat-input-row">
 
         <label for="chatInp" class="sr-only">Ask a question about the playbook</label>
-        <input class="chat-inp" id="chatInp" placeholder="E.g. What is Batman? or Explain Launch 41" onkeydown="if(event.key==='Enter')sendMsg()" aria-label="Ask a question about the playbook"/> 
+        <input class="chat-inp" id="chatInp" placeholder="E.g. What is Batman? or Explain Launch 41" onkeydown="if(event.key==='Enter')sendMsg()" aria-label="Ask a question about the playbook"/>
 
-        <button class="send-btn" id="sendBtn" onclick="sendMsg()">Send</button> 
+        <button class="send-btn" id="sendBtn" onclick="sendMsg()">Send</button>
 
-      </div> 
+      </div>
 
-    </div> 
+    </div>
 
-    <div class="ai-panel"> 
+    <div class="ai-panel">
 
-      <h4>Quick Questions</h4> 
+      <h4>Quick Questions</h4>
 
       <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What is the Street?</div>
 
@@ -1448,15 +1836,15 @@
 
       <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What are the key lineout calls?</div>
 
-      <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What are the main defensive principles?</div> 
+      <div class="suggest" onclick="askQ(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();askQ(this);}" tabindex="0" role="button">What are the main defensive principles?</div>
 
-    </div> 
+    </div>
 
-  </div> 
+  </div>
 
-</div> 
+</div>
 
- 
+
 
 <!-- -->
 
@@ -1584,7 +1972,7 @@
   </div>
 
 </div>
-<!-- OVERLAYS --> 
+<!-- OVERLAYS -->
 
 <!-- OVERLAY 1: COACH INTRODUCTION -->
 <div class="overlay" id="ovCoach" role="dialog" aria-modal="true" aria-label="Coach Introduction">
@@ -1682,26 +2070,26 @@
 
 <!-- NAVIGATION -->
 
- 
+
 
 <nav class="nav" aria-label="Slide navigation">
 
-  <button class="nav-btn" id="prevBtn" onclick="changeSlide(-1)" disabled aria-label="Previous slide">&#8249;&#xFE0E; PREV</button>
+  <button class="nav-btn" id="prevBtn" onclick="changeSlide(-1)" disabled aria-label="Previous section">&#8249;&#xFE0E; Previous section</button>
 
   <div class="dots" id="dots" role="tablist" aria-label="Slide selector"></div>
 
-  <button class="nav-btn" id="nextBtn" onclick="changeSlide(1)" aria-label="Next slide">NEXT &#8250;&#xFE0E;</button>
+  <button class="nav-btn" id="nextBtn" onclick="changeSlide(1)" aria-label="Next section">Next section &#8250;&#xFE0E;</button>
 
-</nav> 
+</nav>
 
- 
+
 
 <script>window.DONAU_ASSET_BASE = "../../assets/donau/";</script>
 <script src="../../data/donau/content.js"></script>
 <script src="../../js/shared/ui-helpers.js"></script>
 <script src="../../js/shared/dev-access.js"></script>
 <script src="../../js/shared/tactical-board-access.js"></script>
-<script src="../../js/core/app.js?v=20260609-manualscroll"></script> 
+<script src="../../js/core/app.js?v=20260609-manualscroll"></script>
 
 <script>
 window.DONAU_LINEOUT_SYSTEMS = {
@@ -1710,7 +2098,7 @@ window.DONAU_LINEOUT_SYSTEMS = {
 };
 </script>
 
- 
+
 
 <!-- Field Image Lightbox -->
 <div class="field-lightbox" id="fieldLightbox" onclick="closeFieldLightbox(event)">

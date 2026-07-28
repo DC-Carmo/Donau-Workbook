@@ -137,6 +137,8 @@
   const PREMIUM_DEVELOPMENT_MODULE_IDS = new Set(
     orderedDevelopmentModules.filter((module) => module.experience === "premium").map((module) => module.id),
   );
+  let desktopContentsOpen = false;
+  let desktopContentsTrigger = null;
 
   function readDevelopmentState() {
     try {
@@ -344,6 +346,45 @@
     });
   }
 
+  function buildDesktopContentsPopover() {
+    const list = document.getElementById("desktopContentsList");
+    if (!list || list.childElementCount) {
+      return;
+    }
+
+    const groups = [...new Set(workspaceSections.map((section) => section.group))];
+    list.innerHTML = groups
+      .map((group) => {
+        const items = workspaceSections.filter((section) => section.group === group);
+        return `
+          <div class="desktop-contents-group">
+            <div class="desktop-contents-group__title">${group}</div>
+            ${items
+              .map(
+                (section) => `
+                  <button class="desktop-contents-item" type="button" data-desktop-contents-item data-slide="${section.slide}">
+                    <span class="desktop-contents-item__num">${String(section.slide).padStart(2, "0")}</span>
+                    <span class="desktop-contents-item__copy">
+                      <span class="desktop-contents-item__eyebrow">${section.shortLabel}</span>
+                      <span class="desktop-contents-item__title">${section.title}</span>
+                    </span>
+                  </button>
+                `,
+              )
+              .join("")}
+          </div>
+        `;
+      })
+      .join("");
+
+    list.querySelectorAll("[data-desktop-contents-item]").forEach((item) => {
+      item.addEventListener("click", () => {
+        setDesktopContentsOpen(false);
+        goTo(Number(item.dataset.slide));
+      });
+    });
+  }
+
   function buildTopbarLogos() {
     const logoSrc = (window.DONAU_ASSET_BASE || "../../assets/donau/") + "branding/RugbyUnionDonauLogo2024.svg";
     document.querySelectorAll(".topbar-logo").forEach((topbarLogo) => {
@@ -404,7 +445,65 @@
       } else {
         topbarRight.appendChild(shellStatus);
       }
+
+      const contentsBtn = document.createElement("button");
+      contentsBtn.type = "button";
+      contentsBtn.className = "workspace-contents-toggle";
+      contentsBtn.setAttribute("aria-haspopup", "dialog");
+      contentsBtn.setAttribute("aria-controls", "desktopContentsPopover");
+      contentsBtn.setAttribute("aria-expanded", "false");
+      contentsBtn.innerHTML = `Sections <span aria-hidden="true">&#9662;</span>`;
+      contentsBtn.addEventListener("click", () => {
+        setDesktopContentsOpen(!desktopContentsOpen, contentsBtn);
+      });
+
+      if (slideNum) {
+        topbarRight.insertBefore(contentsBtn, slideNum);
+      } else {
+        topbarRight.appendChild(contentsBtn);
+      }
     });
+  }
+
+  function setDesktopContentsOpen(open, trigger = desktopContentsTrigger) {
+    const popover = document.getElementById("desktopContentsPopover");
+    if (!popover || isMobileViewport()) {
+      desktopContentsOpen = false;
+      return;
+    }
+
+    desktopContentsOpen = Boolean(open);
+    if (desktopContentsOpen && trigger) {
+      desktopContentsTrigger = trigger;
+    }
+
+    popover.hidden = !desktopContentsOpen;
+    document.body.classList.toggle("desktop-contents-open", desktopContentsOpen);
+    document.querySelectorAll(".workspace-contents-toggle").forEach((btn) => {
+      btn.setAttribute("aria-expanded", desktopContentsOpen ? "true" : "false");
+    });
+
+    if (desktopContentsOpen) {
+      const firstItem = popover.querySelector("[data-desktop-contents-item]");
+      requestAnimationFrame(() => firstItem?.focus());
+      return;
+    }
+
+    if (desktopContentsTrigger && document.contains(desktopContentsTrigger)) {
+      desktopContentsTrigger.focus();
+    }
+  }
+
+  function scrollCurrentSectionDown() {
+    const activeSlide = document.getElementById(`s${cur}`);
+    if (!activeSlide) {
+      return;
+    }
+    const target =
+      activeSlide.querySelector(".cover-aside-card") ||
+      activeSlide.querySelector(".sl-header") ||
+      activeSlide;
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function lockMobileBodyScroll() {
@@ -802,6 +901,11 @@
       item.classList.toggle("active", isActive && navType !== "board");
     });
 
+    document.querySelectorAll("[data-desktop-contents-item]").forEach((item) => {
+      item.classList.toggle("active", Number(item.dataset.slide) === cur);
+      item.setAttribute("aria-current", Number(item.dataset.slide) === cur ? "page" : "false");
+    });
+
     syncMobileWorkspaceOffset();
   }
 
@@ -868,12 +972,18 @@
 
     setMobileWorkspaceMenu(false);
     if (n === cur) {
+      if (!isMobileViewport()) {
+        window.scrollTo({ top: 0, behavior });
+      }
       return;
     }
     document.getElementById(`s${cur}`).classList.remove("active");
     cur = n;
     document.getElementById(`s${cur}`).classList.add("active");
     updateNav();
+    if (!isMobileViewport()) {
+      window.scrollTo({ top: 0, behavior });
+    }
 
     if (isMobileViewport()) {
       requestAnimationFrame(() => {
@@ -2147,6 +2257,11 @@
         return;
       }
 
+      if (event.key === "Escape" && desktopContentsOpen) {
+        setDesktopContentsOpen(false);
+        return;
+      }
+
       if (mobileWorkspaceMenuOpen) {
         return;
       }
@@ -2265,6 +2380,14 @@
     );
 
     document.addEventListener("click", (event) => {
+      if (desktopContentsOpen && !isMobileViewport()) {
+        const popover = document.getElementById("desktopContentsPopover");
+        const trigger = event.target.closest(".workspace-contents-toggle");
+        if (!popover?.contains(event.target) && !trigger) {
+          setDesktopContentsOpen(false);
+        }
+      }
+
       if (!mobileWorkspaceMenuOpen || !isMobileViewport()) {
         return;
       }
@@ -2316,6 +2439,8 @@
       if (!isMobileViewport()) {
         setMobileWorkspaceMenu(false);
         mobileWorkspaceHistory = [];
+      } else if (desktopContentsOpen) {
+        setDesktopContentsOpen(false);
       }
       syncMobileWorkspaceOffset();
     });
@@ -2323,6 +2448,7 @@
     buildDots();
     buildTopbarLogos();
     buildWorkspaceMap();
+    buildDesktopContentsPopover();
     buildPortalReturnLinks();
     buildWorkspaceShellStatus();
     buildMobileAppChrome();
@@ -2352,6 +2478,7 @@
   window.sendMsg = sendMsg;
   window.setDevelopmentAgeStage = setDevelopmentAgeStage;
   window.setDevelopmentScale = setDevelopmentScale;
+  window.setDesktopContentsOpen = setDesktopContentsOpen;
   window.setCategory = renderAttackCategory;
   window.setDefSide = setDefSide;
   window.toggleDevelopmentTopic = toggleDevelopmentTopic;
@@ -2364,6 +2491,7 @@
   window.toggleModuleGroup = toggleModuleGroup;
   window.toggleModuleSection = toggleModuleSection;
   window.togglePlay = togglePlay;
+  window.scrollCurrentSectionDown = scrollCurrentSectionDown;
 
   init();
 })();
