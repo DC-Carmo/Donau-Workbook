@@ -534,7 +534,12 @@ function resize() {
     scheduleResizePass();
     return;
   }
-  const isPhone = Math.min(vpW, vpH) <= 700;
+  const hasFinePointer = !!window.matchMedia?.('(any-pointer: fine)').matches;
+  const hasCoarsePointer = !!window.matchMedia?.('(any-pointer: coarse)').matches;
+  const touchPrimary = !!window.matchMedia?.('(pointer: coarse)').matches;
+  const touchPoints = navigator.maxTouchPoints || 0;
+  const phoneLikeInput = touchPrimary || (hasCoarsePointer && !hasFinePointer) || (touchPoints > 0 && !hasFinePointer);
+  const isPhone = phoneLikeInput && Math.min(vpW, vpH) <= 700;
   const MOBILE_PORTRAIT = isPhone && vpH > vpW;
   const PHONE_LANDSCAPE = isPhone && !MOBILE_PORTRAIT;
   renderDpr = Math.max(1, window.devicePixelRatio || 1);
