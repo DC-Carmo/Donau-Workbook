@@ -137,7 +137,7 @@ function toC(fx, fy) {
     return { x: ox + (fy - F.DY0) * sx, y: oy + (fx - F.DX0) * sy };
   }
   if (isVerticalPhoneBoard()) {
-    return { x: ox + (fx - F.DX0) * sx, y: oy + (F.DY1 - fy) * sy };
+    return { x: ox + (fx - F.DX0) * sx, y: oy + (fy - F.DY0) * sy };
   }
   return { x: ox + (fx - F.DX0) * sx, y: oy + (fy - F.DY0) * sy };
 }
@@ -146,7 +146,7 @@ function frC(cx, cy) {
     return { x: (cy - oy) / sy + F.DX0, y: (cx - ox) / sx + F.DY0 };
   }
   if (isVerticalPhoneBoard()) {
-    return { x: (cx - ox) / sx + F.DX0, y: F.DY1 - ((cy - oy) / sy) };
+    return { x: (cx - ox) / sx + F.DX0, y: (cy - oy) / sy + F.DY0 };
   }
   return { x: (cx - ox) / sx + F.DX0, y: (cy - oy) / sy + F.DY0 };
 }
