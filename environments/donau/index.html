@@ -805,6 +805,50 @@
   .lo-shell { padding: 0 18px; gap: 14px; }
   .lo-card-content { padding: 20px 20px 18px; }
 }
+
+@media (min-width: 901px) and (max-height: 880px) {
+  /* Short laptop viewports need natural page scroll instead of the
+     full-screen slide lock used on taller desktop displays. */
+  html,
+  body {
+    width: 100%;
+    height: auto;
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  body {
+    padding-bottom: 96px;
+  }
+
+  .slide {
+    position: relative;
+    inset: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .slide.active {
+    padding-bottom: 96px;
+  }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 120;
+  }
+
+  .sl-body {
+    overflow: visible;
+  }
+
+  #s1 > div[style] {
+    flex: 1 1 auto;
+    min-height: calc(100vh - 66px);
+    overflow: visible !important;
+  }
+}
 </style>
 
  
