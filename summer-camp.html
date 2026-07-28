@@ -42,8 +42,50 @@
   .nav-links{display:flex;gap:26px;align-items:center;font-size:13px;letter-spacing:1.4px;text-transform:uppercase;font-weight:600}
   .nav-links a{color:var(--muted);transition:color .2s}
   .nav-links a:hover{color:#fff}
+  .nav-links button{color:var(--muted);transition:color .2s}
   .nav .btn{padding:11px 20px}
-  @media(max-width:860px){.nav-links{display:none}}
+  .nav-mobile-actions{display:none;align-items:center;gap:10px}
+  .nav-explore-btn{display:inline-flex;align-items:center;gap:10px;min-height:44px;padding:10px 16px;border-radius:999px;border:1px solid rgba(227,178,60,.28);background:rgba(255,255,255,.03);color:#fff;font:700 12px/1 "Inter",system-ui,sans-serif;letter-spacing:1.6px;text-transform:uppercase;cursor:pointer;transition:border-color .2s,background .2s,transform .2s}
+  .nav-explore-btn:hover,.nav-explore-btn:focus-visible{border-color:var(--gold);background:rgba(227,178,60,.12);outline:none}
+  .nav-explore-btn svg{width:16px;height:16px;stroke:var(--gold);fill:none;stroke-width:1.8}
+  .nav-mobile-cta{padding:10px 16px !important;min-height:44px}
+  .nav-mobile-backdrop[hidden],.nav-mobile-drawer[hidden]{display:none}
+  .nav-mobile-backdrop{position:fixed;inset:0;z-index:79;background:rgba(4,7,6,.58);backdrop-filter:blur(6px)}
+  .nav-mobile-drawer{position:fixed;z-index:80;left:12px;right:12px;top:calc(78px + env(safe-area-inset-top));bottom:12px}
+  .nav-mobile-sheet{height:100%;display:flex;flex-direction:column;border-radius:24px;border:1px solid rgba(227,178,60,.18);background:linear-gradient(180deg,rgba(12,20,16,.98),rgba(7,12,10,.98));box-shadow:0 26px 60px rgba(0,0,0,.55);overflow:hidden}
+  .nav-mobile-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:20px 20px 18px;border-bottom:1px solid var(--line)}
+  .nav-mobile-title{font-family:"Bebas Neue",sans-serif;font-size:34px;letter-spacing:.8px;text-transform:uppercase;line-height:.92}
+  .nav-mobile-kicker{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:700;margin-bottom:6px}
+  .nav-mobile-close{flex:0 0 auto;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:#fff;font-size:26px;cursor:pointer}
+  .nav-mobile-body{flex:1;overflow:auto;padding:18px 18px calc(22px + env(safe-area-inset-bottom));display:grid;gap:18px}
+  .nav-mobile-section{display:grid;gap:12px}
+  .nav-mobile-label,.nav-dd-heading{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:700;padding:0 4px}
+  .nav-mobile-feature{display:grid;gap:6px;padding:18px;border-radius:18px;border:1px solid rgba(227,178,60,.22);background:linear-gradient(135deg,rgba(227,178,60,.12),rgba(255,255,255,.03));min-height:88px}
+  .nav-mobile-feature strong,.nav-mobile-link strong,.nav-dd-link-title{font-size:17px;line-height:1.1;color:#fff}
+  .nav-mobile-feature span,.nav-mobile-link span,.nav-dd-link-copy{font-size:13px;line-height:1.45;color:#c6ccca}
+  .nav-mobile-list{display:grid;gap:10px}
+  .nav-mobile-link{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:15px 16px;border-radius:16px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);min-height:56px}
+  .nav-mobile-link-mark,.nav-dd-link-mark{font-size:18px;color:var(--gold)}
+  .nav-mobile-accordion{border:1px solid rgba(255,255,255,.08);border-radius:18px;background:rgba(255,255,255,.03);overflow:hidden}
+  .nav-mobile-accordion-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px;border:none;background:none;color:#fff;font:700 15px/1.2 "Inter",system-ui,sans-serif;letter-spacing:.3px;cursor:pointer;text-align:left}
+  .nav-mobile-accordion-toggle span:last-child{color:var(--gold);font-size:18px;transition:transform .2s}
+  .nav-mobile-accordion-toggle[aria-expanded="true"] span:last-child{transform:rotate(180deg)}
+  .nav-mobile-accordion-panel{padding:0 12px 12px}
+  .nav-mobile-foot{padding:16px 20px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;align-items:center}
+  .nav-mobile-foot a{color:#d7dad8;font-size:13px;letter-spacing:1px;text-transform:uppercase}
+  .nav-mobile-foot a:last-child{color:var(--gold)}
+  .nav-links .dd{position:relative}
+  .nav-links .dd-toggle{display:inline-flex;align-items:center;gap:8px;background:none;border:none;cursor:pointer;color:var(--muted);font-family:inherit;font-size:13px;letter-spacing:1.4px;text-transform:uppercase;font-weight:600;padding:0}
+  .nav-links .dd.open .dd-toggle,.nav-links .dd-toggle:hover,.nav-links .dd-toggle:focus-visible{color:#fff;outline:none}
+  .nav-links .dd-toggle .dd-caret{font-size:12px;color:var(--gold);transition:transform .2s}
+  .nav-links .dd.open .dd-toggle .dd-caret{transform:rotate(180deg)}
+  .nav-links .dd-menu{position:absolute;top:calc(100% + 16px);right:0;background:linear-gradient(180deg,rgba(10,16,13,.98),rgba(7,11,9,.98));border:1px solid rgba(227,178,60,.18);border-radius:18px;padding:14px;min-width:330px;display:none;flex-direction:column;gap:10px;box-shadow:0 24px 48px rgba(0,0,0,.55)}
+  .nav-links .dd.open .dd-menu{display:flex}
+  .nav-dd-link{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px;border-radius:14px;border:1px solid transparent;background:rgba(255,255,255,.03);transition:border-color .2s,background .2s}
+  .nav-dd-link:hover,.nav-dd-link:focus-visible{border-color:rgba(227,178,60,.26);background:rgba(255,255,255,.06);outline:none}
+  .nav-dd-link-text{display:grid;gap:4px;text-transform:none;letter-spacing:0}
+  body.nav-overlay-open{overflow:hidden}
+  @media(max-width:860px){.nav-links{display:none}.nav>.btn{display:none}.nav-mobile-actions{display:flex}}
 
   /* HERO */
   .hero{position:relative;min-height:100vh;display:flex;align-items:center;padding:120px 0 70px;overflow:hidden}
@@ -202,7 +244,7 @@
 
 <!-- NAV -->
 <nav class="nav" id="nav">
-  <a class="brand" href="index.html" aria-label="RDA home">
+  <a class="brand" href="/" aria-label="RDA home">
     <img class="ball" src="assets/donau/images/rugby_ball_fire_scalable_bottom_right_fixed.svg" alt="" aria-hidden="true">
     <span class="wm">RDA</span>
   </a>
@@ -212,10 +254,128 @@
     <a href="#day">A Typical Day</a>
     <a href="#facilities">Facilities</a>
     <a href="#method">The Method</a>
-    <a href="#register">Register</a>
+    <div class="dd nav-dd" data-nav-dropdown>
+      <button type="button" class="dd-toggle" id="campExploreToggle" aria-expanded="false" aria-controls="campExploreMenu">Explore <span class="dd-caret">&#9662;</span></button>
+      <div class="dd-menu" id="campExploreMenu" role="menu" aria-labelledby="campExploreToggle">
+        <div class="nav-dd-heading">RDA Destinations</div>
+        <a class="nav-dd-link" role="menuitem" href="/">
+          <span class="nav-dd-link-text"><span class="nav-dd-link-title">Academy Home</span><span class="nav-dd-link-copy">Return to the main RDA landing page.</span></span>
+          <span class="nav-dd-link-mark" aria-hidden="true">&#8250;</span>
+        </a>
+        <a class="nav-dd-link" role="menuitem" href="/environments/animator/">
+          <span class="nav-dd-link-text"><span class="nav-dd-link-title">Tactical Board</span><span class="nav-dd-link-copy">Open the live RDA tactical board.</span></span>
+          <span class="nav-dd-link-mark" aria-hidden="true">&#8250;</span>
+        </a>
+        <a class="nav-dd-link" role="menuitem" href="/environments/donau/">
+          <span class="nav-dd-link-text"><span class="nav-dd-link-title">Donau Rugby Wien</span><span class="nav-dd-link-copy">Club performance workspace.</span></span>
+          <span class="nav-dd-link-mark" aria-hidden="true">&#8250;</span>
+        </a>
+        <a class="nav-dd-link" role="menuitem" href="/environments/donau-academy/">
+          <span class="nav-dd-link-text"><span class="nav-dd-link-title">Donau Academy</span><span class="nav-dd-link-copy">Academy player-development environment.</span></span>
+          <span class="nav-dd-link-mark" aria-hidden="true">&#8250;</span>
+        </a>
+        <a class="nav-dd-link" role="menuitem" href="/environments/austria-u18/">
+          <span class="nav-dd-link-text"><span class="nav-dd-link-title">Austria Youth</span><span class="nav-dd-link-copy">Protected youth pathway portal.</span></span>
+          <span class="nav-dd-link-mark" aria-hidden="true">&#8250;</span>
+        </a>
+        <a class="nav-dd-link" role="menuitem" href="/environments/coach-education/">
+          <span class="nav-dd-link-text"><span class="nav-dd-link-title">Coach Education</span><span class="nav-dd-link-copy">Methodology environment for coaches.</span></span>
+          <span class="nav-dd-link-mark" aria-hidden="true">&#8250;</span>
+        </a>
+      </div>
+    </div>
   </div>
   <a href="#register" class="btn btn-gold">Register interest →</a>
+  <div class="nav-mobile-actions">
+    <button type="button" class="nav-explore-btn" id="mobileExploreToggle" aria-expanded="false" aria-controls="mobileExploreDrawer">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <span>Explore</span>
+    </button>
+    <a href="#register" class="btn btn-gold nav-mobile-cta">Register</a>
+  </div>
 </nav>
+<div class="nav-mobile-backdrop" id="mobileNavBackdrop" hidden></div>
+<aside class="nav-mobile-drawer" id="mobileExploreDrawer" hidden aria-hidden="true">
+  <div class="nav-mobile-sheet" role="dialog" aria-modal="true" aria-labelledby="mobileExploreTitle">
+    <div class="nav-mobile-head">
+      <div>
+        <div class="nav-mobile-kicker">Navigation</div>
+        <div class="nav-mobile-title" id="mobileExploreTitle">Explore RDA</div>
+      </div>
+      <button type="button" class="nav-mobile-close" id="mobileExploreClose" aria-label="Close Explore menu">&times;</button>
+    </div>
+    <div class="nav-mobile-body">
+      <section class="nav-mobile-section">
+        <div class="nav-mobile-label">Primary Links</div>
+        <a class="nav-mobile-feature" href="/environments/animator/">
+          <strong>Tactical Board</strong>
+          <span>Open the board, build a play, and animate the phase picture.</span>
+        </a>
+        <a class="nav-mobile-link" href="/summer-camp.html">
+          <span><strong>Summer Camp</strong><span>Camp overview, schedule, and registration.</span></span>
+          <span class="nav-mobile-link-mark" aria-hidden="true">&#8250;</span>
+        </a>
+      </section>
+      <section class="nav-mobile-section">
+        <div class="nav-mobile-label">Club Environments</div>
+        <div class="nav-mobile-list">
+          <a class="nav-mobile-link" href="/environments/donau/">
+            <span><strong>Donau Rugby Wien</strong><span>Club performance workspace.</span></span>
+            <span class="nav-mobile-link-mark" aria-hidden="true">&#8250;</span>
+          </a>
+          <a class="nav-mobile-link" href="/environments/donau-academy/">
+            <span><strong>Donau Academy</strong><span>Academy development environment.</span></span>
+            <span class="nav-mobile-link-mark" aria-hidden="true">&#8250;</span>
+          </a>
+          <a class="nav-mobile-link" href="/environments/austria-u18/">
+            <span><strong>Austria Youth</strong><span>Protected youth pathway portal.</span></span>
+            <span class="nav-mobile-link-mark" aria-hidden="true">&#8250;</span>
+          </a>
+          <a class="nav-mobile-link" href="/environments/coach-education/">
+            <span><strong>Coach Education</strong><span>Methodology environment for coaches.</span></span>
+            <span class="nav-mobile-link-mark" aria-hidden="true">&#8250;</span>
+          </a>
+        </div>
+      </section>
+      <section class="nav-mobile-section">
+        <div class="nav-mobile-accordion">
+          <button type="button" class="nav-mobile-accordion-toggle" id="mobileCoachToggle" aria-expanded="false" aria-controls="mobileCoachPanel">
+            <span>Coaches &amp; Players</span>
+            <span aria-hidden="true">&#9662;</span>
+          </button>
+          <div class="nav-mobile-accordion-panel" id="mobileCoachPanel" hidden>
+            <div class="nav-mobile-list">
+              <a class="nav-mobile-link" href="/environments/donau/">
+                <span><strong>Donau Rugby Wien</strong><span>Shared club standards and game model.</span></span>
+                <span class="nav-mobile-link-mark" aria-hidden="true">&#8250;</span>
+              </a>
+              <a class="nav-mobile-link" href="/environments/donau-academy/">
+                <span><strong>Donau Academy</strong><span>Player pathway and development standards.</span></span>
+                <span class="nav-mobile-link-mark" aria-hidden="true">&#8250;</span>
+              </a>
+              <a class="nav-mobile-link" href="/environments/austria-u18/">
+                <span><strong>Austria Youth</strong><span>Protected national youth portal.</span></span>
+                <span class="nav-mobile-link-mark" aria-hidden="true">&#8250;</span>
+              </a>
+              <a class="nav-mobile-link" href="/environments/coach-education/">
+                <span><strong>Coach Education</strong><span>Resources and shared methodology.</span></span>
+                <span class="nav-mobile-link-mark" aria-hidden="true">&#8250;</span>
+              </a>
+              <a class="nav-mobile-link" href="/environments/animator/">
+                <span><strong>Tactical Board</strong><span>Fast route back to the board.</span></span>
+                <span class="nav-mobile-link-mark" aria-hidden="true">&#8250;</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+    <div class="nav-mobile-foot">
+      <a href="/">Academy home</a>
+      <a href="#register">Register interest</a>
+    </div>
+  </div>
+</aside>
 
 <!-- HERO -->
 <header class="hero">
@@ -349,7 +509,7 @@
       <div class="promise">See the game. Then play it.</div>
       <p>Camp isn't just drills. Players break down attack and defence on the <b style="color:#fff">RDA Tactical Board</b> — the same tool coaches use to build and animate plays — then take it onto the grass. Strength, speed and testing round out a genuinely modern development week.</p>
       <p>Every player leaves with an <b style="color:#fff">individual report</b> on their development.</p>
-      <a class="more" href="environments/animator/" target="_blank" rel="noopener">Explore the RDA Tactical Board →</a>
+        <a class="more" href="environments/animator/" target="_blank" rel="noopener noreferrer">Explore the RDA Tactical Board →</a>
     </div>
     <div class="method-photos reveal">
       <img src="assets/donau/images/camp/camp-testing.jpg" alt="Speed and agility testing">
@@ -455,7 +615,7 @@
       </div>
       <div class="foot-col">
         <h4>RDA</h4>
-        <a href="environments/animator/" target="_blank" rel="noopener">Tactical Board</a>
+        <a href="environments/animator/" target="_blank" rel="noopener noreferrer">Tactical Board</a>
         <a href="index.html">Academy home</a>
         <a href="#method">For clubs →</a>
       </div>
@@ -478,6 +638,87 @@
   addEventListener('scroll',()=>nav.classList.toggle('solid',scrollY>40),{passive:true});
   const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in')}),{threshold:.12});
   document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+  const dropdowns=[...document.querySelectorAll('[data-nav-dropdown]')];
+  const mobileDrawer=document.getElementById('mobileExploreDrawer');
+  const mobileBackdrop=document.getElementById('mobileNavBackdrop');
+  const mobileToggle=document.getElementById('mobileExploreToggle');
+  const mobileClose=document.getElementById('mobileExploreClose');
+  const mobileCoachToggle=document.getElementById('mobileCoachToggle');
+  const mobileCoachPanel=document.getElementById('mobileCoachPanel');
+  let lastMobileFocus=null;
+  function closeDesktopDropdowns(){
+    dropdowns.forEach(function(dd){
+      dd.classList.remove('open');
+      dd.querySelector('.dd-toggle')?.setAttribute('aria-expanded','false');
+    });
+  }
+  function setDesktopDropdown(dd,open){
+    closeDesktopDropdowns();
+    if(open){
+      dd.classList.add('open');
+      dd.querySelector('.dd-toggle')?.setAttribute('aria-expanded','true');
+    }
+  }
+  dropdowns.forEach(function(dd){
+    const toggle=dd.querySelector('.dd-toggle');
+    toggle?.addEventListener('click',function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      setDesktopDropdown(dd,!dd.classList.contains('open'));
+    });
+  });
+  function setMobileCoachOpen(open){
+    if(!mobileCoachToggle||!mobileCoachPanel) return;
+    mobileCoachToggle.setAttribute('aria-expanded',open?'true':'false');
+    mobileCoachPanel.hidden=!open;
+  }
+  function setMobileDrawer(open){
+    if(!mobileDrawer||!mobileBackdrop||!mobileToggle) return;
+    if(open){
+      closeDesktopDropdowns();
+      lastMobileFocus=document.activeElement;
+      document.body.classList.add('nav-overlay-open');
+      mobileBackdrop.hidden=false;
+      mobileDrawer.hidden=false;
+      mobileDrawer.setAttribute('aria-hidden','false');
+      mobileToggle.setAttribute('aria-expanded','true');
+      setMobileCoachOpen(false);
+      requestAnimationFrame(function(){ mobileClose?.focus(); });
+      return;
+    }
+    document.body.classList.remove('nav-overlay-open');
+    mobileBackdrop.hidden=true;
+    mobileDrawer.hidden=true;
+    mobileDrawer.setAttribute('aria-hidden','true');
+    mobileToggle.setAttribute('aria-expanded','false');
+    setMobileCoachOpen(false);
+    if(lastMobileFocus&&typeof lastMobileFocus.focus==='function') lastMobileFocus.focus();
+  }
+  mobileToggle?.addEventListener('click',function(){ setMobileDrawer(mobileDrawer.hidden); });
+  mobileClose?.addEventListener('click',function(){ setMobileDrawer(false); });
+  mobileBackdrop?.addEventListener('click',function(){ setMobileDrawer(false); });
+  mobileCoachToggle?.addEventListener('click',function(){ setMobileCoachOpen(mobileCoachPanel.hidden); });
+  mobileDrawer?.querySelectorAll('a').forEach(function(link){
+    link.addEventListener('click',function(){ setMobileDrawer(false); });
+  });
+  document.addEventListener('click',function(e){
+    if(!e.target.closest('.nav-links .dd')) closeDesktopDropdowns();
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){
+      closeDesktopDropdowns();
+      if(mobileDrawer&&!mobileDrawer.hidden) setMobileDrawer(false);
+    }
+    if(e.key==='Tab'&&mobileDrawer&&!mobileDrawer.hidden){
+      const focusable=[...mobileDrawer.querySelectorAll('button,[href],[tabindex]:not([tabindex="-1"])')].filter(function(el){ return !el.hidden && !el.disabled; });
+      if(!focusable.length) return;
+      const first=focusable[0];
+      const last=focusable[focusable.length-1];
+      if(e.shiftKey&&document.activeElement===first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey&&document.activeElement===last){ e.preventDefault(); first.focus(); }
+    }
+  });
+  addEventListener('resize',function(){ if(innerWidth>860) setMobileDrawer(false); });
   function submitCamp(e){
     const f=e.target; if(!f.checkValidity()) return true;
     try{fetch('/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(new FormData(f)).toString()}).catch(()=>{});}catch(_){}
