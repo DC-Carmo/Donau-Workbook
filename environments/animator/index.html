@@ -62,6 +62,9 @@
     <button class="c-btn mobile-play-btn" id="mobileTopPlayBtn" type="button" onclick="toggleSmartPlay()" aria-label="Play from the current move to the end">Play</button>
 
     <div class="tb-actions">
+      <button class="c-btn desktop-only" id="desktopCoachPanelBtn" type="button" aria-pressed="false" onclick="toggleDesktopCoachPanel()">Coaching</button>
+      <button class="c-btn desktop-only" id="desktopSequencePanelBtn" type="button" aria-pressed="false" onclick="toggleDesktopSequencePanel()">Sequence</button>
+      <button class="c-btn primary desktop-only" id="desktopPresentBtn" type="button" aria-pressed="false" onclick="togglePresentationMode()">Present</button>
       <a class="c-btn tb-portal" href="../../index.html"
          onclick="event.preventDefault(); location.href='../../index.html'"><span>&#8249;</span> Portal</a>
       <div id="autosaveStatus" class="tb-autosave-status" aria-live="polite">Saved</div>
@@ -428,6 +431,7 @@
           <button class="board-pill action-btn" id="mobileAddAttackBtn" onclick="addNextAvailablePlayer('A')" data-label-desktop="+ ATTACK" data-label-mobile="+ATK">+ ATTACK</button>
           <button class="board-pill action-btn" id="mobileAddDefenceBtn" onclick="addNextAvailablePlayer('D')" data-label-desktop="+ DEFENCE" data-label-mobile="+DEF">+ DEFENCE</button>
           <button class="board-pill ball-btn" id="mobileBallBtn" onclick="addBall()" data-label-desktop="BALL" data-label-mobile="BALL">BALL</button>
+          <button class="board-pill action-btn desktop-only" id="desktopPlayersToggleBtn" type="button" aria-expanded="false" onclick="toggleDesktopPlayerTray()">Players</button>
         </div>
 
         <span class="toolbar-divider" aria-hidden="true"></span>
@@ -511,6 +515,15 @@
     </div>
     <span id="tlTime">0.0 / 5.0s</span>
     <span id="spdLabel">1×</span>
+  </div>
+
+  <div id="presentationController" class="presentation-controller" hidden aria-hidden="true">
+    <div class="presentation-controller__cluster">
+      <button class="presentation-controller__btn" type="button" onclick="togglePresentationMode(false)">Exit</button>
+      <button class="presentation-controller__btn" type="button" onclick="handleCanonicalPrevious()">Prev</button>
+      <button class="presentation-controller__btn" type="button" onclick="toggleSmartPlay()" id="presentationPlayBtn">Play</button>
+      <button class="presentation-controller__btn" type="button" onclick="handleCanonicalNext()">Next</button>
+    </div>
   </div>
   <!-- Guided onboarding tour -->
   <div id="tourBackdrop" class="tour-backdrop" aria-hidden="true"></div>

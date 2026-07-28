@@ -3203,6 +3203,262 @@ html, body {
   -webkit-user-select: text;
 }
 
+body:not(.is-phone) {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body:not(.is-phone) #app {
+  min-height: 100vh;
+  height: auto;
+}
+
+body:not(.is-phone) #topbar {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  align-items: center;
+  min-height: 48px;
+  padding: 8px 16px;
+}
+
+body:not(.is-phone) #workspace {
+  grid-template-columns: var(--desktop-smart-panel-width, 220px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, auto) auto;
+  align-items: start;
+  overflow: visible;
+  min-height: 0;
+}
+
+body:not(.is-phone) #smartPanel {
+  position: sticky;
+  top: 64px;
+  align-self: start;
+  width: var(--desktop-smart-panel-width, 220px);
+  max-height: calc(100vh - 84px);
+  border-right: 1px solid rgba(255,255,255,0.07);
+  transition: width 0.22s ease, opacity 0.22s ease, transform 0.22s ease;
+}
+
+body:not(.is-phone).tb-coach-collapsed {
+  --desktop-smart-panel-width: 76px;
+}
+
+body:not(.is-phone).tb-coach-collapsed #smartPanel {
+  overflow: hidden;
+}
+
+body:not(.is-phone).tb-coach-collapsed .section-block,
+body:not(.is-phone).tb-coach-collapsed .sp-default-state,
+body:not(.is-phone).tb-coach-collapsed .sp-guide-text,
+body:not(.is-phone).tb-coach-collapsed .sp-kick-ctx,
+body:not(.is-phone).tb-coach-collapsed .sp-ctx-card,
+body:not(.is-phone).tb-coach-collapsed .sp-notes-panel,
+body:not(.is-phone).tb-coach-collapsed #gainDisplay {
+  display: none !important;
+}
+
+body:not(.is-phone).tb-coach-collapsed .sp-ctx-zone {
+  overflow: hidden;
+}
+
+body:not(.is-phone).tb-coach-collapsed .sp-ctx-hdr {
+  padding: 14px 10px;
+  justify-content: center;
+}
+
+body:not(.is-phone).tb-coach-collapsed .sp-ctx-hdr-left {
+  justify-content: center;
+}
+
+body:not(.is-phone).tb-coach-collapsed .sp-ctx-mode,
+body:not(.is-phone).tb-coach-collapsed .sp-ctx-step {
+  display: none;
+}
+
+body:not(.is-phone) #canvasHost {
+  grid-column: 2;
+  grid-row: 1;
+  display: grid;
+  place-items: start center;
+  min-height: 0;
+  max-height: calc(100vh - 178px);
+  overflow: auto;
+  padding: 0 18px 20px;
+  scrollbar-width: thin;
+}
+
+body:not(.is-phone) #canvasWrap {
+  width: min(100%, 860px);
+  min-width: min(100%, 560px);
+  aspect-ratio: 1 / 1.03;
+  min-height: 580px;
+  padding: 12px 14px 0;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.28);
+}
+
+body:not(.is-phone) #field {
+  width: 100%;
+  height: 100%;
+}
+
+body:not(.is-phone) #bottomPanel {
+  position: sticky;
+  bottom: 0;
+  z-index: 55;
+  grid-column: 2;
+  grid-row: 2;
+  align-self: end;
+  max-height: none;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 -14px 34px rgba(0,0,0,0.22);
+  transition: transform 0.2s ease;
+}
+
+body:not(.is-phone) #compactToolbar {
+  min-height: 46px;
+  height: auto;
+  padding: 8px 14px;
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+body:not(.is-phone) #playerSelector {
+  height: 0;
+  min-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-top: none;
+  opacity: 0;
+  overflow: hidden;
+  transition: height 0.22s ease, padding 0.22s ease, opacity 0.22s ease;
+}
+
+body:not(.is-phone).tb-player-tray-open #playerSelector {
+  height: 76px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  border-top: 0.5px solid rgba(255,255,255,0.06);
+  opacity: 1;
+}
+
+body:not(.is-phone) .presentation-controller {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 170;
+}
+
+body:not(.is-phone) .presentation-controller[hidden] {
+  display: none !important;
+}
+
+.presentation-controller__cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(5,12,18,0.82);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 36px rgba(0,0,0,0.28);
+}
+
+.presentation-controller__btn {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+  cursor: pointer;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+body:not(.is-phone) #desktopPresentBtn[aria-pressed="true"],
+body:not(.is-phone) #desktopCoachPanelBtn[aria-pressed="true"],
+body:not(.is-phone) #desktopSequencePanelBtn[aria-pressed="true"],
+body:not(.is-phone) #desktopPlayersToggleBtn[aria-expanded="true"] {
+  background: rgba(227,178,60,0.16);
+  border-color: rgba(227,178,60,0.42);
+  color: #fff2c8;
+}
+
+body:not(.is-phone).tb-presentation-mode #smartPanel,
+body:not(.is-phone).tb-presentation-mode #bottomPanel,
+body:not(.is-phone).tb-presentation-mode #sequenceControlDock,
+body:not(.is-phone).tb-presentation-mode .tb-title-shell,
+body:not(.is-phone).tb-presentation-mode .tb-autosave-status,
+body:not(.is-phone).tb-presentation-mode .tb-actions .tb-portal,
+body:not(.is-phone).tb-presentation-mode .tb-actions #mobileSaveBtn,
+body:not(.is-phone).tb-presentation-mode .tb-actions .desktop-only:not(#desktopPresentBtn),
+body:not(.is-phone).tb-presentation-mode .seq-bar-chips {
+  display: none !important;
+}
+
+body:not(.is-phone).tb-presentation-mode #workspace {
+  grid-template-columns: minmax(0, 1fr);
+  padding-bottom: 86px;
+}
+
+body:not(.is-phone).tb-presentation-mode #canvasHost {
+  grid-column: 1;
+  max-height: calc(100vh - 126px);
+}
+
+body:not(.is-phone).tb-presentation-mode #canvasWrap {
+  width: min(100%, 1080px);
+  min-width: min(100%, 760px);
+  min-height: 720px;
+  aspect-ratio: 1 / 1.03;
+}
+
+body:not(.is-phone).tb-presentation-mode #topbar {
+  justify-content: space-between;
+}
+
+body:not(.is-phone).tb-presentation-mode .seq-bar {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: none;
+}
+
+body:not(.is-phone).tb-presentation-mode .seq-bar-nav,
+body:not(.is-phone).tb-presentation-mode .seq-bar-play {
+  height: 38px;
+}
+
+@media (max-width: 1439px) {
+  body:not(.is-phone) #canvasWrap {
+    width: min(100%, 760px);
+  }
+}
+
+@media (max-width: 1280px) {
+  body:not(.is-phone) #canvasWrap {
+    min-width: min(100%, 560px);
+    width: min(100%, 680px);
+  }
+}
+
+@media (max-width: 1180px) {
+  body:not(.is-phone) #workspace {
+    grid-template-columns: 196px minmax(0, 1fr);
+  }
+
+  body:not(.is-phone).tb-coach-collapsed #workspace {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+}
+
 /* ── Context zone ── */
 .sp-ctx-zone {
   overflow-y: auto;

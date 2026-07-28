@@ -56,6 +56,12 @@ let resizeObserver = null;
 let resizeRaf = 0;
 let dprMediaQuery = null;
 let dprMediaQueryListener = null;
+let desktopCoachPanelCollapsed = false;
+let desktopPlayerTrayOpen = false;
+let desktopSequencePanelHidden = false;
+let desktopPresentationMode = false;
+let desktopPlayerTrayBeforePresentation = false;
+let desktopSequencePanelBeforePresentation = false;
 const cv  = document.getElementById('field');
 const supportsPointerEvents = typeof window !== 'undefined' && 'PointerEvent' in window;
 let staticFieldCanvas = null;
@@ -179,6 +185,10 @@ function closeRadialMenu() {
     menu.classList.remove('visible');
     menu.innerHTML = '';
   }
+}
+
+function isDesktopBoardMode() {
+  return !isPhoneViewport;
 }
 
 function ensureRadialSourcePlayerSelected(sourcePlayerId) {
@@ -674,6 +684,7 @@ function resize() {
   invalidateStaticFieldCache();
   syncMobileBoardNameInput();
   updateMobileUI();
+  syncDesktopWorkspaceUI();
   render();
   scheduleSequenceDockPosition();
 }
@@ -6816,6 +6827,11 @@ document.addEventListener('keydown', (e) => {
   const tag = e.target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
   if (e.key === 'Escape') {
+    if (desktopPresentationMode) {
+      togglePresentationMode(false);
+      e.preventDefault();
+      return;
+    }
     clearSelection();
     refreshInteractionUI();
     render();
@@ -7599,6 +7615,81 @@ function cancelCanonicalPlaybackFrame() {
   }
 }
 
+function syncPresentationController() {
+  const controller = document.getElementById('presentationController');
+  const playBtn = document.getElementById('presentationPlayBtn');
+  if (!controller || !playBtn) return;
+  const show = isDesktopBoardMode() && desktopPresentationMode;
+  controller.hidden = !show;
+  controller.setAttribute('aria-hidden', show ? 'false' : 'true');
+  playBtn.textContent = S.animating ? 'Pause' : 'Play';
+}
+
+function syncDesktopWorkspaceUI() {
+  document.body.classList.toggle('tb-coach-collapsed', isDesktopBoardMode() && desktopCoachPanelCollapsed);
+  document.body.classList.toggle('tb-player-tray-open', isDesktopBoardMode() && desktopPlayerTrayOpen);
+  document.body.classList.toggle('tb-presentation-mode', isDesktopBoardMode() && desktopPresentationMode);
+
+  const coachBtn = document.getElementById('desktopCoachPanelBtn');
+  const sequenceBtn = document.getElementById('desktopSequencePanelBtn');
+  const playerBtn = document.getElementById('desktopPlayersToggleBtn');
+  const presentBtn = document.getElementById('desktopPresentBtn');
+  if (coachBtn) coachBtn.setAttribute('aria-pressed', desktopCoachPanelCollapsed ? 'true' : 'false');
+  if (sequenceBtn) sequenceBtn.setAttribute('aria-pressed', desktopSequencePanelHidden ? 'true' : 'false');
+  if (playerBtn) playerBtn.setAttribute('aria-expanded', desktopPlayerTrayOpen ? 'true' : 'false');
+  if (presentBtn) {
+    presentBtn.setAttribute('aria-pressed', desktopPresentationMode ? 'true' : 'false');
+    presentBtn.textContent = desktopPresentationMode ? 'Exit Present' : 'Present';
+  }
+  syncPresentationController();
+}
+
+function toggleDesktopCoachPanel(force) {
+  if (!isDesktopBoardMode()) return;
+  desktopCoachPanelCollapsed = typeof force === 'boolean' ? force : !desktopCoachPanelCollapsed;
+  syncDesktopWorkspaceUI();
+  scheduleResizePass();
+  scheduleSequenceDockPosition();
+}
+window.toggleDesktopCoachPanel = toggleDesktopCoachPanel;
+
+function toggleDesktopPlayerTray(force) {
+  if (!isDesktopBoardMode()) return;
+  desktopPlayerTrayOpen = typeof force === 'boolean' ? force : !desktopPlayerTrayOpen;
+  syncDesktopWorkspaceUI();
+  scheduleResizePass();
+  scheduleSequenceDockPosition();
+}
+window.toggleDesktopPlayerTray = toggleDesktopPlayerTray;
+
+function toggleDesktopSequencePanel(force) {
+  if (!isDesktopBoardMode()) return;
+  desktopSequencePanelHidden = typeof force === 'boolean' ? force : !desktopSequencePanelHidden;
+  syncDesktopWorkspaceUI();
+  scheduleSequenceDockPosition();
+}
+window.toggleDesktopSequencePanel = toggleDesktopSequencePanel;
+
+function togglePresentationMode(force) {
+  if (!isDesktopBoardMode()) return;
+  const next = typeof force === 'boolean' ? force : !desktopPresentationMode;
+  if (desktopPresentationMode === next) return;
+  desktopPresentationMode = next;
+  if (desktopPresentationMode) {
+    desktopPlayerTrayBeforePresentation = desktopPlayerTrayOpen;
+    desktopSequencePanelBeforePresentation = desktopSequencePanelHidden;
+    desktopPlayerTrayOpen = false;
+    desktopSequencePanelHidden = true;
+  } else {
+    desktopPlayerTrayOpen = desktopPlayerTrayBeforePresentation;
+    desktopSequencePanelHidden = desktopSequencePanelBeforePresentation;
+  }
+  syncDesktopWorkspaceUI();
+  scheduleResizePass();
+  scheduleSequenceDockPosition();
+}
+window.togglePresentationMode = togglePresentationMode;
+
 function setSequenceDockVisibility(isVisible) {
   if (!sequenceDockEls?.dock) return;
   sequenceDockVisible = !!isVisible;
@@ -7724,7 +7815,7 @@ function positionSequenceControlDock() {
   sequenceDockPositionRaf = 0;
   if (!sequenceDockEls?.dock) return;
   const dock = sequenceDockEls.dock;
-  if (isPhoneViewport) {
+  if (isPhoneViewport || desktopPresentationMode || desktopSequencePanelHidden) {
     setSequenceDockVisibility(false);
     return;
   }
@@ -7994,6 +8085,7 @@ function updateSequenceUI() {
   if (playBtn) playBtn.disabled = !playable;
   if (tlPlayBtn) tlPlayBtn.disabled = !playable;
   updateSequenceDockUI();
+  syncPresentationController();
   scheduleSequenceDockPosition();
 }
 
@@ -10473,6 +10565,7 @@ function _initBoard() {
   _boardBootstrapped = true;
   initSequenceControlDock();
   bindViewportObservers();
+  syncDesktopWorkspaceUI();
   resize();
   ensureSteps();
   currentPresetId = null;
