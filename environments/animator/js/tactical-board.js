@@ -5425,7 +5425,7 @@ function noteMetrics(note) {
   const height = heightField * sc;
   const paddingX = Math.max(8, NOTE_PADDING_X * sc);
   const paddingY = Math.max(6, NOTE_PADDING_Y * sc);
-  const fontSize = clamp(height * 0.34, 11, Math.max(11, sc * 2.45));
+  const fontSize = clamp(height * 0.72, Math.max(11, sc * 0.9), Math.max(42, sc * 14));
   const lineHeight = Math.max(fontSize + 2, fontSize * 1.06);
   const innerWidth = Math.max(10, width - (paddingX * 2));
   const innerHeight = Math.max(lineHeight, height - (paddingY * 2));
