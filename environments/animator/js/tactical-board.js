@@ -817,6 +817,7 @@ Object.assign(S, {
   currentStepBaseline: null,
   showGhostPrevious: false,
   moveGuideOrigins: {},
+  annotationClipboard: null,
   dragPlayerId: null,
   dragging: null,       // { type:'player'|'group'|'ball', id? }
   dragOff: { x:0, y:0 },
@@ -895,6 +896,9 @@ const NOTE_MAX_HEIGHT = 18;
 const NOTE_PADDING_X = 0.78;
 const NOTE_PADDING_Y = 0.6;
 const NOTE_HANDLE_HIT_PADDING = 1.25;
+const ANNOTATION_CLIPBOARD_OFFSET = 1.5;
+const ANNOTATION_NUDGE_STEP = 0.5;
+const ANNOTATION_NUDGE_STEP_LARGE = 1.5;
 const NOTE_LEGACY_REFERENCE_SCALE = 10;
 const NOTE_LEGACY_FONT_PX = 12.5;
 const STEP_MIN_COUNT = 3;
@@ -2606,6 +2610,14 @@ function findAnnotationById(id) {
 function selectedAnnotation() {
   const id = selectedAnnotationId();
   return id ? findAnnotationById(id) : null;
+}
+
+function annotationEditableTarget(target) {
+  return !!target && (
+    target.tagName === 'INPUT'
+    || target.tagName === 'TEXTAREA'
+    || target.isContentEditable
+  );
 }
 
 function defaultAnnotationText() {
@@ -7218,7 +7230,7 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     return;
   }
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
+  if (annotationEditableTarget(e.target)) return;
   if (e.key === 'Delete' || e.key === 'Backspace') {
     const hasSelection = !!S.selectedPlayerId || !!selectedAnnotationId() ||
       isBallSelected() || S.selectedPassIdx !== null || S.selectedPathPid !== null;
@@ -7519,38 +7531,112 @@ function deleteSelected() {
 }
 window.deleteSelected = deleteSelected;
 
-function duplicateSelected() {
-  const ann = selectedAnnotation();
-  if (!ann) return;
-  snapshot();
-  const copy = cloneData(ann);
+function translateAnnotationCopy(sourceAnnotation, dx = ANNOTATION_CLIPBOARD_OFFSET, dy = ANNOTATION_CLIPBOARD_OFFSET) {
+  const copy = cloneData(sourceAnnotation);
   copy.id = mkAnnotationId();
   if (copy.type === 'note') {
-    copy.x = clamp(copy.x + 2, F.XMIN, F.XMAX);
-    copy.y = clamp(copy.y + 2, F.YMIN, F.YMAX);
+    copy.x += dx;
+    copy.y += dy;
     copy.width = noteWidthValue(copy);
     copy.height = noteHeightValue(copy);
     clampNoteAnnotation(copy);
   } else if (copy.type === 'arrow') {
     copy.start = { ...copy.start };
     copy.end = { ...copy.end };
-    copy.start.x = clamp(copy.start.x + 2, F.XMIN, F.XMAX);
-    copy.start.y = clamp(copy.start.y + 2, F.YMIN, F.YMAX);
-    copy.end.x = clamp(copy.end.x + 2, F.XMIN, F.XMAX);
-    copy.end.y = clamp(copy.end.y + 2, F.YMIN, F.YMAX);
+    const dxMin = Math.max(F.XMIN - copy.start.x, F.XMIN - copy.end.x);
+    const dxMax = Math.min(F.XMAX - copy.start.x, F.XMAX - copy.end.x);
+    const dyMin = Math.max(F.YMIN - copy.start.y, F.YMIN - copy.end.y);
+    const dyMax = Math.min(F.YMAX - copy.start.y, F.YMAX - copy.end.y);
+    const shiftX = clamp(dx, dxMin, dxMax);
+    const shiftY = clamp(dy, dyMin, dyMax);
+    copy.start.x += shiftX;
+    copy.start.y += shiftY;
+    copy.end.x += shiftX;
+    copy.end.y += shiftY;
   } else if (copy.type === 'zone') {
-    copy.x = clamp(copy.x + 2, F.XMIN + copy.r, F.XMAX - copy.r);
-    copy.y = clamp(copy.y + 2, F.YMIN + copy.r, F.YMAX - copy.r);
+    copy.x += dx;
+    copy.y += dy;
+    clampZoneAnnotation(copy);
   } else if (copy.type === 'box') {
-    copy.x = clamp(copy.x + 2, F.XMIN, F.XMAX - Math.abs(copy.w));
-    copy.y = clamp(copy.y + 2, F.YMIN, F.YMAX - Math.abs(copy.h));
+    copy.x += dx;
+    copy.y += dy;
+    clampBoxAnnotation(copy);
   }
-  S.annotations.push(copy);
-  selectAnnotationById(copy.id);
+  return copy;
+}
+
+function copySelectedAnnotationToClipboard() {
+  const ann = selectedAnnotation();
+  if (!ann) return false;
+  S.annotationClipboard = cloneData(ann);
+  return true;
+}
+
+function pasteAnnotationFromClipboard(snapshotBefore = true) {
+  if (!S.annotationClipboard) return null;
+  if (snapshotBefore) snapshot();
+  const copy = translateAnnotationCopy(S.annotationClipboard);
+  const normalized = normalizeAnnotation(copy);
+  if (!normalized) return null;
+  S.annotations.push(normalized);
+  selectAnnotationById(normalized.id);
+  commitLiveBoardToCurrentStep();
   refreshInteractionUI();
   render();
+  return normalized;
+}
+
+function duplicateSelected() {
+  const ann = selectedAnnotation();
+  if (!ann) return null;
+  snapshot();
+  const copy = translateAnnotationCopy(ann);
+  const normalized = normalizeAnnotation(copy);
+  if (!normalized) return null;
+  S.annotations.push(normalized);
+  selectAnnotationById(normalized.id);
+  commitLiveBoardToCurrentStep();
+  refreshInteractionUI();
+  render();
+  return normalized;
 }
 window.duplicateSelected = duplicateSelected;
+
+function nudgeSelectedAnnotation(dx, dy) {
+  snapshot();
+  const ann = selectedAnnotation();
+  if (!ann) return false;
+  if (ann.type === 'note') {
+    ann.x += dx;
+    ann.y += dy;
+    clampNoteAnnotation(ann);
+  } else if (ann.type === 'box') {
+    ann.x += dx;
+    ann.y += dy;
+    clampBoxAnnotation(ann);
+  } else if (ann.type === 'zone') {
+    ann.x += dx;
+    ann.y += dy;
+    clampZoneAnnotation(ann);
+  } else if (ann.type === 'arrow') {
+    const dxMin = Math.max(F.XMIN - ann.start.x, F.XMIN - ann.end.x);
+    const dxMax = Math.min(F.XMAX - ann.start.x, F.XMAX - ann.end.x);
+    const dyMin = Math.max(F.YMIN - ann.start.y, F.YMIN - ann.end.y);
+    const dyMax = Math.min(F.YMAX - ann.start.y, F.YMAX - ann.end.y);
+    const shiftX = clamp(dx, dxMin, dxMax);
+    const shiftY = clamp(dy, dyMin, dyMax);
+    ann.start.x += shiftX;
+    ann.start.y += shiftY;
+    ann.end.x += shiftX;
+    ann.end.y += shiftY;
+  } else {
+    return false;
+  }
+  commitLiveBoardToCurrentStep();
+  refreshInteractionUI();
+  render();
+  return true;
+}
 
 function setSelectedAnnotationOpacity(value) {
   const ann = selectedAnnotation();
@@ -10605,8 +10691,30 @@ function importPlayFromFile(file) {
 
 
 document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (annotationEditableTarget(e.target)) return;
   const k = e.key.toLowerCase();
+  const cmdOrCtrl = e.ctrlKey || e.metaKey;
+  if (cmdOrCtrl && k === 'c' && selectedAnnotationId()) {
+    if (copySelectedAnnotationToClipboard()) e.preventDefault();
+    return;
+  }
+  if (cmdOrCtrl && k === 'v') {
+    if (pasteAnnotationFromClipboard()) e.preventDefault();
+    return;
+  }
+  if (cmdOrCtrl && k === 'd' && selectedAnnotationId()) {
+    if (duplicateSelected()) e.preventDefault();
+    return;
+  }
+  if (selectedAnnotationId() && (k === 'arrowleft' || k === 'arrowright' || k === 'arrowup' || k === 'arrowdown')) {
+    const step = e.shiftKey ? ANNOTATION_NUDGE_STEP_LARGE : ANNOTATION_NUDGE_STEP;
+    const dx = k === 'arrowleft' ? -step : k === 'arrowright' ? step : 0;
+    const dy = k === 'arrowup' ? -step : k === 'arrowdown' ? step : 0;
+    if (nudgeSelectedAnnotation(dx, dy)) {
+      e.preventDefault();
+      return;
+    }
+  }
   const map = {v:'move',r:'run',p:'pass',k:'kick',e:'erase',t:'tele',c:'zone',b:'box'};
   if (map[k])           { setTool(map[k]); return; }
   if (k===' ')          { e.preventDefault(); togglePlay(); return; }
@@ -10626,8 +10734,8 @@ document.addEventListener('keydown', e => {
     cancelActiveBoardInteraction();
     return;
   }
-  if (k==='z'&&(e.ctrlKey||e.metaKey)&&e.shiftKey) { e.preventDefault(); redo(); return; }
-  if (k==='z'&&(e.ctrlKey||e.metaKey)) { e.preventDefault(); undo(); }
+  if (k==='z'&&cmdOrCtrl&&e.shiftKey) { e.preventDefault(); redo(); return; }
+  if (k==='z'&&cmdOrCtrl) { e.preventDefault(); undo(); }
   if (k==='delete'||k==='backspace') {
     if (S.selectedPlayerId !== null || S.selectedGroupId !== null || isBallSelected() || selectedAnnotationId() || S.selectedPassIdx !== null || S.selectedPathPid !== null) {
       e.preventDefault();
