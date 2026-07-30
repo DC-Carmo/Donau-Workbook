@@ -889,8 +889,8 @@ const NOTE_LEGACY_SCALE_MIN = 0.6;
 const NOTE_LEGACY_SCALE_MAX = 3.0;
 const NOTE_DEFAULT_WIDTH = 12;
 const NOTE_DEFAULT_HEIGHT = 6.5;
-const NOTE_MIN_WIDTH = 4;
-const NOTE_MIN_HEIGHT = 2.4;
+const NOTE_MIN_WIDTH = 2.4;
+const NOTE_MIN_HEIGHT = 1.5;
 const NOTE_MAX_WIDTH = 24;
 const NOTE_MAX_HEIGHT = 18;
 const NOTE_PADDING_X = 0.78;
@@ -5435,37 +5435,28 @@ function noteMetrics(note) {
   const { width: widthField, height: heightField } = noteDimensions(note);
   const width = widthField * sc;
   const height = heightField * sc;
-  const paddingX = Math.max(8, NOTE_PADDING_X * sc);
-  const paddingY = Math.max(6, NOTE_PADDING_Y * sc);
-  const fontSize = clamp(height * 0.72, Math.max(8, sc * 0.65), Math.max(42, sc * 14));
-  const lineHeight = Math.max(fontSize + 2, fontSize * 1.06);
-  const innerWidth = Math.max(10, width - (paddingX * 2));
-  const innerHeight = Math.max(lineHeight, height - (paddingY * 2));
+  const paddingX = Math.max(1, Math.min(NOTE_PADDING_X * sc, width * 0.12));
+  const paddingY = Math.max(1, Math.min(NOTE_PADDING_Y * sc, height * 0.12));
+  const minFontSize = Math.max(0.9, sc * 0.08);
+  const maxFontSize = Math.max(42, sc * 14);
+  const preferredFontSize = clamp(height * 0.72, minFontSize, maxFontSize);
+  const innerWidth = Math.max(2, width - (paddingX * 2));
+  const innerHeight = Math.max(2, height - (paddingY * 2));
   const cornerRadius = Math.max(9, Math.min(18, Math.min(width, height) * 0.18));
-  const measure = (value) => {
+  const measure = (value, fontSize) => {
     ctx.save();
     ctx.font = `700 ${fontSize}px ${NOTE_FONT}`;
     const size = ctx.measureText(value).width;
     ctx.restore();
     return size;
   };
-  const fitLineWithEllipsis = (line) => {
-    const glyphs = Array.from(line || '');
-    if (!glyphs.length) return '...';
-    let output = line;
-    while (output && measure(`${output}...`) > innerWidth) {
-      glyphs.pop();
-      output = glyphs.join('');
-    }
-    return output ? `${output}...` : '...';
-  };
-  const breakLongWord = (word) => {
+  const breakLongWord = (word, fontSize) => {
     const glyphs = Array.from(word || '');
     const chunks = [];
     let chunk = '';
     glyphs.forEach((glyph) => {
       const trial = chunk + glyph;
-      if (chunk && measure(trial) > innerWidth) {
+      if (chunk && measure(trial, fontSize) > innerWidth) {
         chunks.push(chunk);
         chunk = glyph;
       } else {
@@ -5475,7 +5466,7 @@ function noteMetrics(note) {
     if (chunk) chunks.push(chunk);
     return chunks.length ? chunks : [''];
   };
-  const wrapText = (value) => {
+  const wrapText = (value, fontSize) => {
     const paragraphs = String(value || ANNOTATION_NOTE_DEFAULT).replace(/\r\n?/g, '\n').split('\n');
     const wrapped = [];
     paragraphs.forEach((paragraph, paragraphIndex) => {
@@ -5487,16 +5478,16 @@ function noteMetrics(note) {
           return;
         }
         const candidate = line ? `${line} ${word}` : word;
-        if (measure(candidate) <= innerWidth) {
+        if (measure(candidate, fontSize) <= innerWidth) {
           line = candidate;
           return;
         }
         if (line) wrapped.push(line);
-        if (measure(word) <= innerWidth) {
+        if (measure(word, fontSize) <= innerWidth) {
           line = word;
           return;
         }
-        const pieces = breakLongWord(word);
+        const pieces = breakLongWord(word, fontSize);
         line = pieces.pop() || '';
         wrapped.push(...pieces);
       });
@@ -5507,13 +5498,21 @@ function noteMetrics(note) {
     return wrapped.length ? wrapped : [ANNOTATION_NOTE_DEFAULT];
   };
 
-  const lines = wrapText(note.text || ANNOTATION_NOTE_DEFAULT);
-  const maxLines = Math.max(1, Math.floor(innerHeight / lineHeight));
-  const visibleLines = lines.slice(0, maxLines);
-  const clipped = lines.length > maxLines;
-  if (clipped && visibleLines.length) {
-    visibleLines[visibleLines.length - 1] = fitLineWithEllipsis(visibleLines[visibleLines.length - 1]);
+  let fontSize = preferredFontSize;
+  let lines = wrapText(note.text || ANNOTATION_NOTE_DEFAULT, fontSize);
+  let lineHeight = Math.max(fontSize + 0.3, fontSize * 1.04);
+  while (fontSize > minFontSize) {
+    const totalTextHeight = lines.length * lineHeight;
+    const fitsWidth = lines.every((line) => measure(line || '', fontSize) <= innerWidth + 0.01);
+    if (fitsWidth && totalTextHeight <= innerHeight + 0.01) {
+      break;
+    }
+    fontSize = Math.max(minFontSize, fontSize - 0.25);
+    lines = wrapText(note.text || ANNOTATION_NOTE_DEFAULT, fontSize);
+    lineHeight = Math.max(fontSize + 0.3, fontSize * 1.04);
   }
+  const visibleLines = lines;
+  const clipped = false;
 
   return {
     width,
