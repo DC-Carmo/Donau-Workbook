@@ -5425,7 +5425,7 @@ function noteMetrics(note) {
   const height = heightField * sc;
   const paddingX = Math.max(8, NOTE_PADDING_X * sc);
   const paddingY = Math.max(6, NOTE_PADDING_Y * sc);
-  const fontSize = Math.max(11, sc * 1.25);
+  const fontSize = clamp(height * 0.34, 11, Math.max(11, sc * 2.45));
   const lineHeight = Math.max(fontSize + 2, fontSize * 1.06);
   const innerWidth = Math.max(10, width - (paddingX * 2));
   const innerHeight = Math.max(lineHeight, height - (paddingY * 2));
@@ -7137,7 +7137,6 @@ if (!supportsPointerEvents) {
 // Canva-style keyboard shortcuts: Delete/Backspace = delete selected, Escape = deselect
 document.addEventListener('keydown', (e) => {
   const tag = e.target.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
   if (e.key === 'Escape') {
     if (S.dragging?.type === 'annotation' && S.dragging.part === 'resize') {
       const ann = findAnnotationById(S.dragging.id);
@@ -7155,11 +7154,22 @@ document.addEventListener('keydown', (e) => {
         return;
       }
     }
+    if (selectedAnnotationId()) {
+      deleteSelected();
+      e.preventDefault();
+      return;
+    }
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) {
+      e.preventDefault();
+      return;
+    }
     clearSelection();
     refreshInteractionUI();
     render();
     e.preventDefault();
+    return;
   }
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
   if (e.key === 'Delete' || e.key === 'Backspace') {
     const hasSelection = !!S.selectedPlayerId || !!selectedAnnotationId() ||
       isBallSelected() || S.selectedPassIdx !== null || S.selectedPathPid !== null;
@@ -7498,8 +7508,9 @@ function setSelectedAnnotationOpacity(value) {
   if (!ann) return;
   const opacity = Number(value);
   if (!Number.isFinite(opacity)) return;
-  snapshot();
   ann.opacity = clamp(opacity, 0.2, 1);
+  const shapeOpacity = document.getElementById('shapeOpacity');
+  if (shapeOpacity) shapeOpacity.value = String(ann.opacity);
   refreshInteractionUI();
   render();
 }
