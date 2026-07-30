@@ -5414,6 +5414,11 @@ function drawAnnotationHandleAtFieldPoint(point, radius = 6.2) {
   ctx.stroke();
 }
 
+function noteHandleRadiusPx() {
+  const dpr = window.devicePixelRatio || 1;
+  return Math.max(10, Math.min(14, 10 * dpr));
+}
+
 function drawAnnotationSelectionRing(x, y, r) {
   const p = toC(x, y);
   ctx.save();
@@ -5528,13 +5533,14 @@ function drawNoteAnnotation(note, selected = false) {
   if (selected) {
     const corners = noteAnnotationCorners(note);
     ctx.save();
-    ctx.fillStyle = '#fbbf24';
-    ctx.strokeStyle = '#0b1420';
-    ctx.lineWidth = 2;
-    drawAnnotationHandleAtFieldPoint(corners.nw);
-    drawAnnotationHandleAtFieldPoint(corners.ne);
-    drawAnnotationHandleAtFieldPoint(corners.sw);
-    drawAnnotationHandleAtFieldPoint(corners.se);
+    const handleRadius = noteHandleRadiusPx();
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#E3B23C';
+    ctx.lineWidth = Math.max(2.5, (window.devicePixelRatio || 1) * 2);
+    drawAnnotationHandleAtFieldPoint(corners.nw, handleRadius);
+    drawAnnotationHandleAtFieldPoint(corners.ne, handleRadius);
+    drawAnnotationHandleAtFieldPoint(corners.sw, handleRadius);
+    drawAnnotationHandleAtFieldPoint(corners.se, handleRadius);
     ctx.restore();
   }
 }
@@ -5931,10 +5937,11 @@ function hitAnnotation(fp) {
       const corners = noteAnnotationCorners(ann);
       const isSelected = selectedAnnotationId() === ann.id;
       if (isSelected) {
-        if (d2(fp, corners.nw) <= 2.8) return { id: ann.id, part: 'resize', handle: 'nw' };
-        if (d2(fp, corners.ne) <= 2.8) return { id: ann.id, part: 'resize', handle: 'ne' };
-        if (d2(fp, corners.sw) <= 2.8) return { id: ann.id, part: 'resize', handle: 'sw' };
-        if (d2(fp, corners.se) <= 2.8) return { id: ann.id, part: 'resize', handle: 'se' };
+        const handleTolerance = (noteHandleRadiusPx() / Math.max(sc, 0.001)) + 1.2;
+        if (d2(fp, corners.nw) <= handleTolerance) return { id: ann.id, part: 'resize', handle: 'nw' };
+        if (d2(fp, corners.ne) <= handleTolerance) return { id: ann.id, part: 'resize', handle: 'ne' };
+        if (d2(fp, corners.sw) <= handleTolerance) return { id: ann.id, part: 'resize', handle: 'sw' };
+        if (d2(fp, corners.se) <= handleTolerance) return { id: ann.id, part: 'resize', handle: 'se' };
       }
       if (
         fp.x >= bounds.left - 0.8 && fp.x <= bounds.right + 0.8 &&
