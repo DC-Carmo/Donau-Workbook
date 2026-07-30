@@ -5931,10 +5931,10 @@ function hitAnnotation(fp) {
       const corners = noteAnnotationCorners(ann);
       const isSelected = selectedAnnotationId() === ann.id;
       if (isSelected) {
-        if (d2(fp, corners.nw) <= 2.8) return { id: ann.id, part: 'nw' };
-        if (d2(fp, corners.ne) <= 2.8) return { id: ann.id, part: 'ne' };
-        if (d2(fp, corners.sw) <= 2.8) return { id: ann.id, part: 'sw' };
-        if (d2(fp, corners.se) <= 2.8) return { id: ann.id, part: 'se' };
+        if (d2(fp, corners.nw) <= 2.8) return { id: ann.id, part: 'resize', handle: 'nw' };
+        if (d2(fp, corners.ne) <= 2.8) return { id: ann.id, part: 'resize', handle: 'ne' };
+        if (d2(fp, corners.sw) <= 2.8) return { id: ann.id, part: 'resize', handle: 'sw' };
+        if (d2(fp, corners.se) <= 2.8) return { id: ann.id, part: 'resize', handle: 'se' };
       }
       if (
         fp.x >= bounds.left - 0.8 && fp.x <= bounds.right + 0.8 &&
@@ -6218,16 +6218,17 @@ function handlePointerDown(e) {
       try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     } else if (annHit) {
       const wasSelected = selectedAnnotationId() === annHit.id;
-      snapshot();
       clearDragPlayer();
       clearPassKickState();
       selectAnnotationById(annHit.id);
       S.ballAssignCandidate = null;
       const ann = findAnnotationById(annHit.id);
+      const isNoteResize = ann?.type === 'note' && annHit.part === 'resize';
+      if (!isNoteResize) snapshot();
       const dragOff = ann && (ann.type === 'note' || ann.type === 'zone' || ann.type === 'box')
         ? { x: fp.x - ann.x, y: fp.y - ann.y }
         : { x: 0, y: 0 };
-      const noteResize = ann?.type === 'note' && annHit.part !== 'move'
+      const noteResize = isNoteResize
         ? (() => {
             const bounds = noteAnnotationBounds(ann);
             const center = {
@@ -6235,16 +6236,18 @@ function handlePointerDown(e) {
               y: (bounds.top + bounds.bottom) / 2,
             };
             return {
+              handle: annHit.handle || 'se',
               center,
               startScale: noteScaleValue(ann),
               startDistance: Math.max(0.5, d2(center, { x: fp.x, y: fp.y })),
+              snapshotDone: false,
             };
           })()
         : null;
       S.dragging = {
         type:'annotation',
         id:annHit.id,
-        part:annHit.part,
+        part:isNoteResize ? 'resize' : annHit.part,
         anchor:{ x:fp.x, y:fp.y },
         dragOff,
         startSnapshot: ann ? cloneData(ann) : null,
@@ -6725,13 +6728,20 @@ function handlePointerMove(e) {
           if (S.dragging.part === 'move') {
             ann.x = fp.x - (S.dragging.dragOff?.x || 0);
             ann.y = fp.y - (S.dragging.dragOff?.y || 0);
-          } else {
+          } else if (S.dragging.part === 'resize') {
             const resizeState = S.dragging.noteResize;
+            if (!resizeState?.snapshotDone) {
+              snapshot();
+              resizeState.snapshotDone = true;
+            }
             const center = resizeState?.center || { x: ann.x, y: ann.y };
             const startScale = Number.isFinite(resizeState?.startScale) ? resizeState.startScale : noteScaleValue(ann);
             const startDistance = Number.isFinite(resizeState?.startDistance) ? resizeState.startDistance : Math.max(0.5, d2(center, fieldPoint));
             const currentDist = Math.max(0.5, d2(center, fieldPoint));
             ann.scale = clamp(startScale * (currentDist / startDistance), NOTE_SCALE_MIN, NOTE_SCALE_MAX);
+            clampNoteAnnotation(ann);
+            render();
+            return;
           }
           clampNoteAnnotation(ann);
         } else if (ann.type === 'arrow') {
