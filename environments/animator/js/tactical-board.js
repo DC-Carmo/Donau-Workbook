@@ -5367,16 +5367,20 @@ function drawArc(x1, y1, x2, y2, color, progress = 1, thick = false, selected = 
 
 function noteMetrics(note) {
   const scale = noteScaleValue(note);
-  const fontSize = Math.max(11, sc * 1.25 * scale);
-  const paddingX = 18 * scale;
-  const paddingY = 12 * scale;
+  const baseFontSize = Math.max(11, sc * 1.25);
+  const basePaddingX = 18;
+  const basePaddingY = 12;
   const cornerRadius = Math.max(10, 12 * scale);
   ctx.save();
-  ctx.font = `700 ${fontSize}px ${NOTE_FONT}`;
-  const width = Math.max(sc * 5.2 * scale, ctx.measureText(note.text || ANNOTATION_NOTE_DEFAULT).width + paddingX);
+  ctx.font = `700 ${baseFontSize}px ${NOTE_FONT}`;
+  const baseWidth = Math.max(sc * 5.2, ctx.measureText(note.text || ANNOTATION_NOTE_DEFAULT).width + basePaddingX);
   ctx.restore();
-  return { fontSize, width, height: fontSize + paddingY, scale, cornerRadius };
+  const fontSize = baseFontSize * scale;
+  const width = baseWidth * scale;
+  const height = (baseFontSize + basePaddingY) * scale;
+  return { fontSize, width, height, scale, cornerRadius };
 }
+window.__noteBox = noteMetrics;
 
 function noteAnnotationBounds(note) {
   const box = noteMetrics(note);
