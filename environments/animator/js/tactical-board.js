@@ -137,7 +137,7 @@ function toC(fx, fy) {
     return { x: ox + (fy - F.DY0) * sx, y: oy + (fx - F.DX0) * sy };
   }
   if (isVerticalPhoneBoard()) {
-    return { x: ox + (fx - F.DX0) * sx, y: oy + (F.DY1 - fy) * sy };
+    return { x: ox + (fx - F.DX0) * sx, y: oy + (fy - F.DY0) * sy };
   }
   return { x: ox + (fx - F.DX0) * sx, y: oy + (fy - F.DY0) * sy };
 }
@@ -146,7 +146,7 @@ function frC(cx, cy) {
     return { x: (cy - oy) / sy + F.DX0, y: (cx - ox) / sx + F.DY0 };
   }
   if (isVerticalPhoneBoard()) {
-    return { x: (cx - ox) / sx + F.DX0, y: F.DY1 - ((cy - oy) / sy) };
+    return { x: (cx - ox) / sx + F.DX0, y: (cy - oy) / sy + F.DY0 };
   }
   return { x: (cx - ox) / sx + F.DX0, y: (cy - oy) / sy + F.DY0 };
 }
@@ -181,6 +181,79 @@ function closeRadialMenu() {
   }
 }
 
+function ensureRadialSourcePlayerSelected(sourcePlayerId) {
+  const sourcePlayer = S.players.find(player => player.id === sourcePlayerId) || null;
+  if (!sourcePlayer) return null;
+  selectPlayer(sourcePlayer.id, { highlightedIds: [sourcePlayer.id] });
+  return sourcePlayer;
+}
+
+function resetRadialToolInteractionState(nextTool) {
+  const staleTool = S.tool === nextTool;
+  const hasWorkflow = !!activeWorkflowPlayerId();
+  const hasRunSource = !!S.activeRunSourceId;
+  const hasDrawing = !!S.drawing;
+  if (!staleTool && !hasWorkflow && !hasRunSource && !hasDrawing) return;
+  // Only clear the specific stale field(s) actually present, instead of
+  // unconditionally clearing both pass/kick AND run state (each clear also
+  // resets the highlight + legacy selection mirror, so doing both when only
+  // one is stale is pure extra churn on the selected-player visuals).
+  if (hasWorkflow) clearPassKickState();
+  if (hasRunSource) clearArmedRunState();
+  clearDragPlayer();
+  if (hasDrawing) S.drawing = null;
+  S.pointerTap = null;
+  if (staleTool) S.tool = 'move';
+}
+
+function activateRadialAction(action, sourcePlayerId) {
+  closeRadialMenu();
+  if (!action || sourcePlayerId === null || sourcePlayerId === undefined) return false;
+  // Look up (don't yet re-select) the source player: the two-tap gesture that
+  // opens the radial menu already left it selected, so the one confirming
+  // selectPlayer() call below - after any stale tool state is cleared - is
+  // enough. Selecting it again here too would just be a second, redundant
+  // reselect of the same player before we've even touched the tool state.
+  const sourcePlayer = S.players.find(player => player.id === sourcePlayerId) || null;
+  if (!sourcePlayer) return false;
+
+  if (action.tool) {
+    resetRadialToolInteractionState(action.tool);
+    ensureRadialSourcePlayerSelected(sourcePlayer.id);
+    setTool(action.tool);
+    // Arrow armed from the radial is a one-shot, player-anchored draw: mark it
+    // (after setTool(), which unconditionally clears it first) so
+    // handlePointerDown starts the arrow at this player's position and
+    // finishAnnotationDraft auto-returns to Move once it commits. Any other
+    // radial tool leaves it at setTool()'s cleared default.
+    if (action.tool === 'arrow') S.radialArrowSourcePlayerId = sourcePlayer.id;
+    return true;
+  }
+
+  if (action.kind === 'ball') {
+    ensureRadialSourcePlayerSelected(sourcePlayer.id);
+    addBall();
+    return true;
+  }
+
+  if (action.kind === 'remove') {
+    ensureRadialSourcePlayerSelected(sourcePlayer.id);
+    deleteSelected();
+    return true;
+  }
+
+  return false;
+}
+
+function radialEventTargetsMenu(event) {
+  const path = typeof event?.composedPath === 'function' ? event.composedPath() : [];
+  return path.some((node) => {
+    if (!node || typeof node !== 'object') return false;
+    if (node.id === 'radialMenu') return true;
+    return !!node.classList?.contains('radial-btn');
+  });
+}
+
 function renderRadialMenu() {
   const menu = document.getElementById('radialMenu');
   if (!menu) return;
@@ -201,30 +274,46 @@ function renderRadialMenu() {
   menu.innerHTML = '';
   menu.classList.add('visible');
 
-  const ACTIONS = [
-    { label: 'Run', icon: '→', tool: 'run' },
+  const actions = [
+    { label: 'Arrow', icon: '&#8599;', tool: 'arrow', ariaLabel: 'Draw tactical arrow' },
     { label: 'Pass', icon: '~', tool: 'pass' },
-    { label: 'Kick', icon: '⬆', tool: 'kick' },
-    { label: 'Ball', icon: '●', fn: () => giveBall(radialMenu.playerId) },
-    { label: 'Remove', icon: '✕', fn: () => { snapshot(); removePlayer(radialMenu.playerId); }, danger: true },
+    { label: 'Kick', icon: '&uarr;', tool: 'kick' },
+    { label: 'Ball', icon: '&#9679;', kind: 'ball' },
+    { label: 'Remove', icon: '&#10005;', kind: 'remove', danger: true },
   ];
 
   const radius = 52;
-  ACTIONS.forEach((action, index) => {
-    const angle = (-Math.PI / 2) + (index * (Math.PI * 2 / ACTIONS.length));
+  actions.forEach((action, index) => {
+    const angle = (-Math.PI / 2) + (index * (Math.PI * 2 / actions.length));
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = `radial-btn${action.danger ? ' danger' : ''}`;
     btn.style.left = `${center.x + Math.cos(angle) * radius}px`;
     btn.style.top = `${center.y + Math.sin(angle) * radius}px`;
     btn.innerHTML = `<span>${action.icon}</span><span>${action.label}</span>`;
-    btn.addEventListener('click', (event) => {
+    if (action.ariaLabel) btn.setAttribute('aria-label', action.ariaLabel);
+    let pointerHandled = false;
+    const handleActivation = (event) => {
       event.preventDefault();
       event.stopPropagation();
-      if (radialMenu?.playerId) selectPlayer(radialMenu.playerId);
-      if (action.tool) setTool(action.tool);
-      if (action.fn) action.fn();
-      closeRadialMenu();
+      event.stopImmediatePropagation?.();
+      const sourcePlayerId = radialMenu?.playerId ?? null;
+      activateRadialAction(action, sourcePlayerId);
+    };
+    btn.addEventListener('pointerdown', (event) => {
+      pointerHandled = true;
+      handleActivation(event);
+    });
+    btn.addEventListener('click', (event) => {
+      if (event.detail !== 0 || pointerHandled) {
+        pointerHandled = false;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+        return;
+      }
+      pointerHandled = false;
+      handleActivation(event);
     });
     menu.appendChild(btn);
   });
@@ -728,6 +817,7 @@ Object.assign(S, {
   currentStepBaseline: null,
   showGhostPrevious: false,
   moveGuideOrigins: {},
+  annotationClipboard: null,
   dragPlayerId: null,
   dragging: null,       // { type:'player'|'group'|'ball', id? }
   dragOff: { x:0, y:0 },
@@ -736,6 +826,11 @@ Object.assign(S, {
   activePasserId: null,
   activeKickerId: null,
   activeRunSourceId: null,
+  // Set only while an Arrow armed from the player radial menu is awaiting its
+  // draw gesture or draft commit - marks the in-flight annotationDraft as a
+  // one-shot, player-anchored Arrow (see activateRadialAction/handlePointerDown/
+  // finishAnnotationDraft). Always null for the rail Arrow tool.
+  radialArrowSourcePlayerId: null,
   highlightedPlayerIds: [],
   pendingGroupPlacement: null,
   history: [],          // undo stack (snapshots)
@@ -762,6 +857,12 @@ const RECOVERY_DRAFT_VERSION = 1;
 const FIRST_USE_TUTORIAL_KEY = 'coachmato.animator.firstUseTutorial.v1';
 const PROJECT_SCHEMA_VERSION = 4;
 const AUTOSAVE_DEBOUNCE_MS = 800;
+const PLAY_FILE_TYPE = 'rugby-gameplan-play';
+const PLAY_FILE_VERSION = 1;
+const PLAY_FILE_GENERATOR = 'Rugby GamePlan Tactical Board';
+const IMPORT_MAX_STRING_LENGTH = 4000;
+const IMPORT_MAX_NAME_LENGTH = 120;
+const IMPORT_MAX_ID_LENGTH = 120;
 const PHONE_UI_ACTION_GUARD_MS = 300;
 const PHONE_DATA_ACTION_GUARD_MS = 400;
 let lastPhoneAddAction = { team: null, at: -Infinity };
@@ -784,6 +885,22 @@ function claimPhoneDataAction(actionKey) {
 }
 const ANNOTATION_NOTE_DEFAULT = 'Note';
 const NOTE_FONT = '"Barlow Condensed"';
+const NOTE_LEGACY_SCALE_MIN = 0.6;
+const NOTE_LEGACY_SCALE_MAX = 3.0;
+const NOTE_DEFAULT_WIDTH = 12;
+const NOTE_DEFAULT_HEIGHT = 6.5;
+const NOTE_MIN_WIDTH = 2.4;
+const NOTE_MIN_HEIGHT = 1.5;
+const NOTE_MAX_WIDTH = 24;
+const NOTE_MAX_HEIGHT = 18;
+const NOTE_PADDING_X = 0.78;
+const NOTE_PADDING_Y = 0.6;
+const NOTE_HANDLE_HIT_PADDING = 1.25;
+const ANNOTATION_CLIPBOARD_OFFSET = 1.5;
+const ANNOTATION_NUDGE_STEP = 0.5;
+const ANNOTATION_NUDGE_STEP_LARGE = 1.5;
+const NOTE_LEGACY_REFERENCE_SCALE = 10;
+const NOTE_LEGACY_FONT_PX = 12.5;
 const STEP_MIN_COUNT = 3;
 let firstUseTutorialDismissed = false;
 const BOARD_BALL_ASSET_SRC = '../../assets/donau/images/rugby_ball_fire_scalable_bottom_right_fixed.svg';
@@ -1025,8 +1142,9 @@ window.dismissFirstUseTutorial = dismissFirstUseTutorial;
 window.startTour = startTour;
 
 const R = () => {
-  const base = Math.max(15, Math.min(24, sc * 1.8));
-  return isPhoneViewport ? Math.max(16, base * 0.9) : base;
+  const base = Math.max(19, Math.min(30, sc * 2.22));
+  if (isPhoneViewport) return Math.max(20, Math.min(27, sc * 2.38));
+  return base;
 };
 
 function nowIso() {
@@ -1307,7 +1425,27 @@ function serializePhase(phase = S(), index = GamePlan.currentPhase) {
 
 function persistCurrentPhase() {
   persistCurrentStep();
-  GamePlan.phases[GamePlan.currentPhase] = normalizePhaseState(serializePhase(S(), GamePlan.currentPhase), GamePlan.currentPhase);
+  // normalizePhaseState()/serializePhase() derive their top-level .passes/.paths
+  // from the just-persisted .steps[currentStep], which is in the SERIALIZED
+  // shape needed for storage (passes keyed by fromNum/fromT/toNum/toT, paths
+  // keyed by num/team) - that shape is only valid inside .steps. S.passes and
+  // S.paths are getters straight into this same phase object's top-level
+  // .passes/.paths, so assigning the round-tripped result there directly would
+  // replace the live, id-keyed runtime shape (pass.from/pass.to are player
+  // ids; path.pid/path.color) with the serialized one, breaking every
+  // id-based lookup against S.players (silently corrupting or dropping the
+  // pass/path next time anything reads it as live state). Capture fresh,
+  // independent clones of the actual live arrays first and restore them onto
+  // the persisted phase object afterward, so persisting never mutates - or
+  // leaves a serialized-shaped copy of - runtime Pass/Kick/path state. The
+  // exported/autosaved payload is unaffected: it's built from .steps, not
+  // from these top-level fields.
+  const livePasses = cloneData(S.passes);
+  const livePaths = cloneData(S.paths);
+  const persistedPhase = normalizePhaseState(serializePhase(S(), GamePlan.currentPhase), GamePlan.currentPhase);
+  persistedPhase.passes = livePasses;
+  persistedPhase.paths = livePaths;
+  GamePlan.phases[GamePlan.currentPhase] = persistedPhase;
 }
 
 function serializeGamePlan(nameOverride) {
@@ -2474,6 +2612,14 @@ function selectedAnnotation() {
   return id ? findAnnotationById(id) : null;
 }
 
+function annotationEditableTarget(target) {
+  return !!target && (
+    target.tagName === 'INPUT'
+    || target.tagName === 'TEXTAREA'
+    || target.isContentEditable
+  );
+}
+
 function defaultAnnotationText() {
   const input = document.getElementById('annotationText');
   const txt = input?.value?.trim();
@@ -2485,6 +2631,57 @@ function annotationColor(type) {
   if (type === 'box') return '#d9b46c';
   if (type === 'arrow') return '#d9b46c';
   return '#f3f4f6';
+}
+
+function noteScaleValue(note) {
+  const scale = Number(note?.scale);
+  return Number.isFinite(scale) ? clamp(scale, NOTE_LEGACY_SCALE_MIN, NOTE_LEGACY_SCALE_MAX) : 1;
+}
+
+function noteLegacyDimensions(note) {
+  const scale = noteScaleValue(note);
+  const text = String(note?.text || ANNOTATION_NOTE_DEFAULT);
+  ctx.save();
+  ctx.font = `700 ${NOTE_LEGACY_FONT_PX}px ${NOTE_FONT}`;
+  const baseTextWidth = ctx.measureText(text).width;
+  ctx.restore();
+  const widthPx = Math.max(52 * scale, (baseTextWidth + 18) * scale);
+  const heightPx = (NOTE_LEGACY_FONT_PX + 12) * scale;
+  return {
+    width: clamp(widthPx / NOTE_LEGACY_REFERENCE_SCALE, NOTE_MIN_WIDTH, NOTE_MAX_WIDTH),
+    height: clamp(heightPx / NOTE_LEGACY_REFERENCE_SCALE, NOTE_MIN_HEIGHT, NOTE_MAX_HEIGHT),
+  };
+}
+
+function noteWidthValue(note) {
+  const width = Number(note?.width);
+  if (Number.isFinite(width)) return clamp(width, NOTE_MIN_WIDTH, NOTE_MAX_WIDTH);
+  if (Number.isFinite(Number(note?.scale))) {
+    const legacy = noteLegacyDimensions(note);
+    return Number.isFinite(legacy.width) ? legacy.width : NOTE_DEFAULT_WIDTH;
+  }
+  return NOTE_DEFAULT_WIDTH;
+}
+
+function noteHeightValue(note) {
+  const height = Number(note?.height);
+  if (Number.isFinite(height)) return clamp(height, NOTE_MIN_HEIGHT, NOTE_MAX_HEIGHT);
+  if (Number.isFinite(Number(note?.scale))) {
+    const legacy = noteLegacyDimensions(note);
+    return Number.isFinite(legacy.height) ? legacy.height : NOTE_DEFAULT_HEIGHT;
+  }
+  return NOTE_DEFAULT_HEIGHT;
+}
+
+function noteDimensions(note) {
+  return {
+    width: noteWidthValue(note),
+    height: noteHeightValue(note),
+  };
+}
+
+function noteAlignValue(note) {
+  return note?.align === 'center' || note?.align === 'right' ? note.align : 'left';
 }
 
 function normalizeAnnotation(annotation) {
@@ -2502,7 +2699,10 @@ function normalizeAnnotation(annotation) {
       ...base,
       x,
       y,
-      text: String(annotation.text || ANNOTATION_NOTE_DEFAULT).slice(0, 48),
+      text: String(annotation.text ?? ANNOTATION_NOTE_DEFAULT).slice(0, 160),
+      align: noteAlignValue(annotation),
+      width: noteWidthValue(annotation),
+      height: noteHeightValue(annotation),
     };
   }
   if (annotation.type === 'arrow') {
@@ -3770,6 +3970,387 @@ function normalizeProjectRecord(input) {
   return normalized;
 }
 
+function isPlainObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+const FORBIDDEN_IMPORT_KEYS = ['__proto__', 'prototype', 'constructor'];
+
+// Scans the RAW parsed JSON tree (before sanitizeImportedValue's strip-and-
+// continue pass) for an exact forbidden key anywhere in the object/array
+// tree, so a file containing one can be rejected outright instead of
+// silently sanitized. JSON.parse always assigns parsed keys - including
+// "__proto__" - as genuine OWN data properties (never through the special
+// object-literal accessor), so Object.getOwnPropertyNames + reading via the
+// property descriptor (never `value[key]`, which could invoke a getter on
+// non-JSON-parse input) is both sufficient and safe here; inherited
+// properties are never visited since getOwnPropertyNames only ever returns
+// a value's own keys.
+function findForbiddenImportKey(value, path = 'root') {
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      const found = findForbiddenImportKey(value[i], `${path}[${i}]`);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (!value || typeof value !== 'object') return null;
+  const keys = Object.getOwnPropertyNames(value);
+  for (const key of keys) {
+    if (FORBIDDEN_IMPORT_KEYS.includes(key)) {
+      return { key, path: `${path}.${key}` };
+    }
+  }
+  for (const key of keys) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    const found = findForbiddenImportKey(descriptor?.value, `${path}.${key}`);
+    if (found) return found;
+  }
+  return null;
+}
+
+function sanitizeImportedValue(value, repairNotes, path = 'root') {
+  if (Array.isArray(value)) {
+    return value.map((item, index) => sanitizeImportedValue(item, repairNotes, `${path}[${index}]`));
+  }
+  if (typeof value === 'string') {
+    return value.length > IMPORT_MAX_STRING_LENGTH ? value.slice(0, IMPORT_MAX_STRING_LENGTH) : value;
+  }
+  if (!value || typeof value !== 'object') return value;
+  if (!isPlainObject(value)) {
+    repairNotes.push(`Unsupported value at ${path} was ignored.`);
+    return {};
+  }
+  const clean = {};
+  Object.keys(value).forEach((key) => {
+    if (key === '__proto__' || key === 'prototype' || key === 'constructor') {
+      repairNotes.push(`Unsafe field "${key}" was ignored.`);
+      return;
+    }
+    clean[key] = sanitizeImportedValue(value[key], repairNotes, `${path}.${key}`);
+  });
+  return clean;
+}
+
+function boundImportedString(value, maxLength = IMPORT_MAX_STRING_LENGTH, fallback = '') {
+  if (typeof value !== 'string') return fallback;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, maxLength) : fallback;
+}
+
+function sanitizeImportedText(value, maxLength = IMPORT_MAX_STRING_LENGTH, fallback = '') {
+  const bounded = boundImportedString(value, maxLength, fallback);
+  return bounded
+    .replace(/[<>]/g, '')
+    .replace(/[\u0000-\u001f\u007f]/g, '')
+    .trim() || fallback;
+}
+
+function isFiniteCoordinate(value) {
+  const n = Number(value);
+  return Number.isFinite(n);
+}
+
+function countInvalidPlayers(players) {
+  if (!Array.isArray(players)) return 0;
+  return players.reduce((count, player) => {
+    const team = player?.team === 'A' || player?.team === 'D';
+    return count + (team && isFiniteCoordinate(player?.num) && isFiniteCoordinate(player?.x) && isFiniteCoordinate(player?.y) ? 0 : 1);
+  }, 0);
+}
+
+function countInvalidPaths(paths) {
+  if (!Array.isArray(paths)) return 0;
+  return paths.reduce((count, path) => count + (normalizeStepPath(path) ? 0 : 1), 0);
+}
+
+function countInvalidPasses(passes) {
+  if (!Array.isArray(passes)) return 0;
+  return passes.reduce((count, pass) => count + (normalizeStepPass(pass) ? 0 : 1), 0);
+}
+
+function countInvalidAnnotations(annotations) {
+  if (!Array.isArray(annotations)) return 0;
+  return annotations.reduce((count, annotation) => count + (normalizeAnnotation(annotation) ? 0 : 1), 0);
+}
+
+function addRepairCount(repairCounts, key, amount = 1) {
+  if (!amount) return;
+  repairCounts[key] = (repairCounts[key] || 0) + amount;
+}
+
+function summarizeRepairCounts(repairCounts) {
+  const labels = {
+    metadataDefaults: 'metadata defaults applied',
+    notesDefaults: 'missing notes defaulted',
+    ballDefaults: 'ball state defaulted',
+    currentPhaseClamped: 'current phase clamped',
+    currentStepClamped: 'current move clamped',
+    emptyPhaseRepaired: 'empty phase repaired',
+    invalidPlayers: 'invalid player entries skipped',
+    invalidPaths: 'invalid paths skipped',
+    invalidPasses: 'invalid passes skipped',
+    invalidAnnotations: 'invalid annotations skipped',
+    legacyMigrated: 'legacy file migrated',
+    unsafeFields: 'unsafe fields ignored',
+  };
+  return Object.entries(repairCounts)
+    .filter(([, count]) => count > 0)
+    .map(([key, count]) => `${count} ${labels[key] || key}`);
+}
+
+function analyzeImportedProjectRepairs(sourceInput, normalizedProject, repairCounts, repairNotes) {
+  const sourceProject = sourceInput?.project || sourceInput?.play || sourceInput;
+  if (!sourceProject || typeof sourceProject !== 'object') return;
+  const sourcePhases = Array.isArray(sourceProject.phases) && sourceProject.phases.length
+    ? sourceProject.phases
+    : [sourceProject];
+  const normalizedPhases = normalizedProject.phases || [];
+
+  if (!isPlainObject(sourceProject.metadata)) addRepairCount(repairCounts, 'metadataDefaults');
+  if (Number.isFinite(sourceProject.currentPhase) && normalizedProject.currentPhase !== Number(sourceProject.currentPhase)) {
+    addRepairCount(repairCounts, 'currentPhaseClamped');
+  }
+
+  sourcePhases.forEach((phase, phaseIndex) => {
+    const normalizedPhase = normalizedPhases[phaseIndex] || normalizedPhases[0];
+    if (!isPlainObject(phase)) {
+      addRepairCount(repairCounts, 'emptyPhaseRepaired');
+      return;
+    }
+    if (typeof phase.notes !== 'string') addRepairCount(repairCounts, 'notesDefaults');
+    if (phase.ball === undefined || phase.ball === null || normalizeBallPosition(phase.ball) === null) {
+      if (phase.ball !== undefined) addRepairCount(repairCounts, 'ballDefaults');
+    }
+    const sourceSteps = Array.isArray(phase.steps) && phase.steps.length ? phase.steps : [phase];
+    if (!Array.isArray(phase.steps) || !phase.steps.length) addRepairCount(repairCounts, 'emptyPhaseRepaired');
+    if (Number.isFinite(phase.currentStep) && normalizedPhase && normalizedPhase.currentStep !== Number(phase.currentStep)) {
+      addRepairCount(repairCounts, 'currentStepClamped');
+    }
+    sourceSteps.forEach((step) => {
+      addRepairCount(repairCounts, 'invalidPlayers', countInvalidPlayers(step?.players));
+      addRepairCount(repairCounts, 'invalidPaths', countInvalidPaths(step?.paths));
+      addRepairCount(repairCounts, 'invalidPasses', countInvalidPasses(step?.passes));
+      addRepairCount(repairCounts, 'invalidAnnotations', countInvalidAnnotations(step?.annotations));
+    });
+  });
+
+  const unsafeCount = repairNotes.filter(note => note.startsWith('Unsafe field')).length;
+  if (unsafeCount) addRepairCount(repairCounts, 'unsafeFields', unsafeCount);
+}
+
+function buildCanonicalPlayEnvelope(project) {
+  return {
+    fileType: PLAY_FILE_TYPE,
+    fileVersion: PLAY_FILE_VERSION,
+    appSchemaVersion: PROJECT_SCHEMA_VERSION,
+    exportedAt: nowIso(),
+    generator: PLAY_FILE_GENERATOR,
+    payload: project,
+  };
+}
+
+function sanitizeExportFilename(name) {
+  let safe = typeof name === 'string' ? name : '';
+  if (safe.normalize) safe = safe.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+  safe = safe
+    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[.-]+|[.-]+$/g, '')
+    .replace(/\.json$/i, '')
+    .slice(0, 80);
+  return safe || 'rugby-gameplan-play';
+}
+
+function buildExportDownload(filename, jsonValue) {
+  const blob = new Blob([JSON.stringify(jsonValue, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${sanitizeExportFilename(filename)}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function validateExportProject(project) {
+  const normalized = normalizeProjectRecord(project);
+  if (!normalized || !Array.isArray(normalized.phases) || !normalized.phases.length) {
+    throw new Error('Export validation failed.');
+  }
+  normalized.name = sanitizeImportedText(normalized.name, IMPORT_MAX_NAME_LENGTH, 'Untitled Play');
+  normalized.id = sanitizeImportedText(normalized.id, IMPORT_MAX_ID_LENGTH, mkProjectId());
+  return normalized;
+}
+
+function sanitizeNormalizedProjectTextFields(project) {
+  project.name = sanitizeImportedText(project.name, IMPORT_MAX_NAME_LENGTH, 'Untitled Play');
+  project.id = sanitizeImportedText(project.id, IMPORT_MAX_ID_LENGTH, mkProjectId());
+  project.cat = sanitizeImportedText(project.cat, 80, 'Saved Board');
+  if (project.metadata && typeof project.metadata === 'object') {
+    project.metadata.title = sanitizeImportedText(project.metadata.title, IMPORT_MAX_NAME_LENGTH, project.name);
+    project.metadata.purpose = sanitizeImportedText(project.metadata.purpose, 600, '');
+    project.metadata.decisionCue = sanitizeImportedText(project.metadata.decisionCue, 600, '');
+    project.metadata.source = sanitizeImportedText(project.metadata.source, 80, 'animator');
+    project.metadata.coachingPoints = Array.isArray(project.metadata.coachingPoints)
+      ? project.metadata.coachingPoints.map(item => sanitizeImportedText(item, 240, '')).filter(Boolean).slice(0, 3)
+      : [];
+    project.metadata.commonMistakes = Array.isArray(project.metadata.commonMistakes)
+      ? project.metadata.commonMistakes.map(item => sanitizeImportedText(item, 240, '')).filter(Boolean).slice(0, 3)
+      : [];
+  }
+  if (Array.isArray(project.phases)) {
+    project.phases = project.phases.map((phase, phaseIndex) => ({
+      ...phase,
+      id: sanitizeImportedText(phase.id, IMPORT_MAX_ID_LENGTH, `phase_${phaseIndex + 1}`),
+      label: sanitizeImportedText(phase.label, 120, `Phase ${phaseIndex + 1}`),
+      notes: sanitizeImportedText(phase.notes, 1000, ''),
+      annotations: Array.isArray(phase.annotations)
+        ? phase.annotations.map((annotation) => annotation?.type === 'note'
+          ? { ...annotation, text: sanitizeImportedText(annotation.text, 240, ANNOTATION_NOTE_DEFAULT) }
+          : annotation)
+        : [],
+      steps: Array.isArray(phase.steps)
+        ? phase.steps.map((step) => ({
+          ...step,
+          annotations: Array.isArray(step.annotations)
+            ? step.annotations.map((annotation) => annotation?.type === 'note'
+              ? { ...annotation, text: sanitizeImportedText(annotation.text, 240, ANNOTATION_NOTE_DEFAULT) }
+              : annotation)
+            : [],
+        }))
+        : phase.steps,
+    }));
+  }
+  return project;
+}
+
+function detectImportedPlayFormat(value) {
+  if (!isPlainObject(value)) {
+    throw new Error('This file is not a valid Rugby GamePlan play.');
+  }
+  if ('fileType' in value || 'fileVersion' in value || 'payload' in value) return 'envelope';
+  if (Number.isFinite(value.version)) return 'legacy-play';
+  if ('project' in value || 'play' in value || 'schemaVersion' in value || 'projectType' in value || Array.isArray(value.phases) || Array.isArray(value.players) || Array.isArray(value.steps)) {
+    return 'project';
+  }
+  throw new Error('This file is not a valid Rugby GamePlan play.');
+}
+
+function isMeaningfulBoardProject(project) {
+  return isMeaningfulRecoveryProject(project);
+}
+
+function buildImportSuccessMessage(importResult) {
+  if (importResult.repairSummary.length) {
+    return `Play imported with ${importResult.repairSummary.length} repair${importResult.repairSummary.length === 1 ? '' : 's'}.`;
+  }
+  return 'Play imported.';
+}
+
+function prepareImportedProject(rawValue) {
+  // Reject a file containing a forbidden key OUTRIGHT, before any migration,
+  // normalization, or sanitization runs - not silently stripped and allowed
+  // to continue. This must run first: sanitizeImportedValue() below already
+  // strips these same keys as a defense-in-depth fallback, but by the time
+  // it would run, the "strip and continue" behavior is exactly what this
+  // check exists to replace.
+  const forbidden = findForbiddenImportKey(rawValue);
+  if (forbidden) {
+    console.error(`Import rejected: forbidden key "${forbidden.key}" found at ${forbidden.path}`);
+    throw new Error('This file contains unsafe object keys and cannot be imported.');
+  }
+
+  const repairNotes = [];
+  const repairCounts = {};
+  const sanitizedRoot = sanitizeImportedValue(rawValue, repairNotes);
+  const format = detectImportedPlayFormat(sanitizedRoot);
+  let sourceValue = sanitizedRoot;
+  let importCategory = 'current';
+
+  if (format === 'envelope') {
+    if (sanitizedRoot.fileType !== PLAY_FILE_TYPE) {
+      throw new Error('This file is not a valid Rugby GamePlan play.');
+    }
+    const fileVersion = Number(sanitizedRoot.fileVersion);
+    if (!Number.isFinite(fileVersion) || fileVersion < 1) {
+      throw new Error('This play could not be imported. Your current board was not changed.');
+    }
+    if (fileVersion > PLAY_FILE_VERSION) {
+      throw new Error('This play was created by a newer version of Rugby GamePlan and cannot be opened here yet.');
+    }
+    const appSchemaVersion = Number(sanitizedRoot.appSchemaVersion);
+    if (Number.isFinite(appSchemaVersion) && appSchemaVersion > PROJECT_SCHEMA_VERSION) {
+      throw new Error('This play was created by a newer version of Rugby GamePlan and cannot be opened here yet.');
+    }
+    if (!sanitizedRoot.payload || typeof sanitizedRoot.payload !== 'object') {
+      throw new Error('This play could not be imported. Your current board was not changed.');
+    }
+    sourceValue = sanitizedRoot.payload;
+  } else if (format === 'legacy-play') {
+    let migrated;
+    try {
+      migrated = migratePlay(sanitizedRoot);
+    } catch (err) {
+      const message = String(err?.message || '');
+      if (message.startsWith('Unsupported play version')) {
+        throw new Error('This play was created by a newer version of Rugby GamePlan and cannot be opened here yet.');
+      }
+      if (message.startsWith('Invalid play JSON')) {
+        throw new Error('This file is not a valid Rugby GamePlan play.');
+      }
+      throw err;
+    }
+    if (sanitizedRoot.version !== migrated.version) addRepairCount(repairCounts, 'legacyMigrated');
+    importCategory = sanitizedRoot.version === migrated.version ? 'current' : 'legacy';
+    sourceValue = migrated;
+  }
+
+  const rawProject = sourceValue?.project || sourceValue?.play || sourceValue;
+  if (Number.isFinite(rawProject?.schemaVersion) && rawProject.schemaVersion > PROJECT_SCHEMA_VERSION) {
+    throw new Error('This play was created by a newer version of Rugby GamePlan and cannot be opened here yet.');
+  }
+
+  const normalizedProject = normalizeProjectRecord(sourceValue);
+  if (!normalizedProject) {
+    throw new Error('This play could not be imported. Your current board was not changed.');
+  }
+
+  sanitizeNormalizedProjectTextFields(normalizedProject);
+  normalizedProject.currentPhase = clamp(Number(normalizedProject.currentPhase) || 0, 0, Math.max(0, (normalizedProject.phases?.length || 1) - 1));
+  normalizedProject.metadata = normalizeProjectMetadata(normalizedProject, normalizedProject.metadata);
+
+  analyzeImportedProjectRepairs(sourceValue, normalizedProject, repairCounts, repairNotes);
+  const repairSummary = summarizeRepairCounts(repairCounts);
+  if (repairSummary.length) importCategory = importCategory === 'current' ? 'repairable' : importCategory;
+
+  return {
+    category: importCategory,
+    format,
+    project: normalizedProject,
+    repairSummary,
+    repairNotes,
+    displayName: normalizedProject.name || 'Untitled Play',
+  };
+}
+
+function applyImportedProject(importResult) {
+  stopPlayback(true);
+  if (!applyBoardData(importResult.project, { snapshotBefore: false })) {
+    throw new Error('This play could not be imported. Your current board was not changed.');
+  }
+  S.history = [];
+  S.future = [];
+  sequenceDockView = 'primary';
+  setTool('move');
+  setHint(buildImportSuccessMessage(importResult));
+  refreshInteractionUI();
+}
+
 function snapshot() {
   ensureWholeGamePlanHistoryStacks();
   S.history.push(captureWholeGamePlanHistoryEntry());
@@ -4856,12 +5437,163 @@ function drawArc(x1, y1, x2, y2, color, progress = 1, thick = false, selected = 
 }
 
 function noteMetrics(note) {
-  const fontSize = Math.max(11, sc * 1.25);
-  ctx.save();
-  ctx.font = `700 ${fontSize}px ${NOTE_FONT}`;
-  const width = Math.max(sc * 5.2, ctx.measureText(note.text || ANNOTATION_NOTE_DEFAULT).width + 18);
-  ctx.restore();
-  return { fontSize, width, height: fontSize + 12 };
+  const { width: widthField, height: heightField } = noteDimensions(note);
+  const width = widthField * sc;
+  const height = heightField * sc;
+  const align = noteAlignValue(note);
+  const paddingX = Math.max(1, Math.min(NOTE_PADDING_X * sc, width * 0.12));
+  const paddingY = Math.max(1, Math.min(NOTE_PADDING_Y * sc, height * 0.12));
+  const minFontSize = Math.max(0.9, sc * 0.08);
+  const maxFontSize = Math.max(42, sc * 14);
+  const preferredFontSize = clamp(height * 0.72, minFontSize, maxFontSize);
+  const innerWidth = Math.max(2, width - (paddingX * 2));
+  const innerHeight = Math.max(2, height - (paddingY * 2));
+  const cornerRadius = Math.max(9, Math.min(18, Math.min(width, height) * 0.18));
+  const measure = (value, fontSize) => {
+    ctx.save();
+    ctx.font = `700 ${fontSize}px ${NOTE_FONT}`;
+    const size = ctx.measureText(value).width;
+    ctx.restore();
+    return size;
+  };
+  const wrapText = (value, fontSize) => {
+    const source = String(value ?? ANNOTATION_NOTE_DEFAULT).replace(/\r\n?/g, '\n');
+    const rawLines = source.split('\n');
+    const wrapped = [];
+    rawLines.forEach((rawLine, rawIndex) => {
+      if (!rawLine.length) {
+        wrapped.push('');
+      } else {
+        let remaining = rawLine;
+        while (remaining.length) {
+          let fitIndex = 0;
+          let lastWhitespaceFit = -1;
+          for (let idx = 1; idx <= remaining.length; idx++) {
+            const segment = remaining.slice(0, idx);
+            if (measure(segment, fontSize) <= innerWidth + 0.01) {
+              fitIndex = idx;
+              if (/\s/.test(remaining[idx - 1])) lastWhitespaceFit = idx;
+            } else {
+              break;
+            }
+          }
+          if (!fitIndex) {
+            wrapped.push(remaining[0]);
+            remaining = remaining.slice(1);
+            continue;
+          }
+          const breakIndex = fitIndex < remaining.length && lastWhitespaceFit > 0
+            ? lastWhitespaceFit
+            : fitIndex;
+          wrapped.push(remaining.slice(0, breakIndex));
+          remaining = remaining.slice(breakIndex);
+        }
+      }
+      if (rawIndex < rawLines.length - 1 && !rawLine.length) {
+        return;
+      }
+    });
+    return wrapped.length ? wrapped : [ANNOTATION_NOTE_DEFAULT];
+  };
+
+  let fontSize = preferredFontSize;
+  let lines = wrapText(note.text ?? ANNOTATION_NOTE_DEFAULT, fontSize);
+  let lineHeight = Math.max(fontSize + 0.3, fontSize * 1.04);
+  while (fontSize > minFontSize) {
+    const totalTextHeight = lines.length * lineHeight;
+    const fitsWidth = lines.every((line) => measure(line || '', fontSize) <= innerWidth + 0.01);
+    if (fitsWidth && totalTextHeight <= innerHeight + 0.01) {
+      break;
+    }
+    fontSize = Math.max(minFontSize, fontSize - 0.25);
+    lines = wrapText(note.text ?? ANNOTATION_NOTE_DEFAULT, fontSize);
+    lineHeight = Math.max(fontSize + 0.3, fontSize * 1.04);
+  }
+  const visibleLines = lines;
+  const clipped = false;
+  const lineWidths = visibleLines.map((line) => measure(line || '', fontSize));
+
+  return {
+    width,
+    height,
+    widthField,
+    heightField,
+    paddingX,
+    paddingY,
+    innerWidth,
+    innerHeight,
+    fontSize,
+    lineHeight,
+    cornerRadius,
+    align,
+    lines,
+    visibleLines,
+    lineWidths,
+    clipped,
+  };
+}
+window.__noteBox = noteMetrics;
+
+function noteAnnotationBounds(note) {
+  const box = noteMetrics(note);
+  const halfW = box.widthField / 2;
+  const halfH = box.heightField / 2;
+  return {
+    left: note.x - halfW,
+    right: note.x + halfW,
+    top: note.y - halfH,
+    bottom: note.y + halfH,
+    width: halfW * 2,
+    height: halfH * 2,
+  };
+}
+
+function noteAnnotationCorners(note) {
+  const bounds = noteAnnotationBounds(note);
+  return {
+    nw: { x: bounds.left, y: bounds.top },
+    ne: { x: bounds.right, y: bounds.top },
+    sw: { x: bounds.left, y: bounds.bottom },
+    se: { x: bounds.right, y: bounds.bottom },
+  };
+}
+
+function drawAnnotationHandleAtFieldPoint(point, size = 6.2) {
+  const handle = toC(point.x, point.y);
+  const half = size / 2;
+  const corner = Math.max(2, size * 0.22);
+  ctx.beginPath();
+  roundRect(ctx, handle.x - half, handle.y - half, size, size, corner);
+  ctx.fill();
+  ctx.stroke();
+}
+
+function noteHandleSizePx() {
+  const dpr = window.devicePixelRatio || 1;
+  return Math.max(6, Math.min(8, 6 * dpr));
+}
+
+function noteHandleHitRadiusField(note) {
+  const handleSize = noteHandleSizePx();
+  const generousRadiusPx = Math.max(handleSize * 1.7, 11);
+  const baseRadius = (generousRadiusPx / Math.max(sc, 0.001)) + NOTE_HANDLE_HIT_PADDING;
+  const bounds = noteAnnotationBounds(note);
+  const minDimension = Math.min(bounds.width, bounds.height);
+  const centerToCorner = Math.hypot(bounds.width / 2, bounds.height / 2);
+  const cappedRadius = Math.max(0.55, Math.min(minDimension * 0.45, centerToCorner * 0.7));
+  return Math.min(baseRadius, cappedRadius);
+}
+
+function setNoteFromBounds(note, left, top, right, bottom) {
+  const clampedLeft = Math.min(left, right);
+  const clampedRight = Math.max(left, right);
+  const clampedTop = Math.min(top, bottom);
+  const clampedBottom = Math.max(top, bottom);
+  note.width = clamp(clampedRight - clampedLeft, NOTE_MIN_WIDTH, NOTE_MAX_WIDTH);
+  note.height = clamp(clampedBottom - clampedTop, NOTE_MIN_HEIGHT, NOTE_MAX_HEIGHT);
+  note.x = clampedLeft + (note.width / 2);
+  note.y = clampedTop + (note.height / 2);
+  return note;
 }
 
 function drawAnnotationSelectionRing(x, y, r) {
@@ -4933,49 +5665,86 @@ function clampBoxAnnotation(box) {
   return box;
 }
 
+function clampNoteAnnotation(note) {
+  note.width = noteWidthValue(note);
+  note.height = noteHeightValue(note);
+  const bounds = noteAnnotationBounds(note);
+  const halfW = bounds.width / 2;
+  const halfH = bounds.height / 2;
+  note.x = clamp(note.x, F.XMIN + halfW, F.XMAX - halfW);
+  note.y = clamp(note.y, F.YMIN + halfH, F.YMAX - halfH);
+  return note;
+}
+
 function drawNoteAnnotation(note, selected = false) {
   const p = toC(note.x, note.y);
   const box = noteMetrics(note);
   const width = box.width;
   const height = box.height;
-  const opacity = Number(note.opacity) || 1;
+  const opacity = clamp(Number(note.opacity) || 1, 0.2, 1);
 
   ctx.save();
   ctx.globalAlpha = opacity;
   ctx.shadowColor = 'rgba(0,0,0,0.28)';
   ctx.shadowBlur = 16;
   ctx.fillStyle = 'rgba(3,8,14,0.82)';
-  roundRect(ctx, p.x - width / 2, p.y - height / 2, width, height, 12);
+  roundRect(ctx, p.x - width / 2, p.y - height / 2, width, height, box.cornerRadius);
   ctx.fill();
   ctx.restore();
 
   ctx.save();
+  ctx.globalAlpha = opacity;
   if (selected) {
     ctx.shadowColor = 'rgba(251,191,36,0.22)';
     ctx.shadowBlur = 18;
   }
   ctx.strokeStyle = selected ? '#fbbf24' : (note.color || 'rgba(217,180,108,0.68)');
   ctx.lineWidth = selected ? 2 : 1.2;
-  roundRect(ctx, p.x - width / 2, p.y - height / 2, width, height, 12);
+  roundRect(ctx, p.x - width / 2, p.y - height / 2, width, height, box.cornerRadius);
   ctx.stroke();
+  ctx.beginPath();
+  roundRect(ctx, p.x - width / 2, p.y - height / 2, width, height, box.cornerRadius);
+  ctx.clip();
   ctx.fillStyle = '#f7fafc';
   ctx.font = `700 ${box.fontSize}px ${NOTE_FONT}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(note.text || ANNOTATION_NOTE_DEFAULT, p.x, p.y + 0.5);
+  ctx.textAlign = box.align;
+  ctx.textBaseline = 'top';
+  const textLeft = p.x - (width / 2) + box.paddingX;
+  const textRight = p.x + (width / 2) - box.paddingX;
+  const textCenter = textLeft + (box.innerWidth / 2);
+  const textTop = p.y - (height / 2) + box.paddingY;
+  const totalTextHeight = box.visibleLines.length * box.lineHeight;
+  const textY = textTop + Math.max(0, (box.innerHeight - totalTextHeight) / 2);
+  box.visibleLines.forEach((line, index) => {
+    const textX = box.align === 'center'
+      ? textCenter
+      : box.align === 'right'
+        ? textRight
+        : textLeft;
+    ctx.fillText(line || '', textX, textY + (index * box.lineHeight));
+  });
   ctx.restore();
 
   if (selected) {
+    const corners = noteAnnotationCorners(note);
     ctx.save();
-    ctx.fillStyle = '#fbbf24';
-    ctx.strokeStyle = '#0b1420';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
+    ctx.globalAlpha = Math.max(0.42, opacity);
+    const handleSize = noteHandleSizePx();
+    ctx.fillStyle = '#E3B23C';
+    ctx.strokeStyle = 'rgba(7,16,24,0.95)';
+    ctx.lineWidth = Math.max(1.4, (window.devicePixelRatio || 1) * 1.2);
+    drawAnnotationHandleAtFieldPoint(corners.nw, handleSize);
+    drawAnnotationHandleAtFieldPoint(corners.ne, handleSize);
+    drawAnnotationHandleAtFieldPoint(corners.sw, handleSize);
+    drawAnnotationHandleAtFieldPoint(corners.se, handleSize);
     ctx.restore();
   }
+}
+
+function noteResizeCursorForHandle(handle) {
+  if (handle === 'nw' || handle === 'se') return 'nwse-resize';
+  if (handle === 'ne' || handle === 'sw') return 'nesw-resize';
+  return 'default';
 }
 
 function drawArrowAnnotation(arrow, selected = false, preview = false) {
@@ -5366,10 +6135,20 @@ function hitAnnotation(fp) {
   for (let i = S.annotations.length - 1; i >= 0; i--) {
     const ann = S.annotations[i];
     if (ann.type === 'note') {
-      const box = noteMetrics(ann);
-      const halfW = (box.width / sc) / 2 + 0.8;
-      const halfH = (box.height / sc) / 2 + 0.8;
-      if (Math.abs(fp.x - ann.x) <= halfW && Math.abs(fp.y - ann.y) <= halfH) {
+      const bounds = noteAnnotationBounds(ann);
+      const corners = noteAnnotationCorners(ann);
+      const isSelected = selectedAnnotationId() === ann.id;
+      if (isSelected) {
+        const handleTolerance = noteHandleHitRadiusField(ann);
+        if (d2(fp, corners.nw) <= handleTolerance) return { id: ann.id, part: 'resize', handle: 'nw' };
+        if (d2(fp, corners.ne) <= handleTolerance) return { id: ann.id, part: 'resize', handle: 'ne' };
+        if (d2(fp, corners.sw) <= handleTolerance) return { id: ann.id, part: 'resize', handle: 'sw' };
+        if (d2(fp, corners.se) <= handleTolerance) return { id: ann.id, part: 'resize', handle: 'se' };
+      }
+      if (
+        fp.x >= bounds.left - 0.8 && fp.x <= bounds.right + 0.8 &&
+        fp.y >= bounds.top - 0.8 && fp.y <= bounds.bottom + 0.8
+      ) {
         return { id: ann.id, part: 'move' };
       }
     }
@@ -5466,7 +6245,9 @@ function addKickToFieldTarget(fieldPoint) {
   applyBallOwnershipVisualState();
   clearPassKickState();
   clearSelectedObject();
-  setHint('Kick to field drawn.');
+  clearDragPlayer();
+  // A completed field-target Kick is a one-shot action: auto-return to Move.
+  returnInteractionToMoveTool();
   refreshInteractionUI();
   render();
   return true;
@@ -5524,6 +6305,47 @@ function handlePointerDown(e) {
   const fp = getF(e);
   const clampedFieldPoint = clampFieldPoint(fp);
   const canvasPoint = getPx(e);
+
+  // Canonical radial-menu dismissal: a radial menu can only be open while
+  // S.tool === 'move' (choosing any action closes it and arms a tool via
+  // activateRadialAction()), so any pointerdown reaching the canvas while one
+  // is still open is - by definition - a tap outside the menu itself
+  // (composedPath already ruled that case out via radialEventTargetsMenu in
+  // the separate document-level listener; that listener only ever sees this
+  // same event AFTER this handler, since it bubbles from the canvas up to
+  // document). Handling the close here, before the normal 'move' tool logic
+  // below runs for the same event, is what prevents two known-broken
+  // outcomes: (1) tapping the same still-selected player instantly reopening
+  // the menu on this same gesture's pointerup (the previous bug - closing
+  // only in the document-level listener left wasSelected/isPlayerSelected
+  // both true for that tap, so onPointerUp's "tap an already-selected player"
+  // branch fired again), and (2) an empty-pitch tap meant only to dismiss the
+  // menu instead falling through into starting an unrelated board
+  // interaction underneath it.
+  if (radialMenu) {
+    const priorPlayerId = radialMenu.playerId;
+    closeRadialMenu();
+    const tappedPlayer = hitPlayer(fp);
+    if (!tappedPlayer) {
+      // Tapped empty pitch (or anything else non-player): full dismiss -
+      // clear the selection and return to Move, swallowing this gesture so
+      // it can't also start a drag/annotation/etc. underneath the menu.
+      clearSelectedObject();
+      returnInteractionToMoveTool();
+      refreshInteractionUI();
+      render();
+      return;
+    }
+    if (tappedPlayer.id === priorPlayerId) {
+      // Tapped the same player the menu was open for: close without
+      // reopening from this same gesture.
+      refreshInteractionUI();
+      render();
+      return;
+    }
+    // Tapped a different player: let the normal 'move' tool selection logic
+    // below run for this same event, selecting the new player normally.
+  }
 
   if (S.tool === 'move') {
     const pl = hitPlayer(fp);
@@ -5605,22 +6427,42 @@ function handlePointerDown(e) {
       try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     } else if (annHit) {
       const wasSelected = selectedAnnotationId() === annHit.id;
-      snapshot();
       clearDragPlayer();
       clearPassKickState();
       selectAnnotationById(annHit.id);
       S.ballAssignCandidate = null;
       const ann = findAnnotationById(annHit.id);
+      const isNoteResize = ann?.type === 'note' && annHit.part === 'resize';
+      if (!isNoteResize) snapshot();
       const dragOff = ann && (ann.type === 'note' || ann.type === 'zone' || ann.type === 'box')
         ? { x: fp.x - ann.x, y: fp.y - ann.y }
         : { x: 0, y: 0 };
+      const noteResize = isNoteResize
+        ? (() => {
+            const bounds = noteAnnotationBounds(ann);
+            const handle = annHit.handle || 'se';
+            return {
+              handle,
+              anchor: handle === 'nw'
+                ? { x: bounds.right, y: bounds.bottom }
+                : handle === 'ne'
+                  ? { x: bounds.left, y: bounds.bottom }
+                  : handle === 'sw'
+                    ? { x: bounds.right, y: bounds.top }
+                    : { x: bounds.left, y: bounds.top },
+              startSnapshot: ann ? cloneData(ann) : null,
+              snapshotDone: false,
+            };
+          })()
+        : null;
       S.dragging = {
         type:'annotation',
         id:annHit.id,
-        part:annHit.part,
+        part:isNoteResize ? 'resize' : annHit.part,
         anchor:{ x:fp.x, y:fp.y },
         dragOff,
         startSnapshot: ann ? cloneData(ann) : null,
+        noteResize,
       };
       beginPointerTap(e.pointerId, { type:'annotation', id:annHit.id, wasSelected }, e);
       closeRadialMenu();
@@ -5710,6 +6552,73 @@ function handlePointerDown(e) {
   }
 
   else if (S.tool === 'note') {
+    const selectedId = selectedAnnotationId();
+    const selectedNote = selectedId ? findAnnotationById(selectedId) : null;
+    if (selectedNote?.type === 'note') {
+      const selectedHit = hitAnnotation(fp);
+      if (selectedHit?.id === selectedNote.id) {
+        clearDragPlayer();
+        clearPassKickState();
+        S.selectedPassIdx = null;
+        S.selectedPathPid = null;
+        S.ballAssignCandidate = null;
+        selectAnnotationById(selectedNote.id);
+        const isNoteResize = selectedHit.part === 'resize';
+        if (!isNoteResize) snapshot();
+        const noteResize = isNoteResize
+          ? (() => {
+              const bounds = noteAnnotationBounds(selectedNote);
+              const handle = selectedHit.handle || 'se';
+              return {
+                handle,
+                anchor: handle === 'nw'
+                  ? { x: bounds.right, y: bounds.bottom }
+                  : handle === 'ne'
+                    ? { x: bounds.left, y: bounds.bottom }
+                    : handle === 'sw'
+                      ? { x: bounds.right, y: bounds.top }
+                      : { x: bounds.left, y: bounds.top },
+                startSnapshot: cloneData(selectedNote),
+                snapshotDone: false,
+              };
+            })()
+          : null;
+        S.dragging = {
+          type:'annotation',
+          id:selectedNote.id,
+          part:isNoteResize ? 'resize' : selectedHit.part,
+          anchor:{ x:fp.x, y:fp.y },
+          dragOff:{ x: fp.x - selectedNote.x, y: fp.y - selectedNote.y },
+          startSnapshot: cloneData(selectedNote),
+          noteResize,
+        };
+        beginPointerTap(e.pointerId, { type:'annotation', id:selectedNote.id, wasSelected: true }, e);
+        closeRadialMenu();
+        try { cv.setPointerCapture(e.pointerId); } catch(_) {}
+        refreshInteractionUI();
+        render();
+        if (!isNoteResize) focusSelectedNoteInput(true);
+        return;
+      }
+    }
+    const annHit = hitAnnotation(fp);
+    if (annHit) {
+      const ann = findAnnotationById(annHit.id);
+      if (ann?.type === 'note') {
+        clearDragPlayer();
+        clearPassKickState();
+        S.selectedPassIdx = null;
+        S.selectedPathPid = null;
+        S.ballAssignCandidate = null;
+        S.pointerTap = null;
+        selectAnnotationById(ann.id);
+        setHint('Note selected. Drag it in Move, use the corner handles to resize it, or update the text from Selection.');
+        refreshInteractionUI();
+        render();
+        focusSelectedNoteInput(true);
+        return;
+      }
+    }
     snapshot();
     const annotation = normalizeAnnotation({
       id: mkAnnotationId(),
@@ -5720,9 +6629,10 @@ function handlePointerDown(e) {
       color: annotationColor('note'),
     });
     if (annotation) {
+      clampNoteAnnotation(annotation);
       S.annotations.push(annotation);
       selectAnnotationById(annotation.id);
-      setHint('Note placed. Drag it in Move or update the text from Selection.');
+      setHint('Note placed. Drag it in Move, use the corner handles to resize it, or update the text from Selection.');
       refreshInteractionUI();
       render();
       focusSelectedNoteInput(true);
@@ -5730,10 +6640,18 @@ function handlePointerDown(e) {
   }
 
   else if (S.tool === 'arrow') {
+    // A radial one-shot Arrow is anchored to the source player: the drag only
+    // controls the end point, same field-unit coordinates (pl.x/pl.y) used
+    // for Pass/Kick lines - no canvas/pixel conversion or hard-coded offset
+    // needed since annotations already store field-unit start/end points.
+    const radialSource = S.radialArrowSourcePlayerId !== null && S.radialArrowSourcePlayerId !== undefined
+      ? S.players.find(player => player.id === S.radialArrowSourcePlayerId) || null
+      : null;
+    const start = radialSource ? { x: radialSource.x, y: radialSource.y } : { x: fp.x, y: fp.y };
     S.annotationDraft = normalizeAnnotation({
       id: mkAnnotationId(),
       type: 'arrow',
-      start: { x: fp.x, y: fp.y },
+      start,
       end: { x: fp.x, y: fp.y },
       color: annotationColor('arrow'),
     });
@@ -5821,7 +6739,10 @@ function handlePointerDown(e) {
         }
         clearPassKickState();
         clearSelectedObject();
-        setHint(S.tool === 'pass' ? 'Pass added.' : 'Kick to player added.');
+        clearDragPlayer();
+        // A completed Pass/Kick is a one-shot action: auto-return to Move so
+        // the coach can immediately select another player.
+        returnInteractionToMoveTool();
         refreshInteractionUI();
       } else {
         // Clicked same player again: cancel
@@ -6064,8 +6985,40 @@ function handlePointerMove(e) {
       const ann = findAnnotationById(S.dragging.id);
       if (ann) {
         if (ann.type === 'note') {
-          ann.x = fp.x - (S.dragging.dragOff?.x || 0);
-          ann.y = fp.y - (S.dragging.dragOff?.y || 0);
+          if (S.dragging.part === 'move') {
+            ann.x = fp.x - (S.dragging.dragOff?.x || 0);
+            ann.y = fp.y - (S.dragging.dragOff?.y || 0);
+          } else if (S.dragging.part === 'resize') {
+            const resizeState = S.dragging.noteResize;
+            if (!resizeState?.snapshotDone) {
+              snapshot();
+              resizeState.snapshotDone = true;
+            }
+            const anchor = resizeState?.anchor || { x: ann.x, y: ann.y };
+            const handle = resizeState?.handle || 'se';
+            let left = anchor.x;
+            let right = anchor.x;
+            let top = anchor.y;
+            let bottom = anchor.y;
+            if (handle === 'se') {
+              right = clamp(fieldPoint.x, anchor.x + NOTE_MIN_WIDTH, Math.min(F.XMAX, anchor.x + NOTE_MAX_WIDTH));
+              bottom = clamp(fieldPoint.y, anchor.y + NOTE_MIN_HEIGHT, Math.min(F.YMAX, anchor.y + NOTE_MAX_HEIGHT));
+            } else if (handle === 'sw') {
+              left = clamp(fieldPoint.x, Math.max(F.XMIN, anchor.x - NOTE_MAX_WIDTH), anchor.x - NOTE_MIN_WIDTH);
+              bottom = clamp(fieldPoint.y, anchor.y + NOTE_MIN_HEIGHT, Math.min(F.YMAX, anchor.y + NOTE_MAX_HEIGHT));
+            } else if (handle === 'ne') {
+              right = clamp(fieldPoint.x, anchor.x + NOTE_MIN_WIDTH, Math.min(F.XMAX, anchor.x + NOTE_MAX_WIDTH));
+              top = clamp(fieldPoint.y, Math.max(F.YMIN, anchor.y - NOTE_MAX_HEIGHT), anchor.y - NOTE_MIN_HEIGHT);
+            } else {
+              left = clamp(fieldPoint.x, Math.max(F.XMIN, anchor.x - NOTE_MAX_WIDTH), anchor.x - NOTE_MIN_WIDTH);
+              top = clamp(fieldPoint.y, Math.max(F.YMIN, anchor.y - NOTE_MAX_HEIGHT), anchor.y - NOTE_MIN_HEIGHT);
+            }
+            setNoteFromBounds(ann, left, top, right, bottom);
+            clampNoteAnnotation(ann);
+            render();
+            return;
+          }
+          clampNoteAnnotation(ann);
         } else if (ann.type === 'arrow') {
           if (S.dragging.part === 'start') {
             ann.start = { x: fp.x, y: fp.y };
@@ -6153,8 +7106,11 @@ function handlePointerMove(e) {
   // Cursor
   const pl = hitPlayer(fp), bl = hitBall(fp), ann = hitAnnotation(fp);
   if (S.tool === 'move') {
-    const onPath = pl || bl || ann || hitRunPath(fp) !== null || hitPassLine(fp) !== -1 || hitKickPath(fp) !== -1;
-    cv.style.cursor = onPath ? 'grab' : 'default';
+    if (ann?.part === 'resize') cv.style.cursor = noteResizeCursorForHandle(ann.handle);
+    else {
+      const onPath = pl || bl || ann || hitRunPath(fp) !== null || hitPassLine(fp) !== -1 || hitKickPath(fp) !== -1;
+      cv.style.cursor = onPath ? 'grab' : 'default';
+    }
   } else if (S.tool === 'erase') {
     cv.style.cursor = 'crosshair';
   } else if (S.tool === 'tele') {
@@ -6254,13 +7210,39 @@ if (!supportsPointerEvents) {
 // Canva-style keyboard shortcuts: Delete/Backspace = delete selected, Escape = deselect
 document.addEventListener('keydown', (e) => {
   const tag = e.target.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
   if (e.key === 'Escape') {
+    if (S.dragging?.type === 'annotation' && S.dragging.part === 'resize') {
+      const ann = findAnnotationById(S.dragging.id);
+      const restore = S.dragging.startSnapshot;
+      if (ann && restore?.type === 'note') {
+        ann.x = restore.x;
+        ann.y = restore.y;
+        ann.width = noteWidthValue(restore);
+        ann.height = noteHeightValue(restore);
+        clampNoteAnnotation(ann);
+        S.dragging = null;
+        refreshInteractionUI();
+        render();
+        e.preventDefault();
+        return;
+      }
+    }
+    if (selectedAnnotationId()) {
+      deleteSelected();
+      e.preventDefault();
+      return;
+    }
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) {
+      e.preventDefault();
+      return;
+    }
     clearSelection();
     refreshInteractionUI();
     render();
     e.preventDefault();
+    return;
   }
+  if (annotationEditableTarget(e.target)) return;
   if (e.key === 'Delete' || e.key === 'Backspace') {
     const hasSelection = !!S.selectedPlayerId || !!selectedAnnotationId() ||
       isBallSelected() || S.selectedPassIdx !== null || S.selectedPathPid !== null;
@@ -6281,6 +7263,16 @@ function finishDraw() {
     S.paths = S.paths.filter(p => p.pid !== S.drawing.pid);
     S.paths.push({ pid:S.drawing.pid, pts:simplified, color:col });
     commitLiveBoardToCurrentStep();
+    S.drawing = null;
+    clearArmedRunState();
+    clearSelectedObject();
+    // A successfully completed Run path is a one-shot action: auto-return to
+    // Move so the coach can immediately select another player, matching
+    // Pass/Kick/Arrow's completion behavior.
+    returnInteractionToMoveTool();
+    refreshInteractionUI();
+    render();
+    return;
   }
   S.drawing = null;
   clearArmedRunState();
@@ -6322,6 +7314,23 @@ function finishAnnotationDraft() {
   snapshot();
   S.annotations.push(draft);
   commitLiveBoardToCurrentStep();
+  // Arrow is a one-shot action, rail or radial alike: auto-return to Move
+  // instead of staying selected in the Arrow tool. The only difference
+  // between the two entry points is the start point (player-anchored for a
+  // radial activation, free-start for the rail) - completion behavior is now
+  // identical. The arrow itself, its Undo history entry, and the
+  // save/restore schema are all untouched above - only the post-commit
+  // interaction state differs from zone/box/note's "stay selected, keep
+  // drawing" flow.
+  if (draft.type === 'arrow') {
+    S.radialArrowSourcePlayerId = null;
+    clearSelectedObject();
+    completeFirstUseTutorial();
+    returnInteractionToMoveTool();
+    refreshInteractionUI();
+    render();
+    return;
+  }
   selectAnnotationById(draft.id);
   completeFirstUseTutorial();
   setHint(`${MODE_LABELS[draft.type] || 'Annotation'} placed — selected. Press Delete to remove, or click it again to reposition.`);
@@ -6534,43 +7543,121 @@ function deleteSelected() {
 }
 window.deleteSelected = deleteSelected;
 
-function duplicateSelected() {
-  const ann = selectedAnnotation();
-  if (!ann) return;
-  snapshot();
-  const copy = cloneData(ann);
+function translateAnnotationCopy(sourceAnnotation, dx = ANNOTATION_CLIPBOARD_OFFSET, dy = ANNOTATION_CLIPBOARD_OFFSET) {
+  const copy = cloneData(sourceAnnotation);
   copy.id = mkAnnotationId();
   if (copy.type === 'note') {
-    copy.x = clamp(copy.x + 2, F.XMIN, F.XMAX);
-    copy.y = clamp(copy.y + 2, F.YMIN, F.YMAX);
+    copy.x += dx;
+    copy.y += dy;
+    copy.width = noteWidthValue(copy);
+    copy.height = noteHeightValue(copy);
+    clampNoteAnnotation(copy);
   } else if (copy.type === 'arrow') {
     copy.start = { ...copy.start };
     copy.end = { ...copy.end };
-    copy.start.x = clamp(copy.start.x + 2, F.XMIN, F.XMAX);
-    copy.start.y = clamp(copy.start.y + 2, F.YMIN, F.YMAX);
-    copy.end.x = clamp(copy.end.x + 2, F.XMIN, F.XMAX);
-    copy.end.y = clamp(copy.end.y + 2, F.YMIN, F.YMAX);
+    const dxMin = Math.max(F.XMIN - copy.start.x, F.XMIN - copy.end.x);
+    const dxMax = Math.min(F.XMAX - copy.start.x, F.XMAX - copy.end.x);
+    const dyMin = Math.max(F.YMIN - copy.start.y, F.YMIN - copy.end.y);
+    const dyMax = Math.min(F.YMAX - copy.start.y, F.YMAX - copy.end.y);
+    const shiftX = clamp(dx, dxMin, dxMax);
+    const shiftY = clamp(dy, dyMin, dyMax);
+    copy.start.x += shiftX;
+    copy.start.y += shiftY;
+    copy.end.x += shiftX;
+    copy.end.y += shiftY;
   } else if (copy.type === 'zone') {
-    copy.x = clamp(copy.x + 2, F.XMIN + copy.r, F.XMAX - copy.r);
-    copy.y = clamp(copy.y + 2, F.YMIN + copy.r, F.YMAX - copy.r);
+    copy.x += dx;
+    copy.y += dy;
+    clampZoneAnnotation(copy);
   } else if (copy.type === 'box') {
-    copy.x = clamp(copy.x + 2, F.XMIN, F.XMAX - Math.abs(copy.w));
-    copy.y = clamp(copy.y + 2, F.YMIN, F.YMAX - Math.abs(copy.h));
+    copy.x += dx;
+    copy.y += dy;
+    clampBoxAnnotation(copy);
   }
-  S.annotations.push(copy);
-  selectAnnotationById(copy.id);
+  return copy;
+}
+
+function copySelectedAnnotationToClipboard() {
+  const ann = selectedAnnotation();
+  if (!ann) return false;
+  S.annotationClipboard = cloneData(ann);
+  return true;
+}
+
+function pasteAnnotationFromClipboard(snapshotBefore = true) {
+  if (!S.annotationClipboard) return null;
+  if (snapshotBefore) snapshot();
+  const copy = translateAnnotationCopy(S.annotationClipboard);
+  const normalized = normalizeAnnotation(copy);
+  if (!normalized) return null;
+  S.annotations.push(normalized);
+  selectAnnotationById(normalized.id);
+  commitLiveBoardToCurrentStep();
   refreshInteractionUI();
   render();
+  return normalized;
+}
+
+function duplicateSelected() {
+  const ann = selectedAnnotation();
+  if (!ann) return null;
+  snapshot();
+  const copy = translateAnnotationCopy(ann);
+  const normalized = normalizeAnnotation(copy);
+  if (!normalized) return null;
+  S.annotations.push(normalized);
+  selectAnnotationById(normalized.id);
+  commitLiveBoardToCurrentStep();
+  refreshInteractionUI();
+  render();
+  return normalized;
 }
 window.duplicateSelected = duplicateSelected;
+
+function nudgeSelectedAnnotation(dx, dy) {
+  snapshot();
+  const ann = selectedAnnotation();
+  if (!ann) return false;
+  if (ann.type === 'note') {
+    ann.x += dx;
+    ann.y += dy;
+    clampNoteAnnotation(ann);
+  } else if (ann.type === 'box') {
+    ann.x += dx;
+    ann.y += dy;
+    clampBoxAnnotation(ann);
+  } else if (ann.type === 'zone') {
+    ann.x += dx;
+    ann.y += dy;
+    clampZoneAnnotation(ann);
+  } else if (ann.type === 'arrow') {
+    const dxMin = Math.max(F.XMIN - ann.start.x, F.XMIN - ann.end.x);
+    const dxMax = Math.min(F.XMAX - ann.start.x, F.XMAX - ann.end.x);
+    const dyMin = Math.max(F.YMIN - ann.start.y, F.YMIN - ann.end.y);
+    const dyMax = Math.min(F.YMAX - ann.start.y, F.YMAX - ann.end.y);
+    const shiftX = clamp(dx, dxMin, dxMax);
+    const shiftY = clamp(dy, dyMin, dyMax);
+    ann.start.x += shiftX;
+    ann.start.y += shiftY;
+    ann.end.x += shiftX;
+    ann.end.y += shiftY;
+  } else {
+    return false;
+  }
+  commitLiveBoardToCurrentStep();
+  refreshInteractionUI();
+  render();
+  return true;
+}
 
 function setSelectedAnnotationOpacity(value) {
   const ann = selectedAnnotation();
   if (!ann) return;
   const opacity = Number(value);
   if (!Number.isFinite(opacity)) return;
-  snapshot();
   ann.opacity = clamp(opacity, 0.2, 1);
+  const shapeOpacity = document.getElementById('shapeOpacity');
+  if (shapeOpacity) shapeOpacity.value = String(ann.opacity);
   refreshInteractionUI();
   render();
 }
@@ -8309,7 +9396,7 @@ function getSelectedSummary() {
   const ann = selectedAnnotation();
   if (ann) {
     if (ann.type === 'note') {
-      return { title: 'Tactical Note', meta: 'Move it on the board or update the note text below.' };
+      return { title: 'Tactical Note', meta: 'Move it on the board, drag a corner handle to resize it, or update the note text below.' };
     }
     if (ann.type === 'arrow') {
       return { title: 'Free Arrow', meta: 'Drag the line or either endpoint in Move to refine the arrow.' };
@@ -8586,11 +9673,22 @@ function focusSelectedNoteInput(selectAll = false) {
 function updateSelectedNoteText(value) {
   const ann = selectedAnnotation();
   if (!ann || ann.type !== 'note') return;
-  ann.text = (value || '').trim() || ANNOTATION_NOTE_DEFAULT;
+  ann.text = String(value ?? '').slice(0, 160);
+  clampNoteAnnotation(ann);
   scheduleAutosave();
   refreshInteractionUI();
   render();
 }
+
+function setSelectedNoteAlign(align) {
+  const ann = selectedAnnotation();
+  if (!ann || ann.type !== 'note') return;
+  ann.align = align === 'center' || align === 'right' ? align : 'left';
+  scheduleAutosave();
+  refreshInteractionUI();
+  render();
+}
+window.setSelectedNoteAlign = setSelectedNoteAlign;
 
 const TOOL_GUIDE_CONTENT = {
   move:  { icon: '↖', desc: 'Move objects. Drag players, ball, paths or notes to reposition. Click a run path, pass or kick to select it.' },
@@ -8793,37 +9891,20 @@ function refreshInteractionUI() {
 }
 
 function setTool(t) {
-  if (t === S.tool) {
-    if (t === 'erase') {
-      returnInteractionToMoveTool();
-      refreshInteractionUI();
-      render();
-      return;
-    }
-    if (t === 'kick' && S.activeKickerId) { cancelArmedKick(); return; }
-    if (t === 'pass' && S.activePasserId) {
-      clearPassKickState();
-      clearSelectedObject();
-      clearDragPlayer();
-      S.pointerTap = null;
-      returnInteractionToMoveTool();
-      refreshInteractionUI();
-      render();
-      return;
-    }
-    if (t === 'run' && S.activeRunSourceId) { cancelArmedRun(); return; }
-    if (t === 'pass' || t === 'kick' || t === 'run') {
-      clearPassKickState();
-      clearArmedRunState();
-      clearSelectedObject();
-      clearDragPlayer();
-      S.drawing = null;
-      S.pointerTap = null;
-      returnInteractionToMoveTool();
-      refreshInteractionUI();
-      render();
-      return;
-    }
+  // Any call to setTool() - rail click or radial dispatch alike - starts by
+  // treating a prior radial one-shot Arrow as abandoned. activateRadialAction()
+  // re-arms it immediately after calling setTool('arrow') below, so the flag
+  // still ends up correctly set for a genuine radial activation; this only
+  // prevents a stale flag from an abandoned radial attempt silently making a
+  // later, unrelated rail Arrow click player-anchored.
+  S.radialArrowSourcePlayerId = null;
+  if (t === S.tool && t !== 'move') {
+    // Second click on the already-active rail tool: cancel it and return to
+    // Move. One canonical helper (also used by Escape) replaces the previous
+    // ad-hoc per-tool special cases here, so every tool - not just
+    // erase/pass/kick/run - toggles off the same way.
+    cancelActiveBoardInteraction();
+    return;
   }
   const switchingAwayFromKick = t !== 'kick' && S.activeKickerId;
   const switchingAwayFromRun = t !== 'run' && S.activeRunSourceId;
@@ -8842,7 +9923,7 @@ function setTool(t) {
   document.querySelectorAll('[data-tool]').forEach(b => b.classList.remove('active'));
   document.querySelectorAll(`[data-tool="${t}"]`).forEach(b => b.classList.add('active'));
   cv.style.cursor = t === 'move' ? 'default' : 'crosshair';
-  if (t === 'run' && isPhoneViewport && S.selectedPlayerId !== null && !selectedGroup()) {
+  if (t === 'run' && S.selectedPlayerId !== null && !selectedGroup()) {
     const selectedPlayer = S.players.find(player => player.id === S.selectedPlayerId) || null;
     if (selectedPlayer) {
       setArmedRunSource(selectedPlayer.id);
@@ -8852,7 +9933,7 @@ function setTool(t) {
     } else {
       setHint(HINTS[t] || '');
     }
-  } else if ((t === 'pass' || t === 'kick') && isPhoneViewport && S.selectedPlayerId !== null && !selectedGroup()) {
+  } else if ((t === 'pass' || t === 'kick') && S.selectedPlayerId !== null && !selectedGroup()) {
     const selectedPlayer = S.players.find(player => player.id === S.selectedPlayerId) || null;
     if (selectedPlayer) {
       setWorkflowSource(selectedPlayer.id, t);
@@ -8934,12 +10015,19 @@ function setMobileMoreDrawerOpen(open) {
   const btn    = document.getElementById('mobMoreBtn');
   const isOpen = !!open && isPhoneViewport;
   if (!drawer) return;
+  // updateMobileUI() calls this unconditionally on every resize() pass (to
+  // force the drawer closed off-phone) - scheduleResizePass() must only fire
+  // when the drawer's open state actually flips, or resize() -> updateMobileUI()
+  // -> setMobileMoreDrawerOpen(false) -> scheduleResizePass() -> next-frame
+  // resize() forms an unconditional, self-perpetuating render loop that never
+  // settles even at complete idle.
+  const wasOpen = drawer.classList.contains('open');
   drawer.classList.toggle('open', isOpen);
   drawer.setAttribute('aria-hidden', String(!isOpen));
   if (backdrop) backdrop.classList.toggle('open', isOpen);
   if (isOpen) drawer.scrollTop = 0;
   if (btn) btn.textContent = isOpen ? 'MORE v' : 'MORE ^';
-  scheduleResizePass();
+  if (isOpen !== wasOpen) scheduleResizePass();
 }
 
 // ---- Portrait editing-view scroll lifecycle -------------------------------
@@ -9130,70 +10218,47 @@ window.clearSelection = clearSelection;
 
 function cancelActiveBoardInteraction() {
   closeMobileToolsDropdown();
-  if (S.annotationDraft) {
-    S.annotationDraft = null;
-    S.dragging = null;
-    S.pointerTap = null;
-    setHint(`${MODE_LABELS[S.tool] || 'Tool'} cancelled.`);
-    updateAnnotationPanel();
-    refreshInteractionUI();
-    render();
-    return true;
-  }
-  if (S.drawing) {
-    S.drawing = null;
-    clearArmedRunState();
-    S.dragging = null;
-    S.pointerTap = null;
-    setHint('Run path cancelled.');
-    refreshInteractionUI();
-    render();
-    return true;
-  }
-  if (teleDrawing) {
-    teleDrawing = null;
-    S.dragging = null;
-    S.pointerTap = null;
-    clearHighlightedPlayers();
-    setHint('Telestrator cancelled.');
-    refreshInteractionUI();
-    render();
-    return true;
-  }
-  if (activeWorkflowPlayerId()) {
-    if (S.tool === 'kick' && S.activeKickerId) {
-      return cancelArmedKick();
-    }
-    clearPassKickState();
-    clearSelectedObject();
-    clearDragPlayer();
-    S.pointerTap = null;
-    returnInteractionToMoveTool();
-    refreshInteractionUI();
-    render();
-    return true;
-  }
-  if (S.activeRunSourceId) {
-    return cancelArmedRun();
-  }
-  if (S.tool === 'pass' || S.tool === 'kick' || S.tool === 'run') {
-    clearPassKickState();
-    clearArmedRunState();
-    clearSelectedObject();
-    clearDragPlayer();
-    S.drawing = null;
-    S.pointerTap = null;
-    returnInteractionToMoveTool();
-    refreshInteractionUI();
-    render();
-    return true;
-  }
-  if (S.selectedPlayerId !== null || S.selectedGroupId !== null || isBallSelected() || selectedAnnotationId() || S.selectedPassIdx !== null || S.selectedPathPid !== null) {
-    clearSelection();
-    return true;
-  }
-  closeMobileToolsDropdown();
-  return false;
+  // Single canonical "cancel everything, land on Move" path - shared by
+  // Escape and by setTool()'s same-tool-click toggle, so a second click on
+  // any active rail tool and pressing Escape always produce the exact same
+  // safe, neutral result, no matter which tool was active or how far into
+  // its interaction (armed-but-idle, mid-draft, mid-drag) the coach got.
+  const hadInteraction = !!(
+    (S.radialArrowSourcePlayerId !== null && S.radialArrowSourcePlayerId !== undefined) ||
+    S.annotationDraft ||
+    S.drawing ||
+    teleDrawing ||
+    activeWorkflowPlayerId() ||
+    S.activeRunSourceId ||
+    S.tool !== 'move' ||
+    S.selectedPlayerId !== null ||
+    S.selectedGroupId !== null ||
+    isBallSelected() ||
+    selectedAnnotationId() ||
+    S.selectedPassIdx !== null ||
+    S.selectedPathPid !== null
+  );
+  if (!hadInteraction) return false;
+
+  S.radialArrowSourcePlayerId = null;
+  S.annotationDraft = null;
+  S.drawing = null;
+  teleDrawing = null;
+  clearPassKickState();
+  clearArmedRunState();
+  clearSelectedObject();
+  clearDragPlayer();
+  clearPendingGroupPlacement();
+  clearHighlightedPlayers();
+  S.selectedPassIdx = null;
+  S.selectedPathPid = null;
+  S.dragging = null;
+  S.pointerTap = null;
+  returnInteractionToMoveTool();
+  updateAnnotationPanel();
+  refreshInteractionUI();
+  render();
+  return true;
 }
 function clearAll() {
   clearPendingCanonicalPhaseStart();
@@ -9244,6 +10309,7 @@ function updateSelInfo() {
   const editWrap = document.getElementById('selEditWrap');
   const editLabel = document.getElementById('selEditLabel');
   const noteInput = document.getElementById('selNoteInput');
+  const noteAlignWrap = document.getElementById('selNoteAlignWrap');
   const summary = getSelectedSummary();
   const ann = selectedAnnotation();
   const group = selectedGroup();
@@ -9257,11 +10323,20 @@ function updateSelInfo() {
   box.classList.toggle('annotation-selected', !!ann && S.selectedPassIdx === null && S.selectedPathPid === null);
   if (editWrap) editWrap.classList.toggle('visible', ann?.type === 'note');
   if (editLabel) editLabel.textContent = ann?.type === 'note' ? 'Note Text' : 'Details';
+  if (noteAlignWrap) noteAlignWrap.hidden = ann?.type !== 'note';
   if (noteInput) {
-    noteInput.value = ann?.type === 'note' ? ann.text : '';
+    if (noteInput !== document.activeElement) {
+      noteInput.value = ann?.type === 'note' ? String(ann.text ?? '') : '';
+    }
     noteInput.disabled = ann?.type !== 'note';
     noteInput.placeholder = ann?.type === 'note' ? 'Refine the coaching cue' : 'Update note text';
   }
+  ['left', 'center', 'right'].forEach((align) => {
+    const btn = document.getElementById(`selNoteAlign${align[0].toUpperCase()}${align.slice(1)}`);
+    if (!btn) return;
+    btn.disabled = ann?.type !== 'note';
+    btn.classList.toggle('active', ann?.type === 'note' && noteAlignValue(ann) === align);
+  });
   const giveBallTarget = manualBallAssignmentTarget();
   if (giveBallBtn) {
     giveBallBtn.hidden = !giveBallTarget;
@@ -9524,27 +10599,16 @@ function deleteSavedPlay(id, name) {
 }
 
 function exportPlayData(play) {
-  const project = normalizeProjectRecord(play) || makeBoardData();
-  const payload = {
-    schemaVersion: PROJECT_SCHEMA_VERSION,
-    projectType: PROJECT_TYPE,
-    exportedAt: nowIso(),
-    project: {
-      name: project.name,
-      currentPhase: project.currentPhase,
-      phases: project.phases,
-    },
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  const safeName = (project.name || 'untitled-play').replace(/[^\w-]+/g, '_');
-  link.href = url;
-  link.download = `${safeName}.json`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  let project;
+  try {
+    project = validateExportProject(normalizeProjectRecord(play) || makeBoardData());
+  } catch {
+    setHint('Export failed. The current play data could not be validated.');
+    refreshInteractionUI();
+    return;
+  }
+  const payload = buildCanonicalPlayEnvelope(project);
+  buildExportDownload(project.name, payload);
   setHint(`Exported "${project.name}" as JSON.`);
   refreshInteractionUI();
   replaceRecoveryDraftWithCurrentBoard();
@@ -9615,20 +10679,7 @@ async function exportPDF() {
 window.exportPDF = exportPDF;
 
 function exportCurrentPlay() {
-  const play = serializePlay();
-  const blob = new Blob([JSON.stringify(play, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  const safeName = (play.meta.name || 'untitled-play').replace(/[^\w-]+/g, '_');
-  link.href = url;
-  link.download = `${safeName}.json`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-  setHint(`Exported "${play.meta.name}" as JSON.`);
-  refreshInteractionUI();
-  replaceRecoveryDraftWithCurrentBoard();
+  exportPlayData(makeBoardData());
 }
 
 function triggerImportPlay() {
@@ -9642,26 +10693,60 @@ function importPlayFromFile(file) {
   const reader = new FileReader();
   reader.onload = () => {
     try {
-      const raw = JSON.parse(reader.result);
-      const play = migratePlay(raw);
-      deserializePlay(play);
-      sequenceDockView = 'primary';
-      setTool('move');
-      setHint(`Imported "${play.meta?.name || 'Untitled Play'}" from JSON.`);
-      refreshInteractionUI();
+      let parsed;
+      try {
+        parsed = JSON.parse(reader.result);
+      } catch {
+        throw new Error('This file is not a valid Rugby GamePlan play.');
+      }
+      const importResult = prepareImportedProject(parsed);
+      if (isMeaningfulBoardProject(makeBoardData())) {
+        const message = 'Importing this play will replace the current board.';
+        if (!window.confirm(message)) {
+          setHint('Import cancelled.');
+          refreshInteractionUI();
+          return;
+        }
+      }
+      applyImportedProject(importResult);
     } catch (err) {
       console.error('Import failed:', err);
-      setHint(`Import failed: ${err.message}`);
+      const message = typeof err?.message === 'string' && err.message
+        ? err.message
+        : 'This play could not be imported. Your current board was not changed.';
+      setHint(message);
       refreshInteractionUI();
     }
   };
-  reader.readAsText(file);
+  reader.readAsText(file, 'utf-8');
 }
 
 
 document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (annotationEditableTarget(e.target)) return;
   const k = e.key.toLowerCase();
+  const cmdOrCtrl = e.ctrlKey || e.metaKey;
+  if (cmdOrCtrl && k === 'c' && selectedAnnotationId()) {
+    if (copySelectedAnnotationToClipboard()) e.preventDefault();
+    return;
+  }
+  if (cmdOrCtrl && k === 'v') {
+    if (pasteAnnotationFromClipboard()) e.preventDefault();
+    return;
+  }
+  if (cmdOrCtrl && k === 'd' && selectedAnnotationId()) {
+    if (duplicateSelected()) e.preventDefault();
+    return;
+  }
+  if (selectedAnnotationId() && (k === 'arrowleft' || k === 'arrowright' || k === 'arrowup' || k === 'arrowdown')) {
+    const step = e.shiftKey ? ANNOTATION_NUDGE_STEP_LARGE : ANNOTATION_NUDGE_STEP;
+    const dx = k === 'arrowleft' ? -step : k === 'arrowright' ? step : 0;
+    const dy = k === 'arrowup' ? -step : k === 'arrowdown' ? step : 0;
+    if (nudgeSelectedAnnotation(dx, dy)) {
+      e.preventDefault();
+      return;
+    }
+  }
   const map = {v:'move',r:'run',p:'pass',k:'kick',e:'erase',t:'tele',c:'zone',b:'box'};
   if (map[k])           { setTool(map[k]); return; }
   if (k===' ')          { e.preventDefault(); togglePlay(); return; }
@@ -9681,8 +10766,8 @@ document.addEventListener('keydown', e => {
     cancelActiveBoardInteraction();
     return;
   }
-  if (k==='z'&&(e.ctrlKey||e.metaKey)&&e.shiftKey) { e.preventDefault(); redo(); return; }
-  if (k==='z'&&(e.ctrlKey||e.metaKey)) { e.preventDefault(); undo(); }
+  if (k==='z'&&cmdOrCtrl&&e.shiftKey) { e.preventDefault(); redo(); return; }
+  if (k==='z'&&cmdOrCtrl) { e.preventDefault(); undo(); }
   if (k==='delete'||k==='backspace') {
     if (S.selectedPlayerId !== null || S.selectedGroupId !== null || isBallSelected() || selectedAnnotationId() || S.selectedPassIdx !== null || S.selectedPathPid !== null) {
       e.preventDefault();
@@ -9777,6 +10862,7 @@ window.migratePlay = migratePlay;
 
 document.addEventListener('pointerdown', e => {
   if (!radialMenu) return;
+  if (radialEventTargetsMenu(e)) return;
   const menu = document.getElementById('radialMenu');
   if (menu && !menu.contains(e.target)) {
     closeRadialMenu();
@@ -9902,14 +10988,10 @@ document.addEventListener('click', (e) => {
 });
 document.getElementById('selNoteInput').addEventListener('input', e => updateSelectedNoteText(e.target.value));
 document.getElementById('selNoteInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    e.target.blur();
-  }
   if (e.key === 'Escape') {
     const ann = selectedAnnotation();
     if (ann?.type === 'note') {
-      e.target.value = ann.text;
+      e.target.value = String(ann.text ?? '');
     }
     e.target.blur();
   }
