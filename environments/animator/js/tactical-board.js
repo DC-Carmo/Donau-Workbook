@@ -5546,17 +5546,25 @@ function noteAnnotationCorners(note) {
   };
 }
 
-function drawAnnotationHandleAtFieldPoint(point, radius = 6.2) {
+function drawAnnotationHandleAtFieldPoint(point, size = 6.2) {
   const handle = toC(point.x, point.y);
+  const half = size / 2;
+  const corner = Math.max(2, size * 0.22);
   ctx.beginPath();
-  ctx.arc(handle.x, handle.y, radius, 0, Math.PI * 2);
+  roundRect(ctx, handle.x - half, handle.y - half, size, size, corner);
   ctx.fill();
   ctx.stroke();
 }
 
-function noteHandleRadiusPx() {
+function noteHandleSizePx() {
   const dpr = window.devicePixelRatio || 1;
-  return Math.max(10, Math.min(14, 10 * dpr));
+  return Math.max(6, Math.min(8, 6 * dpr));
+}
+
+function noteHandleHitRadiusField() {
+  const handleSize = noteHandleSizePx();
+  const generousRadiusPx = Math.max(handleSize * 1.7, 11);
+  return (generousRadiusPx / Math.max(sc, 0.001)) + NOTE_HANDLE_HIT_PADDING;
 }
 
 function setNoteFromBounds(note, left, top, right, bottom) {
@@ -5656,7 +5664,7 @@ function drawNoteAnnotation(note, selected = false) {
   const box = noteMetrics(note);
   const width = box.width;
   const height = box.height;
-  const opacity = Number(note.opacity) || 1;
+  const opacity = clamp(Number(note.opacity) || 1, 0.2, 1);
 
   ctx.save();
   ctx.globalAlpha = opacity;
@@ -5668,6 +5676,7 @@ function drawNoteAnnotation(note, selected = false) {
   ctx.restore();
 
   ctx.save();
+  ctx.globalAlpha = opacity;
   if (selected) {
     ctx.shadowColor = 'rgba(251,191,36,0.22)';
     ctx.shadowBlur = 18;
@@ -5695,16 +5704,23 @@ function drawNoteAnnotation(note, selected = false) {
   if (selected) {
     const corners = noteAnnotationCorners(note);
     ctx.save();
-    const handleRadius = noteHandleRadiusPx();
-    ctx.fillStyle = '#ffffff';
-    ctx.strokeStyle = '#E3B23C';
-    ctx.lineWidth = Math.max(2.5, (window.devicePixelRatio || 1) * 2);
-    drawAnnotationHandleAtFieldPoint(corners.nw, handleRadius);
-    drawAnnotationHandleAtFieldPoint(corners.ne, handleRadius);
-    drawAnnotationHandleAtFieldPoint(corners.sw, handleRadius);
-    drawAnnotationHandleAtFieldPoint(corners.se, handleRadius);
+    ctx.globalAlpha = Math.max(0.42, opacity);
+    const handleSize = noteHandleSizePx();
+    ctx.fillStyle = '#E3B23C';
+    ctx.strokeStyle = 'rgba(7,16,24,0.95)';
+    ctx.lineWidth = Math.max(1.4, (window.devicePixelRatio || 1) * 1.2);
+    drawAnnotationHandleAtFieldPoint(corners.nw, handleSize);
+    drawAnnotationHandleAtFieldPoint(corners.ne, handleSize);
+    drawAnnotationHandleAtFieldPoint(corners.sw, handleSize);
+    drawAnnotationHandleAtFieldPoint(corners.se, handleSize);
     ctx.restore();
   }
+}
+
+function noteResizeCursorForHandle(handle) {
+  if (handle === 'nw' || handle === 'se') return 'nwse-resize';
+  if (handle === 'ne' || handle === 'sw') return 'nesw-resize';
+  return 'default';
 }
 
 function drawArrowAnnotation(arrow, selected = false, preview = false) {
@@ -6099,7 +6115,7 @@ function hitAnnotation(fp) {
       const corners = noteAnnotationCorners(ann);
       const isSelected = selectedAnnotationId() === ann.id;
       if (isSelected) {
-        const handleTolerance = (noteHandleRadiusPx() / Math.max(sc, 0.001)) + NOTE_HANDLE_HIT_PADDING;
+        const handleTolerance = noteHandleHitRadiusField();
         if (d2(fp, corners.nw) <= handleTolerance) return { id: ann.id, part: 'resize', handle: 'nw' };
         if (d2(fp, corners.ne) <= handleTolerance) return { id: ann.id, part: 'resize', handle: 'ne' };
         if (d2(fp, corners.sw) <= handleTolerance) return { id: ann.id, part: 'resize', handle: 'sw' };
@@ -7017,8 +7033,11 @@ function handlePointerMove(e) {
   // Cursor
   const pl = hitPlayer(fp), bl = hitBall(fp), ann = hitAnnotation(fp);
   if (S.tool === 'move') {
-    const onPath = pl || bl || ann || hitRunPath(fp) !== null || hitPassLine(fp) !== -1 || hitKickPath(fp) !== -1;
-    cv.style.cursor = onPath ? 'grab' : 'default';
+    if (ann?.part === 'resize') cv.style.cursor = noteResizeCursorForHandle(ann.handle);
+    else {
+      const onPath = pl || bl || ann || hitRunPath(fp) !== null || hitPassLine(fp) !== -1 || hitKickPath(fp) !== -1;
+      cv.style.cursor = onPath ? 'grab' : 'default';
+    }
   } else if (S.tool === 'erase') {
     cv.style.cursor = 'crosshair';
   } else if (S.tool === 'tele') {
