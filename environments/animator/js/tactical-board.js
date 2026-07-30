@@ -884,8 +884,19 @@ function claimPhoneDataAction(actionKey) {
 }
 const ANNOTATION_NOTE_DEFAULT = 'Note';
 const NOTE_FONT = '"Barlow Condensed"';
-const NOTE_SCALE_MIN = 0.6;
-const NOTE_SCALE_MAX = 3.0;
+const NOTE_LEGACY_SCALE_MIN = 0.6;
+const NOTE_LEGACY_SCALE_MAX = 3.0;
+const NOTE_DEFAULT_WIDTH = 12;
+const NOTE_DEFAULT_HEIGHT = 6.5;
+const NOTE_MIN_WIDTH = 7;
+const NOTE_MIN_HEIGHT = 4.2;
+const NOTE_MAX_WIDTH = 24;
+const NOTE_MAX_HEIGHT = 18;
+const NOTE_PADDING_X = 0.78;
+const NOTE_PADDING_Y = 0.6;
+const NOTE_HANDLE_HIT_PADDING = 1.25;
+const NOTE_LEGACY_REFERENCE_SCALE = 10;
+const NOTE_LEGACY_FONT_PX = 12.5;
 const STEP_MIN_COUNT = 3;
 let firstUseTutorialDismissed = false;
 const BOARD_BALL_ASSET_SRC = '../../assets/donau/images/rugby_ball_fire_scalable_bottom_right_fixed.svg';
@@ -2612,7 +2623,49 @@ function annotationColor(type) {
 
 function noteScaleValue(note) {
   const scale = Number(note?.scale);
-  return Number.isFinite(scale) ? clamp(scale, NOTE_SCALE_MIN, NOTE_SCALE_MAX) : 1;
+  return Number.isFinite(scale) ? clamp(scale, NOTE_LEGACY_SCALE_MIN, NOTE_LEGACY_SCALE_MAX) : 1;
+}
+
+function noteLegacyDimensions(note) {
+  const scale = noteScaleValue(note);
+  const text = String(note?.text || ANNOTATION_NOTE_DEFAULT);
+  ctx.save();
+  ctx.font = `700 ${NOTE_LEGACY_FONT_PX}px ${NOTE_FONT}`;
+  const baseTextWidth = ctx.measureText(text).width;
+  ctx.restore();
+  const widthPx = Math.max(52 * scale, (baseTextWidth + 18) * scale);
+  const heightPx = (NOTE_LEGACY_FONT_PX + 12) * scale;
+  return {
+    width: clamp(widthPx / NOTE_LEGACY_REFERENCE_SCALE, NOTE_MIN_WIDTH, NOTE_MAX_WIDTH),
+    height: clamp(heightPx / NOTE_LEGACY_REFERENCE_SCALE, NOTE_MIN_HEIGHT, NOTE_MAX_HEIGHT),
+  };
+}
+
+function noteWidthValue(note) {
+  const width = Number(note?.width);
+  if (Number.isFinite(width)) return clamp(width, NOTE_MIN_WIDTH, NOTE_MAX_WIDTH);
+  if (Number.isFinite(Number(note?.scale))) {
+    const legacy = noteLegacyDimensions(note);
+    return Number.isFinite(legacy.width) ? legacy.width : NOTE_DEFAULT_WIDTH;
+  }
+  return NOTE_DEFAULT_WIDTH;
+}
+
+function noteHeightValue(note) {
+  const height = Number(note?.height);
+  if (Number.isFinite(height)) return clamp(height, NOTE_MIN_HEIGHT, NOTE_MAX_HEIGHT);
+  if (Number.isFinite(Number(note?.scale))) {
+    const legacy = noteLegacyDimensions(note);
+    return Number.isFinite(legacy.height) ? legacy.height : NOTE_DEFAULT_HEIGHT;
+  }
+  return NOTE_DEFAULT_HEIGHT;
+}
+
+function noteDimensions(note) {
+  return {
+    width: noteWidthValue(note),
+    height: noteHeightValue(note),
+  };
 }
 
 function normalizeAnnotation(annotation) {
@@ -2631,7 +2684,8 @@ function normalizeAnnotation(annotation) {
       x,
       y,
       text: String(annotation.text || ANNOTATION_NOTE_DEFAULT).slice(0, 48),
-      scale: noteScaleValue(annotation),
+      width: noteWidthValue(annotation),
+      height: noteHeightValue(annotation),
     };
   }
   if (annotation.type === 'arrow') {
@@ -5366,26 +5420,112 @@ function drawArc(x1, y1, x2, y2, color, progress = 1, thick = false, selected = 
 }
 
 function noteMetrics(note) {
-  const scale = noteScaleValue(note);
-  const baseFontSize = Math.max(11, sc * 1.25);
-  const basePaddingX = 18;
-  const basePaddingY = 12;
-  const cornerRadius = Math.max(10, 12 * scale);
-  ctx.save();
-  ctx.font = `700 ${baseFontSize}px ${NOTE_FONT}`;
-  const baseWidth = Math.max(sc * 5.2, ctx.measureText(note.text || ANNOTATION_NOTE_DEFAULT).width + basePaddingX);
-  ctx.restore();
-  const fontSize = baseFontSize * scale;
-  const width = baseWidth * scale;
-  const height = (baseFontSize + basePaddingY) * scale;
-  return { fontSize, width, height, scale, cornerRadius };
+  const { width: widthField, height: heightField } = noteDimensions(note);
+  const width = widthField * sc;
+  const height = heightField * sc;
+  const paddingX = Math.max(8, NOTE_PADDING_X * sc);
+  const paddingY = Math.max(6, NOTE_PADDING_Y * sc);
+  const fontSize = Math.max(11, sc * 1.25);
+  const lineHeight = Math.max(fontSize + 2, fontSize * 1.06);
+  const innerWidth = Math.max(10, width - (paddingX * 2));
+  const innerHeight = Math.max(lineHeight, height - (paddingY * 2));
+  const cornerRadius = Math.max(9, Math.min(18, Math.min(width, height) * 0.18));
+  const measure = (value) => {
+    ctx.save();
+    ctx.font = `700 ${fontSize}px ${NOTE_FONT}`;
+    const size = ctx.measureText(value).width;
+    ctx.restore();
+    return size;
+  };
+  const fitLineWithEllipsis = (line) => {
+    const glyphs = Array.from(line || '');
+    if (!glyphs.length) return '...';
+    let output = line;
+    while (output && measure(`${output}...`) > innerWidth) {
+      glyphs.pop();
+      output = glyphs.join('');
+    }
+    return output ? `${output}...` : '...';
+  };
+  const breakLongWord = (word) => {
+    const glyphs = Array.from(word || '');
+    const chunks = [];
+    let chunk = '';
+    glyphs.forEach((glyph) => {
+      const trial = chunk + glyph;
+      if (chunk && measure(trial) > innerWidth) {
+        chunks.push(chunk);
+        chunk = glyph;
+      } else {
+        chunk = trial;
+      }
+    });
+    if (chunk) chunks.push(chunk);
+    return chunks.length ? chunks : [''];
+  };
+  const wrapText = (value) => {
+    const paragraphs = String(value || ANNOTATION_NOTE_DEFAULT).replace(/\r\n?/g, '\n').split('\n');
+    const wrapped = [];
+    paragraphs.forEach((paragraph, paragraphIndex) => {
+      const words = paragraph.trim() ? paragraph.split(/\s+/) : [''];
+      let line = '';
+      words.forEach((word) => {
+        if (!word) {
+          if (!line) wrapped.push('');
+          return;
+        }
+        const candidate = line ? `${line} ${word}` : word;
+        if (measure(candidate) <= innerWidth) {
+          line = candidate;
+          return;
+        }
+        if (line) wrapped.push(line);
+        if (measure(word) <= innerWidth) {
+          line = word;
+          return;
+        }
+        const pieces = breakLongWord(word);
+        line = pieces.pop() || '';
+        wrapped.push(...pieces);
+      });
+      if (line) wrapped.push(line);
+      if (!line && !paragraph.trim()) wrapped.push('');
+      if (paragraphIndex < paragraphs.length - 1 && paragraph.trim()) wrapped.push('');
+    });
+    return wrapped.length ? wrapped : [ANNOTATION_NOTE_DEFAULT];
+  };
+
+  const lines = wrapText(note.text || ANNOTATION_NOTE_DEFAULT);
+  const maxLines = Math.max(1, Math.floor(innerHeight / lineHeight));
+  const visibleLines = lines.slice(0, maxLines);
+  const clipped = lines.length > maxLines;
+  if (clipped && visibleLines.length) {
+    visibleLines[visibleLines.length - 1] = fitLineWithEllipsis(visibleLines[visibleLines.length - 1]);
+  }
+
+  return {
+    width,
+    height,
+    widthField,
+    heightField,
+    paddingX,
+    paddingY,
+    innerWidth,
+    innerHeight,
+    fontSize,
+    lineHeight,
+    cornerRadius,
+    lines,
+    visibleLines,
+    clipped,
+  };
 }
 window.__noteBox = noteMetrics;
 
 function noteAnnotationBounds(note) {
   const box = noteMetrics(note);
-  const halfW = (box.width / sc) / 2;
-  const halfH = (box.height / sc) / 2;
+  const halfW = box.widthField / 2;
+  const halfH = box.heightField / 2;
   return {
     left: note.x - halfW,
     right: note.x + halfW,
@@ -5417,6 +5557,18 @@ function drawAnnotationHandleAtFieldPoint(point, radius = 6.2) {
 function noteHandleRadiusPx() {
   const dpr = window.devicePixelRatio || 1;
   return Math.max(10, Math.min(14, 10 * dpr));
+}
+
+function setNoteFromBounds(note, left, top, right, bottom) {
+  const clampedLeft = Math.min(left, right);
+  const clampedRight = Math.max(left, right);
+  const clampedTop = Math.min(top, bottom);
+  const clampedBottom = Math.max(top, bottom);
+  note.width = clamp(clampedRight - clampedLeft, NOTE_MIN_WIDTH, NOTE_MAX_WIDTH);
+  note.height = clamp(clampedBottom - clampedTop, NOTE_MIN_HEIGHT, NOTE_MAX_HEIGHT);
+  note.x = clampedLeft + (note.width / 2);
+  note.y = clampedTop + (note.height / 2);
+  return note;
 }
 
 function drawAnnotationSelectionRing(x, y, r) {
@@ -5489,7 +5641,8 @@ function clampBoxAnnotation(box) {
 }
 
 function clampNoteAnnotation(note) {
-  note.scale = noteScaleValue(note);
+  note.width = noteWidthValue(note);
+  note.height = noteHeightValue(note);
   const bounds = noteAnnotationBounds(note);
   const halfW = bounds.width / 2;
   const halfH = bounds.height / 2;
@@ -5523,11 +5676,20 @@ function drawNoteAnnotation(note, selected = false) {
   ctx.lineWidth = selected ? 2 : 1.2;
   roundRect(ctx, p.x - width / 2, p.y - height / 2, width, height, box.cornerRadius);
   ctx.stroke();
+  ctx.beginPath();
+  roundRect(ctx, p.x - width / 2, p.y - height / 2, width, height, box.cornerRadius);
+  ctx.clip();
   ctx.fillStyle = '#f7fafc';
   ctx.font = `700 ${box.fontSize}px ${NOTE_FONT}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(note.text || ANNOTATION_NOTE_DEFAULT, p.x, p.y + 0.5);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  const textX = p.x - (width / 2) + box.paddingX;
+  const textTop = p.y - (height / 2) + box.paddingY;
+  const totalTextHeight = box.visibleLines.length * box.lineHeight;
+  const textY = textTop + Math.max(0, (box.innerHeight - totalTextHeight) / 2);
+  box.visibleLines.forEach((line, index) => {
+    ctx.fillText(line || '', textX, textY + (index * box.lineHeight));
+  });
   ctx.restore();
 
   if (selected) {
@@ -5937,7 +6099,7 @@ function hitAnnotation(fp) {
       const corners = noteAnnotationCorners(ann);
       const isSelected = selectedAnnotationId() === ann.id;
       if (isSelected) {
-        const handleTolerance = (noteHandleRadiusPx() / Math.max(sc, 0.001)) + 1.2;
+        const handleTolerance = (noteHandleRadiusPx() / Math.max(sc, 0.001)) + NOTE_HANDLE_HIT_PADDING;
         if (d2(fp, corners.nw) <= handleTolerance) return { id: ann.id, part: 'resize', handle: 'nw' };
         if (d2(fp, corners.ne) <= handleTolerance) return { id: ann.id, part: 'resize', handle: 'ne' };
         if (d2(fp, corners.sw) <= handleTolerance) return { id: ann.id, part: 'resize', handle: 'sw' };
@@ -6238,15 +6400,17 @@ function handlePointerDown(e) {
       const noteResize = isNoteResize
         ? (() => {
             const bounds = noteAnnotationBounds(ann);
-            const center = {
-              x: (bounds.left + bounds.right) / 2,
-              y: (bounds.top + bounds.bottom) / 2,
-            };
+            const handle = annHit.handle || 'se';
             return {
-              handle: annHit.handle || 'se',
-              center,
-              startScale: noteScaleValue(ann),
-              startDistance: Math.max(0.5, d2(center, { x: fp.x, y: fp.y })),
+              handle,
+              anchor: handle === 'nw'
+                ? { x: bounds.right, y: bounds.bottom }
+                : handle === 'ne'
+                  ? { x: bounds.left, y: bounds.bottom }
+                  : handle === 'sw'
+                    ? { x: bounds.right, y: bounds.top }
+                    : { x: bounds.left, y: bounds.top },
+              startSnapshot: ann ? cloneData(ann) : null,
               snapshotDone: false,
             };
           })()
@@ -6741,11 +6905,26 @@ function handlePointerMove(e) {
               snapshot();
               resizeState.snapshotDone = true;
             }
-            const center = resizeState?.center || { x: ann.x, y: ann.y };
-            const startScale = Number.isFinite(resizeState?.startScale) ? resizeState.startScale : noteScaleValue(ann);
-            const startDistance = Number.isFinite(resizeState?.startDistance) ? resizeState.startDistance : Math.max(0.5, d2(center, fieldPoint));
-            const currentDist = Math.max(0.5, d2(center, fieldPoint));
-            ann.scale = clamp(startScale * (currentDist / startDistance), NOTE_SCALE_MIN, NOTE_SCALE_MAX);
+            const anchor = resizeState?.anchor || { x: ann.x, y: ann.y };
+            const handle = resizeState?.handle || 'se';
+            let left = anchor.x;
+            let right = anchor.x;
+            let top = anchor.y;
+            let bottom = anchor.y;
+            if (handle === 'se') {
+              right = clamp(fieldPoint.x, anchor.x + NOTE_MIN_WIDTH, Math.min(F.XMAX, anchor.x + NOTE_MAX_WIDTH));
+              bottom = clamp(fieldPoint.y, anchor.y + NOTE_MIN_HEIGHT, Math.min(F.YMAX, anchor.y + NOTE_MAX_HEIGHT));
+            } else if (handle === 'sw') {
+              left = clamp(fieldPoint.x, Math.max(F.XMIN, anchor.x - NOTE_MAX_WIDTH), anchor.x - NOTE_MIN_WIDTH);
+              bottom = clamp(fieldPoint.y, anchor.y + NOTE_MIN_HEIGHT, Math.min(F.YMAX, anchor.y + NOTE_MAX_HEIGHT));
+            } else if (handle === 'ne') {
+              right = clamp(fieldPoint.x, anchor.x + NOTE_MIN_WIDTH, Math.min(F.XMAX, anchor.x + NOTE_MAX_WIDTH));
+              top = clamp(fieldPoint.y, Math.max(F.YMIN, anchor.y - NOTE_MAX_HEIGHT), anchor.y - NOTE_MIN_HEIGHT);
+            } else {
+              left = clamp(fieldPoint.x, Math.max(F.XMIN, anchor.x - NOTE_MAX_WIDTH), anchor.x - NOTE_MIN_WIDTH);
+              top = clamp(fieldPoint.y, Math.max(F.YMIN, anchor.y - NOTE_MAX_HEIGHT), anchor.y - NOTE_MIN_HEIGHT);
+            }
+            setNoteFromBounds(ann, left, top, right, bottom);
             clampNoteAnnotation(ann);
             render();
             return;
@@ -6941,6 +7120,22 @@ document.addEventListener('keydown', (e) => {
   const tag = e.target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
   if (e.key === 'Escape') {
+    if (S.dragging?.type === 'annotation' && S.dragging.part === 'resize') {
+      const ann = findAnnotationById(S.dragging.id);
+      const restore = S.dragging.startSnapshot;
+      if (ann && restore?.type === 'note') {
+        ann.x = restore.x;
+        ann.y = restore.y;
+        ann.width = noteWidthValue(restore);
+        ann.height = noteHeightValue(restore);
+        clampNoteAnnotation(ann);
+        S.dragging = null;
+        refreshInteractionUI();
+        render();
+        e.preventDefault();
+        return;
+      }
+    }
     clearSelection();
     refreshInteractionUI();
     render();
@@ -7255,7 +7450,8 @@ function duplicateSelected() {
   if (copy.type === 'note') {
     copy.x = clamp(copy.x + 2, F.XMIN, F.XMAX);
     copy.y = clamp(copy.y + 2, F.YMIN, F.YMAX);
-    copy.scale = noteScaleValue(copy);
+    copy.width = noteWidthValue(copy);
+    copy.height = noteHeightValue(copy);
     clampNoteAnnotation(copy);
   } else if (copy.type === 'arrow') {
     copy.start = { ...copy.start };
