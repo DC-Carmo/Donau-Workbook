@@ -3459,6 +3459,25 @@ html, body {
 .sel-edit.sp-sel-edit.visible {
   display: flex;
 }
+.sp-note-align {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.sp-note-align-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.sp-note-align-btn {
+  min-height: 34px;
+  padding-inline: 8px;
+}
+.sp-note-align-btn.active {
+  border-color: rgba(227,178,60,0.55);
+  background: rgba(227,178,60,0.14);
+  color: #fbbf24;
+}
 .sp-gain-display {
   padding: 7px 9px;
   border-radius: 8px;

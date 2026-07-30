@@ -2680,6 +2680,10 @@ function noteDimensions(note) {
   };
 }
 
+function noteAlignValue(note) {
+  return note?.align === 'center' || note?.align === 'right' ? note.align : 'left';
+}
+
 function normalizeAnnotation(annotation) {
   if (!annotation || typeof annotation !== 'object' || !annotation.type) return null;
   const base = {
@@ -2695,7 +2699,8 @@ function normalizeAnnotation(annotation) {
       ...base,
       x,
       y,
-      text: String(annotation.text || ANNOTATION_NOTE_DEFAULT).slice(0, 48),
+      text: String(annotation.text ?? ANNOTATION_NOTE_DEFAULT).slice(0, 160),
+      align: noteAlignValue(annotation),
       width: noteWidthValue(annotation),
       height: noteHeightValue(annotation),
     };
@@ -5435,6 +5440,7 @@ function noteMetrics(note) {
   const { width: widthField, height: heightField } = noteDimensions(note);
   const width = widthField * sc;
   const height = heightField * sc;
+  const align = noteAlignValue(note);
   const paddingX = Math.max(1, Math.min(NOTE_PADDING_X * sc, width * 0.12));
   const paddingY = Math.max(1, Math.min(NOTE_PADDING_Y * sc, height * 0.12));
   const minFontSize = Math.max(0.9, sc * 0.08);
@@ -5450,56 +5456,48 @@ function noteMetrics(note) {
     ctx.restore();
     return size;
   };
-  const breakLongWord = (word, fontSize) => {
-    const glyphs = Array.from(word || '');
-    const chunks = [];
-    let chunk = '';
-    glyphs.forEach((glyph) => {
-      const trial = chunk + glyph;
-      if (chunk && measure(trial, fontSize) > innerWidth) {
-        chunks.push(chunk);
-        chunk = glyph;
-      } else {
-        chunk = trial;
-      }
-    });
-    if (chunk) chunks.push(chunk);
-    return chunks.length ? chunks : [''];
-  };
   const wrapText = (value, fontSize) => {
-    const paragraphs = String(value || ANNOTATION_NOTE_DEFAULT).replace(/\r\n?/g, '\n').split('\n');
+    const source = String(value ?? ANNOTATION_NOTE_DEFAULT).replace(/\r\n?/g, '\n');
+    const rawLines = source.split('\n');
     const wrapped = [];
-    paragraphs.forEach((paragraph, paragraphIndex) => {
-      const words = paragraph.trim() ? paragraph.split(/\s+/) : [''];
-      let line = '';
-      words.forEach((word) => {
-        if (!word) {
-          if (!line) wrapped.push('');
-          return;
+    rawLines.forEach((rawLine, rawIndex) => {
+      if (!rawLine.length) {
+        wrapped.push('');
+      } else {
+        let remaining = rawLine;
+        while (remaining.length) {
+          let fitIndex = 0;
+          let lastWhitespaceFit = -1;
+          for (let idx = 1; idx <= remaining.length; idx++) {
+            const segment = remaining.slice(0, idx);
+            if (measure(segment, fontSize) <= innerWidth + 0.01) {
+              fitIndex = idx;
+              if (/\s/.test(remaining[idx - 1])) lastWhitespaceFit = idx;
+            } else {
+              break;
+            }
+          }
+          if (!fitIndex) {
+            wrapped.push(remaining[0]);
+            remaining = remaining.slice(1);
+            continue;
+          }
+          const breakIndex = fitIndex < remaining.length && lastWhitespaceFit > 0
+            ? lastWhitespaceFit
+            : fitIndex;
+          wrapped.push(remaining.slice(0, breakIndex));
+          remaining = remaining.slice(breakIndex);
         }
-        const candidate = line ? `${line} ${word}` : word;
-        if (measure(candidate, fontSize) <= innerWidth) {
-          line = candidate;
-          return;
-        }
-        if (line) wrapped.push(line);
-        if (measure(word, fontSize) <= innerWidth) {
-          line = word;
-          return;
-        }
-        const pieces = breakLongWord(word, fontSize);
-        line = pieces.pop() || '';
-        wrapped.push(...pieces);
-      });
-      if (line) wrapped.push(line);
-      if (!line && !paragraph.trim()) wrapped.push('');
-      if (paragraphIndex < paragraphs.length - 1 && paragraph.trim()) wrapped.push('');
+      }
+      if (rawIndex < rawLines.length - 1 && !rawLine.length) {
+        return;
+      }
     });
     return wrapped.length ? wrapped : [ANNOTATION_NOTE_DEFAULT];
   };
 
   let fontSize = preferredFontSize;
-  let lines = wrapText(note.text || ANNOTATION_NOTE_DEFAULT, fontSize);
+  let lines = wrapText(note.text ?? ANNOTATION_NOTE_DEFAULT, fontSize);
   let lineHeight = Math.max(fontSize + 0.3, fontSize * 1.04);
   while (fontSize > minFontSize) {
     const totalTextHeight = lines.length * lineHeight;
@@ -5508,11 +5506,12 @@ function noteMetrics(note) {
       break;
     }
     fontSize = Math.max(minFontSize, fontSize - 0.25);
-    lines = wrapText(note.text || ANNOTATION_NOTE_DEFAULT, fontSize);
+    lines = wrapText(note.text ?? ANNOTATION_NOTE_DEFAULT, fontSize);
     lineHeight = Math.max(fontSize + 0.3, fontSize * 1.04);
   }
   const visibleLines = lines;
   const clipped = false;
+  const lineWidths = visibleLines.map((line) => measure(line || '', fontSize));
 
   return {
     width,
@@ -5526,8 +5525,10 @@ function noteMetrics(note) {
     fontSize,
     lineHeight,
     cornerRadius,
+    align,
     lines,
     visibleLines,
+    lineWidths,
     clipped,
   };
 }
@@ -5706,13 +5707,20 @@ function drawNoteAnnotation(note, selected = false) {
   ctx.clip();
   ctx.fillStyle = '#f7fafc';
   ctx.font = `700 ${box.fontSize}px ${NOTE_FONT}`;
-  ctx.textAlign = 'left';
+  ctx.textAlign = box.align;
   ctx.textBaseline = 'top';
-  const textX = p.x - (width / 2) + box.paddingX;
+  const textLeft = p.x - (width / 2) + box.paddingX;
+  const textRight = p.x + (width / 2) - box.paddingX;
+  const textCenter = textLeft + (box.innerWidth / 2);
   const textTop = p.y - (height / 2) + box.paddingY;
   const totalTextHeight = box.visibleLines.length * box.lineHeight;
   const textY = textTop + Math.max(0, (box.innerHeight - totalTextHeight) / 2);
   box.visibleLines.forEach((line, index) => {
+    const textX = box.align === 'center'
+      ? textCenter
+      : box.align === 'right'
+        ? textRight
+        : textLeft;
     ctx.fillText(line || '', textX, textY + (index * box.lineHeight));
   });
   ctx.restore();
@@ -9665,12 +9673,22 @@ function focusSelectedNoteInput(selectAll = false) {
 function updateSelectedNoteText(value) {
   const ann = selectedAnnotation();
   if (!ann || ann.type !== 'note') return;
-  ann.text = (value || '').trim() || ANNOTATION_NOTE_DEFAULT;
+  ann.text = String(value ?? '').slice(0, 160);
   clampNoteAnnotation(ann);
   scheduleAutosave();
   refreshInteractionUI();
   render();
 }
+
+function setSelectedNoteAlign(align) {
+  const ann = selectedAnnotation();
+  if (!ann || ann.type !== 'note') return;
+  ann.align = align === 'center' || align === 'right' ? align : 'left';
+  scheduleAutosave();
+  refreshInteractionUI();
+  render();
+}
+window.setSelectedNoteAlign = setSelectedNoteAlign;
 
 const TOOL_GUIDE_CONTENT = {
   move:  { icon: '↖', desc: 'Move objects. Drag players, ball, paths or notes to reposition. Click a run path, pass or kick to select it.' },
@@ -10291,6 +10309,7 @@ function updateSelInfo() {
   const editWrap = document.getElementById('selEditWrap');
   const editLabel = document.getElementById('selEditLabel');
   const noteInput = document.getElementById('selNoteInput');
+  const noteAlignWrap = document.getElementById('selNoteAlignWrap');
   const summary = getSelectedSummary();
   const ann = selectedAnnotation();
   const group = selectedGroup();
@@ -10304,11 +10323,20 @@ function updateSelInfo() {
   box.classList.toggle('annotation-selected', !!ann && S.selectedPassIdx === null && S.selectedPathPid === null);
   if (editWrap) editWrap.classList.toggle('visible', ann?.type === 'note');
   if (editLabel) editLabel.textContent = ann?.type === 'note' ? 'Note Text' : 'Details';
+  if (noteAlignWrap) noteAlignWrap.hidden = ann?.type !== 'note';
   if (noteInput) {
-    noteInput.value = ann?.type === 'note' ? ann.text : '';
+    if (noteInput !== document.activeElement) {
+      noteInput.value = ann?.type === 'note' ? String(ann.text ?? '') : '';
+    }
     noteInput.disabled = ann?.type !== 'note';
     noteInput.placeholder = ann?.type === 'note' ? 'Refine the coaching cue' : 'Update note text';
   }
+  ['left', 'center', 'right'].forEach((align) => {
+    const btn = document.getElementById(`selNoteAlign${align[0].toUpperCase()}${align.slice(1)}`);
+    if (!btn) return;
+    btn.disabled = ann?.type !== 'note';
+    btn.classList.toggle('active', ann?.type === 'note' && noteAlignValue(ann) === align);
+  });
   const giveBallTarget = manualBallAssignmentTarget();
   if (giveBallBtn) {
     giveBallBtn.hidden = !giveBallTarget;
@@ -10960,14 +10988,10 @@ document.addEventListener('click', (e) => {
 });
 document.getElementById('selNoteInput').addEventListener('input', e => updateSelectedNoteText(e.target.value));
 document.getElementById('selNoteInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    e.target.blur();
-  }
   if (e.key === 'Escape') {
     const ann = selectedAnnotation();
     if (ann?.type === 'note') {
-      e.target.value = ann.text;
+      e.target.value = String(ann.text ?? '');
     }
     e.target.blur();
   }

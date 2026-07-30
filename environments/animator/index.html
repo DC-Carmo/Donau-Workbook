@@ -189,7 +189,15 @@
           </div>
           <div id="selEditWrap" class="sel-edit sp-sel-edit">
             <label id="selEditLabel" class="sp-field-label" for="selNoteInput">Note Text</label>
-            <input id="selNoteInput" class="sp-field-input" type="text" maxlength="48" placeholder="Update note text">
+            <textarea id="selNoteInput" class="sp-field-input sp-field-textarea" rows="3" maxlength="160" placeholder="Update note text"></textarea>
+            <div id="selNoteAlignWrap" class="sp-note-align" hidden>
+              <span class="sp-field-label">Align</span>
+              <div class="sp-note-align-buttons" role="group" aria-label="Note alignment">
+                <button id="selNoteAlignLeft" class="sp-btn sp-note-align-btn" type="button" onclick="setSelectedNoteAlign('left')">Left</button>
+                <button id="selNoteAlignCenter" class="sp-btn sp-note-align-btn" type="button" onclick="setSelectedNoteAlign('center')">Center</button>
+                <button id="selNoteAlignRight" class="sp-btn sp-note-align-btn" type="button" onclick="setSelectedNoteAlign('right')">Right</button>
+              </div>
+            </div>
           </div>
           <button id="selGiveBallBtn" class="sp-btn sp-btn-accent" onclick="giveBall(S.selected)" hidden>Give Ball</button>
           <div class="sp-sel-actions">
