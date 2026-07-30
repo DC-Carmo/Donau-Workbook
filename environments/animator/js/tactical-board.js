@@ -5572,10 +5572,15 @@ function noteHandleSizePx() {
   return Math.max(6, Math.min(8, 6 * dpr));
 }
 
-function noteHandleHitRadiusField() {
+function noteHandleHitRadiusField(note) {
   const handleSize = noteHandleSizePx();
   const generousRadiusPx = Math.max(handleSize * 1.7, 11);
-  return (generousRadiusPx / Math.max(sc, 0.001)) + NOTE_HANDLE_HIT_PADDING;
+  const baseRadius = (generousRadiusPx / Math.max(sc, 0.001)) + NOTE_HANDLE_HIT_PADDING;
+  const bounds = noteAnnotationBounds(note);
+  const minDimension = Math.min(bounds.width, bounds.height);
+  const centerToCorner = Math.hypot(bounds.width / 2, bounds.height / 2);
+  const cappedRadius = Math.max(0.55, Math.min(minDimension * 0.45, centerToCorner * 0.7));
+  return Math.min(baseRadius, cappedRadius);
 }
 
 function setNoteFromBounds(note, left, top, right, bottom) {
@@ -6126,7 +6131,7 @@ function hitAnnotation(fp) {
       const corners = noteAnnotationCorners(ann);
       const isSelected = selectedAnnotationId() === ann.id;
       if (isSelected) {
-        const handleTolerance = noteHandleHitRadiusField();
+        const handleTolerance = noteHandleHitRadiusField(ann);
         if (d2(fp, corners.nw) <= handleTolerance) return { id: ann.id, part: 'resize', handle: 'nw' };
         if (d2(fp, corners.ne) <= handleTolerance) return { id: ann.id, part: 'resize', handle: 'ne' };
         if (d2(fp, corners.sw) <= handleTolerance) return { id: ann.id, part: 'resize', handle: 'sw' };
