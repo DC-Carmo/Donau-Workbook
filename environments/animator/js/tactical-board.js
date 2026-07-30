@@ -1127,8 +1127,9 @@ window.dismissFirstUseTutorial = dismissFirstUseTutorial;
 window.startTour = startTour;
 
 const R = () => {
-  const base = Math.max(19, Math.min(31, sc * 2.3));
-  return isPhoneViewport ? Math.max(18, base * 0.9) : base;
+  const base = Math.max(19, Math.min(30, sc * 2.22));
+  if (isPhoneViewport) return Math.max(20, Math.min(27, sc * 2.38));
+  return base;
 };
 
 function nowIso() {
@@ -6222,6 +6223,20 @@ function handlePointerDown(e) {
       const dragOff = ann && (ann.type === 'note' || ann.type === 'zone' || ann.type === 'box')
         ? { x: fp.x - ann.x, y: fp.y - ann.y }
         : { x: 0, y: 0 };
+      const noteResize = ann?.type === 'note' && annHit.part !== 'move'
+        ? (() => {
+            const bounds = noteAnnotationBounds(ann);
+            const center = {
+              x: (bounds.left + bounds.right) / 2,
+              y: (bounds.top + bounds.bottom) / 2,
+            };
+            return {
+              center,
+              startScale: noteScaleValue(ann),
+              startDistance: Math.max(0.5, d2(center, { x: fp.x, y: fp.y })),
+            };
+          })()
+        : null;
       S.dragging = {
         type:'annotation',
         id:annHit.id,
@@ -6229,6 +6244,7 @@ function handlePointerDown(e) {
         anchor:{ x:fp.x, y:fp.y },
         dragOff,
         startSnapshot: ann ? cloneData(ann) : null,
+        noteResize,
       };
       beginPointerTap(e.pointerId, { type:'annotation', id:annHit.id, wasSelected }, e);
       closeRadialMenu();
@@ -6706,16 +6722,12 @@ function handlePointerMove(e) {
             ann.x = fp.x - (S.dragging.dragOff?.x || 0);
             ann.y = fp.y - (S.dragging.dragOff?.y || 0);
           } else {
-            const base = S.dragging.startSnapshot || ann;
-            const baseBounds = noteAnnotationBounds(base);
-            const center = {
-              x: (baseBounds.left + baseBounds.right) / 2,
-              y: (baseBounds.top + baseBounds.bottom) / 2,
-            };
-            const corner = noteAnnotationCorners(base)[S.dragging.part] || noteAnnotationCorners(base).se;
-            const baseDist = Math.max(0.5, d2(center, corner));
+            const resizeState = S.dragging.noteResize;
+            const center = resizeState?.center || { x: ann.x, y: ann.y };
+            const startScale = Number.isFinite(resizeState?.startScale) ? resizeState.startScale : noteScaleValue(ann);
+            const startDistance = Number.isFinite(resizeState?.startDistance) ? resizeState.startDistance : Math.max(0.5, d2(center, fieldPoint));
             const currentDist = Math.max(0.5, d2(center, fieldPoint));
-            ann.scale = clamp(noteScaleValue(base) * (currentDist / baseDist), NOTE_SCALE_MIN, NOTE_SCALE_MAX);
+            ann.scale = clamp(startScale * (currentDist / startDistance), NOTE_SCALE_MIN, NOTE_SCALE_MAX);
           }
           clampNoteAnnotation(ann);
         } else if (ann.type === 'arrow') {
