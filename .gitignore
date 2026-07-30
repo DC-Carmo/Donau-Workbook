@@ -4,3 +4,10 @@
 .DS_Store
 PLAYER_FEEDBACK.md
 donau-mobile.png
+.tmp-cdp-*/
+.edge-headless-*/
+.eoltest
+_camp_contact_sheet.png
+assets/donau/images/camp/_camp-hero-preview.jpg
+*.bundle
+RDA-BACKUP-*/
