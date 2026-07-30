@@ -6528,6 +6528,55 @@ function handlePointerDown(e) {
   }
 
   else if (S.tool === 'note') {
+    const selectedId = selectedAnnotationId();
+    const selectedNote = selectedId ? findAnnotationById(selectedId) : null;
+    if (selectedNote?.type === 'note') {
+      const selectedHit = hitAnnotation(fp);
+      if (selectedHit?.id === selectedNote.id) {
+        clearDragPlayer();
+        clearPassKickState();
+        S.selectedPassIdx = null;
+        S.selectedPathPid = null;
+        S.ballAssignCandidate = null;
+        selectAnnotationById(selectedNote.id);
+        const isNoteResize = selectedHit.part === 'resize';
+        if (!isNoteResize) snapshot();
+        const noteResize = isNoteResize
+          ? (() => {
+              const bounds = noteAnnotationBounds(selectedNote);
+              const handle = selectedHit.handle || 'se';
+              return {
+                handle,
+                anchor: handle === 'nw'
+                  ? { x: bounds.right, y: bounds.bottom }
+                  : handle === 'ne'
+                    ? { x: bounds.left, y: bounds.bottom }
+                    : handle === 'sw'
+                      ? { x: bounds.right, y: bounds.top }
+                      : { x: bounds.left, y: bounds.top },
+                startSnapshot: cloneData(selectedNote),
+                snapshotDone: false,
+              };
+            })()
+          : null;
+        S.dragging = {
+          type:'annotation',
+          id:selectedNote.id,
+          part:isNoteResize ? 'resize' : selectedHit.part,
+          anchor:{ x:fp.x, y:fp.y },
+          dragOff:{ x: fp.x - selectedNote.x, y: fp.y - selectedNote.y },
+          startSnapshot: cloneData(selectedNote),
+          noteResize,
+        };
+        beginPointerTap(e.pointerId, { type:'annotation', id:selectedNote.id, wasSelected: true }, e);
+        closeRadialMenu();
+        try { cv.setPointerCapture(e.pointerId); } catch(_) {}
+        refreshInteractionUI();
+        render();
+        if (!isNoteResize) focusSelectedNoteInput(true);
+        return;
+      }
+    }
     const annHit = hitAnnotation(fp);
     if (annHit) {
       const ann = findAnnotationById(annHit.id);
