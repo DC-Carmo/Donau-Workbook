@@ -6318,6 +6318,24 @@ function handlePointerDown(e) {
   }
 
   else if (S.tool === 'note') {
+    const annHit = hitAnnotation(fp);
+    if (annHit) {
+      const ann = findAnnotationById(annHit.id);
+      if (ann?.type === 'note') {
+        clearDragPlayer();
+        clearPassKickState();
+        S.selectedPassIdx = null;
+        S.selectedPathPid = null;
+        S.ballAssignCandidate = null;
+        S.pointerTap = null;
+        selectAnnotationById(ann.id);
+        setHint('Note selected. Drag it in Move, use the corner handles to resize it, or update the text from Selection.');
+        refreshInteractionUI();
+        render();
+        focusSelectedNoteInput(true);
+        return;
+      }
+    }
     snapshot();
     const annotation = normalizeAnnotation({
       id: mkAnnotationId(),
