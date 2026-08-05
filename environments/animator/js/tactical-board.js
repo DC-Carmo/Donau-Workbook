@@ -534,7 +534,13 @@ function resize() {
     scheduleResizePass();
     return;
   }
-  const isPhone = Math.min(vpW, vpH) <= 700;
+  const coarse = !!window.matchMedia?.('(pointer: coarse)')?.matches;
+  const noHover = !!window.matchMedia?.('(hover: none)')?.matches;
+  const small = Math.min(vpW, vpH);
+  const big = Math.max(vpW, vpH);
+  const isPhone = (coarse || noHover)
+    ? (small <= 560)
+    : (small <= 480 && big <= 900);
   const MOBILE_PORTRAIT = isPhone && vpH > vpW;
   const PHONE_LANDSCAPE = isPhone && !MOBILE_PORTRAIT;
   renderDpr = Math.max(1, window.devicePixelRatio || 1);
