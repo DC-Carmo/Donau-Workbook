@@ -1564,6 +1564,7 @@ body:not(.is-phone) #canvasWrap {
   width: max-content;
   max-width: min(calc(100% - 12px), 460px);
   padding: 6px;
+  box-sizing: border-box;
   border-radius: 14px;
   border: 1px solid var(--fst-border);
   background: var(--fst-surface);
@@ -1600,7 +1601,10 @@ body:not(.is-phone) #canvasWrap {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: nowrap;
+  width: 100%;
+  max-width: 100%;
+  flex-wrap: wrap;
+  align-content: flex-start;
 }
 .floating-selection-toolbar-item {
   position: static;
@@ -1779,7 +1783,11 @@ body:not(.is-phone) #canvasWrap {
   padding: 0;
 }
 .floating-selection-toolbar-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
   gap: 4px;
+  margin-left: auto;
   padding-left: 2px;
 }
 .floating-selection-toolbar-icon-btn {
