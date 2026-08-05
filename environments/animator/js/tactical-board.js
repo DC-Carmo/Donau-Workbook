@@ -769,6 +769,21 @@ const GamePlan = {
 };
 window.GamePlan = GamePlan;
 
+function tr(key, params = {}, fallback = '') {
+  if (window.AnimatorBoardI18n && typeof window.AnimatorBoardI18n.t === 'function') {
+    return window.AnimatorBoardI18n.t(key, params, fallback);
+  }
+  return fallback || key;
+}
+
+function modeLabel(key) {
+  return tr(`mode.${key}`, {}, MODE_LABELS[key] || key);
+}
+
+function hintText(key) {
+  return tr(`hint.${key}`, {}, HINTS[key] || '');
+}
+
 function S() {
   return GamePlan.phases[GamePlan.currentPhase];
 }
@@ -1166,38 +1181,38 @@ const TOUR_STEPS = [
   {
     targetId: 'mobileAddAttackBtn',
     position: 'above',
-    title: 'Add players',
-    body: 'Tap <strong>+ ATTACK</strong> or <strong>+ DEFENCE</strong> to drop numbered players onto the board. Add as many as you need.',
+    titleKey: 'tour.1.title',
+    bodyKey: 'tour.1.body',
   },
   {
     targetId: 'mobileBallBtn',
     position: 'above',
-    title: 'Place the ball',
-    body: 'Tap <strong>BALL</strong> to add the ball, then drag it to the starting position for your play.',
+    titleKey: 'tour.2.title',
+    bodyKey: 'tour.2.body',
   },
   {
     targetId: null,
     position: 'centre',
-    title: 'Drag & arrange',
-    body: 'With <strong>MOVE</strong> active, drag any player or the ball to set up your starting formation.',
+    titleKey: 'tour.3.title',
+    bodyKey: 'tour.3.body',
   },
   {
     targetId: 'bottomPanel',
     position: 'above',
-    title: 'Draw movement',
-    body: 'Select <strong>RUN</strong>, <strong>PASS</strong>, or <strong>KICK</strong> from the toolbar, then drag from a player to draw the action.',
+    titleKey: 'tour.4.title',
+    bodyKey: 'tour.4.body',
   },
   {
     targetId: 'phaseChipStrip',
     position: 'below',
-    title: 'Build moves',
-    body: 'Tap <strong>+</strong> to add the next move. Each chip represents one move - scrub through them to review the sequence.',
+    titleKey: 'tour.5.title',
+    bodyKey: 'tour.5.body',
   },
   {
     targetId: 'playBtn',
     position: 'above',
-    title: 'Play it back',
-    body: 'Tap <strong>PLAY</strong> to animate the whole sequence. Use <strong>PLAY ALL</strong> to run through every phase automatically. You\'re ready to coach!',
+    titleKey: 'tour.6.title',
+    bodyKey: 'tour.6.body',
   },
 ];
 
@@ -1258,10 +1273,11 @@ function _tourShowStep(index) {
   const step = TOUR_STEPS[index];
   const isLast = index === TOUR_STEPS.length - 1;
 
-  counter.textContent = `Step ${index + 1} of ${TOUR_STEPS.length}`;
-  title.textContent = step.title;
-  body.innerHTML = step.body;
-  nextBtn.textContent = isLast ? 'Done ✓' : 'Next →';
+  counter.textContent = tr('tour.counter', { current: index + 1, total: TOUR_STEPS.length }, `Step ${index + 1} of ${TOUR_STEPS.length}`);
+  title.textContent = tr(step.titleKey, {}, step.title || '');
+  body.innerHTML = tr(step.bodyKey, {}, step.body || '');
+  nextBtn.textContent = isLast ? tr('tour.done', {}, 'Done') : tr('tour.next', {}, 'Next');
+  if (skipBtn) skipBtn.textContent = tr('tour.skip', {}, 'Skip tour');
 
   const targetEl = step.targetId ? document.getElementById(step.targetId) : null;
   if (targetEl) {
@@ -3690,7 +3706,7 @@ function setAutosaveStatus(state, label = '') {
   autosaveState = state;
   const el = getAutosaveStatusElements().status;
   if (!el) return;
-  const text = label || (state === 'saving'
+  const text = label || tr(`autosave.${state}`, {}, state === 'saving'
     ? 'Saving...'
     : state === 'unsaved'
       ? 'Unsaved'
@@ -10163,9 +10179,11 @@ function isCompactViewport() {
 
 function syncResponsiveToolbarLabels() {
   const compact = isCompactViewport();
-  document.querySelectorAll('[data-label-desktop]').forEach((btn) => {
-    const desktopLabel = btn.getAttribute('data-label-desktop') || '';
-    const mobileLabel = btn.getAttribute('data-label-mobile') || desktopLabel;
+  document.querySelectorAll('[data-label-desktop], [data-i18n-label-desktop]').forEach((btn) => {
+    const desktopKey = btn.getAttribute('data-i18n-label-desktop') || '';
+    const mobileKey = btn.getAttribute('data-i18n-label-mobile') || desktopKey;
+    const desktopLabel = desktopKey ? tr(desktopKey, {}, btn.getAttribute('data-label-desktop') || '') : (btn.getAttribute('data-label-desktop') || '');
+    const mobileLabel = mobileKey ? tr(mobileKey, {}, btn.getAttribute('data-label-mobile') || desktopLabel) : (btn.getAttribute('data-label-mobile') || desktopLabel);
     btn.innerHTML = compact ? mobileLabel : desktopLabel;
   });
 }
@@ -10181,8 +10199,8 @@ function syncPlayButtons() {
   const tlPlayBtn = document.getElementById('tlPlayBtn');
   const singlePlayActive = S.animating && !S.playAll;
   const playAllLocked = S.playAll;
-  const singlePlayLabel = singlePlayActive ? (compact ? '||' : 'PAUSE') : (compact ? '\u25b6' : 'PLAY');
-  const playAllLabel = S.animating && S.playAll ? (compact ? '||' : '\u23f8 PAUSE') : (compact ? '\u25b6\u25b6' : '\u25b6\u25b6 PLAY ALL');
+  const singlePlayLabel = singlePlayActive ? (compact ? '||' : tr('play.pause', {}, 'PAUSE')) : (compact ? '\u25b6' : tr('play.play', {}, 'PLAY'));
+  const playAllLabel = S.animating && S.playAll ? (compact ? '||' : `\u23f8 ${tr('play.pauseAll', {}, 'PAUSE ALL')}`) : (compact ? '\u25b6\u25b6' : `\u25b6\u25b6 ${tr('play.playAll', {}, 'PLAY ALL')}`);
   if (playBtn) {
     playBtn.textContent = singlePlayLabel;
     playBtn.disabled = !singlePlayable || playAllLocked;
@@ -10192,11 +10210,11 @@ function syncPlayButtons() {
     playAllBtn.disabled = !playAllPlayable;
   }
   if (tlPlayBtn) {
-    tlPlayBtn.textContent = singlePlayActive ? 'Pause' : 'Play';
+    tlPlayBtn.textContent = singlePlayActive ? tr('play.pauseTitle', {}, 'Pause') : tr('play.playTitle', {}, 'Play');
     tlPlayBtn.disabled = !singlePlayable || playAllLocked;
   }
   if (mobPlayBtn) {
-    mobPlayBtn.textContent = S.animating ? '\u23f8 PAUSE' : '\u25b6 PLAY';
+    mobPlayBtn.textContent = S.animating ? `\u23f8 ${tr('play.pause', {}, 'PAUSE')}` : `\u25b6 ${tr('play.play', {}, 'PLAY')}`;
     mobPlayBtn.disabled = !singlePlayable;
   }
   if (mobileTopPlayBtn) {
@@ -10205,7 +10223,7 @@ function syncPlayButtons() {
     // Play Phase or Play from Here, however it was started) is active or
     // paused, this becomes the single Pause/Resume control for it.
     const mobileSessionActive = S.animating || isCanonicalPlaybackPaused();
-    mobileTopPlayBtn.textContent = S.animating ? 'Pause' : (isCanonicalPlaybackPaused() ? 'Resume' : 'Play');
+    mobileTopPlayBtn.textContent = S.animating ? tr('play.pauseTitle', {}, 'Pause') : (isCanonicalPlaybackPaused() ? tr('play.resume', {}, 'Resume') : tr('play.playTitle', {}, 'Play'));
     mobileTopPlayBtn.disabled = mobileSessionActive ? false : !playAllPlayable;
   }
 }
@@ -10243,7 +10261,7 @@ function updateMobileUI() {
 
   syncResponsiveToolbarLabels();
   syncPlayButtons();
-  if (mobilePhaseCounter) mobilePhaseCounter.textContent = `PHASE ${GamePlan.currentPhase + 1} / ${GamePlan.phases.length}`;
+  if (mobilePhaseCounter) mobilePhaseCounter.textContent = `${tr('phase.short', {}, 'PHASE')} ${GamePlan.currentPhase + 1} / ${GamePlan.phases.length}`;
   [0.25, 0.5, 1, 2].forEach(v => {
     const chip = document.getElementById('mspd-' + v);
     if (chip) chip.classList.toggle('active', v === S.animSpd);
@@ -10329,7 +10347,7 @@ function updateMobileUI() {
 
   syncResponsiveToolbarLabels();
   syncPlayButtons();
-  if (mobilePhaseCounter) mobilePhaseCounter.textContent = `PHASE ${GamePlan.currentPhase + 1} / ${GamePlan.phases.length}`;
+  if (mobilePhaseCounter) mobilePhaseCounter.textContent = `${tr('phase.short', {}, 'PHASE')} ${GamePlan.currentPhase + 1} / ${GamePlan.phases.length}`;
   [0.25, 0.5, 1, 2].forEach(v => {
     const chip = document.getElementById('mspd-' + v);
     if (chip) chip.classList.toggle('active', v === S.animSpd);
@@ -11015,6 +11033,40 @@ function setTool(t) {
   render();
 }
 function setHint(txt) { document.getElementById('hint').textContent = txt; }
+
+
+window.addEventListener('animator-languagechange', () => {
+  HINTS.move = hintText('move');
+  HINTS.run = hintText('run');
+  HINTS.pass = hintText('pass');
+  HINTS.kick = hintText('kick');
+  HINTS.erase = hintText('erase');
+  HINTS.box = hintText('box');
+  HINTS.note = hintText('note');
+  HINTS.arrow = hintText('arrow');
+  HINTS.zone = hintText('zone');
+  HINTS.ellipse = hintText('zone');
+  HINTS.tele = hintText('tele');
+
+  MODE_LABELS.move = modeLabel('move');
+  MODE_LABELS.run = modeLabel('run');
+  MODE_LABELS.pass = modeLabel('pass');
+  MODE_LABELS.kick = modeLabel('kick');
+  MODE_LABELS.erase = modeLabel('erase');
+  MODE_LABELS.box = modeLabel('box');
+  MODE_LABELS.note = modeLabel('note');
+  MODE_LABELS.arrow = modeLabel('arrow');
+  MODE_LABELS.zone = modeLabel('zone');
+  MODE_LABELS.ellipse = modeLabel('ellipse');
+  MODE_LABELS.tele = modeLabel('tele');
+
+  updateAnnotationPanel();
+  refreshInteractionUI();
+  if (!document.getElementById('playerNumberPopover')?.hidden) renderPlayerNumberPicker();
+  if (_tourActive) _tourShowStep(_tourCurrentStep);
+  render();
+});
+
 
 function toggleMobileMoreDrawer() {
   const drawer = document.getElementById('mobileMoreDrawer');

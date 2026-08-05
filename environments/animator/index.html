@@ -73,6 +73,13 @@
       </div>
       <a class="c-btn tb-portal" href="../../index.html"
          onclick="event.preventDefault(); location.href='../../index.html'"><span>&#8249;</span> Portal</a>
+      <div class="tb-language-switcher" id="languageSwitcher">
+        <button class="tb-language-btn" id="languageSwitcherBtn" type="button" aria-label="Change language" aria-expanded="false" aria-controls="languageSwitcherMenu">
+          <span class="tb-language-globe" aria-hidden="true">&#127760;</span>
+          <span id="languageSwitcherLabel">EN</span>
+        </button>
+        <div class="tb-language-menu" id="languageSwitcherMenu" hidden></div>
+      </div>
       <div id="autosaveStatus" class="tb-autosave-status" aria-live="polite">Saved</div>
       <button class="c-btn" id="mobileSaveBtn" onclick="saveCurrentPlay()">Save</button>
       <button class="c-btn primary desktop-only" onclick="exportPDF()">Export PDF</button>
@@ -648,14 +655,14 @@
         <!-- Group A: Players & objects -->
         <div class="tb-group tb-group-a">
           <div class="player-add-combo" data-team="A">
-            <button class="board-pill action-btn player-add-main" id="mobileAddAttackBtn" onclick="addNextAvailablePlayer('A')" data-label-desktop="+ ATTACK" data-label-mobile="+ATK">+ ATTACK</button>
+            <button class="board-pill action-btn player-add-main" id="mobileAddAttackBtn" onclick="addNextAvailablePlayer('A')" data-label-desktop="+ ATTACK" data-label-mobile="+ATK" data-i18n-label-desktop="toolbar.addAttack.desktop" data-i18n-label-mobile="toolbar.addAttack.mobile">+ ATTACK</button>
             <button class="board-pill action-btn player-add-caret" id="mobileAddAttackPickerBtn" type="button" onclick="togglePlayerNumberPicker('A','mobileAddAttackPickerBtn', event)" aria-label="Choose a specific attack number" aria-expanded="false" aria-controls="playerNumberPopover">&#9662;</button>
           </div>
           <div class="player-add-combo" data-team="D">
-            <button class="board-pill action-btn player-add-main" id="mobileAddDefenceBtn" onclick="addNextAvailablePlayer('D')" data-label-desktop="+ DEFENCE" data-label-mobile="+DEF">+ DEFENCE</button>
+            <button class="board-pill action-btn player-add-main" id="mobileAddDefenceBtn" onclick="addNextAvailablePlayer('D')" data-label-desktop="+ DEFENCE" data-label-mobile="+DEF" data-i18n-label-desktop="toolbar.addDefence.desktop" data-i18n-label-mobile="toolbar.addDefence.mobile">+ DEFENCE</button>
             <button class="board-pill action-btn player-add-caret" id="mobileAddDefencePickerBtn" type="button" onclick="togglePlayerNumberPicker('D','mobileAddDefencePickerBtn', event)" aria-label="Choose a specific defence number" aria-expanded="false" aria-controls="playerNumberPopover">&#9662;</button>
           </div>
-          <button class="board-pill ball-btn" id="mobileBallBtn" onclick="addBall()" data-label-desktop="BALL" data-label-mobile="BALL">BALL</button>
+          <button class="board-pill ball-btn" id="mobileBallBtn" onclick="addBall()" data-label-desktop="BALL" data-label-mobile="BALL" data-i18n-label-desktop="toolbar.ball" data-i18n-label-mobile="toolbar.ball">BALL</button>
         </div>
 
         <span class="toolbar-divider" aria-hidden="true"></span>
@@ -674,31 +681,31 @@
 
         <!-- Group C: Drawing tools (active) -->
         <div class="tb-group tb-group-c">
-          <button class="board-pill tool-btn" data-tool="run" onclick="setTool('run')" data-label-desktop="RUN" data-label-mobile="RUN">RUN</button>
-          <button class="board-pill tool-btn" data-tool="pass" onclick="setTool('pass')" data-label-desktop="PASS" data-label-mobile="PASS">PASS</button>
-          <button class="board-pill tool-btn" data-tool="kick" onclick="setTool('kick')" data-label-desktop="KICK" data-label-mobile="KICK">KICK</button>
+          <button class="board-pill tool-btn" data-tool="run" onclick="setTool('run')" data-label-desktop="RUN" data-label-mobile="RUN" data-i18n-label-desktop="toolbar.run" data-i18n-label-mobile="toolbar.run">RUN</button>
+          <button class="board-pill tool-btn" data-tool="pass" onclick="setTool('pass')" data-label-desktop="PASS" data-label-mobile="PASS" data-i18n-label-desktop="toolbar.pass" data-i18n-label-mobile="toolbar.pass">PASS</button>
+          <button class="board-pill tool-btn" data-tool="kick" onclick="setTool('kick')" data-label-desktop="KICK" data-label-mobile="KICK" data-i18n-label-desktop="toolbar.kick" data-i18n-label-mobile="toolbar.kick">KICK</button>
           <span class="toolbar-divider" aria-hidden="true"></span>
-          <button class="board-pill tool-btn active" data-tool="move" onclick="setTool('move')" data-label-desktop="MOVE" data-label-mobile="MV">MOVE</button>
-          <button class="board-pill tool-btn" data-tool="erase" onclick="setTool('erase')" data-label-desktop="ERASE" data-label-mobile="DEL">ERASE</button>
-          <button class="board-pill tool-btn" data-tool="tele" onclick="setTool('tele')" data-label-desktop="TELE" data-label-mobile="TEL">TELE</button>
+          <button class="board-pill tool-btn active" data-tool="move" onclick="setTool('move')" data-label-desktop="MOVE" data-label-mobile="MV" data-i18n-label-desktop="toolbar.move" data-i18n-label-mobile="toolbar.move.mobile">MOVE</button>
+          <button class="board-pill tool-btn" data-tool="erase" onclick="setTool('erase')" data-label-desktop="ERASE" data-label-mobile="DEL" data-i18n-label-desktop="toolbar.erase" data-i18n-label-mobile="toolbar.erase.mobile">ERASE</button>
+          <button class="board-pill tool-btn" data-tool="tele" onclick="setTool('tele')" data-label-desktop="TELE" data-label-mobile="TEL" data-i18n-label-desktop="toolbar.tele" data-i18n-label-mobile="toolbar.tele.mobile">TELE</button>
           <button class="board-pill action-btn" id="gainlineToggleBtn" type="button" onclick="toggleGainline()">GAINLINE</button>
           <button class="board-pill action-btn" id="ghostPreviousToggleBtn" type="button" onclick="toggleGhostPrevious()" aria-pressed="false">GHOST PREV</button>
-          <button class="board-pill action-btn" id="mobileUndoBtn" onclick="undo()" data-label-desktop="UNDO" data-label-mobile="&#8617;">UNDO</button>
-          <button class="board-pill action-btn" id="mobileRedoBtn" onclick="redo()" data-label-desktop="REDO" data-label-mobile="&#8618;">REDO</button>
+          <button class="board-pill action-btn" id="mobileUndoBtn" onclick="undo()" data-label-desktop="UNDO" data-label-mobile="&#8617;" data-i18n-label-desktop="toolbar.undo" data-i18n-label-mobile="toolbar.undo.mobile">UNDO</button>
+          <button class="board-pill action-btn" id="mobileRedoBtn" onclick="redo()" data-label-desktop="REDO" data-label-mobile="&#8618;" data-i18n-label-desktop="toolbar.redo" data-i18n-label-mobile="toolbar.redo.mobile">REDO</button>
         </div>
 
         <span class="toolbar-divider" aria-hidden="true"></span>
 
         <!-- Group D: Annotation tools (coming soon) -->
         <div class="tb-group tb-group-d">
-          <button class="board-pill tool-btn" data-tool="zone" onclick="setTool('zone')" data-label-desktop="CIRCLE" data-label-mobile="O">CIRCLE</button>
-          <button class="board-pill tool-btn" data-tool="box" onclick="setTool('box')" data-label-desktop="BOX" data-label-mobile="BOX">BOX</button>
-          <button class="board-pill tool-btn" data-tool="arrow" onclick="setTool('arrow')" data-label-desktop="ARROW" data-label-mobile="ARR">ARROW</button>
-          <button class="board-pill tool-btn" data-tool="note" onclick="setTool('note')" data-label-desktop="NOTE" data-label-mobile="NOTE">NOTE</button>
+          <button class="board-pill tool-btn" data-tool="zone" onclick="setTool('zone')" data-label-desktop="CIRCLE" data-label-mobile="O" data-i18n-label-desktop="toolbar.circle" data-i18n-label-mobile="toolbar.circle.mobile">CIRCLE</button>
+          <button class="board-pill tool-btn" data-tool="box" onclick="setTool('box')" data-label-desktop="BOX" data-label-mobile="BOX" data-i18n-label-desktop="toolbar.box" data-i18n-label-mobile="toolbar.box">BOX</button>
+          <button class="board-pill tool-btn" data-tool="arrow" onclick="setTool('arrow')" data-label-desktop="ARROW" data-label-mobile="ARR" data-i18n-label-desktop="toolbar.arrow" data-i18n-label-mobile="toolbar.arrow.mobile">ARROW</button>
+          <button class="board-pill tool-btn" data-tool="note" onclick="setTool('note')" data-label-desktop="NOTE" data-label-mobile="NOTE" data-i18n-label-desktop="toolbar.note" data-i18n-label-mobile="toolbar.note">NOTE</button>
         </div>
 
         <!-- CLEAR: destructive action, far right -->
-        <button class="board-pill action-btn tb-clear-btn" id="mobileClearBtn" onclick="clearAll()" data-label-desktop="CLEAR" data-label-mobile="&#10005;" title="Clear all players and paths">CLEAR</button>
+        <button class="board-pill action-btn tb-clear-btn" id="mobileClearBtn" onclick="clearAll()" data-label-desktop="CLEAR" data-label-mobile="&#10005;" data-i18n-label-desktop="toolbar.clear" data-i18n-label-mobile="toolbar.clear.mobile" title="Clear all players and paths">CLEAR</button>
 
         <div id="toolbarModeInline">MODE: MOVE</div>
       </div>
@@ -760,6 +767,7 @@
     </div>
   </div>
 </div>
-<script src="js/tactical-board.js?v=20260728-portrait-direction-fix"></script>
+<script src="js/tactical-board-i18n.js?v=20260805-i18n"></script>
+<script src="js/tactical-board.js?v=20260805-i18n"></script>
 </body>
 </html>
