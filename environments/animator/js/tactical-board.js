@@ -932,6 +932,23 @@ function arrowDashValue(value) {
 function arrowStrokeWidthPx(value) {
   return ARROW_THICKNESS_PRESETS[arrowThicknessValue(value)] || ARROW_THICKNESS_PRESETS.normal;
 }
+
+function syncColorSwatches(root, currentColor) {
+  if (!root) return;
+  root.querySelectorAll('.sp-color-swatch').forEach(sw => {
+    sw.classList.toggle('active', colorsMatchSwatch(currentColor, sw.dataset.color));
+  });
+}
+
+function syncArrowStyleButtons(root, arrowStyle) {
+  if (!root) return;
+  root.querySelectorAll('[data-arrow-thickness]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.arrowThickness === arrowStyle.thickness);
+  });
+  root.querySelectorAll('[data-arrow-dash]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.arrowDash === arrowStyle.dash);
+  });
+}
 const ANNOTATION_NUDGE_STEP_LARGE = 1.5;
 const NOTE_LEGACY_REFERENCE_SCALE = 10;
 const NOTE_LEGACY_FONT_PX = 12.5;
@@ -10438,6 +10455,22 @@ function updateSelInfo() {
   const groupActions = document.getElementById('spGroupActions');
   const groupModeBtn = document.getElementById('selGroupModeBtn');
   const regroupBtn = document.getElementById('selRegroupBtn');
+  const arrowToolCards = [
+    document.getElementById('spArrowToolCard'),
+    document.getElementById('mobileArrowToolCard'),
+  ].filter(Boolean);
+  const arrowToolCopies = [
+    document.getElementById('spArrowToolCopy'),
+    document.getElementById('mobileArrowToolCopy'),
+  ].filter(Boolean);
+  const arrowColorPickers = [
+    document.getElementById('spArrowColorPicker'),
+    document.getElementById('mobileArrowColorPicker'),
+  ].filter(Boolean);
+  const arrowStyleControls = [
+    document.getElementById('spArrowStyleControls'),
+    document.getElementById('mobileArrowStyleControls'),
+  ].filter(Boolean);
   const editWrap = document.getElementById('selEditWrap');
   const editLabel = document.getElementById('selEditLabel');
   const noteInput = document.getElementById('selNoteInput');
@@ -10449,6 +10482,8 @@ function updateSelInfo() {
     ? S.players.find(player => player.id === S.selectedPlayerId) || null
     : null;
   const playerGroup = !group && selectedPlayer ? groupForPlayer(selectedPlayer) : null;
+  const arrowStyle = currentArrowStyleSelection();
+  const arrowStyleVisible = S.tool === 'arrow' || ann?.type === 'arrow';
   document.getElementById('selName').textContent = summary.title;
   if (meta) meta.textContent = summary.meta;
   box.classList.toggle('visible', summary.title !== '-');
@@ -10479,33 +10514,31 @@ function updateSelInfo() {
     }
   }
   const colorPicker = document.getElementById('spColorPicker');
-  const arrowStyleControls = document.getElementById('spArrowStyleControls');
-  const arrowStyle = currentArrowStyleSelection();
-  const arrowStyleVisible = S.tool === 'arrow' || ann?.type === 'arrow';
   if (colorPicker) {
-    colorPicker.hidden = !ann && !group && !selectedPlayer && !arrowStyleVisible;
-    if (ann || group || selectedPlayer || arrowStyleVisible) {
+    const selectionColorVisible = (!!ann && ann.type !== 'arrow') || !!group || !!selectedPlayer;
+    colorPicker.hidden = !selectionColorVisible;
+    if (selectionColorVisible) {
       const currentColor = ann
         ? (ann.color || annotationColor(ann.type))
-        : arrowStyleVisible
-          ? arrowStyle.color
         : group
           ? (group.color || PRESET_GROUP_ATTACK)
           : (selectedPlayer?.colorOverride || playerColorPalette(selectedPlayer).fill);
-      colorPicker.querySelectorAll('.sp-color-swatch').forEach(sw => {
-        sw.classList.toggle('active', colorsMatchSwatch(currentColor, sw.dataset.color));
-      });
+      syncColorSwatches(colorPicker, currentColor);
     }
   }
-  if (arrowStyleControls) {
-    arrowStyleControls.hidden = !arrowStyleVisible;
-    arrowStyleControls.querySelectorAll('[data-arrow-thickness]').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.arrowThickness === arrowStyle.thickness);
-    });
-    arrowStyleControls.querySelectorAll('[data-arrow-dash]').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.arrowDash === arrowStyle.dash);
-    });
-  }
+  arrowToolCards.forEach(card => { card.hidden = !arrowStyleVisible; });
+  arrowToolCopies.forEach(copy => {
+    copy.textContent = ann?.type === 'arrow'
+      ? 'Selected arrow updates live as you change style.'
+      : 'Choose the default style before drawing.';
+  });
+  arrowStyleControls.forEach(controlSet => {
+    controlSet.hidden = !arrowStyleVisible;
+    syncArrowStyleButtons(controlSet, arrowStyle);
+  });
+  arrowColorPickers.forEach(picker => {
+    if (arrowStyleVisible) syncColorSwatches(picker, arrowStyle.color);
+  });
   const shapeActions = document.getElementById('spShapeActions');
   const shapeOpacity = document.getElementById('shapeOpacity');
   if (shapeActions) {
@@ -11018,6 +11051,7 @@ document.addEventListener('pointerdown', e => {
 document.getElementById('mobileMoreDrawer')?.addEventListener('click', (e) => {
   const actionBtn = e.target.closest('.mob-more-btn');
   if (!actionBtn || actionBtn.disabled) return;
+  if (actionBtn.dataset.tool === 'arrow') return;
   setTimeout(() => setMobileMoreDrawerOpen(false), 0);
 });
 

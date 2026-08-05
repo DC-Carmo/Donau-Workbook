@@ -3469,6 +3469,32 @@ html, body {
   flex-direction: column;
   gap: 8px;
 }
+.sp-arrow-tool-card {
+  gap: 10px;
+}
+.sp-arrow-tool-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sp-arrow-tool-copy {
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: rgba(255,255,255,0.54);
+}
+.sp-arrow-color-picker {
+  gap: 6px;
+}
+.mob-arrow-style-panel {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(7,16,24,0.76);
+}
 .sp-arrow-style-buttons-2 {
   grid-template-columns: repeat(2, 1fr);
 }
@@ -3939,6 +3965,10 @@ body.tb-mobile-portrait .mob-more-playback {
 
 body.tb-mobile-portrait .mob-more-tools {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+body.tb-mobile-portrait .mob-arrow-style-panel {
+  padding: 12px 10px;
 }
 
 body.tb-mobile-portrait .mob-speed-row {

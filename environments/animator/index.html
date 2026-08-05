@@ -22,6 +22,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tactical Board - Coach Mato</title>
+<link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/tactical-board.css?v=20260728-portrait-direction-fix">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -163,13 +164,12 @@
           <p class="sp-ann-copy" id="annotationCopy">Click or drag on the field to place.</p>
         </div>
 
-        <div id="selInfo" class="sel-info sp-ctx-card sp-sel-card">
-          <div class="sp-sel-chip">
-            <span class="sp-sel-label">Selected</span>
-            <span class="sp-sel-name" id="selName">—</span>
+        <div id="spArrowToolCard" class="sp-ctx-card sp-arrow-tool-card" hidden>
+          <div class="sp-arrow-tool-head">
+            <span class="sp-sel-label">Arrow Style</span>
+            <span class="sp-arrow-tool-copy" id="spArrowToolCopy">Choose the default style before drawing.</span>
           </div>
-          <div class="sp-sel-meta" id="selMeta"></div>
-          <div class="sp-color-picker" id="spColorPicker" hidden>
+          <div class="sp-color-picker sp-arrow-color-picker" id="spArrowColorPicker">
             <span class="sp-field-label">Color</span>
             <div class="sp-color-swatches">
               <button class="sp-color-swatch" data-color="#ffffff" style="--sw:#ffffff" onclick="setAnnotationColor('#ffffff')" aria-label="White"></button>
@@ -195,6 +195,25 @@
                 <button class="sp-btn sp-note-align-btn" data-arrow-thickness="normal" type="button" onclick="setArrowThickness('normal')">Normal</button>
                 <button class="sp-btn sp-note-align-btn" data-arrow-thickness="thick" type="button" onclick="setArrowThickness('thick')">Thick</button>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="selInfo" class="sel-info sp-ctx-card sp-sel-card">
+          <div class="sp-sel-chip">
+            <span class="sp-sel-label">Selected</span>
+            <span class="sp-sel-name" id="selName">—</span>
+          </div>
+          <div class="sp-sel-meta" id="selMeta"></div>
+          <div class="sp-color-picker" id="spColorPicker" hidden>
+            <span class="sp-field-label">Color</span>
+            <div class="sp-color-swatches">
+              <button class="sp-color-swatch" data-color="#ffffff" style="--sw:#ffffff" onclick="setAnnotationColor('#ffffff')" aria-label="White"></button>
+              <button class="sp-color-swatch" data-color="#e3b23c" style="--sw:#e3b23c" onclick="setAnnotationColor('#e3b23c')" aria-label="Gold"></button>
+              <button class="sp-color-swatch" data-color="#10b981" style="--sw:#10b981" onclick="setAnnotationColor('#10b981')" aria-label="Green"></button>
+              <button class="sp-color-swatch" data-color="#ef4444" style="--sw:#ef4444" onclick="setAnnotationColor('#ef4444')" aria-label="Red"></button>
+              <button class="sp-color-swatch" data-color="#3b82f6" style="--sw:#3b82f6" onclick="setAnnotationColor('#3b82f6')" aria-label="Blue"></button>
+              <button class="sp-color-swatch" data-color="#f97316" style="--sw:#f97316" onclick="setAnnotationColor('#f97316')" aria-label="Orange"></button>
             </div>
           </div>
           <div class="sp-shape-actions" id="spShapeActions" hidden>
@@ -409,6 +428,41 @@
           <button class="mob-toggle-btn" id="mobGainlineBtn" type="button" onclick="toggleGainline()">OFF</button>
         </div>
         <button class="mob-more-btn" id="mobileMoreEraseBtn" type="button" data-tool="erase" onclick="setTool('erase')">ERASE</button>
+        <button class="mob-more-btn" id="mobileMoreArrowBtn" type="button" data-tool="arrow" onclick="setTool('arrow')">ARROW</button>
+        <div id="mobileArrowToolCard" class="mob-arrow-style-panel sp-arrow-tool-card" hidden>
+          <div class="sp-arrow-tool-head">
+            <span class="sp-sel-label">Arrow Style</span>
+            <span class="sp-arrow-tool-copy" id="mobileArrowToolCopy">Choose the default style before drawing.</span>
+          </div>
+          <div class="sp-color-picker sp-arrow-color-picker" id="mobileArrowColorPicker">
+            <span class="sp-field-label">Color</span>
+            <div class="sp-color-swatches">
+              <button class="sp-color-swatch" data-color="#ffffff" style="--sw:#ffffff" onclick="setAnnotationColor('#ffffff')" aria-label="White"></button>
+              <button class="sp-color-swatch" data-color="#e3b23c" style="--sw:#e3b23c" onclick="setAnnotationColor('#e3b23c')" aria-label="Gold"></button>
+              <button class="sp-color-swatch" data-color="#10b981" style="--sw:#10b981" onclick="setAnnotationColor('#10b981')" aria-label="Green"></button>
+              <button class="sp-color-swatch" data-color="#ef4444" style="--sw:#ef4444" onclick="setAnnotationColor('#ef4444')" aria-label="Red"></button>
+              <button class="sp-color-swatch" data-color="#3b82f6" style="--sw:#3b82f6" onclick="setAnnotationColor('#3b82f6')" aria-label="Blue"></button>
+              <button class="sp-color-swatch" data-color="#f97316" style="--sw:#f97316" onclick="setAnnotationColor('#f97316')" aria-label="Orange"></button>
+            </div>
+          </div>
+          <div id="mobileArrowStyleControls" class="sp-arrow-style" hidden>
+            <div class="sp-field-group">
+              <span class="sp-field-label">Line Style</span>
+              <div class="sp-note-align-buttons sp-arrow-style-buttons-2" role="group" aria-label="Mobile arrow line style">
+                <button class="sp-btn sp-note-align-btn" data-arrow-dash="solid" type="button" onclick="setArrowDash('solid')">Solid</button>
+                <button class="sp-btn sp-note-align-btn" data-arrow-dash="dashed" type="button" onclick="setArrowDash('dashed')">Dashed</button>
+              </div>
+            </div>
+            <div class="sp-field-group">
+              <span class="sp-field-label">Thickness</span>
+              <div class="sp-note-align-buttons" role="group" aria-label="Mobile arrow thickness">
+                <button class="sp-btn sp-note-align-btn" data-arrow-thickness="thin" type="button" onclick="setArrowThickness('thin')">Thin</button>
+                <button class="sp-btn sp-note-align-btn" data-arrow-thickness="normal" type="button" onclick="setArrowThickness('normal')">Normal</button>
+                <button class="sp-btn sp-note-align-btn" data-arrow-thickness="thick" type="button" onclick="setArrowThickness('thick')">Thick</button>
+              </div>
+            </div>
+          </div>
+        </div>
         <button class="mob-more-btn" id="mobileMoreBallBtn" type="button" onclick="addBall()">BALL</button>
         <button class="mob-more-btn" id="mobileMorePlayPhaseBtn" type="button" onclick="handleSequenceDockPlayPhase()">PLAY PHASE</button>
         <button class="mob-more-btn" id="mobileMorePreviewBtn" type="button" onclick="previewCurrentMove()">PREVIEW MOVE</button>
