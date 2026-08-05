@@ -805,6 +805,15 @@ Object.assign(S, {
   arrowColor: '#d9b46c',
   arrowThickness: 'normal',
   arrowDash: 'solid',
+  zoneColor: '#10b981',
+  zoneThickness: 'normal',
+  zoneDash: 'solid',
+  boxColor: '#d9b46c',
+  boxThickness: 'normal',
+  boxDash: 'solid',
+  ellipseColor: '#d9b46c',
+  ellipseThickness: 'normal',
+  ellipseDash: 'solid',
   // Selection model:
   // - selectedPlayerId: one player selected for editing at a time
   // - selectedObjectType/selectedAnnotationIdValue: non-player object selection
@@ -902,6 +911,11 @@ const NOTE_HANDLE_HIT_PADDING = 1.25;
 const ANNOTATION_CLIPBOARD_OFFSET = 1.5;
 const ANNOTATION_NUDGE_STEP = 0.5;
 const ARROW_DEFAULT_COLOR = '#d9b46c';
+const SHAPE_DEFAULTS = Object.freeze({
+  zone: { color: '#10b981', thickness: 'normal', dash: 'solid' },
+  box: { color: '#d9b46c', thickness: 'normal', dash: 'solid' },
+  ellipse: { color: '#d9b46c', thickness: 'normal', dash: 'solid' },
+});
 const ARROW_THICKNESS_PRESETS = Object.freeze({
   thin: 2.2,
   normal: 3.2,
@@ -933,6 +947,85 @@ function arrowStrokeWidthPx(value) {
   return ARROW_THICKNESS_PRESETS[arrowThicknessValue(value)] || ARROW_THICKNESS_PRESETS.normal;
 }
 
+function isShapeAnnotationType(type) {
+  return type === 'zone' || type === 'box' || type === 'ellipse';
+}
+
+function defaultShapeStyle(type) {
+  return SHAPE_DEFAULTS[type] || SHAPE_DEFAULTS.box;
+}
+
+function shapeStyleStateKeys(type) {
+  if (type === 'zone') return { color: 'zoneColor', thickness: 'zoneThickness', dash: 'zoneDash' };
+  if (type === 'ellipse') return { color: 'ellipseColor', thickness: 'ellipseThickness', dash: 'ellipseDash' };
+  return { color: 'boxColor', thickness: 'boxThickness', dash: 'boxDash' };
+}
+
+function currentShapeStyleSelection(type = null) {
+  const selected = selectedAnnotation();
+  const styleType = isShapeAnnotationType(selected?.type) ? selected.type : (isShapeAnnotationType(type) ? type : (isShapeAnnotationType(S.tool) ? S.tool : 'box'));
+  const defaults = defaultShapeStyle(styleType);
+  if (selected?.type === styleType) {
+    return {
+      type: styleType,
+      color: selected.color || defaults.color,
+      thickness: arrowThicknessValue(selected.thickness),
+      dash: arrowDashValue(selected.dash),
+    };
+  }
+  const keys = shapeStyleStateKeys(styleType);
+  return {
+    type: styleType,
+    color: S[keys.color] || defaults.color,
+    thickness: arrowThicknessValue(S[keys.thickness]),
+    dash: arrowDashValue(S[keys.dash]),
+  };
+}
+
+function applyShapeStyleSelection(partial = {}) {
+  const selectedId = selectedAnnotationId();
+  const selected = selectedAnnotation();
+  const styleType = isShapeAnnotationType(selected?.type) ? selected.type : (isShapeAnnotationType(S.tool) ? S.tool : 'box');
+  const current = currentShapeStyleSelection(styleType);
+  const next = {
+    type: styleType,
+    color: partial.color || current.color || defaultShapeStyle(styleType).color,
+    thickness: arrowThicknessValue(partial.thickness ?? current.thickness),
+    dash: arrowDashValue(partial.dash ?? current.dash),
+  };
+  const keys = shapeStyleStateKeys(styleType);
+  S[keys.color] = next.color;
+  S[keys.thickness] = next.thickness;
+  S[keys.dash] = next.dash;
+  if (selected?.type === styleType && selectedId) {
+    snapshot();
+    const ann = findAnnotationById(selectedId);
+    if (ann?.type === styleType) {
+      ann.color = next.color;
+      ann.thickness = next.thickness;
+      ann.dash = next.dash;
+    }
+  }
+  refreshInteractionUI();
+  render();
+  return next;
+}
+
+function shapeDashPattern(dash, strokeWidth) {
+  return arrowDashValue(dash) === 'dashed'
+    ? [Math.max(8, strokeWidth * 2.8), Math.max(6, strokeWidth * 1.9)]
+    : [];
+}
+
+function hexToRgba(color, alpha) {
+  const hex = normalizeHexColor(color).replace('#', '');
+  if (hex.length !== 6) return `rgba(217,180,108,${alpha})`;
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function syncColorSwatches(root, currentColor) {
   if (!root) return;
   root.querySelectorAll('.sp-color-swatch').forEach(sw => {
@@ -947,6 +1040,16 @@ function syncArrowStyleButtons(root, arrowStyle) {
   });
   root.querySelectorAll('[data-arrow-dash]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.arrowDash === arrowStyle.dash);
+  });
+}
+
+function syncShapeStyleButtons(root, shapeStyle) {
+  if (!root) return;
+  root.querySelectorAll('[data-shape-thickness]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.shapeThickness === shapeStyle.thickness);
+  });
+  root.querySelectorAll('[data-shape-dash]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.shapeDash === shapeStyle.dash);
   });
 }
 const ANNOTATION_NUDGE_STEP_LARGE = 1.5;
@@ -2573,6 +2676,11 @@ function selectAnnotationById(id) {
     S.arrowColor = annotation.color || ARROW_DEFAULT_COLOR;
     S.arrowThickness = arrowThicknessValue(annotation.thickness);
     S.arrowDash = arrowDashValue(annotation.dash);
+  } else if (isShapeAnnotationType(annotation?.type)) {
+    const keys = shapeStyleStateKeys(annotation.type);
+    S[keys.color] = annotation.color || defaultShapeStyle(annotation.type).color;
+    S[keys.thickness] = arrowThicknessValue(annotation.thickness);
+    S[keys.dash] = arrowDashValue(annotation.dash);
   }
   syncLegacySelectionState();
 }
@@ -2686,6 +2794,7 @@ function defaultAnnotationText() {
 function annotationColor(type) {
   if (type === 'zone') return '#10b981';
   if (type === 'box') return '#d9b46c';
+  if (type === 'ellipse') return '#d9b46c';
   if (type === 'arrow') return '#d9b46c';
   return '#f3f4f6';
 }
@@ -2831,6 +2940,9 @@ function normalizeAnnotation(annotation) {
       x,
       y,
       r: Math.max(1.5, r),
+      color: annotation.color || annotationColor('zone'),
+      thickness: arrowThicknessValue(annotation.thickness),
+      dash: arrowDashValue(annotation.dash),
     };
   }
   if (annotation.type === 'box') {
@@ -2845,6 +2957,26 @@ function normalizeAnnotation(annotation) {
       y,
       w: Math.max(1.5, Math.abs(w)),
       h: Math.max(1.5, Math.abs(h)),
+      color: annotation.color || annotationColor('box'),
+      thickness: arrowThicknessValue(annotation.thickness),
+      dash: arrowDashValue(annotation.dash),
+    };
+  }
+  if (annotation.type === 'ellipse') {
+    const x = Number(annotation.x);
+    const y = Number(annotation.y);
+    const w = Number(annotation.w);
+    const h = Number(annotation.h);
+    if (![x, y, w, h].every(Number.isFinite)) return null;
+    return {
+      ...base,
+      x,
+      y,
+      w: Math.max(1.5, Math.abs(w)),
+      h: Math.max(1.5, Math.abs(h)),
+      color: annotation.color || annotationColor('ellipse'),
+      thickness: arrowThicknessValue(annotation.thickness),
+      dash: arrowDashValue(annotation.dash),
     };
   }
   return null;
@@ -5770,6 +5902,18 @@ function boxAnnotationCorners(box) {
   };
 }
 
+function ellipseAnnotationBounds(ellipse) {
+  return boxAnnotationBounds(ellipse);
+}
+
+function ellipseAnnotationCorners(ellipse) {
+  return boxAnnotationCorners(ellipse);
+}
+
+function setEllipseFromBounds(ellipse, left, top, right, bottom) {
+  setBoxFromBounds(ellipse, left, top, right, bottom);
+}
+
 function setBoxFromBounds(box, left, top, right, bottom) {
   box.x = Math.min(left, right);
   box.y = Math.min(top, bottom);
@@ -5799,6 +5943,10 @@ function clampBoxAnnotation(box) {
   box.w = Math.min(width, F.XMAX - x);
   box.h = Math.min(height, F.YMAX - y);
   return box;
+}
+
+function clampEllipseAnnotation(ellipse) {
+  return clampBoxAnnotation(ellipse);
 }
 
 function clampNoteAnnotation(note) {
@@ -5976,15 +6124,19 @@ function drawZoneAnnotation(zone, selected = false, preview = false) {
   const p = toC(zone.x, zone.y);
   const radius = Math.max(zone.r * sc, sc * 1.5);
   const opacity = preview ? 1 : (Number(zone.opacity) || 1);
+  const strokeWidth = preview ? Math.max(1.8, arrowStrokeWidthPx(zone.thickness) - 0.3) : arrowStrokeWidthPx(zone.thickness);
+  const dash = shapeDashPattern(zone.dash, strokeWidth);
   ctx.save();
   ctx.globalAlpha = opacity;
-  ctx.fillStyle = preview ? 'rgba(16,185,129,0.1)' : 'rgba(16,185,129,0.14)';
+  ctx.fillStyle = hexToRgba(zone.color || annotationColor('zone'), preview ? 0.08 : 0.12);
   ctx.strokeStyle = selected ? '#fbbf24' : (zone.color || annotationColor('zone'));
-  ctx.lineWidth = selected ? 2.4 : 2;
+  ctx.lineWidth = selected ? strokeWidth + 0.35 : strokeWidth;
+  ctx.setLineDash(dash);
   ctx.beginPath();
   ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
+  ctx.setLineDash([]);
   ctx.restore();
 
   if (selected) {
@@ -6030,15 +6182,19 @@ function drawBoxAnnotation(box, selected = false, preview = false) {
   const bottomRight = toC(bounds.right, bounds.bottom);
   const width = bottomRight.x - topLeft.x;
   const height = bottomRight.y - topLeft.y;
+  const strokeWidth = preview ? Math.max(1.8, arrowStrokeWidthPx(box.thickness) - 0.3) : arrowStrokeWidthPx(box.thickness);
+  const dash = shapeDashPattern(box.dash, strokeWidth);
 
   ctx.save();
   ctx.globalAlpha = opacity;
-  ctx.fillStyle = preview ? 'rgba(217,180,108,0.09)' : 'rgba(217,180,108,0.13)';
+  ctx.fillStyle = hexToRgba(box.color || annotationColor('box'), preview ? 0.09 : 0.13);
   ctx.strokeStyle = selected ? '#fbbf24' : (box.color || annotationColor('box'));
-  ctx.lineWidth = selected ? 2.4 : 2;
+  ctx.lineWidth = selected ? Math.max(2.4, strokeWidth) : strokeWidth;
+  if (dash.length) ctx.setLineDash(dash);
   roundRect(ctx, topLeft.x, topLeft.y, width, height, 14);
   ctx.fill();
   ctx.stroke();
+  ctx.setLineDash([]);
   ctx.restore();
 
   if (selected) {
@@ -6067,11 +6223,66 @@ function drawBoxAnnotation(box, selected = false, preview = false) {
   }
 }
 
+function drawEllipseAnnotation(ellipse, selected = false, preview = false) {
+  const opacity = preview ? 1 : (Number(ellipse.opacity) || 1);
+  const bounds = ellipseAnnotationBounds(ellipse);
+  const topLeft = toC(bounds.left, bounds.top);
+  const bottomRight = toC(bounds.right, bounds.bottom);
+  const width = Math.max(1, bottomRight.x - topLeft.x);
+  const height = Math.max(1, bottomRight.y - topLeft.y);
+  const centerX = topLeft.x + (width / 2);
+  const centerY = topLeft.y + (height / 2);
+  const radiusX = width / 2;
+  const radiusY = height / 2;
+  const strokeWidth = preview ? Math.max(1.8, arrowStrokeWidthPx(ellipse.thickness) - 0.3) : arrowStrokeWidthPx(ellipse.thickness);
+  const dash = shapeDashPattern(ellipse.dash, strokeWidth);
+
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.fillStyle = hexToRgba(ellipse.color || annotationColor('ellipse'), preview ? 0.08 : 0.12);
+  ctx.strokeStyle = selected ? '#fbbf24' : (ellipse.color || annotationColor('ellipse'));
+  ctx.lineWidth = selected ? Math.max(2.4, strokeWidth) : strokeWidth;
+  if (dash.length) ctx.setLineDash(dash);
+  ctx.beginPath();
+  ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  if (selected) {
+    const corners = ellipseAnnotationCorners(ellipse);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(251,191,36,0.24)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 5]);
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, radiusX + 4, radiusY + 4, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    Object.values(corners).forEach(corner => {
+      const handle = toC(corner.x, corner.y);
+      ctx.save();
+      ctx.fillStyle = '#fbbf24';
+      ctx.strokeStyle = '#0b1420';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(handle.x, handle.y, 6.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+}
+
 function renderAnnotations(layer, annotations = S.annotations) {
   annotations.forEach(annotation => {
     const selected = annotations === S.annotations && selectedAnnotationId() === annotation.id;
     if (layer === 'zones' && annotation.type === 'zone') drawZoneAnnotation(annotation, selected);
     if (layer === 'zones' && annotation.type === 'box') drawBoxAnnotation(annotation, selected);
+    if (layer === 'zones' && annotation.type === 'ellipse') drawEllipseAnnotation(annotation, selected);
     if (layer === 'lines' && annotation.type === 'arrow') drawArrowAnnotation(annotation, selected);
     if (layer === 'notes' && annotation.type === 'note') drawNoteAnnotation(annotation, selected);
   });
@@ -6087,6 +6298,9 @@ function renderAnnotationDraft() {
   }
   if (S.annotationDraft.type === 'box' && Number.isFinite(S.annotationDraft.w) && Number.isFinite(S.annotationDraft.h)) {
     drawBoxAnnotation(S.annotationDraft, false, true);
+  }
+  if (S.annotationDraft.type === 'ellipse' && Number.isFinite(S.annotationDraft.w) && Number.isFinite(S.annotationDraft.h)) {
+    drawEllipseAnnotation(S.annotationDraft, false, true);
   }
 }
 
@@ -6334,6 +6548,25 @@ function hitAnnotation(fp) {
         fp.x >= bounds.left - 0.8 && fp.x <= bounds.right + 0.8 &&
         fp.y >= bounds.top - 0.8 && fp.y <= bounds.bottom + 0.8
       ) {
+        return { id: ann.id, part: 'move' };
+      }
+    }
+    if (ann.type === 'ellipse') {
+      const bounds = ellipseAnnotationBounds(ann);
+      const corners = ellipseAnnotationCorners(ann);
+      if (d2(fp, corners.nw) <= 2.8) return { id: ann.id, part: 'nw' };
+      if (d2(fp, corners.ne) <= 2.8) return { id: ann.id, part: 'ne' };
+      if (d2(fp, corners.sw) <= 2.8) return { id: ann.id, part: 'sw' };
+      if (d2(fp, corners.se) <= 2.8) return { id: ann.id, part: 'se' };
+      const centerX = bounds.left + (bounds.width / 2);
+      const centerY = bounds.top + (bounds.height / 2);
+      const rx = Math.max(0.75, bounds.width / 2);
+      const ry = Math.max(0.75, bounds.height / 2);
+      const norm = (((fp.x - centerX) ** 2) / (rx ** 2)) + (((fp.y - centerY) ** 2) / (ry ** 2));
+      if (norm <= 1.15 || (
+        fp.x >= bounds.left - 0.8 && fp.x <= bounds.right + 0.8 &&
+        fp.y >= bounds.top - 0.8 && fp.y <= bounds.bottom + 0.8
+      )) {
         return { id: ann.id, part: 'move' };
       }
     }
@@ -6594,7 +6827,7 @@ function handlePointerDown(e) {
       const ann = findAnnotationById(annHit.id);
       const isNoteResize = ann?.type === 'note' && annHit.part === 'resize';
       if (!isNoteResize) snapshot();
-      const dragOff = ann && (ann.type === 'note' || ann.type === 'zone' || ann.type === 'box')
+      const dragOff = ann && (ann.type === 'note' || ann.type === 'zone' || ann.type === 'box' || ann.type === 'ellipse')
         ? { x: fp.x - ann.x, y: fp.y - ann.y }
         : { x: 0, y: 0 };
       const noteResize = isNoteResize
@@ -6829,13 +7062,16 @@ function handlePointerDown(e) {
       render();
       return;
     }
+    const shapeStyle = currentShapeStyleSelection('zone');
     S.annotationDraft = normalizeAnnotation({
       id: mkAnnotationId(),
       type: 'zone',
       x: clampedFieldPoint.x,
       y: clampedFieldPoint.y,
       r: 0.1,
-      color: annotationColor('zone'),
+      color: shapeStyle.color,
+      thickness: shapeStyle.thickness,
+      dash: shapeStyle.dash,
     });
     try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     setHint('Drag outward to size the highlight zone.');
@@ -6849,6 +7085,7 @@ function handlePointerDown(e) {
       render();
       return;
     }
+    const shapeStyle = currentShapeStyleSelection('box');
     S.annotationDraft = normalizeAnnotation({
       id: mkAnnotationId(),
       type: 'box',
@@ -6856,11 +7093,38 @@ function handlePointerDown(e) {
       y: clampedFieldPoint.y,
       w: 1.5,
       h: 1.5,
-      color: annotationColor('box'),
+      color: shapeStyle.color,
+      thickness: shapeStyle.thickness,
+      dash: shapeStyle.dash,
     });
     S.annotationDraft.anchor = { x: clampedFieldPoint.x, y: clampedFieldPoint.y };
     try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     setHint('Drag outward to size the box highlight.');
+    refreshInteractionUI();
+  }
+
+  else if (S.tool === 'ellipse') {
+    if (!isInsidePitch(fp)) {
+      setHint('Start the ellipse highlight inside the pitch. Switch to MOVE to edit existing highlights.');
+      refreshInteractionUI();
+      render();
+      return;
+    }
+    const shapeStyle = currentShapeStyleSelection('ellipse');
+    S.annotationDraft = normalizeAnnotation({
+      id: mkAnnotationId(),
+      type: 'ellipse',
+      x: clampedFieldPoint.x,
+      y: clampedFieldPoint.y,
+      w: 1.5,
+      h: 1.5,
+      color: shapeStyle.color,
+      thickness: shapeStyle.thickness,
+      dash: shapeStyle.dash,
+    });
+    S.annotationDraft.anchor = { x: clampedFieldPoint.x, y: clampedFieldPoint.y };
+    try { cv.setPointerCapture(e.pointerId); } catch(_) {}
+    setHint('Drag outward to size the ellipse highlight.');
     refreshInteractionUI();
   }
 
@@ -7226,6 +7490,24 @@ function handlePointerMove(e) {
             setBoxFromBounds(ann, left, top, right, bottom);
           }
           clampBoxAnnotation(ann);
+        } else if (ann.type === 'ellipse') {
+          if (S.dragging.part === 'move') {
+            ann.x = fieldPoint.x - (S.dragging.dragOff?.x || 0);
+            ann.y = fieldPoint.y - (S.dragging.dragOff?.y || 0);
+          } else {
+            const base = S.dragging.startSnapshot || ann;
+            const baseBounds = ellipseAnnotationBounds(base);
+            let left = baseBounds.left;
+            let right = baseBounds.right;
+            let top = baseBounds.top;
+            let bottom = baseBounds.bottom;
+            if (S.dragging.part === 'nw' || S.dragging.part === 'sw') left = fieldPoint.x;
+            if (S.dragging.part === 'ne' || S.dragging.part === 'se') right = fieldPoint.x;
+            if (S.dragging.part === 'nw' || S.dragging.part === 'ne') top = fieldPoint.y;
+            if (S.dragging.part === 'sw' || S.dragging.part === 'se') bottom = fieldPoint.y;
+            setEllipseFromBounds(ann, left, top, right, bottom);
+          }
+          clampEllipseAnnotation(ann);
         }
       }
     }
@@ -7242,7 +7524,7 @@ function handlePointerMove(e) {
     return;
   }
 
-  if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box')) {
+  if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box' || S.tool === 'ellipse')) {
     if (S.annotationDraft.type === 'arrow') {
       S.annotationDraft.end = { x: fp.x, y: fp.y };
     }
@@ -7254,6 +7536,11 @@ function handlePointerMove(e) {
       const start = S.annotationDraft.anchor || { x: S.annotationDraft.x, y: S.annotationDraft.y };
       setBoxFromBounds(S.annotationDraft, start.x, start.y, fieldPoint.x, fieldPoint.y);
       clampBoxAnnotation(S.annotationDraft);
+    }
+    if (S.annotationDraft.type === 'ellipse') {
+      const start = S.annotationDraft.anchor || { x: S.annotationDraft.x, y: S.annotationDraft.y };
+      setEllipseFromBounds(S.annotationDraft, start.x, start.y, fieldPoint.x, fieldPoint.y);
+      clampEllipseAnnotation(S.annotationDraft);
     }
     scheduleRender();
     return;
@@ -7358,7 +7645,7 @@ function onPointerUp(e) {
     scheduleRender();
   }
   if (S.drawing && S.tool === 'run') finishDraw();
-  if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box')) finishAnnotationDraft();
+  if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box' || S.tool === 'ellipse')) finishAnnotationDraft();
 }
 cv.addEventListener('pointerup', onPointerUp);
 cv.addEventListener('pointercancel', onPointerUp);
@@ -7448,6 +7735,7 @@ function finishAnnotationDraft() {
   if (!S.annotationDraft) return;
   if (S.annotationDraft.type === 'zone') clampZoneAnnotation(S.annotationDraft);
   if (S.annotationDraft.type === 'box') clampBoxAnnotation(S.annotationDraft);
+  if (S.annotationDraft.type === 'ellipse') clampEllipseAnnotation(S.annotationDraft);
   const rawDraft = cloneData(S.annotationDraft);
   const draft = normalizeAnnotation(S.annotationDraft);
   S.annotationDraft = null;
@@ -7469,6 +7757,12 @@ function finishAnnotationDraft() {
   }
   if (draft.type === 'box' && (Math.abs(Number(rawDraft.w)) < 1.5 || Math.abs(Number(rawDraft.h)) < 1.5)) {
     setHint('Box cancelled. Drag farther to create a highlight.');
+    refreshInteractionUI();
+    render();
+    return;
+  }
+  if (draft.type === 'ellipse' && (Math.abs(Number(rawDraft.w)) < 1.5 || Math.abs(Number(rawDraft.h)) < 1.5)) {
+    setHint('Ellipse cancelled. Drag farther to create a highlight.');
     refreshInteractionUI();
     render();
     return;
@@ -7735,6 +8029,10 @@ function translateAnnotationCopy(sourceAnnotation, dx = ANNOTATION_CLIPBOARD_OFF
     copy.x += dx;
     copy.y += dy;
     clampBoxAnnotation(copy);
+  } else if (copy.type === 'ellipse') {
+    copy.x += dx;
+    copy.y += dy;
+    clampEllipseAnnotation(copy);
   }
   return copy;
 }
@@ -7788,6 +8086,10 @@ function nudgeSelectedAnnotation(dx, dy) {
     ann.x += dx;
     ann.y += dy;
     clampBoxAnnotation(ann);
+  } else if (ann.type === 'ellipse') {
+    ann.x += dx;
+    ann.y += dy;
+    clampEllipseAnnotation(ann);
   } else if (ann.type === 'zone') {
     ann.x += dx;
     ann.y += dy;
@@ -9287,6 +9589,8 @@ MODE_LABELS.note  = 'Note';
 MODE_LABELS.arrow = 'Arrow';
 MODE_LABELS.zone  = 'Circle Highlight';
 
+HINTS.ellipse = 'ELLIPSE - drag to place a highlight ellipse.';
+MODE_LABELS.ellipse = 'Ellipse Highlight';
 HINTS.tele = 'TELESTRATOR - draw live ink that fades in 3 seconds.';
 MODE_LABELS.tele = 'Telestrator';
 
@@ -9473,7 +9777,7 @@ function updateMobileUI() {
   if (mobileAddAttackBtn) mobileAddAttackBtn.disabled = S.atkUsed.size >= 15;
   if (mobileAddDefenceBtn) mobileAddDefenceBtn.disabled = S.defUsed.size >= 15;
 
-  ['move', 'run', 'pass', 'kick', 'tele', 'zone', 'box', 'erase', 'note', 'arrow'].forEach(tool => {
+  ['move', 'run', 'pass', 'kick', 'tele', 'zone', 'box', 'ellipse', 'erase', 'note', 'arrow'].forEach(tool => {
     const btn = document.getElementById(`mq-${tool}`);
     if (btn) btn.classList.toggle('active', S.tool === tool);
   });
@@ -9568,6 +9872,9 @@ function getSelectedSummary() {
     }
     if (ann.type === 'box') {
       return { title: 'Box Highlight', meta: 'Drag inside the box to move it or drag any corner handle to resize it.' };
+    }
+    if (ann.type === 'ellipse') {
+      return { title: 'Ellipse Highlight', meta: 'Drag inside the ellipse to move it or drag any corner handle to resize it.' };
     }
   }
   if (players.length > 1) {
@@ -9764,6 +10071,8 @@ function updateAnnotationPanel() {
     copy.textContent = 'Drag on the field to size a circle highlight for space, support, or defensive gaps.';
   } else if (S.tool === 'box') {
     copy.textContent = 'Drag on the field to size a box highlight for channels, pressure areas, or field zones.';
+  } else if (S.tool === 'ellipse') {
+    copy.textContent = 'Drag on the field to size an ellipse highlight for space, pressure, or shape.';
   } else if (S.tool === 'kick') {
     copy.textContent = 'Secondary tool: click the kicker, then the target.';
   } else if (S.tool === 'erase') {
@@ -9865,6 +10174,8 @@ const TOOL_GUIDE_CONTENT = {
   erase: { icon: '✕', desc: 'Tap any player, ball, path, or annotation to remove it.' },
 };
 
+TOOL_GUIDE_CONTENT.ellipse = { icon: '()', desc: 'Drag on the field to draw an ellipse highlight area.' };
+
 function updateSmartPanel() {
   const guide = TOOL_GUIDE_CONTENT[S.tool] || TOOL_GUIDE_CONTENT.run || TOOL_GUIDE_CONTENT.move;
   const modeEl    = document.getElementById('spModeLabel');
@@ -9896,7 +10207,7 @@ function updateSmartPanel() {
   if (kickStep1) kickStep1.classList.toggle('active', isKick && !activeWorkflowPlayerId());
   if (kickStep2) kickStep2.classList.toggle('active', isKick && !!activeWorkflowPlayerId());
 
-  const isAnnotationTool = S.tool === 'note' || S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box';
+  const isAnnotationTool = S.tool === 'note' || S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box' || S.tool === 'ellipse';
   const defaultState = document.getElementById('spDefaultState');
   const hasSelection = !!S.selectedPlayerId || !!S.selectedGroupId || isBallSelected() || !!selectedAnnotationId();
   const showDefault = !hasSelection && !isKick;
@@ -10029,6 +10340,10 @@ function setAnnotationColor(color) {
     applyArrowStyleSelection({ color });
     return;
   }
+  if (isShapeAnnotationType(ann?.type) || (!ann && isShapeAnnotationType(S.tool))) {
+    applyShapeStyleSelection({ color });
+    return;
+  }
   if (ann) {
     snapshot();
     ann.color = color;
@@ -10055,6 +10370,18 @@ function setArrowDash(dash) {
 }
 window.setArrowDash = setArrowDash;
 
+function setShapeThickness(thickness) {
+  if (!isShapeAnnotationType(S.tool) && !isShapeAnnotationType(selectedAnnotation()?.type)) return;
+  applyShapeStyleSelection({ thickness });
+}
+window.setShapeThickness = setShapeThickness;
+
+function setShapeDash(dash) {
+  if (!isShapeAnnotationType(S.tool) && !isShapeAnnotationType(selectedAnnotation()?.type)) return;
+  applyShapeStyleSelection({ dash });
+}
+window.setShapeDash = setShapeDash;
+
 function refreshInteractionUI() {
   persistCurrentStep();
   updateSelInfo();
@@ -10067,6 +10394,17 @@ function refreshInteractionUI() {
   updateSmartPanel();
   syncHistoryControls();
   scheduleSequenceDockPosition();
+}
+
+function scrollCompactToolbarToolIntoView(tool = S.tool) {
+  const toolbar = document.getElementById('compactToolbar');
+  const btn = toolbar?.querySelector(`.tool-btn[data-tool="${tool}"]`);
+  if (!toolbar || !btn) return;
+  requestAnimationFrame(() => {
+    const targetLeft = Math.max(0, btn.offsetLeft - Math.max(24, (toolbar.clientWidth - btn.offsetWidth) / 2));
+    const maxScroll = Math.max(0, toolbar.scrollWidth - toolbar.clientWidth);
+    toolbar.scrollLeft = clamp(targetLeft, 0, maxScroll);
+  });
 }
 
 function setTool(t) {
@@ -10091,7 +10429,7 @@ function setTool(t) {
   if (switchingAwayFromRun) cancelArmedRun();
   S.tool = t;
   if (t !== 'run')           S.drawing = null;
-  if (t !== 'arrow' && t !== 'zone' && t !== 'box') S.annotationDraft = null;
+  if (t !== 'arrow' && t !== 'zone' && t !== 'box' && t !== 'ellipse') S.annotationDraft = null;
   if (t !== 'tele') teleDrawing = null;
   if (t !== 'pass' && t !== 'kick') clearPassKickState();
   if (t !== 'run') clearArmedRunState();
@@ -10101,6 +10439,7 @@ function setTool(t) {
   S.selectedPassIdx = null;
   document.querySelectorAll('[data-tool]').forEach(b => b.classList.remove('active'));
   document.querySelectorAll(`[data-tool="${t}"]`).forEach(b => b.classList.add('active'));
+  scrollCompactToolbarToolIntoView(t);
   cv.style.cursor = t === 'move' ? 'default' : 'crosshair';
   if (t === 'run' && S.selectedPlayerId !== null && !selectedGroup()) {
     const selectedPlayer = S.players.find(player => player.id === S.selectedPlayerId) || null;
@@ -10501,6 +10840,22 @@ function updateSelInfo() {
     document.getElementById('spArrowStyleControls'),
     document.getElementById('mobileArrowStyleControls'),
   ].filter(Boolean);
+  const shapeToolCards = [
+    document.getElementById('spShapeToolCard'),
+    document.getElementById('mobileShapeToolCard'),
+  ].filter(Boolean);
+  const shapeToolCopies = [
+    document.getElementById('spShapeToolCopy'),
+    document.getElementById('mobileShapeToolCopy'),
+  ].filter(Boolean);
+  const shapeColorPickers = [
+    document.getElementById('spShapeColorPicker'),
+    document.getElementById('mobileShapeColorPicker'),
+  ].filter(Boolean);
+  const shapeStyleControls = [
+    document.getElementById('spShapeStyleControls'),
+    document.getElementById('mobileShapeStyleControls'),
+  ].filter(Boolean);
   const editWrap = document.getElementById('selEditWrap');
   const editLabel = document.getElementById('selEditLabel');
   const noteInput = document.getElementById('selNoteInput');
@@ -10513,7 +10868,10 @@ function updateSelInfo() {
     : null;
   const playerGroup = !group && selectedPlayer ? groupForPlayer(selectedPlayer) : null;
   const arrowStyle = currentArrowStyleSelection();
+  const activeShapeType = isShapeAnnotationType(ann?.type) ? ann.type : (isShapeAnnotationType(S.tool) ? S.tool : null);
+  const shapeStyle = currentShapeStyleSelection(activeShapeType);
   const arrowStyleVisible = S.tool === 'arrow' || ann?.type === 'arrow';
+  const shapeStyleVisible = !!activeShapeType;
   document.getElementById('selName').textContent = summary.title;
   if (meta) meta.textContent = summary.meta;
   box.classList.toggle('visible', summary.title !== '-');
@@ -10545,7 +10903,7 @@ function updateSelInfo() {
   }
   const colorPicker = document.getElementById('spColorPicker');
   if (colorPicker) {
-    const selectionColorVisible = (!!ann && ann.type !== 'arrow') || !!group || !!selectedPlayer;
+    const selectionColorVisible = (!!ann && ann.type !== 'arrow' && !isShapeAnnotationType(ann.type)) || !!group || !!selectedPlayer;
     colorPicker.hidden = !selectionColorVisible;
     if (selectionColorVisible) {
       const currentColor = ann
@@ -10569,10 +10927,23 @@ function updateSelInfo() {
   arrowColorPickers.forEach(picker => {
     if (arrowStyleVisible) syncColorSwatches(picker, arrowStyle.color);
   });
+  shapeToolCards.forEach(card => { card.hidden = !shapeStyleVisible; });
+  shapeToolCopies.forEach(copy => {
+    copy.textContent = isShapeAnnotationType(ann?.type)
+      ? 'Selected shape updates live as you change style.'
+      : 'Choose the default style before drawing.';
+  });
+  shapeStyleControls.forEach(controlSet => {
+    controlSet.hidden = !shapeStyleVisible;
+    syncShapeStyleButtons(controlSet, shapeStyle);
+  });
+  shapeColorPickers.forEach(picker => {
+    if (shapeStyleVisible) syncColorSwatches(picker, shapeStyle.color);
+  });
   const shapeActions = document.getElementById('spShapeActions');
   const shapeOpacity = document.getElementById('shapeOpacity');
   if (shapeActions) {
-    shapeActions.hidden = !ann;
+    shapeActions.hidden = !ann || ann.type === 'arrow';
     if (ann && shapeOpacity) {
       shapeOpacity.value = String(Number(ann.opacity) || 1);
     }
@@ -11081,7 +11452,7 @@ document.addEventListener('pointerdown', e => {
 document.getElementById('mobileMoreDrawer')?.addEventListener('click', (e) => {
   const actionBtn = e.target.closest('.mob-more-btn');
   if (!actionBtn || actionBtn.disabled) return;
-  if (actionBtn.dataset.tool === 'arrow') return;
+  if (actionBtn.dataset.tool === 'arrow' || actionBtn.dataset.tool === 'ellipse') return;
   setTimeout(() => setMobileMoreDrawerOpen(false), 0);
 });
 

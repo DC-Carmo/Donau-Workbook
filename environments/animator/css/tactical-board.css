@@ -3527,6 +3527,9 @@ html, body {
 .sp-arrow-tool-card {
   gap: 10px;
 }
+.sp-shape-tool-card {
+  gap: 10px;
+}
 .sp-arrow-tool-head {
   display: flex;
   flex-direction: column;
