@@ -885,6 +885,7 @@ const IMPORT_MAX_ID_LENGTH = 120;
 const PHONE_UI_ACTION_GUARD_MS = 300;
 const PHONE_DATA_ACTION_GUARD_MS = 400;
 let lastPhoneAddAction = { team: null, at: -Infinity };
+let playerNumberPickerState = { team: null, anchorId: null };
 let phoneMoveToastTimer = null;
 let phoneMoveToastShown = false;
 let phoneDeleteConfirmTimers = { phase: null, move: null };
@@ -8038,6 +8039,141 @@ function addPlayerByNum(num, team) {
   render();
 }
 
+function selectPalettePlayer(num, team) {
+  const existing = S.players.find((player) => player.num === num && player.team === team) || null;
+  if (!existing) return false;
+  setTool('move');
+  clearPassKickState();
+  selectPlayer(existing.id);
+  S.ballAssignCandidate = existing.id;
+  setHint(`${team === 'A' ? 'Attack' : 'Defence'} #${num} selected.`);
+  refreshInteractionUI();
+  render();
+  return true;
+}
+
+function syncPlayerNumberPickerButtons() {
+  ['mobileAddAttackPickerBtn', 'mobileAddDefencePickerBtn', 'mobileRailAddAttackPickerBtn', 'mobileRailAddDefencePickerBtn'].forEach((id) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    const isActive = !document.getElementById('playerNumberPopover')?.hidden && playerNumberPickerState.anchorId === id;
+    btn.setAttribute('aria-expanded', isActive ? 'true' : 'false');
+    btn.classList.toggle('active', isActive);
+  });
+}
+
+function closePlayerNumberPicker() {
+  const popover = document.getElementById('playerNumberPopover');
+  if (!popover || popover.hidden) return;
+  popover.hidden = true;
+  popover.setAttribute('aria-hidden', 'true');
+  playerNumberPickerState = { team: null, anchorId: null };
+  syncPlayerNumberPickerButtons();
+}
+
+function positionPlayerNumberPicker() {
+  const popover = document.getElementById('playerNumberPopover');
+  const anchor = playerNumberPickerState.anchorId ? document.getElementById(playerNumberPickerState.anchorId) : null;
+  if (!popover || popover.hidden || !anchor || !anchor.offsetParent) {
+    closePlayerNumberPicker();
+    return;
+  }
+  const rect = anchor.getBoundingClientRect();
+  const popoverWidth = popover.offsetWidth;
+  const popoverHeight = popover.offsetHeight;
+  const margin = 8;
+  let left = rect.left + (rect.width / 2) - (popoverWidth / 2);
+  left = clamp(left, margin, Math.max(margin, window.innerWidth - popoverWidth - margin));
+  let top = rect.top - popoverHeight - 10;
+  let below = false;
+  if (top < margin) {
+    top = rect.bottom + 10;
+    below = true;
+  }
+  top = clamp(top, margin, Math.max(margin, window.innerHeight - popoverHeight - margin));
+  popover.style.left = `${left}px`;
+  popover.style.top = `${top}px`;
+  popover.dataset.placement = below ? 'below' : 'above';
+}
+
+function renderPlayerNumberPicker() {
+  const popover = document.getElementById('playerNumberPopover');
+  const grid = document.getElementById('playerNumberPopoverGrid');
+  const title = document.getElementById('playerNumberPopoverTitle');
+  const meta = document.getElementById('playerNumberPopoverMeta');
+  const team = playerNumberPickerState.team;
+  if (!popover || !grid || !team) return;
+  const used = team === 'A' ? S.atkUsed : S.defUsed;
+  title.textContent = `${team === 'A' ? 'Attack' : 'Defence'} Numbers`;
+  meta.textContent = 'Pick a number to place, or jump back to one already on the board.';
+  grid.innerHTML = '';
+  for (let n = 1; n <= 15; n++) {
+    const existing = S.players.find((player) => player.num === n && player.team === team) || null;
+    const isSelected = !!existing && isPlayerSelected(existing.id);
+    const isUsed = used.has(n);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `player-number-popover-btn ${team === 'A' ? 'atk' : 'def'}${isUsed ? ' is-used' : ''}${isSelected ? ' is-selected' : ''}`;
+    btn.textContent = String(n);
+    btn.setAttribute('role', 'option');
+    btn.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+    btn.dataset.used = isUsed ? 'true' : 'false';
+    btn.title = isUsed
+      ? `Select ${team === 'A' ? 'Attack' : 'Defence'} #${n}`
+      : `Add ${team === 'A' ? 'Attack' : 'Defence'} #${n}`;
+    btn.addEventListener('pointerdown', (event) => {
+      event.stopPropagation();
+    });
+    btn.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const targetTab = team === 'A' ? 'atk' : 'def';
+      if (palTab !== targetTab) setTab(targetTab);
+      if (existing) {
+        setTimeout(() => {
+          closePlayerNumberPicker();
+          setTimeout(() => {
+            selectPalettePlayer(n, team);
+          }, 60);
+        }, 0);
+        return;
+      }
+      if (!claimPhoneDataAction(`add-player:${team}:${n}`)) return;
+      addPlayerByNum(n, team);
+      setTimeout(() => {
+        closePlayerNumberPicker();
+        setTimeout(() => {
+          const added = S.players.find((player) => player.num === n && player.team === team) || null;
+          if (!added) return;
+          selectPlayer(added.id);
+          refreshInteractionUI();
+          render();
+        }, 60);
+      }, 0);
+    };
+    grid.appendChild(btn);
+  }
+  popover.hidden = false;
+  popover.setAttribute('aria-hidden', 'false');
+  syncPlayerNumberPickerButtons();
+  positionPlayerNumberPicker();
+}
+
+function togglePlayerNumberPicker(team, anchorId, event) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  const popover = document.getElementById('playerNumberPopover');
+  if (!popover) return;
+  const isSameAnchor = !popover.hidden && playerNumberPickerState.team === team && playerNumberPickerState.anchorId === anchorId;
+  if (isSameAnchor) {
+    closePlayerNumberPicker();
+    return;
+  }
+  playerNumberPickerState = { team, anchorId };
+  renderPlayerNumberPicker();
+}
+window.togglePlayerNumberPicker = togglePlayerNumberPicker;
+
 function togglePalettePlayer(num, team, event = null) {
   const existing = S.players.find((player) => player.num === num && player.team === team) || null;
   const isMultiSelect = !!(event?.ctrlKey || event?.metaKey);
@@ -10148,9 +10284,13 @@ function updatePaletteSummary() {
   const available = document.getElementById('palAvailable');
   const ballStatus = document.getElementById('palBallStatus');
   const palCopy = document.getElementById('palCopy');
+  const attackPlayerCount = document.getElementById('attackPlayerCount');
+  const defencePlayerCount = document.getElementById('defencePlayerCount');
 
   if (atkTabCount) atkTabCount.textContent = `${atkCount} / 15`;
   if (defTabCount) defTabCount.textContent = `${defCount} / 15`;
+  if (attackPlayerCount) attackPlayerCount.textContent = `${atkCount} / 15`;
+  if (defencePlayerCount) defencePlayerCount.textContent = `${defCount} / 15`;
   if (onBoard) onBoard.textContent = `${activeCount} / 15`;
   if (available) available.textContent = String(15 - activeCount);
   if (ballStatus) {
@@ -11224,32 +11364,9 @@ function setTab(tab) {
 
 function rebuildPalette() {
   const grid = document.getElementById('palGrid');
-  const attackRow = document.getElementById('attackPlayerRow');
-  const defenceRow = document.getElementById('defencePlayerRow');
   if (grid) grid.innerHTML = '';
-  if (attackRow) attackRow.innerHTML = '';
-  if (defenceRow) defenceRow.innerHTML = '';
-
-  [
-    { key: 'atk', team: 'A', used: S.atkUsed, target: attackRow },
-    { key: 'def', team: 'D', used: S.defUsed, target: defenceRow },
-  ].forEach(({ key, team, used, target }) => {
-    if (!target) return;
-    for (let n = 1; n <= 15; n++) {
-      const existing = S.players.find((player) => player.num === n && player.team === team) || null;
-      const isSelected = !!existing && isPlayerSelected(existing.id);
-      const btn = document.createElement('button');
-      btn.className = `player-token ${key}${used.has(n) ? ' on' : ''}${isSelected ? ' active' : ''}`;
-      btn.textContent = n;
-      btn.title = used.has(n)
-        ? `${isSelected ? 'Deselect' : 'Select'} ${team==='A'?'Attack':'Defence'} #${n}`
-        : `Add ${team==='A'?'Attack':'Defence'} #${n}`;
-      btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
-      btn.onclick = (event) => togglePalettePlayer(n, team, event);
-      target.appendChild(btn);
-    }
-  });
   updatePaletteSummary();
+  if (!document.getElementById('playerNumberPopover')?.hidden) renderPlayerNumberPicker();
 }
 
 function makeBoardData(nameOverride) {
@@ -11545,6 +11662,10 @@ document.addEventListener('keydown', e => {
   if (k === 'arrowright') { e.preventDefault(); goToPhase(GamePlan.currentPhase + 1); return; }
   if (k==='escape')     {
     e.preventDefault();
+    if (!document.getElementById('playerNumberPopover')?.hidden) {
+      closePlayerNumberPicker();
+      return;
+    }
     if (document.getElementById('mobileMoreDrawer')?.classList.contains('open')) {
       setMobileMoreDrawerOpen(false);
       return;
@@ -11660,6 +11781,21 @@ document.addEventListener('pointerdown', e => {
     render();
   }
 });
+document.addEventListener('pointerdown', (e) => {
+  const popover = document.getElementById('playerNumberPopover');
+  if (!popover || popover.hidden) return;
+  const activeAnchor = playerNumberPickerState.anchorId ? document.getElementById(playerNumberPickerState.anchorId) : null;
+  if (popover.contains(e.target) || activeAnchor?.contains(e.target)) return;
+  closePlayerNumberPicker();
+}, { capture: true });
+window.addEventListener('resize', () => {
+  if (document.getElementById('playerNumberPopover')?.hidden) return;
+  positionPlayerNumberPicker();
+});
+document.addEventListener('scroll', () => {
+  if (document.getElementById('playerNumberPopover')?.hidden) return;
+  positionPlayerNumberPicker();
+}, true);
 document.getElementById('mobileMoreDrawer')?.addEventListener('click', (e) => {
   const actionBtn = e.target.closest('.mob-more-btn');
   if (!actionBtn || actionBtn.disabled) return;
@@ -11735,6 +11871,8 @@ function bindSinglePhoneButton(id, handler) {
 
 bindSinglePhoneButton('mobileRailAddAttackBtn', () => addNextAvailablePlayer('A'));
 bindSinglePhoneButton('mobileRailAddDefenceBtn', () => addNextAvailablePlayer('D'));
+bindSinglePhoneButton('mobileRailAddAttackPickerBtn', () => togglePlayerNumberPicker('A', 'mobileRailAddAttackPickerBtn'));
+bindSinglePhoneButton('mobileRailAddDefencePickerBtn', () => togglePlayerNumberPicker('D', 'mobileRailAddDefencePickerBtn'));
 bindSinglePhoneButton('mobileStepBtn', () => addStep());
 bindSinglePhoneButton('mobileRailUndoBtn', () => undo());
 bindSinglePhoneButton('mobMoreBtn', () => toggleMobileMoreDrawer());

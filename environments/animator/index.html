@@ -625,8 +625,14 @@
              vertical rail only in phone landscape, where these same two
              groups render as fixed side columns in the pitch letterboxing. -->
         <div id="mobileRailLeft" class="mob-rail">
-          <button class="mob-tool-btn" id="mobileRailAddAttackBtn" type="button" onclick="addNextAvailablePlayer('A')">+ ATTACK</button>
-          <button class="mob-tool-btn" id="mobileRailAddDefenceBtn" type="button" onclick="addNextAvailablePlayer('D')">+ DEFENCE</button>
+          <div class="player-add-combo player-add-combo-mobile" data-team="A">
+            <button class="mob-tool-btn player-add-main" id="mobileRailAddAttackBtn" type="button" onclick="addNextAvailablePlayer('A')">+ ATTACK</button>
+            <button class="mob-tool-btn player-add-caret" id="mobileRailAddAttackPickerBtn" type="button" onclick="togglePlayerNumberPicker('A','mobileRailAddAttackPickerBtn', event)" aria-label="Choose a specific attack number" aria-expanded="false" aria-controls="playerNumberPopover">&#9662;</button>
+          </div>
+          <div class="player-add-combo player-add-combo-mobile" data-team="D">
+            <button class="mob-tool-btn player-add-main" id="mobileRailAddDefenceBtn" type="button" onclick="addNextAvailablePlayer('D')">+ DEFENCE</button>
+            <button class="mob-tool-btn player-add-caret" id="mobileRailAddDefencePickerBtn" type="button" onclick="togglePlayerNumberPicker('D','mobileRailAddDefencePickerBtn', event)" aria-label="Choose a specific defence number" aria-expanded="false" aria-controls="playerNumberPopover">&#9662;</button>
+          </div>
         </div>
         <div id="mobileRailRight" class="mob-rail">
           <button class="mob-tool-btn" id="mobileStepBtn" type="button" onclick="addStep()">+ MOVE</button>
@@ -640,8 +646,14 @@
 
         <!-- Group A: Players & objects -->
         <div class="tb-group tb-group-a">
-          <button class="board-pill action-btn" id="mobileAddAttackBtn" onclick="addNextAvailablePlayer('A')" data-label-desktop="+ ATTACK" data-label-mobile="+ATK">+ ATTACK</button>
-          <button class="board-pill action-btn" id="mobileAddDefenceBtn" onclick="addNextAvailablePlayer('D')" data-label-desktop="+ DEFENCE" data-label-mobile="+DEF">+ DEFENCE</button>
+          <div class="player-add-combo" data-team="A">
+            <button class="board-pill action-btn player-add-main" id="mobileAddAttackBtn" onclick="addNextAvailablePlayer('A')" data-label-desktop="+ ATTACK" data-label-mobile="+ATK">+ ATTACK</button>
+            <button class="board-pill action-btn player-add-caret" id="mobileAddAttackPickerBtn" type="button" onclick="togglePlayerNumberPicker('A','mobileAddAttackPickerBtn', event)" aria-label="Choose a specific attack number" aria-expanded="false" aria-controls="playerNumberPopover">&#9662;</button>
+          </div>
+          <div class="player-add-combo" data-team="D">
+            <button class="board-pill action-btn player-add-main" id="mobileAddDefenceBtn" onclick="addNextAvailablePlayer('D')" data-label-desktop="+ DEFENCE" data-label-mobile="+DEF">+ DEFENCE</button>
+            <button class="board-pill action-btn player-add-caret" id="mobileAddDefencePickerBtn" type="button" onclick="togglePlayerNumberPicker('D','mobileAddDefencePickerBtn', event)" aria-label="Choose a specific defence number" aria-expanded="false" aria-controls="playerNumberPopover">&#9662;</button>
+          </div>
           <button class="board-pill ball-btn" id="mobileBallBtn" onclick="addBall()" data-label-desktop="BALL" data-label-mobile="BALL">BALL</button>
         </div>
 
@@ -691,17 +703,25 @@
       </div>
 
       <div id="playerSelector">
-        <div class="player-lane player-lane-atk">
-          <div class="player-lane-label">ATK</div>
-          <div class="player-token-row" id="attackPlayerRow" aria-label="Attack players"></div>
+        <div class="player-summary-chip atk">
+          <span class="player-summary-label">ATK</span>
+          <strong id="attackPlayerCount">0 / 15</strong>
         </div>
-        <div class="player-lane-divider" aria-hidden="true"></div>
-        <div class="player-lane player-lane-def">
-          <div class="player-lane-label">DEF</div>
-          <div class="player-token-row" id="defencePlayerRow" aria-label="Defence players"></div>
+        <div class="player-summary-copy" id="playerSelectorCopy">Plain click adds the next player. Use &#9662; to choose a specific number.</div>
+        <div class="player-summary-chip def">
+          <span class="player-summary-label">DEF</span>
+          <strong id="defencePlayerCount">0 / 15</strong>
         </div>
       </div>
     </div>
+  </div>
+
+  <div id="playerNumberPopover" class="player-number-popover" hidden aria-hidden="true">
+    <div class="player-number-popover-head">
+      <span id="playerNumberPopoverTitle">Attack Numbers</span>
+      <span id="playerNumberPopoverMeta">Pick a number to place or select.</span>
+    </div>
+    <div id="playerNumberPopoverGrid" class="player-number-popover-grid" role="listbox" aria-label="Available player numbers"></div>
   </div>
 
   <div id="supportDock" aria-hidden="true">
