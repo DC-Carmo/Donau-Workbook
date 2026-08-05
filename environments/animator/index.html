@@ -389,68 +389,121 @@
 
         <!-- Floating delete/deselect bar — appears when annotation is selected -->
         <div id="floatingSelectionToolbar" class="floating-selection-toolbar" hidden data-placement="top" data-kind="">
-          <div class="floating-selection-toolbar-scroll">
-            <div class="floating-selection-toolbar-group floating-selection-toolbar-label">
+          <div class="floating-selection-toolbar-row">
+            <div class="floating-selection-toolbar-item floating-selection-toolbar-label">
               <span class="floating-selection-toolbar-kicker">Selected</span>
               <span class="floating-selection-toolbar-title" id="floatingSelectionToolbarTitle">Arrow</span>
             </div>
-            <div class="floating-selection-toolbar-group" id="floatingToolbarColorGroup">
-              <span class="floating-selection-toolbar-group-label">Color</span>
-              <div class="sp-color-swatches">
-                <button class="sp-color-swatch" data-color="#ffffff" style="--sw:#ffffff" onclick="setAnnotationColor('#ffffff')" aria-label="White"></button>
-                <button class="sp-color-swatch" data-color="#e3b23c" style="--sw:#e3b23c" onclick="setAnnotationColor('#e3b23c')" aria-label="Gold"></button>
-                <button class="sp-color-swatch" data-color="#10b981" style="--sw:#10b981" onclick="setAnnotationColor('#10b981')" aria-label="Green"></button>
-                <button class="sp-color-swatch" data-color="#ef4444" style="--sw:#ef4444" onclick="setAnnotationColor('#ef4444')" aria-label="Red"></button>
-                <button class="sp-color-swatch" data-color="#3b82f6" style="--sw:#3b82f6" onclick="setAnnotationColor('#3b82f6')" aria-label="Blue"></button>
-                <button class="sp-color-swatch" data-color="#f97316" style="--sw:#f97316" onclick="setAnnotationColor('#f97316')" aria-label="Orange"></button>
+
+            <div class="floating-selection-toolbar-item" id="floatingToolbarColorItem">
+              <button id="floatingToolbarColorBtn" class="floating-selection-toolbar-trigger" type="button" data-flyout-target="color" aria-expanded="false" aria-controls="floatingToolbarColorFlyout" onclick="toggleFloatingToolbarFlyout('color', event)">
+                <span class="floating-toolbar-trigger-kicker">Color</span>
+                <span class="floating-toolbar-trigger-main">
+                  <span id="floatingToolbarColorSwatch" class="floating-toolbar-color-chip" aria-hidden="true"></span>
+                  <span id="floatingToolbarColorValue" class="floating-toolbar-trigger-value">Gold</span>
+                </span>
+              </button>
+              <div id="floatingToolbarColorFlyout" class="floating-selection-toolbar-flyout" data-flyout="color" hidden>
+                <div class="sp-color-swatches">
+                  <button class="sp-color-swatch" data-color="#ffffff" style="--sw:#ffffff" onclick="setFloatingToolbarColor('#ffffff')" aria-label="White"></button>
+                  <button class="sp-color-swatch" data-color="#e3b23c" style="--sw:#e3b23c" onclick="setFloatingToolbarColor('#e3b23c')" aria-label="Gold"></button>
+                  <button class="sp-color-swatch" data-color="#10b981" style="--sw:#10b981" onclick="setFloatingToolbarColor('#10b981')" aria-label="Green"></button>
+                  <button class="sp-color-swatch" data-color="#ef4444" style="--sw:#ef4444" onclick="setFloatingToolbarColor('#ef4444')" aria-label="Red"></button>
+                  <button class="sp-color-swatch" data-color="#3b82f6" style="--sw:#3b82f6" onclick="setFloatingToolbarColor('#3b82f6')" aria-label="Blue"></button>
+                  <button class="sp-color-swatch" data-color="#f97316" style="--sw:#f97316" onclick="setFloatingToolbarColor('#f97316')" aria-label="Orange"></button>
+                </div>
               </div>
             </div>
-            <div class="floating-selection-toolbar-group" id="floatingToolbarArrowDashGroup" hidden>
-              <span class="floating-selection-toolbar-group-label">Line</span>
-              <div class="sp-note-align-buttons sp-arrow-style-buttons-2" role="group" aria-label="Floating arrow line style">
-                <button class="sp-btn sp-note-align-btn" data-arrow-dash="solid" type="button" onclick="setArrowDash('solid')">Solid</button>
-                <button class="sp-btn sp-note-align-btn" data-arrow-dash="dashed" type="button" onclick="setArrowDash('dashed')">Dashed</button>
+
+            <div class="floating-selection-toolbar-item" id="floatingToolbarLineItem" hidden>
+              <button id="floatingToolbarLineBtn" class="floating-selection-toolbar-trigger" type="button" data-flyout-target="line" aria-expanded="false" aria-controls="floatingToolbarLineFlyout" onclick="toggleFloatingToolbarFlyout('line', event)">
+                <span class="floating-toolbar-trigger-kicker">Line</span>
+                <span class="floating-toolbar-trigger-main">
+                  <span id="floatingToolbarLinePreview" class="floating-toolbar-line-preview" data-line="solid" aria-hidden="true"></span>
+                  <span id="floatingToolbarLineValue" class="floating-toolbar-trigger-value">Solid</span>
+                </span>
+              </button>
+              <div id="floatingToolbarLineFlyout" class="floating-selection-toolbar-flyout" data-flyout="line" hidden>
+                <div class="floating-selection-toolbar-choice-list" role="group" aria-label="Floating line style">
+                  <button class="sp-btn sp-note-align-btn floating-selection-toolbar-choice" data-arrow-dash="solid" data-shape-dash="solid" type="button" onclick="setFloatingToolbarLineStyle('solid')">
+                    <span class="floating-toolbar-line-preview" data-line="solid" aria-hidden="true"></span>
+                    <span>Solid</span>
+                  </button>
+                  <button class="sp-btn sp-note-align-btn floating-selection-toolbar-choice" data-arrow-dash="dashed" data-shape-dash="dashed" type="button" onclick="setFloatingToolbarLineStyle('dashed')">
+                    <span class="floating-toolbar-line-preview" data-line="dashed" aria-hidden="true"></span>
+                    <span>Dashed</span>
+                  </button>
+                </div>
               </div>
             </div>
-            <div class="floating-selection-toolbar-group" id="floatingToolbarArrowThicknessGroup" hidden>
-              <span class="floating-selection-toolbar-group-label">Weight</span>
-              <div class="sp-note-align-buttons" role="group" aria-label="Floating arrow thickness">
-                <button class="sp-btn sp-note-align-btn" data-arrow-thickness="thin" type="button" onclick="setArrowThickness('thin')">Thin</button>
-                <button class="sp-btn sp-note-align-btn" data-arrow-thickness="normal" type="button" onclick="setArrowThickness('normal')">Normal</button>
-                <button class="sp-btn sp-note-align-btn" data-arrow-thickness="thick" type="button" onclick="setArrowThickness('thick')">Thick</button>
+
+            <div class="floating-selection-toolbar-item" id="floatingToolbarWeightItem" hidden>
+              <button id="floatingToolbarWeightBtn" class="floating-selection-toolbar-trigger" type="button" data-flyout-target="weight" aria-expanded="false" aria-controls="floatingToolbarWeightFlyout" onclick="toggleFloatingToolbarFlyout('weight', event)">
+                <span class="floating-toolbar-trigger-kicker">Weight</span>
+                <span class="floating-toolbar-trigger-main">
+                  <span id="floatingToolbarWeightPreview" class="floating-toolbar-weight-preview" data-weight="normal" aria-hidden="true">
+                    <span></span><span></span><span></span>
+                  </span>
+                  <span id="floatingToolbarWeightValue" class="floating-toolbar-trigger-value">Normal</span>
+                </span>
+              </button>
+              <div id="floatingToolbarWeightFlyout" class="floating-selection-toolbar-flyout" data-flyout="weight" hidden>
+                <div class="floating-selection-toolbar-choice-list" role="group" aria-label="Floating weight">
+                  <button class="sp-btn sp-note-align-btn floating-selection-toolbar-choice" data-arrow-thickness="thin" data-shape-thickness="thin" type="button" onclick="setFloatingToolbarWeight('thin')">
+                    <span class="floating-toolbar-weight-preview" data-weight="thin" aria-hidden="true"><span></span><span></span><span></span></span>
+                    <span>Thin</span>
+                  </button>
+                  <button class="sp-btn sp-note-align-btn floating-selection-toolbar-choice" data-arrow-thickness="normal" data-shape-thickness="normal" type="button" onclick="setFloatingToolbarWeight('normal')">
+                    <span class="floating-toolbar-weight-preview" data-weight="normal" aria-hidden="true"><span></span><span></span><span></span></span>
+                    <span>Normal</span>
+                  </button>
+                  <button class="sp-btn sp-note-align-btn floating-selection-toolbar-choice" data-arrow-thickness="thick" data-shape-thickness="thick" type="button" onclick="setFloatingToolbarWeight('thick')">
+                    <span class="floating-toolbar-weight-preview" data-weight="thick" aria-hidden="true"><span></span><span></span><span></span></span>
+                    <span>Thick</span>
+                  </button>
+                </div>
               </div>
             </div>
-            <div class="floating-selection-toolbar-group" id="floatingToolbarShapeDashGroup" hidden>
-              <span class="floating-selection-toolbar-group-label">Line</span>
-              <div class="sp-note-align-buttons sp-arrow-style-buttons-2" role="group" aria-label="Floating shape line style">
-                <button class="sp-btn sp-note-align-btn" data-shape-dash="solid" type="button" onclick="setShapeDash('solid')">Solid</button>
-                <button class="sp-btn sp-note-align-btn" data-shape-dash="dashed" type="button" onclick="setShapeDash('dashed')">Dashed</button>
+
+            <div class="floating-selection-toolbar-item" id="floatingToolbarAlignItem" hidden>
+              <button id="floatingToolbarAlignBtn" class="floating-selection-toolbar-trigger" type="button" data-flyout-target="align" aria-expanded="false" aria-controls="floatingToolbarAlignFlyout" onclick="toggleFloatingToolbarFlyout('align', event)">
+                <span class="floating-toolbar-trigger-kicker">Align</span>
+                <span class="floating-toolbar-trigger-main">
+                  <span id="floatingToolbarAlignValue" class="floating-toolbar-align-preview">L</span>
+                </span>
+              </button>
+              <div id="floatingToolbarAlignFlyout" class="floating-selection-toolbar-flyout" data-flyout="align" hidden>
+                <div class="floating-selection-toolbar-choice-list floating-selection-toolbar-align-list" role="group" aria-label="Floating note alignment">
+                  <button class="sp-btn sp-note-align-btn floating-selection-toolbar-choice" data-note-align="left" type="button" onclick="setFloatingToolbarNoteAlign('left')">L</button>
+                  <button class="sp-btn sp-note-align-btn floating-selection-toolbar-choice" data-note-align="center" type="button" onclick="setFloatingToolbarNoteAlign('center')">C</button>
+                  <button class="sp-btn sp-note-align-btn floating-selection-toolbar-choice" data-note-align="right" type="button" onclick="setFloatingToolbarNoteAlign('right')">R</button>
+                </div>
               </div>
             </div>
-            <div class="floating-selection-toolbar-group" id="floatingToolbarShapeThicknessGroup" hidden>
-              <span class="floating-selection-toolbar-group-label">Weight</span>
-              <div class="sp-note-align-buttons" role="group" aria-label="Floating shape thickness">
-                <button class="sp-btn sp-note-align-btn" data-shape-thickness="thin" type="button" onclick="setShapeThickness('thin')">Thin</button>
-                <button class="sp-btn sp-note-align-btn" data-shape-thickness="normal" type="button" onclick="setShapeThickness('normal')">Normal</button>
-                <button class="sp-btn sp-note-align-btn" data-shape-thickness="thick" type="button" onclick="setShapeThickness('thick')">Thick</button>
+
+            <div class="floating-selection-toolbar-item" id="floatingToolbarOpacityItem" hidden>
+              <button id="floatingToolbarOpacityBtn" class="floating-selection-toolbar-trigger" type="button" data-flyout-target="opacity" aria-expanded="false" aria-controls="floatingToolbarOpacityFlyout" onclick="toggleFloatingToolbarFlyout('opacity', event)">
+                <span id="floatingToolbarOpacityLabel" class="floating-toolbar-trigger-kicker">Fill</span>
+                <span class="floating-toolbar-trigger-main">
+                  <span id="floatingToolbarOpacityValue" class="floating-toolbar-trigger-value">100%</span>
+                </span>
+              </button>
+              <div id="floatingToolbarOpacityFlyout" class="floating-selection-toolbar-flyout floating-selection-toolbar-slider-flyout" data-flyout="opacity" hidden>
+                <label class="floating-selection-toolbar-flyout-label" for="floatingToolbarOpacity">Opacity</label>
+                <input id="floatingToolbarOpacity" class="sp-field-input floating-selection-toolbar-range" type="range" min="0.2" max="1" step="0.05" value="1" oninput="setSelectedAnnotationOpacity(this.value)" onchange="closeFloatingToolbarFlyout()">
               </div>
             </div>
-            <div class="floating-selection-toolbar-group" id="floatingToolbarNoteAlignGroup" hidden>
-              <span class="floating-selection-toolbar-group-label">Align</span>
-              <div class="sp-note-align-buttons" role="group" aria-label="Floating note alignment">
-                <button class="sp-btn sp-note-align-btn" data-note-align="left" type="button" onclick="setSelectedNoteAlign('left')">L</button>
-                <button class="sp-btn sp-note-align-btn" data-note-align="center" type="button" onclick="setSelectedNoteAlign('center')">C</button>
-                <button class="sp-btn sp-note-align-btn" data-note-align="right" type="button" onclick="setSelectedNoteAlign('right')">R</button>
-              </div>
-            </div>
-            <div class="floating-selection-toolbar-group floating-selection-toolbar-slider-group" id="floatingToolbarOpacityGroup" hidden>
-              <label class="floating-selection-toolbar-group-label" id="floatingToolbarOpacityLabel" for="floatingToolbarOpacity">Fill</label>
-              <input id="floatingToolbarOpacity" class="sp-field-input floating-selection-toolbar-range" type="range" min="0.2" max="1" step="0.05" value="1" oninput="setSelectedAnnotationOpacity(this.value)">
-            </div>
-            <div class="floating-selection-toolbar-group floating-selection-toolbar-actions">
-              <button id="floatingToolbarClearBtn" class="sp-btn" type="button" onclick="clearSelection()">Deselect</button>
-              <button id="floatingToolbarDuplicateBtn" class="sp-btn" type="button" onclick="duplicateSelected()">Duplicate</button>
-              <button id="floatingToolbarDeleteBtn" class="sp-btn sp-btn-danger" type="button" onclick="deleteSelected()">Delete</button>
+
+            <div class="floating-selection-toolbar-item floating-selection-toolbar-actions">
+              <button id="floatingToolbarDuplicateBtn" class="floating-selection-toolbar-icon-btn" type="button" onclick="duplicateSelected()" aria-label="Duplicate selected item" title="Duplicate">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 5.5h7a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1Zm-2 3h-1a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v1"/></svg>
+              </button>
+              <button id="floatingToolbarDeleteBtn" class="floating-selection-toolbar-icon-btn floating-selection-toolbar-icon-btn-danger" type="button" onclick="deleteSelected()" aria-label="Delete selected item" title="Delete">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 6.5h9m-7.5 0v8m3-8v8m3-8v8M7 3.5h6l.5 1.5h2v1H4.5v-1h2zM6.5 6.5h7v9a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1z"/></svg>
+              </button>
+              <button id="floatingToolbarClearBtn" class="floating-selection-toolbar-icon-btn" type="button" onclick="clearSelection()" aria-label="Deselect" title="Deselect">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5.5 5.5 9 9m0-9-9 9"/></svg>
+              </button>
             </div>
           </div>
         </div>

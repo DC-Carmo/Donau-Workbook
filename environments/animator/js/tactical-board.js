@@ -62,6 +62,7 @@ let staticFieldCanvas = null;
 let staticFieldCtx = null;
 let staticFieldCacheKey = '';
 let floatingSelectionToolbarRaf = 0;
+let floatingToolbarOpenFlyout = '';
 
 function isVerticalPhoneBoard() {
   // Upright pitch in PORTRAIT. Landscape rotates to a horizontal pitch (see the
@@ -1095,6 +1096,80 @@ function syncNoteAlignButtons(root, align) {
     btn.classList.toggle('active', btn.dataset.noteAlign === align);
   });
 }
+
+function annotationColorLabel(color) {
+  const normalized = normalizeHexColor(color);
+  if (normalized === '#ffffff') return 'White';
+  if (normalized === '#e3b23c') return 'Gold';
+  if (normalized === '#10b981') return 'Green';
+  if (normalized === '#ef4444') return 'Red';
+  if (normalized === '#3b82f6') return 'Blue';
+  if (normalized === '#f97316') return 'Orange';
+  return 'Color';
+}
+
+function styleWeightLabel(weight) {
+  if (weight === 'thin') return 'Thin';
+  if (weight === 'thick') return 'Thick';
+  return 'Normal';
+}
+
+function styleLineLabel(dash) {
+  return arrowDashValue(dash) === 'dashed' ? 'Dashed' : 'Solid';
+}
+
+function noteAlignLabel(align) {
+  if (align === 'center') return 'C';
+  if (align === 'right') return 'R';
+  return 'L';
+}
+
+function closeFloatingToolbarFlyout() {
+  floatingToolbarOpenFlyout = '';
+  const toolbar = document.getElementById('floatingSelectionToolbar');
+  if (!toolbar) return;
+  toolbar.querySelectorAll('[data-flyout-target]').forEach(btn => {
+    btn.setAttribute('aria-expanded', 'false');
+  });
+  toolbar.querySelectorAll('.floating-selection-toolbar-flyout').forEach(flyout => {
+    flyout.hidden = true;
+    flyout.dataset.placement = 'bottom';
+    flyout.style.left = '0px';
+    flyout.style.top = '';
+    flyout.style.bottom = '';
+  });
+}
+window.closeFloatingToolbarFlyout = closeFloatingToolbarFlyout;
+
+function setFloatingToolbarColor(color) {
+  setAnnotationColor(color);
+  closeFloatingToolbarFlyout();
+}
+window.setFloatingToolbarColor = setFloatingToolbarColor;
+
+function setFloatingToolbarLineStyle(dash) {
+  const ann = selectedAnnotation();
+  if (!ann) return;
+  if (ann.type === 'arrow') setArrowDash(dash);
+  else if (isShapeAnnotationType(ann.type)) setShapeDash(dash);
+  closeFloatingToolbarFlyout();
+}
+window.setFloatingToolbarLineStyle = setFloatingToolbarLineStyle;
+
+function setFloatingToolbarWeight(thickness) {
+  const ann = selectedAnnotation();
+  if (!ann) return;
+  if (ann.type === 'arrow') setArrowThickness(thickness);
+  else if (isShapeAnnotationType(ann.type)) setShapeThickness(thickness);
+  closeFloatingToolbarFlyout();
+}
+window.setFloatingToolbarWeight = setFloatingToolbarWeight;
+
+function setFloatingToolbarNoteAlign(align) {
+  setSelectedNoteAlign(align);
+  closeFloatingToolbarFlyout();
+}
+window.setFloatingToolbarNoteAlign = setFloatingToolbarNoteAlign;
 const ANNOTATION_NUDGE_STEP_LARGE = 1.5;
 const NOTE_LEGACY_REFERENCE_SCALE = 10;
 const NOTE_LEGACY_FONT_PX = 12.5;
@@ -6048,6 +6123,66 @@ function annotationToolbarTitle(annotation) {
   return 'Circle';
 }
 
+function floatingToolbarVisibleBounds(wrapRect, hostRect, edgeMargin = 8) {
+  return {
+    left: Math.max(
+      edgeMargin,
+      Math.round(Math.max(0, hostRect.left - wrapRect.left, -wrapRect.left))
+    ),
+    top: Math.max(
+      edgeMargin,
+      Math.round(Math.max(0, hostRect.top - wrapRect.top, -wrapRect.top))
+    ),
+    right: Math.min(
+      wrapRect.width - edgeMargin,
+      Math.round(Math.min(wrapRect.width, hostRect.right - wrapRect.left, window.innerWidth - wrapRect.left))
+    ),
+    bottom: Math.min(
+      wrapRect.height - edgeMargin,
+      Math.round(Math.min(wrapRect.height, hostRect.bottom - wrapRect.top, window.innerHeight - wrapRect.top))
+    ),
+  };
+}
+
+function positionOpenFloatingToolbarFlyout() {
+  if (!floatingToolbarOpenFlyout) return;
+  const toolbar = document.getElementById('floatingSelectionToolbar');
+  const wrap = document.getElementById('canvasWrap');
+  if (!toolbar || toolbar.hidden || !wrap) return;
+  const flyout = toolbar.querySelector(`.floating-selection-toolbar-flyout[data-flyout="${floatingToolbarOpenFlyout}"]`);
+  const trigger = toolbar.querySelector(`[data-flyout-target="${floatingToolbarOpenFlyout}"]`);
+  if (!flyout || !trigger || trigger.hidden || trigger.closest('[hidden]')) {
+    closeFloatingToolbarFlyout();
+    return;
+  }
+
+  const wrapRect = wrap.getBoundingClientRect();
+  const host = document.getElementById('canvasHost');
+  const hostRect = host ? host.getBoundingClientRect() : wrapRect;
+  const visible = floatingToolbarVisibleBounds(wrapRect, hostRect, 8);
+  const toolbarRect = toolbar.getBoundingClientRect();
+  const triggerRect = trigger.getBoundingClientRect();
+  const flyoutWidth = flyout.offsetWidth || 0;
+  const flyoutHeight = flyout.offsetHeight || 0;
+  const gap = 8;
+  const minLeft = visible.left - toolbarRect.left;
+  const maxLeft = Math.max(minLeft, visible.right - toolbarRect.left - flyoutWidth);
+  const desiredLeft = (triggerRect.left + (triggerRect.width / 2)) - toolbarRect.left - (flyoutWidth / 2);
+  const left = clamp(desiredLeft, minLeft, maxLeft);
+  const spaceBelow = visible.bottom - toolbarRect.bottom - gap;
+  const spaceAbove = toolbarRect.top - visible.top - gap;
+  const placeAbove = spaceBelow < flyoutHeight && spaceAbove > spaceBelow;
+  const minTop = visible.top - toolbarRect.top;
+  const maxTop = visible.bottom - toolbarRect.top - flyoutHeight;
+  const desiredTop = placeAbove ? -(flyoutHeight + gap) : (toolbar.offsetHeight + gap);
+  const top = clamp(desiredTop, minTop, Math.max(minTop, maxTop));
+
+  flyout.dataset.placement = placeAbove ? 'top' : 'bottom';
+  flyout.style.left = `${left}px`;
+  flyout.style.top = `${top}px`;
+  flyout.style.bottom = '';
+}
+
 function positionFloatingSelectionToolbar() {
   const toolbar = document.getElementById('floatingSelectionToolbar');
   const wrap = document.getElementById('canvasWrap');
@@ -6063,22 +6198,11 @@ function positionFloatingSelectionToolbar() {
   const gap = 14 + (isShapeAnnotationType(annotation.type) ? 34 : 0);
   const toolbarWidth = toolbar.offsetWidth || 0;
   const toolbarHeight = toolbar.offsetHeight || 0;
-  const visibleLeft = Math.max(
-    edgeMargin,
-    Math.round(Math.max(0, hostRect.left - wrapRect.left, -wrapRect.left))
-  );
-  const visibleTop = Math.max(
-    edgeMargin,
-    Math.round(Math.max(0, hostRect.top - wrapRect.top, -wrapRect.top))
-  );
-  const visibleRight = Math.min(
-    wrapRect.width - edgeMargin,
-    Math.round(Math.min(wrapRect.width, hostRect.right - wrapRect.left, window.innerWidth - wrapRect.left))
-  );
-  const visibleBottom = Math.min(
-    wrapRect.height - edgeMargin,
-    Math.round(Math.min(wrapRect.height, hostRect.bottom - wrapRect.top, window.innerHeight - wrapRect.top))
-  );
+  const visible = floatingToolbarVisibleBounds(wrapRect, hostRect, edgeMargin);
+  const visibleLeft = visible.left;
+  const visibleTop = visible.top;
+  const visibleRight = visible.right;
+  const visibleBottom = visible.bottom;
   const minLeft = visibleLeft;
   const maxLeft = Math.max(minLeft, visibleRight - toolbarWidth);
   const minTop = visibleTop;
@@ -6103,6 +6227,7 @@ function positionFloatingSelectionToolbar() {
   toolbar.style.left = `${left}px`;
   toolbar.style.top = `${top}px`;
   toolbar.style.setProperty('--fst-caret-left', `${caretLeft}px`);
+  positionOpenFloatingToolbarFlyout();
 }
 
 function scheduleFloatingSelectionToolbarUpdate() {
@@ -6112,6 +6237,24 @@ function scheduleFloatingSelectionToolbarUpdate() {
     positionFloatingSelectionToolbar();
   });
 }
+
+function toggleFloatingToolbarFlyout(name, event = null) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  const toolbar = document.getElementById('floatingSelectionToolbar');
+  if (!toolbar || toolbar.hidden) return;
+  const targetBtn = toolbar.querySelector(`[data-flyout-target="${name}"]`);
+  const targetFlyout = toolbar.querySelector(`.floating-selection-toolbar-flyout[data-flyout="${name}"]`);
+  if (!targetBtn || !targetFlyout || targetBtn.hidden || targetBtn.closest('[hidden]')) return;
+  const willOpen = floatingToolbarOpenFlyout !== name;
+  closeFloatingToolbarFlyout();
+  if (!willOpen) return;
+  floatingToolbarOpenFlyout = name;
+  targetBtn.setAttribute('aria-expanded', 'true');
+  targetFlyout.hidden = false;
+  positionOpenFloatingToolbarFlyout();
+}
+window.toggleFloatingToolbarFlyout = toggleFloatingToolbarFlyout;
 
 function clampNoteAnnotation(note) {
   note.width = noteWidthValue(note);
@@ -8062,6 +8205,11 @@ if (!supportsPointerEvents) {
 document.addEventListener('keydown', (e) => {
   const tag = e.target.tagName;
   if (e.key === 'Escape') {
+    if (floatingToolbarOpenFlyout) {
+      closeFloatingToolbarFlyout();
+      e.preventDefault();
+      return;
+    }
     if (S.dragging?.type === 'annotation' && S.dragging.part === 'resize') {
       const ann = findAnnotationById(S.dragging.id);
       const restore = S.dragging.startSnapshot;
@@ -8102,6 +8250,16 @@ document.addEventListener('keydown', (e) => {
       e.preventDefault();
     }
   }
+});
+
+document.addEventListener('pointerdown', (event) => {
+  if (!floatingToolbarOpenFlyout) return;
+  const toolbar = document.getElementById('floatingSelectionToolbar');
+  if (!toolbar || toolbar.hidden) {
+    closeFloatingToolbarFlyout();
+    return;
+  }
+  if (!toolbar.contains(event.target)) closeFloatingToolbarFlyout();
 });
 
 function finishDraw() {
@@ -11453,14 +11611,24 @@ function updateSelInfo() {
   const noteInput = document.getElementById('selNoteInput');
   const floatingToolbar = document.getElementById('floatingSelectionToolbar');
   const floatingToolbarTitle = document.getElementById('floatingSelectionToolbarTitle');
-  const floatingToolbarColorGroup = document.getElementById('floatingToolbarColorGroup');
-  const floatingToolbarArrowDashGroup = document.getElementById('floatingToolbarArrowDashGroup');
-  const floatingToolbarArrowThicknessGroup = document.getElementById('floatingToolbarArrowThicknessGroup');
-  const floatingToolbarShapeDashGroup = document.getElementById('floatingToolbarShapeDashGroup');
-  const floatingToolbarShapeThicknessGroup = document.getElementById('floatingToolbarShapeThicknessGroup');
-  const floatingToolbarNoteAlignGroup = document.getElementById('floatingToolbarNoteAlignGroup');
-  const floatingToolbarOpacityGroup = document.getElementById('floatingToolbarOpacityGroup');
+  const floatingToolbarColorItem = document.getElementById('floatingToolbarColorItem');
+  const floatingToolbarColorValue = document.getElementById('floatingToolbarColorValue');
+  const floatingToolbarColorSwatch = document.getElementById('floatingToolbarColorSwatch');
+  const floatingToolbarLineItem = document.getElementById('floatingToolbarLineItem');
+  const floatingToolbarLineBtn = document.getElementById('floatingToolbarLineBtn');
+  const floatingToolbarLineValue = document.getElementById('floatingToolbarLineValue');
+  const floatingToolbarLinePreview = document.getElementById('floatingToolbarLinePreview');
+  const floatingToolbarWeightItem = document.getElementById('floatingToolbarWeightItem');
+  const floatingToolbarWeightBtn = document.getElementById('floatingToolbarWeightBtn');
+  const floatingToolbarWeightValue = document.getElementById('floatingToolbarWeightValue');
+  const floatingToolbarWeightPreview = document.getElementById('floatingToolbarWeightPreview');
+  const floatingToolbarAlignItem = document.getElementById('floatingToolbarAlignItem');
+  const floatingToolbarAlignBtn = document.getElementById('floatingToolbarAlignBtn');
+  const floatingToolbarAlignValue = document.getElementById('floatingToolbarAlignValue');
+  const floatingToolbarOpacityItem = document.getElementById('floatingToolbarOpacityItem');
+  const floatingToolbarOpacityBtn = document.getElementById('floatingToolbarOpacityBtn');
   const floatingToolbarOpacityLabel = document.getElementById('floatingToolbarOpacityLabel');
+  const floatingToolbarOpacityValue = document.getElementById('floatingToolbarOpacityValue');
   const floatingToolbarOpacity = document.getElementById('floatingToolbarOpacity');
   const summary = getSelectedSummary();
   const ann = selectedAnnotation();
@@ -11584,33 +11752,63 @@ function updateSelInfo() {
     if (annotationToolbarVisible) {
       floatingToolbar.dataset.kind = ann.type;
       if (floatingToolbarTitle) floatingToolbarTitle.textContent = annotationToolbarTitle(ann);
-      if (floatingToolbarColorGroup) syncColorSwatches(floatingToolbarColorGroup, ann.color || annotationColor(ann.type));
-      if (floatingToolbarArrowDashGroup) floatingToolbarArrowDashGroup.hidden = ann.type !== 'arrow';
-      if (floatingToolbarArrowThicknessGroup) floatingToolbarArrowThicknessGroup.hidden = ann.type !== 'arrow';
-      if (floatingToolbarShapeDashGroup) floatingToolbarShapeDashGroup.hidden = !isShapeAnnotationType(ann.type);
-      if (floatingToolbarShapeThicknessGroup) floatingToolbarShapeThicknessGroup.hidden = !isShapeAnnotationType(ann.type);
-      if (floatingToolbarNoteAlignGroup) {
-        floatingToolbarNoteAlignGroup.hidden = ann.type !== 'note';
-        if (ann.type === 'note') syncNoteAlignButtons(floatingToolbarNoteAlignGroup, noteAlignValue(ann));
+      if (floatingToolbarColorItem) {
+        floatingToolbarColorItem.hidden = false;
+        syncColorSwatches(floatingToolbarColorItem, ann.color || annotationColor(ann.type));
       }
-      if (ann.type === 'arrow') {
-        syncArrowStyleButtons(floatingToolbar, arrowStyle);
-      } else if (isShapeAnnotationType(ann.type)) {
-        syncShapeStyleButtons(floatingToolbar, currentShapeStyleSelection(ann.type));
+      if (floatingToolbarColorSwatch) floatingToolbarColorSwatch.style.background = ann.color || annotationColor(ann.type);
+      if (floatingToolbarColorValue) floatingToolbarColorValue.textContent = annotationColorLabel(ann.color || annotationColor(ann.type));
+
+      const showLine = ann.type === 'arrow' || isShapeAnnotationType(ann.type);
+      if (floatingToolbarLineItem) floatingToolbarLineItem.hidden = !showLine;
+      if (floatingToolbarLineBtn) floatingToolbarLineBtn.hidden = !showLine;
+      if (showLine) {
+        const lineValue = ann.type === 'arrow' ? arrowStyle.dash : currentShapeStyleSelection(ann.type).dash;
+        if (floatingToolbarLinePreview) floatingToolbarLinePreview.dataset.line = lineValue;
+        if (floatingToolbarLineValue) floatingToolbarLineValue.textContent = styleLineLabel(lineValue);
       }
-      if (floatingToolbarOpacityGroup) {
-        const showOpacity = ann.type === 'note' || isShapeAnnotationType(ann.type);
-        floatingToolbarOpacityGroup.hidden = !showOpacity;
-        if (showOpacity && floatingToolbarOpacity) {
-          floatingToolbarOpacity.value = String(Number(ann.opacity) || 1);
-        }
-        if (showOpacity && floatingToolbarOpacityLabel) {
-          floatingToolbarOpacityLabel.textContent = ann.type === 'note' ? 'Transparency' : 'Fill';
+
+      const showWeight = ann.type === 'arrow' || isShapeAnnotationType(ann.type);
+      if (floatingToolbarWeightItem) floatingToolbarWeightItem.hidden = !showWeight;
+      if (floatingToolbarWeightBtn) floatingToolbarWeightBtn.hidden = !showWeight;
+      if (showWeight) {
+        const weightValue = ann.type === 'arrow' ? arrowStyle.thickness : currentShapeStyleSelection(ann.type).thickness;
+        if (floatingToolbarWeightPreview) floatingToolbarWeightPreview.dataset.weight = weightValue;
+        if (floatingToolbarWeightValue) floatingToolbarWeightValue.textContent = styleWeightLabel(weightValue);
+      }
+
+      const showAlign = ann.type === 'note';
+      if (floatingToolbarAlignItem) floatingToolbarAlignItem.hidden = !showAlign;
+      if (floatingToolbarAlignBtn) floatingToolbarAlignBtn.hidden = !showAlign;
+      if (showAlign) {
+        const alignValue = noteAlignValue(ann);
+        syncNoteAlignButtons(floatingToolbar, alignValue);
+        if (floatingToolbarAlignValue) floatingToolbarAlignValue.textContent = noteAlignLabel(alignValue);
+      }
+
+      const showOpacity = ann.type === 'note' || isShapeAnnotationType(ann.type);
+      if (floatingToolbarOpacityItem) floatingToolbarOpacityItem.hidden = !showOpacity;
+      if (floatingToolbarOpacityBtn) floatingToolbarOpacityBtn.hidden = !showOpacity;
+      if (showOpacity) {
+        const opacityValue = clamp(Number(ann.opacity) || 1, 0.2, 1);
+        if (floatingToolbarOpacity) floatingToolbarOpacity.value = String(opacityValue);
+        if (floatingToolbarOpacityLabel) floatingToolbarOpacityLabel.textContent = ann.type === 'note' ? 'Transparency' : 'Fill';
+        if (floatingToolbarOpacityValue) floatingToolbarOpacityValue.textContent = `${Math.round(opacityValue * 100)}%`;
+      }
+
+      if (ann.type === 'arrow') syncArrowStyleButtons(floatingToolbar, arrowStyle);
+      else if (isShapeAnnotationType(ann.type)) syncShapeStyleButtons(floatingToolbar, currentShapeStyleSelection(ann.type));
+
+      if (floatingToolbarOpenFlyout) {
+        const activeTrigger = floatingToolbar.querySelector(`[data-flyout-target="${floatingToolbarOpenFlyout}"]`);
+        if (!activeTrigger || activeTrigger.hidden || activeTrigger.closest('[hidden]')) {
+          closeFloatingToolbarFlyout();
         }
       }
       scheduleFloatingSelectionToolbarUpdate();
     } else {
       floatingToolbar.dataset.kind = '';
+      closeFloatingToolbarFlyout();
     }
   }
 }
