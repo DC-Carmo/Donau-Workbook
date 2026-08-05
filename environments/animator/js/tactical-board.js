@@ -61,6 +61,7 @@ const supportsPointerEvents = typeof window !== 'undefined' && 'PointerEvent' in
 let staticFieldCanvas = null;
 let staticFieldCtx = null;
 let staticFieldCacheKey = '';
+let floatingSelectionToolbarRaf = 0;
 
 function isVerticalPhoneBoard() {
   // Upright pitch in PORTRAIT. Landscape rotates to a horizontal pitch (see the
@@ -1069,6 +1070,13 @@ function syncShapeStyleButtons(root, shapeStyle) {
   });
   root.querySelectorAll('[data-shape-dash]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.shapeDash === shapeStyle.dash);
+  });
+}
+
+function syncNoteAlignButtons(root, align) {
+  if (!root) return;
+  root.querySelectorAll('[data-note-align]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.noteAlign === align);
   });
 }
 const ANNOTATION_NUDGE_STEP_LARGE = 1.5;
@@ -5985,6 +5993,99 @@ function clampEllipseAnnotation(ellipse) {
   return clampBoxAnnotation(ellipse);
 }
 
+function zoneAnnotationBounds(zone) {
+  return {
+    left: zone.x - zone.r,
+    right: zone.x + zone.r,
+    top: zone.y - zone.r,
+    bottom: zone.y + zone.r,
+    width: zone.r * 2,
+    height: zone.r * 2,
+  };
+}
+
+function annotationFieldBounds(annotation) {
+  if (!annotation) return null;
+  if (annotation.type === 'note') return noteAnnotationBounds(annotation);
+  if (annotation.type === 'zone') return zoneAnnotationBounds(annotation);
+  if (annotation.type === 'box') return boxAnnotationBounds(annotation);
+  if (annotation.type === 'ellipse') return ellipseAnnotationBounds(annotation);
+  if (annotation.type === 'arrow') {
+    const pad = Math.max(2.4, arrowStrokeWidthPx(annotation.thickness) * 0.26);
+    return {
+      left: Math.min(annotation.start.x, annotation.end.x) - pad,
+      right: Math.max(annotation.start.x, annotation.end.x) + pad,
+      top: Math.min(annotation.start.y, annotation.end.y) - pad,
+      bottom: Math.max(annotation.start.y, annotation.end.y) + pad,
+      width: Math.abs(annotation.end.x - annotation.start.x) + (pad * 2),
+      height: Math.abs(annotation.end.y - annotation.start.y) + (pad * 2),
+    };
+  }
+  return null;
+}
+
+function annotationScreenBounds(annotation) {
+  const bounds = annotationFieldBounds(annotation);
+  if (!bounds) return null;
+  const topLeft = toC(bounds.left, bounds.top);
+  const bottomRight = toC(bounds.right, bounds.bottom);
+  return {
+    left: Math.min(topLeft.x, bottomRight.x),
+    right: Math.max(topLeft.x, bottomRight.x),
+    top: Math.min(topLeft.y, bottomRight.y),
+    bottom: Math.max(topLeft.y, bottomRight.y),
+    width: Math.abs(bottomRight.x - topLeft.x),
+    height: Math.abs(bottomRight.y - topLeft.y),
+  };
+}
+
+function annotationToolbarTitle(annotation) {
+  if (!annotation) return '';
+  if (annotation.type === 'note') return 'Note';
+  if (annotation.type === 'arrow') return 'Arrow';
+  if (annotation.type === 'box') return 'Box';
+  return 'Circle';
+}
+
+function positionFloatingSelectionToolbar() {
+  const toolbar = document.getElementById('floatingSelectionToolbar');
+  const wrap = document.getElementById('canvasWrap');
+  const annotation = selectedAnnotation();
+  if (!toolbar || !wrap || !annotation) return;
+  const bounds = annotationScreenBounds(annotation);
+  if (!bounds) return;
+
+  const wrapRect = wrap.getBoundingClientRect();
+  const padding = 8;
+  const gap = 14;
+  const toolbarWidth = toolbar.offsetWidth || 0;
+  const toolbarHeight = toolbar.offsetHeight || 0;
+  const anchorX = clamp(bounds.left + (bounds.width / 2), padding + 10, wrapRect.width - padding - 10);
+  const preferredTop = bounds.top - toolbarHeight - gap;
+  const preferredBottom = bounds.bottom + gap;
+  const placeBelow = preferredTop < padding && preferredBottom + toolbarHeight <= wrapRect.height - padding;
+  const top = placeBelow
+    ? clamp(preferredBottom, padding, Math.max(padding, wrapRect.height - toolbarHeight - padding))
+    : clamp(preferredTop, padding, Math.max(padding, wrapRect.height - toolbarHeight - padding));
+  const left = clamp(anchorX - (toolbarWidth / 2), padding, Math.max(padding, wrapRect.width - toolbarWidth - padding));
+  const caretLeft = clamp(anchorX - left, 18, Math.max(18, toolbarWidth - 18));
+
+  toolbar.dataset.placement = placeBelow ? 'bottom' : 'top';
+  toolbar.style.right = 'auto';
+  toolbar.style.bottom = 'auto';
+  toolbar.style.left = `${left}px`;
+  toolbar.style.top = `${top}px`;
+  toolbar.style.setProperty('--fst-caret-left', `${caretLeft}px`);
+}
+
+function scheduleFloatingSelectionToolbarUpdate() {
+  if (floatingSelectionToolbarRaf) cancelAnimationFrame(floatingSelectionToolbarRaf);
+  floatingSelectionToolbarRaf = requestAnimationFrame(() => {
+    floatingSelectionToolbarRaf = 0;
+    positionFloatingSelectionToolbar();
+  });
+}
+
 function clampNoteAnnotation(note) {
   note.width = noteWidthValue(note);
   note.height = noteHeightValue(note);
@@ -6382,6 +6483,7 @@ function render() {
     });
     renderAnnotations('notes', frame.annotations);
     closeRadialMenu();
+    scheduleFloatingSelectionToolbarUpdate();
     return;
   }
 
@@ -6493,6 +6595,7 @@ function render() {
     ctx.restore();
   });
   renderRadialMenu();
+  scheduleFloatingSelectionToolbarUpdate();
 }
 
 function animPos(pl, t) {
@@ -8173,8 +8276,8 @@ function setSelectedAnnotationOpacity(value) {
   const opacity = Number(value);
   if (!Number.isFinite(opacity)) return;
   ann.opacity = clamp(opacity, 0.2, 1);
-  const shapeOpacity = document.getElementById('shapeOpacity');
-  if (shapeOpacity) shapeOpacity.value = String(ann.opacity);
+  const floatingOpacity = document.getElementById('floatingToolbarOpacity');
+  if (floatingOpacity) floatingOpacity.value = String(ann.opacity);
   refreshInteractionUI();
   render();
 }
@@ -10398,8 +10501,10 @@ function setAnnotationColor(color) {
     return;
   }
   if (ann) {
+    const annId = selectedAnnotationId();
     snapshot();
-    ann.color = color;
+    const target = annId ? findAnnotationById(annId) : selectedAnnotation();
+    if (target) target.color = color;
     refreshInteractionUI();
     render();
     return;
@@ -10874,6 +10979,7 @@ function updateSelInfo() {
   const meta = document.getElementById('selMeta');
   const clearBtn = document.getElementById('selClearBtn');
   const deleteBtn = document.getElementById('selDeleteBtn');
+  const actionRow = box?.querySelector('.sp-sel-actions') || null;
   const giveBallBtn = document.getElementById('selGiveBallBtn');
   const groupActions = document.getElementById('spGroupActions');
   const groupModeBtn = document.getElementById('selGroupModeBtn');
@@ -10913,7 +11019,17 @@ function updateSelInfo() {
   const editWrap = document.getElementById('selEditWrap');
   const editLabel = document.getElementById('selEditLabel');
   const noteInput = document.getElementById('selNoteInput');
-  const noteAlignWrap = document.getElementById('selNoteAlignWrap');
+  const floatingToolbar = document.getElementById('floatingSelectionToolbar');
+  const floatingToolbarTitle = document.getElementById('floatingSelectionToolbarTitle');
+  const floatingToolbarColorGroup = document.getElementById('floatingToolbarColorGroup');
+  const floatingToolbarArrowDashGroup = document.getElementById('floatingToolbarArrowDashGroup');
+  const floatingToolbarArrowThicknessGroup = document.getElementById('floatingToolbarArrowThicknessGroup');
+  const floatingToolbarShapeDashGroup = document.getElementById('floatingToolbarShapeDashGroup');
+  const floatingToolbarShapeThicknessGroup = document.getElementById('floatingToolbarShapeThicknessGroup');
+  const floatingToolbarNoteAlignGroup = document.getElementById('floatingToolbarNoteAlignGroup');
+  const floatingToolbarOpacityGroup = document.getElementById('floatingToolbarOpacityGroup');
+  const floatingToolbarOpacityLabel = document.getElementById('floatingToolbarOpacityLabel');
+  const floatingToolbarOpacity = document.getElementById('floatingToolbarOpacity');
   const summary = getSelectedSummary();
   const ann = selectedAnnotation();
   const group = selectedGroup();
@@ -10926,13 +11042,14 @@ function updateSelInfo() {
   const shapeStyle = currentShapeStyleSelection(activeShapeType);
   const arrowStyleVisible = S.tool === 'arrow' || ann?.type === 'arrow';
   const shapeStyleVisible = !!activeShapeType;
+  const annotationToolbarVisible = !!ann && S.selectedPassIdx === null && S.selectedPathPid === null;
+  const showSelectionCard = summary.title !== '-' && (!ann || ann.type === 'note');
   document.getElementById('selName').textContent = summary.title;
   if (meta) meta.textContent = summary.meta;
-  box.classList.toggle('visible', summary.title !== '-');
+  box.classList.toggle('visible', showSelectionCard);
   box.classList.toggle('annotation-selected', !!ann && S.selectedPassIdx === null && S.selectedPathPid === null);
   if (editWrap) editWrap.classList.toggle('visible', ann?.type === 'note');
   if (editLabel) editLabel.textContent = ann?.type === 'note' ? 'Note Text' : 'Details';
-  if (noteAlignWrap) noteAlignWrap.hidden = ann?.type !== 'note';
   if (noteInput) {
     if (noteInput !== document.activeElement) {
       noteInput.value = ann?.type === 'note' ? String(ann.text ?? '') : '';
@@ -10940,12 +11057,6 @@ function updateSelInfo() {
     noteInput.disabled = ann?.type !== 'note';
     noteInput.placeholder = ann?.type === 'note' ? 'Refine the coaching cue' : 'Update note text';
   }
-  ['left', 'center', 'right'].forEach((align) => {
-    const btn = document.getElementById(`selNoteAlign${align[0].toUpperCase()}${align.slice(1)}`);
-    if (!btn) return;
-    btn.disabled = ann?.type !== 'note';
-    btn.classList.toggle('active', ann?.type === 'note' && noteAlignValue(ann) === align);
-  });
   const giveBallTarget = manualBallAssignmentTarget();
   if (giveBallBtn) {
     giveBallBtn.hidden = !giveBallTarget;
@@ -10957,7 +11068,7 @@ function updateSelInfo() {
   }
   const colorPicker = document.getElementById('spColorPicker');
   if (colorPicker) {
-    const selectionColorVisible = (!!ann && ann.type !== 'arrow' && !isShapeAnnotationType(ann.type)) || !!group || !!selectedPlayer;
+    const selectionColorVisible = !ann && (!!group || !!selectedPlayer);
     colorPicker.hidden = !selectionColorVisible;
     if (selectionColorVisible) {
       const currentColor = ann
@@ -10994,14 +11105,6 @@ function updateSelInfo() {
   shapeColorPickers.forEach(picker => {
     if (shapeStyleVisible) syncColorSwatches(picker, shapeStyle.color);
   });
-  const shapeActions = document.getElementById('spShapeActions');
-  const shapeOpacity = document.getElementById('shapeOpacity');
-  if (shapeActions) {
-    shapeActions.hidden = !ann || ann.type === 'arrow';
-    if (ann && shapeOpacity) {
-      shapeOpacity.value = String(Number(ann.opacity) || 1);
-    }
-  }
   const hasAnySelection = !!S.selectedPlayerId || !!group || isBallSelected() || !!ann || S.selectedPassIdx !== null || S.selectedPathPid !== null;
   if (groupActions) {
     const canUnlock = !!group && group.active;
@@ -11039,15 +11142,44 @@ function updateSelInfo() {
     clearBtn.textContent = hasAnySelection ? 'Clear Selection' : 'No Selection';
     clearBtn.disabled = !hasAnySelection;
   }
+  if (actionRow) actionRow.hidden = !!ann;
   const carrier = S.players.find(p => p.isBC);
   if (carrier) updateGainDisplayForY(carrier.y);
   else updateGainDisplayForY(GAINLINE_Y);
 
-  // Floating delete bar — show when annotation selected (Canva-style, works on touch)
-  const floatBar = document.getElementById('floatDeleteBar');
-  if (floatBar) {
-    const annSelected = !!selectedAnnotationId();
-    floatBar.hidden = !annSelected;
+  if (floatingToolbar) {
+    floatingToolbar.hidden = !annotationToolbarVisible;
+    if (annotationToolbarVisible) {
+      floatingToolbar.dataset.kind = ann.type;
+      if (floatingToolbarTitle) floatingToolbarTitle.textContent = annotationToolbarTitle(ann);
+      if (floatingToolbarColorGroup) syncColorSwatches(floatingToolbarColorGroup, ann.color || annotationColor(ann.type));
+      if (floatingToolbarArrowDashGroup) floatingToolbarArrowDashGroup.hidden = ann.type !== 'arrow';
+      if (floatingToolbarArrowThicknessGroup) floatingToolbarArrowThicknessGroup.hidden = ann.type !== 'arrow';
+      if (floatingToolbarShapeDashGroup) floatingToolbarShapeDashGroup.hidden = !isShapeAnnotationType(ann.type);
+      if (floatingToolbarShapeThicknessGroup) floatingToolbarShapeThicknessGroup.hidden = !isShapeAnnotationType(ann.type);
+      if (floatingToolbarNoteAlignGroup) {
+        floatingToolbarNoteAlignGroup.hidden = ann.type !== 'note';
+        if (ann.type === 'note') syncNoteAlignButtons(floatingToolbarNoteAlignGroup, noteAlignValue(ann));
+      }
+      if (ann.type === 'arrow') {
+        syncArrowStyleButtons(floatingToolbar, arrowStyle);
+      } else if (isShapeAnnotationType(ann.type)) {
+        syncShapeStyleButtons(floatingToolbar, currentShapeStyleSelection(ann.type));
+      }
+      if (floatingToolbarOpacityGroup) {
+        const showOpacity = ann.type === 'note' || isShapeAnnotationType(ann.type);
+        floatingToolbarOpacityGroup.hidden = !showOpacity;
+        if (showOpacity && floatingToolbarOpacity) {
+          floatingToolbarOpacity.value = String(Number(ann.opacity) || 1);
+        }
+        if (showOpacity && floatingToolbarOpacityLabel) {
+          floatingToolbarOpacityLabel.textContent = ann.type === 'note' ? 'Transparency' : 'Fill';
+        }
+      }
+      scheduleFloatingSelectionToolbarUpdate();
+    } else {
+      floatingToolbar.dataset.kind = '';
+    }
   }
 }
 

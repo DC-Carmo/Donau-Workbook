@@ -1438,55 +1438,121 @@ body:not(.is-phone) #canvasWrap {
   touch-action:none;
 }
 
-/* Floating delete bar — Canva-style, appears when annotation selected */
-#floatDeleteBar {
+.floating-selection-toolbar {
+  --fst-caret-left: 28px;
   position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  background: rgba(10, 16, 24, 0.92);
+  inset: auto auto 0 0;
+  z-index: 24;
+  width: max-content;
+  max-width: min(calc(100% - 16px), 620px);
+  padding: 10px;
+  border-radius: 16px;
   border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 10px;
-  padding: 5px 8px;
-  z-index: 20;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  background: rgba(6, 14, 22, 0.94);
+  box-shadow: 0 18px 40px rgba(0,0,0,0.34);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   pointer-events: auto;
 }
-#floatDeleteBar[hidden] { display: none !important; }
-#floatDeleteBtn {
-  background: rgba(239,68,68,0.15);
-  border: 1px solid rgba(239,68,68,0.35);
-  color: #ef4444;
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  padding: 5px 12px;
-  border-radius: 7px;
-  cursor: pointer;
-  transition: background 0.15s;
+.floating-selection-toolbar[hidden] {
+  display: none !important;
 }
-#floatDeleteBtn:hover { background: rgba(239,68,68,0.28); }
-#floatDeselectBtn {
-  background: none;
-  border: 1px solid rgba(255,255,255,0.1);
-  color: rgba(255,255,255,0.5);
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  padding: 5px 10px;
-  border-radius: 7px;
-  cursor: pointer;
-  transition: color 0.15s;
+.floating-selection-toolbar::after {
+  content: '';
+  position: absolute;
+  left: var(--fst-caret-left);
+  bottom: -7px;
+  width: 14px;
+  height: 14px;
+  background: rgba(6, 14, 22, 0.94);
+  border-right: 1px solid rgba(255,255,255,0.12);
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+  transform: rotate(45deg);
 }
-#floatDeselectBtn:hover { color: rgba(255,255,255,0.85); }
+.floating-selection-toolbar[data-placement="bottom"]::after {
+  top: -7px;
+  bottom: auto;
+  border-right: none;
+  border-bottom: none;
+  border-left: 1px solid rgba(255,255,255,0.12);
+  border-top: 1px solid rgba(255,255,255,0.12);
+}
+.floating-selection-toolbar-scroll {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.floating-selection-toolbar-scroll::-webkit-scrollbar {
+  display: none;
+}
+.floating-selection-toolbar-group {
+  flex: 0 0 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.035);
+}
+.floating-selection-toolbar-label {
+  min-width: 92px;
+  justify-content: center;
+  background: rgba(227,178,60,0.08);
+  border-color: rgba(227,178,60,0.18);
+}
+.floating-selection-toolbar-kicker,
+.floating-selection-toolbar-group-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.46);
+}
+.floating-selection-toolbar-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #f8fafc;
+}
+.floating-selection-toolbar .sp-color-swatches {
+  flex-wrap: nowrap;
+}
+.floating-selection-toolbar .sp-color-swatch {
+  width: 20px;
+  height: 20px;
+}
+.floating-selection-toolbar .sp-btn {
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: 0.62rem;
+}
+.floating-selection-toolbar .sp-note-align-buttons {
+  gap: 5px;
+}
+.floating-selection-toolbar .sp-note-align-btn {
+  min-height: 30px;
+  padding-inline: 10px;
+}
+.floating-selection-toolbar-slider-group {
+  min-width: 132px;
+}
+.floating-selection-toolbar-range {
+  width: 132px;
+  padding: 0;
+}
+.floating-selection-toolbar-actions {
+  justify-content: center;
+}
+.floating-selection-toolbar-actions .sp-btn {
+  min-width: 88px;
+}
 
 .board-status {
   display: none !important;
@@ -3537,6 +3603,23 @@ html, body {
   flex-direction: column;
   gap: 8px;
 }
+.sel-info.sp-sel-card.annotation-selected {
+  gap: 10px;
+}
+.sel-info.sp-sel-card.annotation-selected .sp-color-picker,
+.sel-info.sp-sel-card.annotation-selected .sp-sel-actions {
+  display: none;
+}
+.sel-info.sp-sel-card.annotation-selected .sp-sel-chip,
+.sel-info.sp-sel-card.annotation-selected .sp-sel-meta {
+  display: none;
+}
+.sel-info.sp-sel-card.annotation-selected .sel-edit.sp-sel-edit.visible {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+}
 .sel-info.sp-sel-card.annotation-selected .sp-sel-chip {
   border-color: rgba(16,185,129,0.25);
   background: rgba(16,185,129,0.05);
@@ -3774,6 +3857,83 @@ html, body {
   scrollbar-color: rgba(255,255,255,0.08) transparent;
   border-top: 1px solid rgba(255,255,255,0.09);
   max-height: 220px;
+}
+
+body:not(.is-phone) #smartPanel {
+  background:
+    linear-gradient(180deg, rgba(14,22,34,0.98), rgba(10,17,28,0.98));
+}
+body:not(.is-phone) .sp-ctx-zone {
+  padding: 14px 12px 18px;
+  gap: 14px;
+}
+body:not(.is-phone) .sp-ctx-hdr,
+body:not(.is-phone) .sp-guide-text,
+body:not(.is-phone) .sp-kick-ctx,
+body:not(.is-phone) .sp-default-state,
+body:not(.is-phone) .sp-ctx-card,
+body:not(.is-phone) .section-block,
+body:not(.is-phone) .sp-notes-panel,
+body:not(.is-phone) .sp-gain-display {
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015));
+  box-shadow: 0 10px 24px rgba(0,0,0,0.12);
+}
+body:not(.is-phone) .sp-ctx-hdr,
+body:not(.is-phone) .sp-guide-text,
+body:not(.is-phone) .sp-kick-ctx,
+body:not(.is-phone) .sp-default-state,
+body:not(.is-phone) .sp-ctx-card {
+  border-bottom: none;
+}
+body:not(.is-phone) .sp-ctx-hdr {
+  padding: 11px 12px 10px;
+}
+body:not(.is-phone) .sp-guide-text {
+  padding: 12px;
+  margin: 0;
+}
+body:not(.is-phone) .sp-kick-ctx,
+body:not(.is-phone) .sp-default-state,
+body:not(.is-phone) .sp-ctx-card {
+  padding: 12px;
+}
+body:not(.is-phone) .sel-info.sp-sel-card {
+  padding: 12px;
+}
+body:not(.is-phone) .section-block,
+body:not(.is-phone) .sp-notes-panel {
+  border-top: 1px solid rgba(255,255,255,0.07);
+  max-height: none;
+}
+body:not(.is-phone) .section-label {
+  padding: 10px 12px 9px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+body:not(.is-phone) .sp-gain-display {
+  padding: 10px 12px;
+}
+body:not(.is-phone) #smartPanelNotesAnchor {
+  min-height: 2px;
+}
+
+@media (max-width: 640px) {
+  .floating-selection-toolbar {
+    max-width: min(calc(100% - 12px), 360px);
+    padding: 8px;
+    border-radius: 14px;
+  }
+  .floating-selection-toolbar-group {
+    padding: 7px 8px;
+  }
+  .floating-selection-toolbar .sp-btn {
+    min-height: 30px;
+    padding: 6px 8px;
+  }
+  .floating-selection-toolbar-range {
+    width: 112px;
+  }
 }
 .sp-notes-panel::-webkit-scrollbar { width: 3px; }
 .sp-notes-panel::-webkit-scrollbar-track { background: transparent; }
