@@ -565,7 +565,6 @@
             <button id="sequenceDockAddMove" class="sequence-dock__btn sequence-dock__btn--accent" type="button" aria-label="Add move after the current move">Add Move</button>
             <button id="sequenceDockAddPhase" class="sequence-dock__btn" type="button" aria-label="Start a new phase after the selected move">Start New Phase</button>
             <button id="sequenceDockDelete" class="sequence-dock__btn sequence-dock__btn--danger" type="button" aria-label="Delete selected move">Delete Move</button>
-            <button id="sequenceDockUndo" class="sequence-dock__btn" type="button" aria-label="Undo the last change">Undo</button>
             <button id="sequenceDockMore" class="sequence-dock__btn sequence-dock__btn--ghost sequence-dock__btn--full" type="button" aria-expanded="false" aria-controls="sequenceDockSecondaryPanel">More</button>
           </div>
           <div id="sequenceDockPhaseActionStatus" class="sequence-dock__action-status" hidden></div>
@@ -574,7 +573,6 @@
         <div id="sequenceDockSecondaryPanel" class="sequence-dock__panel sequence-dock__panel--secondary" hidden>
           <div class="sequence-dock__grid sequence-dock__grid--secondary">
             <button id="sequenceDockDuplicate" class="sequence-dock__btn" type="button" aria-label="Duplicate the selected move">Duplicate Move</button>
-            <button id="sequenceDockRedo" class="sequence-dock__btn" type="button" aria-label="Redo the last undone change">Redo</button>
             <button id="sequenceDockBack" class="sequence-dock__btn sequence-dock__btn--ghost sequence-dock__btn--full" type="button" aria-label="Back to primary sequence actions">Back</button>
           </div>
         </div>
@@ -685,7 +683,6 @@
           <button class="board-pill speed-btn" data-speed="3" onclick="setMobileSpd(3)">3&#215;</button>
         </div>
         <button class="mob-more-btn" id="mobileMoreNotesBtn" type="button" onclick="openMobileNotesSheet()">NOTES</button>
-        <button class="mob-more-btn" id="mobileMoreRedoBtn" type="button" onclick="redo()">&#8618; REDO</button>
         <button class="mob-more-btn" id="mobileMoreClearBtn" type="button" onclick="clearAll()">CLEAR</button>
         <!-- Placed last so it doesn't push the pre-existing playback/notes/
              redo/clear rows further down the scrollable drawer (portrait-
@@ -713,7 +710,6 @@
         </div>
         <div id="mobileRailRight" class="mob-rail">
           <button class="mob-tool-btn" id="mobileStepBtn" type="button" onclick="addStep()">+ MOVE</button>
-          <button class="mob-tool-btn" id="mobileRailUndoBtn" type="button" onclick="undo()">UNDO</button>
           <button class="mob-tool-btn mob-tool-more" id="mobMoreBtn" onclick="toggleMobileMoreDrawer()">MORE &#9652;&#xFE0E;</button>
         </div>
       </div>
@@ -759,8 +755,6 @@
           <button class="board-pill tool-btn" data-tool="tele" onclick="setTool('tele')" data-label-desktop="TELE" data-label-mobile="TEL" data-i18n-label-desktop="toolbar.tele" data-i18n-label-mobile="toolbar.tele.mobile">TELE</button>
           <button class="board-pill action-btn" id="gainlineToggleBtn" type="button" onclick="toggleGainline()">GAINLINE</button>
           <button class="board-pill action-btn" id="ghostPreviousToggleBtn" type="button" onclick="toggleGhostPrevious()" aria-pressed="false">GHOST PREV</button>
-          <button class="board-pill action-btn" id="mobileUndoBtn" onclick="undo()" data-label-desktop="UNDO" data-label-mobile="&#8617;" data-i18n-label-desktop="toolbar.undo" data-i18n-label-mobile="toolbar.undo.mobile">UNDO</button>
-          <button class="board-pill action-btn" id="mobileRedoBtn" onclick="redo()" data-label-desktop="REDO" data-label-mobile="&#8618;" data-i18n-label-desktop="toolbar.redo" data-i18n-label-mobile="toolbar.redo.mobile">REDO</button>
         </div>
 
         <span class="toolbar-divider" aria-hidden="true"></span>

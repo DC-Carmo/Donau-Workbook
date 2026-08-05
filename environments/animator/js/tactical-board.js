@@ -4892,10 +4892,6 @@ function syncHistoryControls() {
   const bindings = [
     { id: 'topbarUndoBtn', disabled: undoDisabled, title: undoDisabled ? tr('dock.undo.none') : tr('dock.undo.ready') },
     { id: 'topbarRedoBtn', disabled: redoDisabled, title: redoDisabled ? tr('dock.redo.none') : tr('dock.redo.ready') },
-    { id: 'mobileUndoBtn', disabled: undoDisabled, title: undoDisabled ? tr('dock.undo.none') : tr('dock.undo.ready') },
-    { id: 'mobileRedoBtn', disabled: redoDisabled, title: redoDisabled ? tr('dock.redo.none') : tr('dock.redo.ready') },
-    { id: 'mobileRailUndoBtn', disabled: undoDisabled, title: undoDisabled ? tr('dock.undo.none') : tr('dock.undo.ready') },
-    { id: 'mobileMoreRedoBtn', disabled: redoDisabled, title: redoDisabled ? tr('dock.redo.none') : tr('dock.redo.ready') },
   ];
   bindings.forEach(({ id, disabled, title }) => {
     const el = document.getElementById(id);
@@ -9477,7 +9473,6 @@ function focusSequenceDockViewTarget(view) {
   if (view === 'secondary') {
     const candidates = [
       sequenceDockEls.duplicate,
-      sequenceDockEls.redo,
       sequenceDockEls.back,
     ].filter(Boolean);
     const target = candidates.find(btn => !btn.disabled) || sequenceDockEls.back;
@@ -10056,14 +10051,6 @@ function updateSequenceDockUI() {
   sequenceDockEls.deleteMove.title = canonicalMove.count <= 1
     ? tr('dock.delete.disabled')
     : tr('dock.delete.ready');
-  sequenceDockEls.undo.textContent = labels.undo;
-  sequenceDockEls.undo.disabled = historyDisabled;
-  sequenceDockEls.undo.title = historyDisabled ? 'Nothing to undo' : 'Undo the last change';
-  sequenceDockEls.undo.title = historyDisabled ? tr('dock.undo.none') : tr('dock.undo.ready');
-  sequenceDockEls.redo.textContent = labels.redo;
-  sequenceDockEls.redo.disabled = futureDisabled;
-  sequenceDockEls.redo.title = futureDisabled ? 'Nothing to redo' : 'Redo the last undone change';
-  sequenceDockEls.redo.title = futureDisabled ? tr('dock.redo.none') : tr('dock.redo.ready');
 }
 
 function initSequenceControlDock() {
@@ -10086,8 +10073,6 @@ function initSequenceControlDock() {
     addPhase: document.getElementById('sequenceDockAddPhase'),
     phaseActionStatus: document.getElementById('sequenceDockPhaseActionStatus'),
     deleteMove: document.getElementById('sequenceDockDelete'),
-    undo: document.getElementById('sequenceDockUndo'),
-    redo: document.getElementById('sequenceDockRedo'),
     back: document.getElementById('sequenceDockBack'),
   };
 
@@ -10100,8 +10085,6 @@ function initSequenceControlDock() {
   sequenceDockEls.playbackControl.addEventListener('click', handleSequenceDockPlaybackControl);
   sequenceDockEls.addPhase.addEventListener('click', handleSequenceDockStartPhase);
   sequenceDockEls.deleteMove.addEventListener('click', confirmDeleteSelectedMoveFromDock);
-  sequenceDockEls.undo.addEventListener('click', undo);
-  sequenceDockEls.redo.addEventListener('click', redo);
   sequenceDockEls.back.addEventListener('click', () => setSequenceDockView('primary', { focusTarget: true }));
   updateSequenceDockUI();
   scheduleSequenceDockPosition();
@@ -12623,7 +12606,6 @@ bindSinglePhoneButton('mobileRailAddDefenceBtn', () => addNextAvailablePlayer('D
 bindSinglePhoneButton('mobileRailAddAttackPickerBtn', () => togglePlayerNumberPicker('A', 'mobileRailAddAttackPickerBtn'));
 bindSinglePhoneButton('mobileRailAddDefencePickerBtn', () => togglePlayerNumberPicker('D', 'mobileRailAddDefencePickerBtn'));
 bindSinglePhoneButton('mobileStepBtn', () => addStep());
-bindSinglePhoneButton('mobileRailUndoBtn', () => undo());
 bindSinglePhoneButton('mobMoreBtn', () => toggleMobileMoreDrawer());
 // The top header chevrons step one canonical Move at a time (matching the
 // "MOVE X/Y" half of the header label), sharing the same transport-interrupt
