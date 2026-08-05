@@ -2985,6 +2985,7 @@ function normalizeAnnotation(annotation) {
       y: y - Math.max(1.5, r),
       w: Math.max(3, Math.abs(r) * 2),
       h: Math.max(3, Math.abs(r) * 2),
+      rotation: normalizeShapeRotation(annotation.rotation),
       color: annotation.color || annotationColor('zone'),
       thickness: arrowThicknessValue(annotation.thickness),
       dash: arrowDashValue(annotation.dash),
@@ -3002,6 +3003,7 @@ function normalizeAnnotation(annotation) {
       y,
       w: Math.max(1.5, Math.abs(w)),
       h: Math.max(1.5, Math.abs(h)),
+      rotation: normalizeShapeRotation(annotation.rotation),
       color: annotation.color || annotationColor('box'),
       thickness: arrowThicknessValue(annotation.thickness),
       dash: arrowDashValue(annotation.dash),
@@ -3019,6 +3021,7 @@ function normalizeAnnotation(annotation) {
       y,
       w: Math.max(1.5, Math.abs(w)),
       h: Math.max(1.5, Math.abs(h)),
+      rotation: normalizeShapeRotation(annotation.rotation),
       color: annotation.color || annotationColor('ellipse'),
       thickness: arrowThicknessValue(annotation.thickness),
       dash: arrowDashValue(annotation.dash),
@@ -5937,36 +5940,11 @@ function drawAnnotationSelectionRing(x, y, r) {
 }
 
 function boxAnnotationBounds(box) {
-  const left = Math.min(box.x, box.x + box.w);
-  const right = Math.max(box.x, box.x + box.w);
-  const top = Math.min(box.y, box.y + box.h);
-  const bottom = Math.max(box.y, box.y + box.h);
-  return {
-    left,
-    top,
-    right,
-    bottom,
-    width: Math.max(1.5, right - left),
-    height: Math.max(1.5, bottom - top),
-  };
-}
-
-function boxAnnotationCorners(box) {
-  const bounds = boxAnnotationBounds(box);
-  return {
-    nw: { x: bounds.left, y: bounds.top },
-    ne: { x: bounds.right, y: bounds.top },
-    sw: { x: bounds.left, y: bounds.bottom },
-    se: { x: bounds.right, y: bounds.bottom },
-  };
+  return rotatedShapeAnnotationBounds(box);
 }
 
 function ellipseAnnotationBounds(ellipse) {
-  return boxAnnotationBounds(ellipse);
-}
-
-function ellipseAnnotationCorners(ellipse) {
-  return boxAnnotationCorners(ellipse);
+  return rotatedShapeAnnotationBounds(ellipse);
 }
 
 function setEllipseFromBounds(ellipse, left, top, right, bottom) {
@@ -5993,19 +5971,11 @@ function clampZoneAnnotation(zone) {
 }
 
 function clampBoxAnnotation(box) {
-  const width = Math.max(1.5, Math.abs(box.w));
-  const height = Math.max(1.5, Math.abs(box.h));
-  const x = clamp(box.x, F.XMIN, F.XMAX - width);
-  const y = clamp(box.y, F.YMIN, F.YMAX - height);
-  box.x = x;
-  box.y = y;
-  box.w = Math.min(width, F.XMAX - x);
-  box.h = Math.min(height, F.YMAX - y);
-  return box;
+  return clampRotatedShapeAnnotation(box);
 }
 
 function clampEllipseAnnotation(ellipse) {
-  return clampBoxAnnotation(ellipse);
+  return clampRotatedShapeAnnotation(ellipse);
 }
 
 function zoneAnnotationBounds(zone) {
@@ -6074,7 +6044,7 @@ function positionFloatingSelectionToolbar() {
   const host = document.getElementById('canvasHost');
   const hostRect = host ? host.getBoundingClientRect() : wrapRect;
   const edgeMargin = 8;
-  const gap = 14;
+  const gap = 14 + (isShapeAnnotationType(annotation.type) ? 34 : 0);
   const toolbarWidth = toolbar.offsetWidth || 0;
   const toolbarHeight = toolbar.offsetHeight || 0;
   const visibleLeft = Math.max(
@@ -6207,6 +6177,205 @@ function noteResizeCursorForHandle(handle) {
   if (handle === 'nw' || handle === 'se') return 'nwse-resize';
   if (handle === 'ne' || handle === 'sw') return 'nesw-resize';
   return 'default';
+}
+
+function normalizeShapeRotation(rotation) {
+  const raw = Number(rotation);
+  if (!Number.isFinite(raw)) return 0;
+  let normalized = raw % 360;
+  if (normalized < 0) normalized += 360;
+  return normalized;
+}
+
+function shapeFrameBounds(shape) {
+  const width = Math.max(1.5, Math.abs(Number(shape?.w) || 0));
+  const height = Math.max(1.5, Math.abs(Number(shape?.h) || 0));
+  return {
+    left: Number(shape?.x) || 0,
+    top: Number(shape?.y) || 0,
+    right: (Number(shape?.x) || 0) + width,
+    bottom: (Number(shape?.y) || 0) + height,
+    width,
+    height,
+  };
+}
+
+function shapeAnnotationCenter(shape) {
+  const frame = shapeFrameBounds(shape);
+  return {
+    x: frame.left + (frame.width / 2),
+    y: frame.top + (frame.height / 2),
+  };
+}
+
+function fieldUnitsForPixels(px) {
+  return px / Math.max(sc || 1, 0.0001);
+}
+
+function rotateOffset(x, y, radians) {
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  return {
+    x: (x * cos) - (y * sin),
+    y: (x * sin) + (y * cos),
+  };
+}
+
+function shapeWorldPointFromLocal(shape, localX, localY) {
+  const center = shapeAnnotationCenter(shape);
+  const offset = rotateOffset(localX, localY, normalizeShapeRotation(shape.rotation) * (Math.PI / 180));
+  return {
+    x: center.x + offset.x,
+    y: center.y + offset.y,
+  };
+}
+
+function shapeLocalPointFromWorld(shape, worldPoint, rotationOverride = null) {
+  const center = shapeAnnotationCenter(shape);
+  const radians = (rotationOverride === null ? normalizeShapeRotation(shape.rotation) : normalizeShapeRotation(rotationOverride)) * (Math.PI / 180);
+  return rotateOffset(worldPoint.x - center.x, worldPoint.y - center.y, -radians);
+}
+
+function boxAnnotationCorners(box) {
+  const frame = shapeFrameBounds(box);
+  const halfW = frame.width / 2;
+  const halfH = frame.height / 2;
+  return {
+    nw: shapeWorldPointFromLocal(box, -halfW, -halfH),
+    ne: shapeWorldPointFromLocal(box, halfW, -halfH),
+    sw: shapeWorldPointFromLocal(box, -halfW, halfH),
+    se: shapeWorldPointFromLocal(box, halfW, halfH),
+  };
+}
+
+function ellipseAnnotationCorners(ellipse) {
+  return boxAnnotationCorners(ellipse);
+}
+
+function rotatedShapeAnnotationBounds(shape) {
+  const corners = Object.values(boxAnnotationCorners(shape));
+  const xs = corners.map(point => point.x);
+  const ys = corners.map(point => point.y);
+  return {
+    left: Math.min(...xs),
+    top: Math.min(...ys),
+    right: Math.max(...xs),
+    bottom: Math.max(...ys),
+    width: Math.max(1.5, Math.max(...xs) - Math.min(...xs)),
+    height: Math.max(1.5, Math.max(...ys) - Math.min(...ys)),
+  };
+}
+
+function shapeRotateStemLengthField() {
+  return fieldUnitsForPixels(18);
+}
+
+function shapeRotateHandleFieldPoint(shape) {
+  const frame = shapeFrameBounds(shape);
+  return shapeWorldPointFromLocal(shape, 0, -(frame.height / 2) - shapeRotateStemLengthField());
+}
+
+function shapeRotateStemFieldPoint(shape) {
+  const frame = shapeFrameBounds(shape);
+  return shapeWorldPointFromLocal(shape, 0, -(frame.height / 2));
+}
+
+function shapeHandleHitRadiusField() {
+  return Math.max(1.35, fieldUnitsForPixels(11));
+}
+
+function setShapeFrameFromCenter(shape, center, width, height) {
+  const nextWidth = Math.max(1.5, width);
+  const nextHeight = Math.max(1.5, height);
+  shape.x = center.x - (nextWidth / 2);
+  shape.y = center.y - (nextHeight / 2);
+  shape.w = nextWidth;
+  shape.h = nextHeight;
+}
+
+function clampRotatedShapeAnnotation(shape) {
+  const frame = shapeFrameBounds(shape);
+  shape.w = Math.min(frame.width, F.XMAX - F.XMIN);
+  shape.h = Math.min(frame.height, F.YMAX - F.YMIN);
+  const bounds = rotatedShapeAnnotationBounds(shape);
+  let dx = 0;
+  let dy = 0;
+  if (bounds.left < F.XMIN) dx = F.XMIN - bounds.left;
+  else if (bounds.right > F.XMAX) dx = F.XMAX - bounds.right;
+  if (bounds.top < F.YMIN) dy = F.YMIN - bounds.top;
+  else if (bounds.bottom > F.YMAX) dy = F.YMAX - bounds.bottom;
+  shape.x += dx;
+  shape.y += dy;
+  return shape;
+}
+
+function constrainEllipseSize(width, height) {
+  const size = Math.max(1.5, Math.max(width, height));
+  return { width: size, height: size };
+}
+
+function resizeRotatedShapeAnnotation(shape, base, handle, point, constrainCircle = false) {
+  const rotation = normalizeShapeRotation(base.rotation);
+  const frame = shapeFrameBounds(base);
+  const halfW = frame.width / 2;
+  const halfH = frame.height / 2;
+  const signs = handle === 'nw'
+    ? { x: -1, y: -1 }
+    : handle === 'ne'
+      ? { x: 1, y: -1 }
+      : handle === 'sw'
+        ? { x: -1, y: 1 }
+        : { x: 1, y: 1 };
+  const anchorWorld = shapeWorldPointFromLocal(base, -signs.x * halfW, -signs.y * halfH);
+  const localDelta = rotateOffset(point.x - anchorWorld.x, point.y - anchorWorld.y, -(rotation * (Math.PI / 180)));
+  let width = Math.max(1.5, Math.abs(localDelta.x));
+  let height = Math.max(1.5, Math.abs(localDelta.y));
+  if (constrainCircle) {
+    const constrained = constrainEllipseSize(width, height);
+    width = constrained.width;
+    height = constrained.height;
+  }
+  const draggedLocal = {
+    x: signs.x * width,
+    y: signs.y * height,
+  };
+  const centerOffset = rotateOffset(draggedLocal.x / 2, draggedLocal.y / 2, rotation * (Math.PI / 180));
+  const center = {
+    x: anchorWorld.x + centerOffset.x,
+    y: anchorWorld.y + centerOffset.y,
+  };
+  setShapeFrameFromCenter(shape, center, width, height);
+  shape.rotation = rotation;
+  return clampRotatedShapeAnnotation(shape);
+}
+
+function shapeResizeCursorForHandle(handle) {
+  if (handle === 'rotate') return 'grab';
+  if (handle === 'nw' || handle === 'se') return 'nwse-resize';
+  if (handle === 'ne' || handle === 'sw') return 'nesw-resize';
+  return 'grab';
+}
+
+function drawShapeRotationHandle(shape, opacity = 1) {
+  const stemStart = toC(shapeRotateStemFieldPoint(shape).x, shapeRotateStemFieldPoint(shape).y);
+  const handleCenterField = shapeRotateHandleFieldPoint(shape);
+  const handleCenter = toC(handleCenterField.x, handleCenterField.y);
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.strokeStyle = 'rgba(251,191,36,0.42)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(stemStart.x, stemStart.y);
+  ctx.lineTo(handleCenter.x, handleCenter.y);
+  ctx.stroke();
+  ctx.fillStyle = '#fbbf24';
+  ctx.strokeStyle = '#0b1420';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(handleCenter.x, handleCenter.y, 6.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawArrowAnnotation(arrow, selected = false, preview = false) {
@@ -6355,21 +6524,24 @@ function drawZoneAnnotation(zone, selected = false, preview = false) {
 
 function drawBoxAnnotation(box, selected = false, preview = false) {
   const opacity = preview ? 1 : (Number(box.opacity) || 1);
-  const bounds = boxAnnotationBounds(box);
-  const topLeft = toC(bounds.left, bounds.top);
-  const bottomRight = toC(bounds.right, bounds.bottom);
-  const width = bottomRight.x - topLeft.x;
-  const height = bottomRight.y - topLeft.y;
+  const frame = shapeFrameBounds(box);
+  const center = shapeAnnotationCenter(box);
+  const centerPx = toC(center.x, center.y);
+  const width = frame.width * sc;
+  const height = frame.height * sc;
   const strokeWidth = preview ? Math.max(1.8, arrowStrokeWidthPx(box.thickness) - 0.3) : arrowStrokeWidthPx(box.thickness);
   const dash = shapeDashPattern(box.dash, strokeWidth);
+  const rotation = normalizeShapeRotation(box.rotation) * (Math.PI / 180);
 
   ctx.save();
   ctx.globalAlpha = opacity;
+  ctx.translate(centerPx.x, centerPx.y);
+  ctx.rotate(rotation);
   ctx.fillStyle = hexToRgba(box.color || annotationColor('box'), preview ? 0.09 : 0.13);
   ctx.strokeStyle = selected ? '#fbbf24' : (box.color || annotationColor('box'));
   ctx.lineWidth = selected ? Math.max(2.4, strokeWidth) : strokeWidth;
   if (dash.length) ctx.setLineDash(dash);
-  roundRect(ctx, topLeft.x, topLeft.y, width, height, 14);
+  roundRect(ctx, -(width / 2), -(height / 2), width, height, 14);
   ctx.fill();
   ctx.stroke();
   ctx.setLineDash([]);
@@ -6378,10 +6550,12 @@ function drawBoxAnnotation(box, selected = false, preview = false) {
   if (selected) {
     const corners = boxAnnotationCorners(box);
     ctx.save();
+    ctx.translate(centerPx.x, centerPx.y);
+    ctx.rotate(rotation);
     ctx.strokeStyle = 'rgba(251,191,36,0.24)';
     ctx.lineWidth = 1.5;
     ctx.setLineDash([6, 5]);
-    roundRect(ctx, topLeft.x - 4, topLeft.y - 4, width + 8, height + 8, 16);
+    roundRect(ctx, -(width / 2) - 4, -(height / 2) - 4, width + 8, height + 8, 16);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
@@ -6398,31 +6572,33 @@ function drawBoxAnnotation(box, selected = false, preview = false) {
       ctx.stroke();
       ctx.restore();
     });
+    drawShapeRotationHandle(box, opacity);
   }
 }
 
 function drawEllipseAnnotation(ellipse, selected = false, preview = false) {
   const opacity = preview ? 1 : (Number(ellipse.opacity) || 1);
-  const bounds = ellipseAnnotationBounds(ellipse);
-  const topLeft = toC(bounds.left, bounds.top);
-  const bottomRight = toC(bounds.right, bounds.bottom);
-  const width = Math.max(1, bottomRight.x - topLeft.x);
-  const height = Math.max(1, bottomRight.y - topLeft.y);
-  const centerX = topLeft.x + (width / 2);
-  const centerY = topLeft.y + (height / 2);
+  const frame = shapeFrameBounds(ellipse);
+  const center = shapeAnnotationCenter(ellipse);
+  const centerPx = toC(center.x, center.y);
+  const width = Math.max(1, frame.width * sc);
+  const height = Math.max(1, frame.height * sc);
   const radiusX = width / 2;
   const radiusY = height / 2;
   const strokeWidth = preview ? Math.max(1.8, arrowStrokeWidthPx(ellipse.thickness) - 0.3) : arrowStrokeWidthPx(ellipse.thickness);
   const dash = shapeDashPattern(ellipse.dash, strokeWidth);
+  const rotation = normalizeShapeRotation(ellipse.rotation) * (Math.PI / 180);
 
   ctx.save();
   ctx.globalAlpha = opacity;
+  ctx.translate(centerPx.x, centerPx.y);
+  ctx.rotate(rotation);
   ctx.fillStyle = hexToRgba(ellipse.color || annotationColor('ellipse'), preview ? 0.08 : 0.12);
   ctx.strokeStyle = selected ? '#fbbf24' : (ellipse.color || annotationColor('ellipse'));
   ctx.lineWidth = selected ? Math.max(2.4, strokeWidth) : strokeWidth;
   if (dash.length) ctx.setLineDash(dash);
   ctx.beginPath();
-  ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
   ctx.setLineDash([]);
@@ -6431,11 +6607,13 @@ function drawEllipseAnnotation(ellipse, selected = false, preview = false) {
   if (selected) {
     const corners = ellipseAnnotationCorners(ellipse);
     ctx.save();
+    ctx.translate(centerPx.x, centerPx.y);
+    ctx.rotate(rotation);
     ctx.strokeStyle = 'rgba(251,191,36,0.24)';
     ctx.lineWidth = 1.5;
     ctx.setLineDash([6, 5]);
     ctx.beginPath();
-    ctx.ellipse(centerX, centerY, radiusX + 4, radiusY + 4, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, radiusX + 4, radiusY + 4, 0, 0, Math.PI * 2);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
@@ -6452,6 +6630,7 @@ function drawEllipseAnnotation(ellipse, selected = false, preview = false) {
       ctx.stroke();
       ctx.restore();
     });
+    drawShapeRotationHandle(ellipse, opacity);
   }
 }
 
@@ -6718,35 +6897,33 @@ function hitAnnotation(fp) {
       if (d2(fp, center) <= ann.r + 1.1) return { id: ann.id, part: 'move' };
     }
     if (ann.type === 'box') {
-      const bounds = boxAnnotationBounds(ann);
       const corners = boxAnnotationCorners(ann);
-      if (d2(fp, corners.nw) <= 2.8) return { id: ann.id, part: 'nw' };
-      if (d2(fp, corners.ne) <= 2.8) return { id: ann.id, part: 'ne' };
-      if (d2(fp, corners.sw) <= 2.8) return { id: ann.id, part: 'sw' };
-      if (d2(fp, corners.se) <= 2.8) return { id: ann.id, part: 'se' };
-      if (
-        fp.x >= bounds.left - 0.8 && fp.x <= bounds.right + 0.8 &&
-        fp.y >= bounds.top - 0.8 && fp.y <= bounds.bottom + 0.8
-      ) {
+      const handleRadius = shapeHandleHitRadiusField();
+      if (selectedAnnotationId() === ann.id && d2(fp, shapeRotateHandleFieldPoint(ann)) <= handleRadius) return { id: ann.id, part: 'rotate' };
+      if (d2(fp, corners.nw) <= handleRadius) return { id: ann.id, part: 'nw' };
+      if (d2(fp, corners.ne) <= handleRadius) return { id: ann.id, part: 'ne' };
+      if (d2(fp, corners.sw) <= handleRadius) return { id: ann.id, part: 'sw' };
+      if (d2(fp, corners.se) <= handleRadius) return { id: ann.id, part: 'se' };
+      const local = shapeLocalPointFromWorld(ann, fp);
+      const frame = shapeFrameBounds(ann);
+      if (Math.abs(local.x) <= (frame.width / 2) + 0.8 && Math.abs(local.y) <= (frame.height / 2) + 0.8) {
         return { id: ann.id, part: 'move' };
       }
     }
     if (ann.type === 'ellipse') {
-      const bounds = ellipseAnnotationBounds(ann);
       const corners = ellipseAnnotationCorners(ann);
-      if (d2(fp, corners.nw) <= 2.8) return { id: ann.id, part: 'nw' };
-      if (d2(fp, corners.ne) <= 2.8) return { id: ann.id, part: 'ne' };
-      if (d2(fp, corners.sw) <= 2.8) return { id: ann.id, part: 'sw' };
-      if (d2(fp, corners.se) <= 2.8) return { id: ann.id, part: 'se' };
-      const centerX = bounds.left + (bounds.width / 2);
-      const centerY = bounds.top + (bounds.height / 2);
-      const rx = Math.max(0.75, bounds.width / 2);
-      const ry = Math.max(0.75, bounds.height / 2);
-      const norm = (((fp.x - centerX) ** 2) / (rx ** 2)) + (((fp.y - centerY) ** 2) / (ry ** 2));
-      if (norm <= 1.15 || (
-        fp.x >= bounds.left - 0.8 && fp.x <= bounds.right + 0.8 &&
-        fp.y >= bounds.top - 0.8 && fp.y <= bounds.bottom + 0.8
-      )) {
+      const handleRadius = shapeHandleHitRadiusField();
+      if (selectedAnnotationId() === ann.id && d2(fp, shapeRotateHandleFieldPoint(ann)) <= handleRadius) return { id: ann.id, part: 'rotate' };
+      if (d2(fp, corners.nw) <= handleRadius) return { id: ann.id, part: 'nw' };
+      if (d2(fp, corners.ne) <= handleRadius) return { id: ann.id, part: 'ne' };
+      if (d2(fp, corners.sw) <= handleRadius) return { id: ann.id, part: 'sw' };
+      if (d2(fp, corners.se) <= handleRadius) return { id: ann.id, part: 'se' };
+      const local = shapeLocalPointFromWorld(ann, fp);
+      const frame = shapeFrameBounds(ann);
+      const rx = Math.max(0.75, frame.width / 2);
+      const ry = Math.max(0.75, frame.height / 2);
+      const norm = ((local.x ** 2) / (rx ** 2)) + ((local.y ** 2) / (ry ** 2));
+      if (norm <= 1.15) {
         return { id: ann.id, part: 'move' };
       }
     }
@@ -7028,6 +7205,16 @@ function handlePointerDown(e) {
             };
           })()
         : null;
+      const shapeRotate = !isNoteResize && isShapeAnnotationType(ann?.type) && annHit.part === 'rotate'
+        ? (() => {
+            const center = shapeAnnotationCenter(ann);
+            return {
+              center,
+              startPointerAngle: Math.atan2(fp.y - center.y, fp.x - center.x),
+              baseRotation: normalizeShapeRotation(ann.rotation),
+            };
+          })()
+        : null;
       S.dragging = {
         type:'annotation',
         id:annHit.id,
@@ -7036,6 +7223,7 @@ function handlePointerDown(e) {
         dragOff,
         startSnapshot: ann ? cloneData(ann) : null,
         noteResize,
+        shapeRotate,
       };
       beginPointerTap(e.pointerId, { type:'annotation', id:annHit.id, wasSelected }, e);
       closeRadialMenu();
@@ -7156,6 +7344,16 @@ function handlePointerDown(e) {
               };
             })()
           : null;
+        const shapeRotate = !isNoteResize && isShapeAnnotationType(selectedNote?.type) && selectedHit.part === 'rotate'
+          ? (() => {
+              const center = shapeAnnotationCenter(selectedNote);
+              return {
+                center,
+                startPointerAngle: Math.atan2(fp.y - center.y, fp.x - center.x),
+                baseRotation: normalizeShapeRotation(selectedNote.rotation),
+              };
+            })()
+          : null;
         S.dragging = {
           type:'annotation',
           id:selectedNote.id,
@@ -7164,6 +7362,7 @@ function handlePointerDown(e) {
           dragOff:{ x: fp.x - selectedNote.x, y: fp.y - selectedNote.y },
           startSnapshot: cloneData(selectedNote),
           noteResize,
+          shapeRotate,
         };
         beginPointerTap(e.pointerId, { type:'annotation', id:selectedNote.id, wasSelected: true }, e);
         closeRadialMenu();
@@ -7658,46 +7857,32 @@ function handlePointerMove(e) {
           if (S.dragging.part === 'move') {
             ann.x = fieldPoint.x - (S.dragging.dragOff?.x || 0);
             ann.y = fieldPoint.y - (S.dragging.dragOff?.y || 0);
+          } else if (S.dragging.part === 'rotate') {
+            const rotateState = S.dragging.shapeRotate;
+            if (rotateState) {
+              const currentAngle = Math.atan2(fieldPoint.y - rotateState.center.y, fieldPoint.x - rotateState.center.x);
+              let nextRotation = rotateState.baseRotation + ((currentAngle - rotateState.startPointerAngle) * (180 / Math.PI));
+              if (latestSample.shiftKey) nextRotation = Math.round(nextRotation / 15) * 15;
+              ann.rotation = normalizeShapeRotation(nextRotation);
+            }
           } else {
-            const base = S.dragging.startSnapshot || ann;
-            const baseBounds = boxAnnotationBounds(base);
-            let left = baseBounds.left;
-            let right = baseBounds.right;
-            let top = baseBounds.top;
-            let bottom = baseBounds.bottom;
-            if (S.dragging.part === 'nw' || S.dragging.part === 'sw') left = fieldPoint.x;
-            if (S.dragging.part === 'ne' || S.dragging.part === 'se') right = fieldPoint.x;
-            if (S.dragging.part === 'nw' || S.dragging.part === 'ne') top = fieldPoint.y;
-            if (S.dragging.part === 'sw' || S.dragging.part === 'se') bottom = fieldPoint.y;
-            setBoxFromBounds(ann, left, top, right, bottom);
+            resizeRotatedShapeAnnotation(ann, S.dragging.startSnapshot || ann, S.dragging.part, fieldPoint, false);
           }
           clampBoxAnnotation(ann);
         } else if (ann.type === 'ellipse') {
           if (S.dragging.part === 'move') {
             ann.x = fieldPoint.x - (S.dragging.dragOff?.x || 0);
             ann.y = fieldPoint.y - (S.dragging.dragOff?.y || 0);
-          } else {
-            const base = S.dragging.startSnapshot || ann;
-            const baseBounds = ellipseAnnotationBounds(base);
-            let left = baseBounds.left;
-            let right = baseBounds.right;
-            let top = baseBounds.top;
-            let bottom = baseBounds.bottom;
-            if (latestSample.shiftKey) {
-              const anchorX = (S.dragging.part === 'nw' || S.dragging.part === 'sw') ? baseBounds.right : baseBounds.left;
-              const anchorY = (S.dragging.part === 'nw' || S.dragging.part === 'ne') ? baseBounds.bottom : baseBounds.top;
-              const constrained = constrainEllipseBounds(anchorX, anchorY, fieldPoint.x, fieldPoint.y);
-              left = constrained.left;
-              right = constrained.right;
-              top = constrained.top;
-              bottom = constrained.bottom;
-            } else {
-              if (S.dragging.part === 'nw' || S.dragging.part === 'sw') left = fieldPoint.x;
-              if (S.dragging.part === 'ne' || S.dragging.part === 'se') right = fieldPoint.x;
-              if (S.dragging.part === 'nw' || S.dragging.part === 'ne') top = fieldPoint.y;
-              if (S.dragging.part === 'sw' || S.dragging.part === 'se') bottom = fieldPoint.y;
+          } else if (S.dragging.part === 'rotate') {
+            const rotateState = S.dragging.shapeRotate;
+            if (rotateState) {
+              const currentAngle = Math.atan2(fieldPoint.y - rotateState.center.y, fieldPoint.x - rotateState.center.x);
+              let nextRotation = rotateState.baseRotation + ((currentAngle - rotateState.startPointerAngle) * (180 / Math.PI));
+              if (latestSample.shiftKey) nextRotation = Math.round(nextRotation / 15) * 15;
+              ann.rotation = normalizeShapeRotation(nextRotation);
             }
-            setEllipseFromBounds(ann, left, top, right, bottom);
+          } else {
+            resizeRotatedShapeAnnotation(ann, S.dragging.startSnapshot || ann, S.dragging.part, fieldPoint, !!latestSample.shiftKey);
           }
           clampEllipseAnnotation(ann);
         }
@@ -7753,6 +7938,10 @@ function handlePointerMove(e) {
   const pl = hitPlayer(fp), bl = hitBall(fp), ann = hitAnnotation(fp);
   if (S.tool === 'move') {
     if (ann?.part === 'resize') cv.style.cursor = noteResizeCursorForHandle(ann.handle);
+    else if (ann?.part === 'rotate') cv.style.cursor = 'grab';
+    else if (ann && isShapeAnnotationType(findAnnotationById(ann.id)?.type) && ['nw', 'ne', 'sw', 'se'].includes(ann.part)) {
+      cv.style.cursor = shapeResizeCursorForHandle(ann.part);
+    }
     else {
       const onPath = pl || bl || ann || hitRunPath(fp) !== null || hitPassLine(fp) !== -1 || hitKickPath(fp) !== -1;
       cv.style.cursor = onPath ? 'grab' : 'default';
@@ -10203,10 +10392,10 @@ function getSelectedSummary() {
       return { title: 'Circle Highlight', meta: 'Drag the circle to move it or drag the outer handle to resize it.' };
     }
     if (ann.type === 'box') {
-      return { title: 'Box Highlight', meta: 'Drag inside the box to move it or drag any corner handle to resize it.' };
+      return { title: 'Box Highlight', meta: 'Drag inside the box to move it, use the round handle above it to rotate, or drag any corner handle to resize it.' };
     }
     if (ann.type === 'ellipse') {
-      return { title: 'Circle Highlight', meta: 'Drag inside the shape to move it or drag any corner handle to resize it. Hold Shift while resizing for a perfect circle.' };
+      return { title: 'Circle Highlight', meta: 'Drag inside the shape to move it, use the round handle above it to rotate, or drag any corner handle to resize it. Hold Shift while resizing for a perfect circle.' };
     }
   }
   if (players.length > 1) {
