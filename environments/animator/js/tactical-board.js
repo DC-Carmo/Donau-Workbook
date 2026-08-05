@@ -956,9 +956,22 @@ function defaultShapeStyle(type) {
 }
 
 function shapeStyleStateKeys(type) {
-  if (type === 'zone') return { color: 'zoneColor', thickness: 'zoneThickness', dash: 'zoneDash' };
-  if (type === 'ellipse') return { color: 'ellipseColor', thickness: 'ellipseThickness', dash: 'ellipseDash' };
+  if (type === 'zone' || type === 'ellipse') return { color: 'zoneColor', thickness: 'zoneThickness', dash: 'zoneDash' };
   return { color: 'boxColor', thickness: 'boxThickness', dash: 'boxDash' };
+}
+
+function constrainEllipseBounds(anchorX, anchorY, pointX, pointY) {
+  const dx = pointX - anchorX;
+  const dy = pointY - anchorY;
+  const size = Math.max(Math.abs(dx), Math.abs(dy), 1.5);
+  const nextX = anchorX + ((dx < 0) ? -size : size);
+  const nextY = anchorY + ((dy < 0) ? -size : size);
+  return {
+    left: Math.min(anchorX, nextX),
+    right: Math.max(anchorX, nextX),
+    top: Math.min(anchorY, nextY),
+    bottom: Math.max(anchorY, nextY),
+  };
 }
 
 function currentShapeStyleSelection(type = null) {
@@ -2940,6 +2953,23 @@ function normalizeAnnotation(annotation) {
       x,
       y,
       r: Math.max(1.5, r),
+      color: annotation.color || annotationColor('zone'),
+      thickness: arrowThicknessValue(annotation.thickness),
+      dash: arrowDashValue(annotation.dash),
+    };
+  }
+  if (annotation.type === 'circle') {
+    const x = Number(annotation.x);
+    const y = Number(annotation.y);
+    const r = Number(annotation.r);
+    if (![x, y, r].every(Number.isFinite)) return null;
+    return {
+      ...base,
+      type: 'ellipse',
+      x: x - Math.max(1.5, r),
+      y: y - Math.max(1.5, r),
+      w: Math.max(3, Math.abs(r) * 2),
+      h: Math.max(3, Math.abs(r) * 2),
       color: annotation.color || annotationColor('zone'),
       thickness: arrowThicknessValue(annotation.thickness),
       dash: arrowDashValue(annotation.dash),
@@ -7065,16 +7095,18 @@ function handlePointerDown(e) {
     const shapeStyle = currentShapeStyleSelection('zone');
     S.annotationDraft = normalizeAnnotation({
       id: mkAnnotationId(),
-      type: 'zone',
+      type: 'ellipse',
       x: clampedFieldPoint.x,
       y: clampedFieldPoint.y,
-      r: 0.1,
+      w: 1.5,
+      h: 1.5,
       color: shapeStyle.color,
       thickness: shapeStyle.thickness,
       dash: shapeStyle.dash,
     });
+    S.annotationDraft.anchor = { x: clampedFieldPoint.x, y: clampedFieldPoint.y };
     try { cv.setPointerCapture(e.pointerId); } catch(_) {}
-    setHint('Drag outward to size the highlight zone.');
+    setHint('Drag outward to size the circle or oval highlight. Hold Shift for a perfect circle.');
     refreshInteractionUI();
   }
 
@@ -7501,10 +7533,20 @@ function handlePointerMove(e) {
             let right = baseBounds.right;
             let top = baseBounds.top;
             let bottom = baseBounds.bottom;
-            if (S.dragging.part === 'nw' || S.dragging.part === 'sw') left = fieldPoint.x;
-            if (S.dragging.part === 'ne' || S.dragging.part === 'se') right = fieldPoint.x;
-            if (S.dragging.part === 'nw' || S.dragging.part === 'ne') top = fieldPoint.y;
-            if (S.dragging.part === 'sw' || S.dragging.part === 'se') bottom = fieldPoint.y;
+            if (latestSample.shiftKey) {
+              const anchorX = (S.dragging.part === 'nw' || S.dragging.part === 'sw') ? baseBounds.right : baseBounds.left;
+              const anchorY = (S.dragging.part === 'nw' || S.dragging.part === 'ne') ? baseBounds.bottom : baseBounds.top;
+              const constrained = constrainEllipseBounds(anchorX, anchorY, fieldPoint.x, fieldPoint.y);
+              left = constrained.left;
+              right = constrained.right;
+              top = constrained.top;
+              bottom = constrained.bottom;
+            } else {
+              if (S.dragging.part === 'nw' || S.dragging.part === 'sw') left = fieldPoint.x;
+              if (S.dragging.part === 'ne' || S.dragging.part === 'se') right = fieldPoint.x;
+              if (S.dragging.part === 'nw' || S.dragging.part === 'ne') top = fieldPoint.y;
+              if (S.dragging.part === 'sw' || S.dragging.part === 'se') bottom = fieldPoint.y;
+            }
             setEllipseFromBounds(ann, left, top, right, bottom);
           }
           clampEllipseAnnotation(ann);
@@ -7539,7 +7581,12 @@ function handlePointerMove(e) {
     }
     if (S.annotationDraft.type === 'ellipse') {
       const start = S.annotationDraft.anchor || { x: S.annotationDraft.x, y: S.annotationDraft.y };
-      setEllipseFromBounds(S.annotationDraft, start.x, start.y, fieldPoint.x, fieldPoint.y);
+      if (latestSample.shiftKey) {
+        const constrained = constrainEllipseBounds(start.x, start.y, fieldPoint.x, fieldPoint.y);
+        setEllipseFromBounds(S.annotationDraft, constrained.left, constrained.top, constrained.right, constrained.bottom);
+      } else {
+        setEllipseFromBounds(S.annotationDraft, start.x, start.y, fieldPoint.x, fieldPoint.y);
+      }
       clampEllipseAnnotation(S.annotationDraft);
     }
     scheduleRender();
@@ -9584,13 +9631,13 @@ const MODE_LABELS = {
 
 HINTS.note  = 'NOTE – click the pitch to place a coaching cue card.';
 HINTS.arrow = 'ARROW – drag to draw a coaching annotation arrow. Does not animate players.';
-HINTS.zone  = 'CIRCLE – drag to place a highlight circle.';
+HINTS.zone  = 'CIRCLE – drag to place a circle or oval highlight. Hold Shift for a perfect circle.';
 MODE_LABELS.note  = 'Note';
 MODE_LABELS.arrow = 'Arrow';
 MODE_LABELS.zone  = 'Circle Highlight';
 
-HINTS.ellipse = 'ELLIPSE - drag to place a highlight ellipse.';
-MODE_LABELS.ellipse = 'Ellipse Highlight';
+HINTS.ellipse = HINTS.zone;
+MODE_LABELS.ellipse = 'Circle Highlight';
 HINTS.tele = 'TELESTRATOR - draw live ink that fades in 3 seconds.';
 MODE_LABELS.tele = 'Telestrator';
 
@@ -9874,7 +9921,7 @@ function getSelectedSummary() {
       return { title: 'Box Highlight', meta: 'Drag inside the box to move it or drag any corner handle to resize it.' };
     }
     if (ann.type === 'ellipse') {
-      return { title: 'Ellipse Highlight', meta: 'Drag inside the ellipse to move it or drag any corner handle to resize it.' };
+      return { title: 'Circle Highlight', meta: 'Drag inside the shape to move it or drag any corner handle to resize it. Hold Shift while resizing for a perfect circle.' };
     }
   }
   if (players.length > 1) {
@@ -10068,11 +10115,11 @@ function updateAnnotationPanel() {
   } else if (S.tool === 'arrow') {
     copy.textContent = 'Drag on the field to draw a free tactical arrow.';
   } else if (S.tool === 'zone') {
-    copy.textContent = 'Drag on the field to size a circle highlight for space, support, or defensive gaps.';
+    copy.textContent = 'Drag on the field to size a circle or oval highlight for space, support, or defensive gaps. Hold Shift for a perfect circle.';
   } else if (S.tool === 'box') {
     copy.textContent = 'Drag on the field to size a box highlight for channels, pressure areas, or field zones.';
   } else if (S.tool === 'ellipse') {
-    copy.textContent = 'Drag on the field to size an ellipse highlight for space, pressure, or shape.';
+    copy.textContent = 'Drag on the field to size a circle or oval highlight for space, support, or defensive gaps. Hold Shift for a perfect circle.';
   } else if (S.tool === 'kick') {
     copy.textContent = 'Secondary tool: click the kicker, then the target.';
   } else if (S.tool === 'erase') {
@@ -10174,7 +10221,7 @@ const TOOL_GUIDE_CONTENT = {
   erase: { icon: '✕', desc: 'Tap any player, ball, path, or annotation to remove it.' },
 };
 
-TOOL_GUIDE_CONTENT.ellipse = { icon: '()', desc: 'Drag on the field to draw an ellipse highlight area.' };
+TOOL_GUIDE_CONTENT.ellipse = { icon: '()', desc: 'Drag on the field to draw a circle or oval highlight area. Hold Shift for a perfect circle.' };
 
 function updateSmartPanel() {
   const guide = TOOL_GUIDE_CONTENT[S.tool] || TOOL_GUIDE_CONTENT.run || TOOL_GUIDE_CONTENT.move;
@@ -10408,6 +10455,7 @@ function scrollCompactToolbarToolIntoView(tool = S.tool) {
 }
 
 function setTool(t) {
+  if (t === 'ellipse') t = 'zone';
   // Any call to setTool() - rail click or radial dispatch alike - starts by
   // treating a prior radial one-shot Arrow as abandoned. activateRadialAction()
   // re-arms it immediately after calling setTool('arrow') below, so the flag
@@ -11452,7 +11500,7 @@ document.addEventListener('pointerdown', e => {
 document.getElementById('mobileMoreDrawer')?.addEventListener('click', (e) => {
   const actionBtn = e.target.closest('.mob-more-btn');
   if (!actionBtn || actionBtn.disabled) return;
-  if (actionBtn.dataset.tool === 'arrow' || actionBtn.dataset.tool === 'ellipse') return;
+  if (actionBtn.dataset.tool === 'arrow' || actionBtn.dataset.tool === 'zone') return;
   setTimeout(() => setMobileMoreDrawerOpen(false), 0);
 });
 
