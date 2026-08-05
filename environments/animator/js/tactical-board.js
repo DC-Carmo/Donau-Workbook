@@ -7867,43 +7867,34 @@ function handlePointerDown(e) {
       render();
       return;
     }
-    snapshot();
     let removed = false;
 
-    // 1. Try to erase a path near the click point
-    S.paths = S.paths.filter(path => {
-      if (removed) return true;
-      const close = path.pts.some(pt => d2(fp, pt) < 3.5);
-      if (close) { removed = true; return false; }
-      return true;
-    });
-
-    // 2. Try to erase a pass arc near the click point
-    if (!removed) {
-      const before = S.passes.length;
-      S.passes = S.passes.filter(pass => {
-        const fp2 = S.players.find(p => p.id === pass.from);
-        const tp  = S.players.find(p => p.id === pass.to);
-        if (!fp2 || !tp) return false;
-        const mx = (fp2.x + tp.x) / 2, my = (fp2.y + tp.y) / 2;
-        return d2(fp, { x: mx, y: my }) > 4;
-      });
-      if (S.passes.length < before) removed = true;
-    }
-
-    // 3. Only remove player or ball if nothing else was hit
-    if (!removed) {
-      const pl = hitPlayer(fp);
-      if (pl) {
-        removePlayer(pl.id);
-        finishEraseInteraction(`${pl.team === 'A' ? 'Attack' : 'Defence'} #${pl.num} erased. Back in Move mode.`);
-        return;
-      }
-      if (hitBall(fp)) {
-        S.ball = null;
-        clearSelectedObject();
-        removed = true;
-      }
+    if (eraseRun !== null) {
+      snapshot();
+      S.paths = S.paths.filter(path => path.pid !== eraseRun);
+      S.selectedPathPid = S.selectedPathPid === eraseRun ? null : S.selectedPathPid;
+      removed = true;
+    } else if (erasePass !== -1 || eraseKick !== -1) {
+      const removeIdx = erasePass !== -1 ? erasePass : eraseKick;
+      snapshot();
+      S.passes.splice(removeIdx, 1);
+      if (S.selectedPassIdx === removeIdx) S.selectedPassIdx = null;
+      else if (S.selectedPassIdx !== null && S.selectedPassIdx > removeIdx) S.selectedPassIdx -= 1;
+      removed = true;
+    } else if (eraseAnnotation) {
+      snapshot();
+      removeAnnotation(eraseAnnotation.id);
+      removed = true;
+    } else if (erasePlayer) {
+      snapshot();
+      removePlayer(erasePlayer.id);
+      finishEraseInteraction(`${erasePlayer.team === 'A' ? 'Attack' : 'Defence'} #${erasePlayer.num} erased. Back in Move mode.`);
+      return;
+    } else if (eraseBall) {
+      snapshot();
+      S.ball = null;
+      clearSelectedObject();
+      removed = true;
     }
 
     if (removed) {
