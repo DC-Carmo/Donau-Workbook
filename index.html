@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RDA — Rugby Development Academy | Tactical Board, Club Platform & Summer Camp</title>
 <meta name="description" content="Rugby Development Academy — one modern brand for the game: the RDA Tactical Board, a club platform, and the RDA Summer Camp. Develop. Perform. Succeed.">
+<link rel="icon" href="data:,">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -175,6 +176,11 @@
   .nav-links .dd.open .dd-menu{display:flex}
   .nav-links .dd-menu a{padding:10px 12px;border-radius:8px;color:var(--muted);font-size:12.5px;letter-spacing:1px;text-transform:uppercase}
   .nav-links .dd-menu a:hover{background:rgba(255,255,255,.05);color:#fff}
+  @media(max-width:900px){
+    .nav-links .dd-menu{position:static;transform:none;display:flex;border:none;box-shadow:none;min-width:0;padding:6px 0 0 14px;background:transparent;gap:4px}
+    .nav-links .dd-menu a{padding:9px 12px;border-left:1px solid rgba(227,178,60,.22);border-radius:0;color:#d5d8d7;text-transform:none;letter-spacing:.5px;font-size:13px}
+    .nav-links .dd-menu a:hover{background:transparent;color:#fff;border-left-color:rgba(227,178,60,.5)}
+  }
   /* human band */
   .human-band{position:relative;height:360px;background:url('assets/donau/images/camp/camp-session.jpg') center/cover no-repeat;display:flex;align-items:center}
   .human-band .hb-scrim{position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,11,9,.9),rgba(8,11,9,.4))}
