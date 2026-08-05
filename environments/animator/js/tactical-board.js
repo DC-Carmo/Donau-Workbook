@@ -106,6 +106,27 @@ function syncCanvasResolution(canvas, context, width, height) {
   context.setTransform(renderDpr, 0, 0, renderDpr, 0, 0);
 }
 
+function computeDesktopCanvasMetrics(width, height) {
+  const safeWidth = Math.max(1, Number(width) || 1);
+  const safeHeight = Math.max(1, Number(height) || 1);
+  const padX = Math.max(6, Math.min(12, safeWidth * 0.008));
+  const padY = Math.max(8, Math.min(14, safeHeight * 0.01));
+  const baseFromWidth = (safeWidth - padX * 2) / (FVW * FIELD_X_STRETCH);
+  const baseFromHeight = (safeHeight - padY * 2) / FVH;
+  const nextSc = Math.max(0.01, Math.min(baseFromWidth, baseFromHeight));
+  const nextSx = nextSc * FIELD_X_STRETCH;
+  const nextSy = nextSc;
+  return {
+    cvW: safeWidth,
+    cvH: safeHeight,
+    sc: nextSc,
+    sx: nextSx,
+    sy: nextSy,
+    ox: (safeWidth - FVW * nextSx) / 2,
+    oy: (safeHeight - FVH * nextSy) / 2,
+  };
+}
+
 function invalidateStaticFieldCache() {
   staticFieldCacheKey = '';
 }
@@ -5256,7 +5277,7 @@ function drawField() {
     ensureStaticFieldSnapshotBuffer();
     staticFieldCtx.setTransform(1, 0, 0, 1, 0, 0);
     staticFieldCtx.clearRect(0, 0, staticFieldCanvas.width, staticFieldCanvas.height);
-    staticFieldCtx.drawImage(cv, 0, 0);
+    staticFieldCtx.drawImage(ctx.canvas, 0, 0);
     staticFieldCtx.setTransform(renderDpr, 0, 0, renderDpr, 0, 0);
     staticFieldCacheKey = cacheKey;
   }
@@ -12534,67 +12555,181 @@ function exportPlayData(play) {
   replaceRecoveryDraftWithCurrentBoard();
 }
 
-async function exportPDF() {
+function currentBoardLanguage() {
+  return window.AnimatorBoardI18n?.getLanguage?.() || document.documentElement.lang || 'en';
+}
+
+function buildPdfExportProject() {
   updatePlayMetadataFromInputs();
-  if (!window.jspdf?.jsPDF || typeof window.qrcode !== 'function') {
+  return validateExportProject(normalizeProjectRecord(makeBoardData()));
+}
+
+async function capturePdfStepSnapshot(step, options = {}) {
+  const width = Math.max(1200, Number(options.width) || 2200);
+  const height = Math.max(700, Number(options.height) || 1320);
+  const dpr = Math.max(1, Number(options.dpr) || 2);
+  const offscreen = document.createElement('canvas');
+  const offscreenCtx = offscreen.getContext('2d');
+  const savedStep = liveBoardToStepState();
+  const savedState = {
+    nextId: S.nextId,
+    selected: S.selected,
+    selectedPlayerId: S.selectedPlayerId,
+    selectedPlayerIds: Array.isArray(S.selectedPlayerIds) ? [...S.selectedPlayerIds] : [],
+    selectedGroupId: S.selectedGroupId,
+    selectedObjectType: S.selectedObjectType,
+    selectedAnnotationIdValue: S.selectedAnnotationIdValue,
+    selectedPassIdx: S.selectedPassIdx,
+    selectedPathPid: S.selectedPathPid,
+    dragging: S.dragging ? cloneData(S.dragging) : null,
+    dragPlayerId: S.dragPlayerId,
+    dragOff: S.dragOff ? { ...S.dragOff } : { x: 0, y: 0 },
+    drawing: S.drawing ? cloneData(S.drawing) : null,
+    passFrom: S.passFrom,
+    activePasserId: S.activePasserId,
+    activeKickerId: S.activeKickerId,
+    activeRunSourceId: S.activeRunSourceId,
+    annotationDraft: S.annotationDraft ? cloneData(S.annotationDraft) : null,
+    ballAssignCandidate: S.ballAssignCandidate,
+    pointerTap: S.pointerTap ? cloneData(S.pointerTap) : null,
+    highlightedPlayerIds: Array.isArray(S.highlightedPlayerIds) ? [...S.highlightedPlayerIds] : [],
+    currentStepBaseline: S.currentStepBaseline ? cloneStepState(S.currentStepBaseline) : null,
+    radialMenu,
+    cvW,
+    cvH,
+    sc,
+    sx,
+    sy,
+    ox,
+    oy,
+    renderDpr,
+    isPhoneViewport,
+    isMobilePortraitBoard,
+    isPhoneLandscapeBoard,
+    viewportState: viewportState ? cloneData(viewportState) : null,
+    staticFieldCanvas,
+    staticFieldCtx,
+    staticFieldCacheKey,
+  };
+
+  try {
+    renderDpr = dpr;
+    const metrics = computeDesktopCanvasMetrics(width, height);
+    cvW = metrics.cvW;
+    cvH = metrics.cvH;
+    sc = metrics.sc;
+    sx = metrics.sx;
+    sy = metrics.sy;
+    ox = metrics.ox;
+    oy = metrics.oy;
+    isPhoneViewport = false;
+    isMobilePortraitBoard = false;
+    isPhoneLandscapeBoard = false;
+    viewportState = {
+      mode: 'pdf-export',
+      cssWidth: cvW,
+      cssHeight: cvH,
+      availW: cvW,
+      availH: cvH,
+      fieldCssW: FVW * sx,
+      fieldCssH: FVH * sy,
+      fieldTop: oy,
+      fieldBottom: oy + (FVH * sy),
+      dpr: renderDpr,
+    };
+    syncCanvasResolution(offscreen, offscreenCtx, cvW, cvH);
+    staticFieldCanvas = null;
+    staticFieldCtx = null;
+    staticFieldCacheKey = '';
+    setLiveBoardFromStep(step);
+    clearSelectedObject();
+    S.selected = null;
+    S.selectedPassIdx = null;
+    S.selectedPathPid = null;
+    S.dragging = null;
+    S.dragPlayerId = null;
+    S.drawing = null;
+    S.passFrom = null;
+    S.activePasserId = null;
+    S.activeKickerId = null;
+    S.activeRunSourceId = null;
+    S.annotationDraft = null;
+    S.ballAssignCandidate = null;
+    S.pointerTap = null;
+    S.highlightedPlayerIds = [];
+    radialMenu = null;
+    invalidateStaticFieldCache();
+    withRenderContext(offscreenCtx, () => render());
+    return offscreen.toDataURL('image/png');
+  } finally {
+    renderDpr = savedState.renderDpr;
+    cvW = savedState.cvW;
+    cvH = savedState.cvH;
+    sc = savedState.sc;
+    sx = savedState.sx;
+    sy = savedState.sy;
+    ox = savedState.ox;
+    oy = savedState.oy;
+    isPhoneViewport = savedState.isPhoneViewport;
+    isMobilePortraitBoard = savedState.isMobilePortraitBoard;
+    isPhoneLandscapeBoard = savedState.isPhoneLandscapeBoard;
+    viewportState = savedState.viewportState;
+    staticFieldCanvas = savedState.staticFieldCanvas;
+    staticFieldCtx = savedState.staticFieldCtx;
+    staticFieldCacheKey = savedState.staticFieldCacheKey;
+    setLiveBoardFromStep(savedStep, { keepSelection: false });
+    S.nextId = savedState.nextId;
+    S.selected = savedState.selected;
+    S.selectedPlayerId = savedState.selectedPlayerId;
+    S.selectedPlayerIds = savedState.selectedPlayerIds;
+    S.selectedGroupId = savedState.selectedGroupId;
+    S.selectedObjectType = savedState.selectedObjectType;
+    S.selectedAnnotationIdValue = savedState.selectedAnnotationIdValue;
+    S.selectedPassIdx = savedState.selectedPassIdx;
+    S.selectedPathPid = savedState.selectedPathPid;
+    S.dragging = savedState.dragging;
+    S.dragPlayerId = savedState.dragPlayerId;
+    S.dragOff = savedState.dragOff;
+    S.drawing = savedState.drawing;
+    S.passFrom = savedState.passFrom;
+    S.activePasserId = savedState.activePasserId;
+    S.activeKickerId = savedState.activeKickerId;
+    S.activeRunSourceId = savedState.activeRunSourceId;
+    S.annotationDraft = savedState.annotationDraft;
+    S.ballAssignCandidate = savedState.ballAssignCandidate;
+    S.pointerTap = savedState.pointerTap;
+    S.highlightedPlayerIds = savedState.highlightedPlayerIds;
+    S.currentStepBaseline = savedState.currentStepBaseline;
+    radialMenu = savedState.radialMenu;
+    syncLegacySelectionState();
+    syncCanvasResolution(cv, ctx, cvW, cvH);
+    invalidateStaticFieldCache();
+    render();
+  }
+}
+
+async function exportPDF() {
+  if (!window.jspdf?.jsPDF || !window.AnimatorBoardPdf?.exportReport) {
     setHint('PDF export is unavailable right now. Reload the board and try again.');
     refreshInteractionUI();
     return;
   }
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  const W = 297, H = 210;
-  const playName = document.getElementById('playName').value || 'Play';
-  const noteFields = [
-    ['PHASE PURPOSE', document.getElementById('metaPurpose')?.value?.trim() || ''],
-    ['DECISION CUE', document.getElementById('metaDecisionCue')?.value?.trim() || ''],
-    ['COACHING POINTS', readMetaList(['metaCoachingPoint1', 'metaCoachingPoint2', 'metaCoachingPoint3'], 3).join('\n')],
-    ['COMMON MISTAKES', readMetaList(['metaCommonMistake1', 'metaCommonMistake2', 'metaCommonMistake3'], 3).join('\n')],
-  ];
-
-  doc.setFillColor(10, 19, 16);
-  doc.rect(0, 0, W, H, 'F');
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(22);
-  doc.text('RDA TACTICAL BOARD', 14, 14);
-  doc.setFontSize(14);
-  doc.setTextColor(251, 191, 36);
-  doc.text(playName, 14, 22);
-
-  const imgData = cv.toDataURL('image/png');
-  doc.addImage(imgData, 'PNG', 14, 28, 110, 155);
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(10);
-  let noteY = 32;
-  noteFields.forEach(([label, val]) => {
-    if (!val) return;
-    doc.setTextColor(251, 191, 36);
-    doc.setFontSize(8);
-    doc.text(label, 135, noteY);
-    noteY += 5;
-    doc.setTextColor(220, 220, 220);
-    doc.setFontSize(9);
-    const lines = doc.splitTextToSize(val, 75);
-    doc.text(lines, 135, noteY);
-    noteY += lines.length * 5 + 4;
-  });
-
-  const qr = qrcode(0, 'M');
-  qr.addData(window.location.href);
-  qr.make();
-  const qrImg = qr.createDataURL(4);
-  doc.addImage(qrImg, 'PNG', 255, 160, 30, 30);
-  doc.setTextColor(150, 150, 150);
-  doc.setFontSize(7);
-  doc.text('Scan to open live board', 256, 194);
-
-  doc.save(`${playName || 'play'}.pdf`);
-  setHint(`Exported "${playName}" as PDF.`);
-  refreshInteractionUI();
-  replaceRecoveryDraftWithCurrentBoard();
+  try {
+    const project = buildPdfExportProject();
+    const result = await window.AnimatorBoardPdf.exportReport({
+      project,
+      language: currentBoardLanguage(),
+      captureStepImage: capturePdfStepSnapshot,
+      fileName: currentPlayTitle(),
+    });
+    setHint(`Exported "${result?.fileName || currentPlayTitle()}" as PDF.`);
+    refreshInteractionUI();
+    replaceRecoveryDraftWithCurrentBoard();
+  } catch (error) {
+    console.error('PDF export failed', error);
+    setHint('PDF export failed. Please try again.');
+    refreshInteractionUI();
+  }
 }
 window.exportPDF = exportPDF;
 
