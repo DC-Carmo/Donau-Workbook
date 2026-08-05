@@ -41,8 +41,34 @@
   .nav-links{display:flex;gap:26px;align-items:center;font-size:13px;letter-spacing:1.4px;text-transform:uppercase;font-weight:600}
   .nav-links a{color:var(--muted);transition:color .2s}
   .nav-links a:hover{color:#fff}
+  .nav-toggle{display:none;align-items:center;justify-content:center;width:48px;height:48px;border-radius:12px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.04);color:#fff;cursor:pointer;transition:border-color .2s,background .2s,transform .2s}
+  .nav-toggle:hover{border-color:rgba(227,178,60,.45);background:rgba(255,255,255,.08)}
+  .nav-toggle:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .nav-toggle .bars,.nav-toggle .bars::before,.nav-toggle .bars::after{display:block;width:19px;height:2px;border-radius:999px;background:currentColor;transition:transform .2s,opacity .2s}
+  .nav-toggle .bars{position:relative}
+  .nav-toggle .bars::before,.nav-toggle .bars::after{content:"";position:absolute;left:0}
+  .nav-toggle .bars::before{top:-6px}
+  .nav-toggle .bars::after{top:6px}
+  .nav.nav-open .nav-toggle .bars{transform:rotate(45deg)}
+  .nav.nav-open .nav-toggle .bars::before{transform:translateY(6px);opacity:0}
+  .nav.nav-open .nav-toggle .bars::after{transform:translateY(-6px) rotate(-90deg)}
   .nav .btn{padding:11px 20px}
-  @media(max-width:900px){.nav-links{display:none}}
+  .nav-mobile-cta{display:none}
+  @media(max-width:900px){
+    .nav{align-items:flex-start;flex-wrap:wrap;gap:14px}
+    .nav-toggle{display:inline-flex}
+    .nav .btn{display:none}
+    .nav-links{display:none;order:3;width:100%;flex-direction:column;align-items:stretch;gap:0;margin-top:2px;padding:14px;border:1px solid rgba(227,178,60,.16);border-radius:18px;background:rgba(8,11,9,.98);box-shadow:0 22px 44px rgba(0,0,0,.45)}
+    .nav.nav-open .nav-links{display:flex}
+    .nav-links>a,.nav-links .dd-toggle,.nav-mobile-cta{display:block;width:100%;padding:13px 14px;border-radius:12px}
+    .nav-links>a:hover,.nav-links .dd-toggle:hover,.nav-mobile-cta:hover{background:rgba(255,255,255,.05)}
+    .nav-links .dd{width:100%}
+    .nav-links .dd-toggle{pointer-events:none;color:#fff}
+    .nav-links .dd-menu{position:static;transform:none;display:flex;border:none;box-shadow:none;min-width:0;padding:6px 0 0 14px;background:transparent;gap:4px}
+    .nav-links .dd-menu a{padding:9px 12px;border-left:1px solid rgba(227,178,60,.22);border-radius:0;color:#d5d8d7;text-transform:none;letter-spacing:.5px;font-size:13px}
+    .nav-links .dd-menu a:hover{background:transparent;color:#fff;border-left-color:rgba(227,178,60,.5)}
+    .nav-mobile-cta{display:flex;align-items:center;justify-content:center;margin-top:8px;background:var(--gold);color:#0a0a0a;font-weight:800;letter-spacing:1.2px}
+  }
 
   /* HERO */
   .hero{position:relative;min-height:100vh;display:flex;align-items:center;padding:120px 0 70px;
@@ -167,7 +193,10 @@
     <img class="ball" src="assets/donau/images/rugby_ball_fire_scalable_bottom_right_fixed.svg" alt="" aria-hidden="true">
     <span class="wm">RDA</span>
   </a>
-  <div class="nav-links">
+  <button type="button" class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-controls="navLinks" aria-expanded="false">
+    <span class="bars" aria-hidden="true"></span>
+  </button>
+  <div class="nav-links" id="navLinks">
     <a href="#ecosystem">Ecosystem</a>
     <a href="#tactical">Tactical Board</a>
     <a href="#club">Club</a>
@@ -181,6 +210,7 @@
         <a href="environments/animator/">Tactical Board</a>
       </div>
     </div>
+    <a href="environments/animator/" class="nav-mobile-cta">Open Tactical Board</a>
   </div>
   <a href="environments/animator/" class="btn btn-gold">Open Tactical Board →</a>
 </nav>
@@ -347,14 +377,23 @@
 <script>
   document.getElementById('yr').textContent=new Date().getFullYear();
   const nav=document.getElementById('nav');
+  const navToggle=document.getElementById('navToggle');
+  const navLinks=document.getElementById('navLinks');
   addEventListener('scroll',()=>nav.classList.toggle('solid',scrollY>40),{passive:true});
   const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('in')}),{threshold:.12});
   document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+  function setMobileNav(open){
+    nav.classList.toggle('nav-open',open);
+    navToggle.setAttribute('aria-expanded',open?'true':'false');
+  }
+  navToggle.addEventListener('click',function(e){e.stopPropagation();setMobileNav(!nav.classList.contains('nav-open'));});
+  navLinks.querySelectorAll('a').forEach(function(link){link.addEventListener('click',function(){setMobileNav(false);});});
   // Coaches & Players dropdown: click to open, click away to close
   document.querySelectorAll('.nav-links .dd .dd-toggle').forEach(function(t){
     t.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();var dd=t.closest('.dd');var open=dd.classList.contains('open');document.querySelectorAll('.nav-links .dd.open').forEach(function(d){d.classList.remove('open');});if(!open)dd.classList.add('open');});
   });
-  document.addEventListener('click',function(){document.querySelectorAll('.nav-links .dd.open').forEach(function(d){d.classList.remove('open');});});
+  document.addEventListener('click',function(e){if(!nav.contains(e.target))setMobileNav(false);document.querySelectorAll('.nav-links .dd.open').forEach(function(d){d.classList.remove('open');});});
+  addEventListener('resize',function(){if(innerWidth>900)setMobileNav(false);});
 
   /* animated pitch — set backline holds shape; #12 runs a drawn line, receives, breaks (like the RDA board) */
   function buildPitch(svgId){
