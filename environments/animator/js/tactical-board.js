@@ -3610,9 +3610,23 @@ function buildPlayList() {
 
     label.onclick = () => {
       const isOpen = !list.hidden;
+      if (!isOpen && !document.body.classList.contains('is-phone')) {
+        c.querySelectorAll('.play-category-section').forEach(otherSection => {
+          if (otherSection === section) return;
+          const otherLabel = otherSection.querySelector('.play-category-toggle');
+          const otherList = otherSection.querySelector('.play-category-list');
+          const otherChevron = otherSection.querySelector('.play-cat-chevron');
+          if (otherList) otherList.hidden = true;
+          if (otherLabel) otherLabel.setAttribute('aria-expanded', 'false');
+          if (otherChevron) otherChevron.style.transform = '';
+          otherSection.classList.remove('is-open');
+        });
+      }
       list.hidden = isOpen;
       label.setAttribute('aria-expanded', String(!isOpen));
-      label.querySelector('.play-cat-chevron').style.transform = isOpen ? '' : 'rotate(90deg)';
+      const chevron = label.querySelector('.play-cat-chevron');
+      if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
+      section.classList.toggle('is-open', !isOpen);
     };
 
     section.appendChild(list);
@@ -10481,11 +10495,22 @@ window.closeCoachingDrawer = closeCoachingDrawer;
 function toggleAccordion(id) {
   const section = document.getElementById(id);
   if (!section) return;
+  const setOpen = (target, open) => {
+    target.classList.toggle('sp-acc-open', open);
+    const targetTrigger = target.querySelector(':scope > .sp-acc-trigger');
+    if (targetTrigger) targetTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+  };
   const isOpen = section.classList.contains('sp-acc-open');
-  section.classList.toggle('sp-acc-open', !isOpen);
-  const trigger = section.querySelector('.sp-acc-trigger');
-  if (trigger) trigger.setAttribute('aria-expanded', !isOpen ? 'true' : 'false');
-  try { localStorage.setItem('sp-acc-' + id, isOpen ? '0' : '1'); } catch(e) {}
+  const shouldOpen = !isOpen;
+  const desktopAccordion = !document.body.classList.contains('is-phone');
+  const group = section.getAttribute('data-accordion-group');
+  if (desktopAccordion && shouldOpen && group) {
+    const groupSections = document.querySelectorAll('.sp-acc-section[data-accordion-group="' + group + '"]');
+    groupSections.forEach(function(target) {
+      if (target !== section) setOpen(target, false);
+    });
+  }
+  setOpen(section, shouldOpen);
   scheduleSequenceDockPosition();
 }
 window.toggleAccordion = toggleAccordion;
@@ -11802,18 +11827,23 @@ if (document.readyState === 'loading') {
 }
 
 (function initAccordions() {
-  ['accPurpose', 'accDecision', 'accCoaching', 'accMistakes'].forEach(function(id) {
-    try {
-      if (localStorage.getItem('sp-acc-' + id) === '1') {
-        var section = document.getElementById(id);
-        if (section) {
-          section.classList.add('sp-acc-open');
-          var trigger = section.querySelector('.sp-acc-trigger');
-          if (trigger) trigger.setAttribute('aria-expanded', 'true');
-        }
-      }
-    } catch(e) {}
+  const isPhone = document.body.classList.contains('is-phone');
+  ['accPresets', 'accCoachNotes', 'accPurpose', 'accDecision', 'accCoaching', 'accMistakes'].forEach(function(id) {
+    var section = document.getElementById(id);
+    if (!section) return;
+    section.classList.remove('sp-acc-open');
+    var trigger = section.querySelector(':scope > .sp-acc-trigger');
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
   });
+  if (isPhone) {
+    ['accPresets', 'accCoachNotes'].forEach(function(id) {
+      var section = document.getElementById(id);
+      if (!section) return;
+      section.classList.add('sp-acc-open');
+      var trigger = section.querySelector(':scope > .sp-acc-trigger');
+      if (trigger) trigger.setAttribute('aria-expanded', 'true');
+    });
+  }
 })();
 
 document.addEventListener('pointerdown', e => {

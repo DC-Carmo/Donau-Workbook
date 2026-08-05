@@ -3377,6 +3377,8 @@ html, body {
 
 /* ── Context zone ── */
 .sp-ctx-zone {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
@@ -3847,8 +3849,16 @@ body:not(.is-phone) #smartPanel {
     linear-gradient(180deg, rgba(14,22,34,0.98), rgba(10,17,28,0.98));
 }
 body:not(.is-phone) .sp-ctx-zone {
-  padding: 14px 12px 18px;
-  gap: 14px;
+  padding: 16px 14px 22px;
+  gap: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(223,180,76,0.38) transparent;
+}
+body:not(.is-phone) .sp-ctx-zone::-webkit-scrollbar { width: 6px; }
+body:not(.is-phone) .sp-ctx-zone::-webkit-scrollbar-track { background: transparent; }
+body:not(.is-phone) .sp-ctx-zone::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(223,180,76,0.52), rgba(255,255,255,0.2));
+  border-radius: 999px;
 }
 body:not(.is-phone) .sp-ctx-hdr,
 body:not(.is-phone) .sp-guide-text,
@@ -3887,18 +3897,76 @@ body:not(.is-phone) .sel-info.sp-sel-card {
 }
 body:not(.is-phone) .section-block,
 body:not(.is-phone) .sp-notes-panel {
-  border-top: 1px solid rgba(255,255,255,0.07);
   max-height: none;
+  overflow: visible;
 }
 body:not(.is-phone) .section-label {
-  padding: 10px 12px 9px;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: none;
 }
 body:not(.is-phone) .sp-gain-display {
   padding: 10px 12px;
 }
 body:not(.is-phone) #smartPanelNotesAnchor {
   min-height: 2px;
+}
+body:not(.is-phone) .coach-panel-section {
+  overflow: hidden;
+}
+body:not(.is-phone) .coach-panel-trigger {
+  width: 100%;
+  padding: 13px 14px 12px;
+  align-items: center;
+  color: rgba(255,255,255,0.92);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+body:not(.is-phone) .coach-panel-trigger:hover {
+  background: rgba(255,255,255,0.025);
+}
+body:not(.is-phone) .coach-panel-trigger > span:first-child {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+body:not(.is-phone) .coach-panel-body {
+  max-height: 0;
+}
+body:not(.is-phone) .coach-panel-section.sp-acc-open .coach-panel-body {
+  max-height: 1200px;
+}
+body:not(.is-phone) .coach-panel-body-inner {
+  padding: 14px;
+  gap: 12px;
+}
+body:not(.is-phone) .coach-panel-notes-body {
+  padding-top: 10px;
+  gap: 6px;
+}
+body:not(.is-phone) .sp-notes-panel-hdr-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  gap: 4px;
+}
+body:not(.is-phone) #playList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+body:not(.is-phone) .play-category-section {
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding-top: 10px;
+}
+body:not(.is-phone) .play-category-section:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+body:not(.is-phone) .play-category-toggle {
+  padding: 2px 0;
+}
+body:not(.is-phone) .play-category-list {
+  padding: 8px 0 0 0;
 }
 
 @media (max-width: 640px) {
@@ -5307,33 +5375,42 @@ body.is-phone:not(.tb-mobile-portrait) #mobileMoreBackdrop {
    never collapsed and inputs were unstyled. Scoped to body:not(.is-phone) so
    the mobile notes sheet is untouched. */
 body:not(.is-phone) .sp-notes-panel-hdr {
-  display: flex; align-items: baseline; justify-content: space-between;
-  gap: 8px; padding: 10px 12px 8px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 13px 14px 12px;
 }
 body:not(.is-phone) .sp-notes-panel-label {
   font-family: 'Barlow Condensed', sans-serif; font-weight: 800;
-  font-size: 0.7rem; letter-spacing: 0.16em; text-transform: uppercase;
-  color: rgba(255,255,255,0.5);
+  font-size: 0.72rem; letter-spacing: 0.18em; text-transform: uppercase;
+  color: rgba(255,255,255,0.48);
 }
 body:not(.is-phone) .sp-notes-play-name {
-  font-size: 0.66rem; color: rgba(227,178,60,0.85); font-weight: 600;
+  font-size: 0.68rem; color: rgba(227,178,60,0.9); font-weight: 600;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;
 }
 body:not(.is-phone) .sp-acc-section { border-top: 1px solid rgba(255,255,255,0.06); }
+body:not(.is-phone) .coach-panel-section { border-top: none; }
 body:not(.is-phone) .sp-acc-trigger {
   width: 100%; display: flex; align-items: center; justify-content: space-between;
-  gap: 8px; background: none; border: 0; cursor: pointer; padding: 9px 12px;
-  color: rgba(255,255,255,0.6); font-family: 'Barlow Condensed', sans-serif;
-  font-weight: 700; font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
-  transition: color 0.15s;
+  gap: 12px; background: none; border: 0; cursor: pointer; padding: 11px 12px;
+  color: rgba(255,255,255,0.68); font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700; font-size: 0.74rem; letter-spacing: 0.13em; text-transform: uppercase;
+  transition: color 0.15s, background 0.15s;
 }
-body:not(.is-phone) .sp-acc-trigger:hover { color: rgba(255,255,255,0.92); }
-body:not(.is-phone) .sp-acc-chevron { transition: transform 0.2s ease; opacity: 0.7; }
+body:not(.is-phone) .sp-acc-trigger:hover {
+  color: rgba(255,255,255,0.95);
+  background: rgba(255,255,255,0.02);
+}
+body:not(.is-phone) .sp-acc-chevron {
+  transition: transform 0.2s ease;
+  opacity: 0.72;
+  font-size: 0.92rem;
+  line-height: 1;
+}
 body:not(.is-phone) .sp-acc-open .sp-acc-chevron { transform: rotate(90deg); }
 body:not(.is-phone) .sp-acc-body { overflow: hidden; max-height: 0; transition: max-height 0.25s ease; }
-body:not(.is-phone) .sp-acc-open .sp-acc-body { max-height: 280px; }
+body:not(.is-phone) .sp-acc-open .sp-acc-body { max-height: 420px; }
 body:not(.is-phone) .sp-acc-body-inner {
-  padding: 2px 12px 12px; display: flex; flex-direction: column; gap: 7px;
+  padding: 6px 12px 14px; display: flex; flex-direction: column; gap: 9px;
 }
 body:not(.is-phone) .sp-field-input,
 body:not(.is-phone) .sp-field-textarea {

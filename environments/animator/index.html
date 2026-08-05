@@ -276,27 +276,37 @@
 
         <div id="gainDisplay" class="sp-gain-display">On gainline</div>
 
-      </div>
-
         <!-- PLAYS section -->
-        <div class="section-block">
-          <div class="section-label">PLAYS</div>
-          <button id="presetOppositionToggle" class="sp-btn sp-btn-ghost sp-btn-compact" type="button" onclick="togglePresetOpposition()">
-            Opposition: Off
+        <div class="section-block sp-acc-section coach-panel-section" id="accPresets" data-accordion-group="coach-panel">
+          <button class="section-label sp-acc-trigger coach-panel-trigger" type="button" onclick="toggleAccordion('accPresets')" aria-expanded="false">
+            <span>Plays & Opposition</span>
+            <span class="sp-acc-chevron" aria-hidden="true">&#8250;</span>
           </button>
-          <div id="playList"></div>
+          <div class="sp-acc-body coach-panel-body">
+            <div class="sp-acc-body-inner coach-panel-body-inner">
+              <button id="presetOppositionToggle" class="sp-btn sp-btn-ghost sp-btn-compact" type="button" onclick="togglePresetOpposition()">
+                Opposition: Off
+              </button>
+              <div id="playList"></div>
+            </div>
+          </div>
         </div>
 
       <div id="smartPanelNotesAnchor"></div>
 
       <!-- BOTTOM: Coaching Notes accordion -->
-      <div class="sp-notes-panel">
-        <div class="sp-notes-panel-hdr">
-          <span class="sp-notes-panel-label">Coaching Notes</span>
-          <span class="sp-notes-play-name" id="metaTitleValue"></span>
-        </div>
+      <div class="sp-notes-panel sp-acc-section coach-panel-section" id="accCoachNotes" data-accordion-group="coach-panel">
+        <button class="sp-notes-panel-hdr sp-acc-trigger coach-panel-trigger" type="button" onclick="toggleAccordion('accCoachNotes')" aria-expanded="false">
+          <span class="sp-notes-panel-hdr-copy">
+            <span class="sp-notes-panel-label">Coaching Notes</span>
+            <span class="sp-notes-play-name" id="metaTitleValue"></span>
+          </span>
+          <span class="sp-acc-chevron" aria-hidden="true">&#8250;</span>
+        </button>
+        <div class="sp-acc-body coach-panel-body">
+          <div class="sp-acc-body-inner coach-panel-body-inner coach-panel-notes-body">
 
-        <div class="sp-acc-section" id="accPurpose">
+        <div class="sp-acc-section" id="accPurpose" data-accordion-group="coach-notes">
           <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accPurpose')" aria-expanded="false">
             <span>Phase Purpose</span>
             <span class="sp-acc-chevron" aria-hidden="true">›</span>
@@ -308,7 +318,7 @@
           </div>
         </div>
 
-        <div class="sp-acc-section" id="accDecision">
+        <div class="sp-acc-section" id="accDecision" data-accordion-group="coach-notes">
           <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accDecision')" aria-expanded="false">
             <span>Decision Cue</span>
             <span class="sp-acc-chevron" aria-hidden="true">›</span>
@@ -320,7 +330,7 @@
           </div>
         </div>
 
-        <div class="sp-acc-section" id="accCoaching">
+        <div class="sp-acc-section" id="accCoaching" data-accordion-group="coach-notes">
           <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accCoaching')" aria-expanded="false">
             <span>Coaching Points</span>
             <span class="sp-acc-chevron" aria-hidden="true">›</span>
@@ -334,7 +344,7 @@
           </div>
         </div>
 
-        <div class="sp-acc-section" id="accMistakes">
+        <div class="sp-acc-section" id="accMistakes" data-accordion-group="coach-notes">
           <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accMistakes')" aria-expanded="false">
             <span>Common Mistakes</span>
             <span class="sp-acc-chevron" aria-hidden="true">›</span>
@@ -347,7 +357,9 @@
             </div>
           </div>
         </div>
-
+          </div>
+        </div>
+      </div>
       </div>
 
     </div>
