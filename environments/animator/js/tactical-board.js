@@ -9794,6 +9794,7 @@ function updatePhaseUI() {
   if (!strip) return;
   const currentCanonicalIndex = getCurrentCanonicalMoveIndex();
   const phases = Array.isArray(GamePlan.phases) ? GamePlan.phases : [];
+  const phaseShort = tr('phase.short', {}, 'PHASE');
   strip.innerHTML = '';
   let moveCursor = 0;
   phases.forEach((phase, phaseIndex) => {
@@ -9807,9 +9808,9 @@ function updatePhaseUI() {
     const label = document.createElement('button');
     label.type = 'button';
     label.className = 'tb-phase-label';
-    label.textContent = `Phase ${phaseIndex + 1}`;
-    label.title = `Go to Phase ${phaseIndex + 1}`;
-    label.setAttribute('aria-label', `Go to Phase ${phaseIndex + 1}, starting at Move ${firstIndexInPhase + 1}`);
+    label.textContent = `${phaseShort} ${phaseIndex + 1}`;
+    label.title = `Go to ${phaseShort} ${phaseIndex + 1}`;
+    label.setAttribute('aria-label', `Go to ${phaseShort} ${phaseIndex + 1}, starting at Move ${firstIndexInPhase + 1}`);
     label.onclick = () => handleCanonicalMoveChipSelect(firstIndexInPhase);
     group.appendChild(label);
 
@@ -9841,6 +9842,7 @@ function updatePhaseUI() {
   addBtn.setAttribute('aria-label', 'Add Move');
   addBtn.onclick = () => addCanonicalMove();
   strip.appendChild(addBtn);
+  scheduleSequenceBarScroller({ center: true, behavior: 'auto' });
 }
 
 function getCanonicalPhaseActionShortLabel(kind) {
@@ -10133,6 +10135,7 @@ function updateSequenceUI() {
   const hasNext = activeTransition ? true : hasNextCanonicalMove();
   const canonicalMove = getCanonicalMoveDisplay();
   updatePhaseUI();
+  syncSequenceBarSummary(canonicalMove);
   if (prevBtn) prevBtn.disabled = !hasPrev;
   if (nextBtn) nextBtn.disabled = !hasNext;
   if (seqBarPrev) seqBarPrev.disabled = !hasPrev;
@@ -10159,8 +10162,107 @@ function updateSequenceUI() {
   if (playLabel) playLabel.textContent = S.animating ? 'PAUSE' : (isPaused ? 'RESUME' : 'PLAY');
   if (playBtn) playBtn.disabled = !playable;
   if (tlPlayBtn) tlPlayBtn.disabled = !playable;
+  scheduleSequenceBarScroller({ center: true, behavior: 'smooth' });
   updateSequenceDockUI();
   scheduleSequenceDockPosition();
+}
+
+let seqBarScrollRefreshRaf = 0;
+let seqBarScrollShouldCenter = false;
+let seqBarScrollBehavior = 'smooth';
+let seqBarScrollBindingsReady = false;
+
+function getSequenceBarElements() {
+  return {
+    strip: document.getElementById('phaseChipStrip'),
+    shell: document.getElementById('seqBarStripShell'),
+    scrollPrev: document.getElementById('seqBarScrollPrev'),
+    scrollNext: document.getElementById('seqBarScrollNext'),
+    moveIndicator: document.getElementById('seqBarMoveIndicator'),
+    phaseIndicator: document.getElementById('seqBarPhaseIndicator'),
+  };
+}
+
+function centerSequenceBarOnCurrentChip({ behavior = 'smooth' } = {}) {
+  const { strip } = getSequenceBarElements();
+  if (!strip) return;
+  const activeChip = strip.querySelector('.tb-phase-chip.active');
+  if (!activeChip) return;
+  const maxScroll = Math.max(0, strip.scrollWidth - strip.clientWidth);
+  if (maxScroll <= 0) return;
+  const targetLeft = Math.max(
+    0,
+    Math.min(
+      activeChip.offsetLeft - ((strip.clientWidth - activeChip.offsetWidth) / 2),
+      maxScroll
+    )
+  );
+  strip.scrollTo({ left: targetLeft, behavior });
+}
+
+function refreshSequenceBarScroller() {
+  seqBarScrollRefreshRaf = 0;
+  const { strip, shell, scrollPrev, scrollNext } = getSequenceBarElements();
+  if (!strip || !shell) return;
+  if (seqBarScrollShouldCenter) centerSequenceBarOnCurrentChip({ behavior: seqBarScrollBehavior });
+  seqBarScrollShouldCenter = false;
+  seqBarScrollBehavior = 'smooth';
+
+  const maxScroll = Math.max(0, strip.scrollWidth - strip.clientWidth);
+  const canScrollLeft = strip.scrollLeft > 2;
+  const canScrollRight = strip.scrollLeft < maxScroll - 2;
+  shell.dataset.canScrollLeft = canScrollLeft ? 'true' : 'false';
+  shell.dataset.canScrollRight = canScrollRight ? 'true' : 'false';
+  if (scrollPrev) {
+    scrollPrev.disabled = !canScrollLeft;
+    scrollPrev.setAttribute('aria-disabled', canScrollLeft ? 'false' : 'true');
+  }
+  if (scrollNext) {
+    scrollNext.disabled = !canScrollRight;
+    scrollNext.setAttribute('aria-disabled', canScrollRight ? 'false' : 'true');
+  }
+}
+
+function scheduleSequenceBarScroller({ center = false, behavior = 'smooth' } = {}) {
+  if (center) {
+    seqBarScrollShouldCenter = true;
+    seqBarScrollBehavior = behavior;
+  }
+  if (seqBarScrollRefreshRaf) return;
+  seqBarScrollRefreshRaf = requestAnimationFrame(refreshSequenceBarScroller);
+}
+
+function scrollSequenceBarBy(direction) {
+  const { strip } = getSequenceBarElements();
+  if (!strip) return;
+  const distance = Math.max(strip.clientWidth * 0.62, 180) * direction;
+  strip.scrollBy({ left: distance, behavior: 'smooth' });
+  scheduleSequenceBarScroller();
+}
+
+function syncSequenceBarSummary(canonicalMove = getCanonicalMoveDisplay()) {
+  const { moveIndicator, phaseIndicator } = getSequenceBarElements();
+  if (moveIndicator) {
+    moveIndicator.textContent = canonicalMove.hasSelection
+      ? tr('dock.moveOf', { current: canonicalMove.current, total: canonicalMove.count })
+      : tr('dock.moveEmpty');
+  }
+  if (phaseIndicator) {
+    const phaseTotal = Array.isArray(GamePlan.phases) ? GamePlan.phases.length : 0;
+    const currentPhase = phaseTotal ? GamePlan.currentPhase + 1 : 0;
+    phaseIndicator.textContent = `${tr('phase.short', {}, 'PHASE')} ${currentPhase} / ${Math.max(phaseTotal, 1)}`;
+  }
+}
+
+function initSequenceBarNavigator() {
+  if (seqBarScrollBindingsReady) return;
+  const { strip, scrollPrev, scrollNext } = getSequenceBarElements();
+  if (!strip) return;
+  seqBarScrollBindingsReady = true;
+  strip.addEventListener('scroll', () => scheduleSequenceBarScroller());
+  scrollPrev?.addEventListener('click', () => scrollSequenceBarBy(-1));
+  scrollNext?.addEventListener('click', () => scrollSequenceBarBy(1));
+  window.addEventListener('resize', () => scheduleSequenceBarScroller({ center: true, behavior: 'auto' }));
 }
 
 //  ANIMATION
@@ -11388,6 +11490,7 @@ window.addEventListener('animator-languagechange', () => {
   refreshSavedPlayList();
   updateSelInfo();
   refreshInteractionUI();
+  updateSequenceUI();
   if (!document.getElementById('playerNumberPopover')?.hidden) renderPlayerNumberPicker();
   if (_tourActive) _tourShowStep(_tourCurrentStep);
   render();
@@ -12611,6 +12714,7 @@ let _boardBootstrapped = false;
 function _initBoard() {
   if (_boardBootstrapped) return;
   _boardBootstrapped = true;
+  initSequenceBarNavigator();
   initSequenceControlDock();
   bindViewportObservers();
   resize();

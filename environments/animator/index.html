@@ -24,7 +24,7 @@
 <title>Tactical Board - Coach Mato</title>
 <link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/tactical-board.css?v=20260728-portrait-direction-fix">
+<link rel="stylesheet" href="css/tactical-board.css?v=20260805-move-nav">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 </head>
@@ -46,7 +46,19 @@
 
     <div class="seq-bar" aria-label="Sequence controls">
       <button class="seq-bar-nav" id="seqBarPrev" onclick="handleCanonicalPrevious()" aria-label="Previous move" title="Previous Move">&#8249;&#xFE0E;</button>
-      <div class="seq-bar-chips" id="phaseChipStrip"></div>
+      <div class="seq-bar-body">
+        <div class="seq-bar-summary" aria-live="polite">
+          <span class="seq-bar-summary-phase" id="seqBarPhaseIndicator">PHASE 1 / 1</span>
+          <span class="seq-bar-summary-move" id="seqBarMoveIndicator">Move 1 / 1</span>
+        </div>
+        <div class="seq-bar-strip-shell" id="seqBarStripShell" data-can-scroll-left="false" data-can-scroll-right="false">
+          <button class="seq-bar-scroll-btn" id="seqBarScrollPrev" type="button" aria-label="Scroll moves left" title="Scroll moves left">&#8249;&#xFE0E;</button>
+          <div class="seq-bar-strip-viewport">
+            <div class="seq-bar-chips" id="phaseChipStrip"></div>
+          </div>
+          <button class="seq-bar-scroll-btn" id="seqBarScrollNext" type="button" aria-label="Scroll moves right" title="Scroll moves right">&#8250;&#xFE0E;</button>
+        </div>
+      </div>
       <button class="seq-bar-nav" id="seqBarNext" onclick="handleCanonicalNext()" aria-label="Next move" title="Next Move">&#8250;&#xFE0E;</button>
       <button class="seq-bar-play" id="seqBarPlay" onclick="toggleSmartPlay()" aria-label="Play from here to the end" title="Play from the current phase through to the end (Space)">
         <span class="seq-bar-play-icon" id="seqBarPlayIcon">&#9654;</span>
@@ -825,6 +837,6 @@
   </div>
 </div>
 <script src="js/tactical-board-i18n.js?v=20260805-i18n"></script>
-<script src="js/tactical-board.js?v=20260805-i18n"></script>
+<script src="js/tactical-board.js?v=20260805-move-nav"></script>
 </body>
 </html>
