@@ -495,6 +495,9 @@
             </div>
 
             <div class="floating-selection-toolbar-item floating-selection-toolbar-actions">
+              <button id="floatingToolbarEditNoteBtn" class="floating-selection-toolbar-icon-btn" type="button" onclick="beginSelectedNoteInlineEdit()" aria-label="Edit note text" title="Edit text" hidden>
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m13.9 3.6 2.5 2.5m-9.8 9.8 3.2-.7 7.7-7.7a1.2 1.2 0 0 0 0-1.7l-1.5-1.5a1.2 1.2 0 0 0-1.7 0L6.6 12l-.7 3.2Zm-2.1.9h13"/></svg>
+              </button>
               <button id="floatingToolbarDuplicateBtn" class="floating-selection-toolbar-icon-btn" type="button" onclick="duplicateSelected()" aria-label="Duplicate selected item" title="Duplicate">
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 5.5h7a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1Zm-2 3h-1a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v1"/></svg>
               </button>
@@ -507,6 +510,7 @@
             </div>
           </div>
         </div>
+        <textarea id="noteInlineEditor" class="note-inline-editor" hidden maxlength="160" spellcheck="false" aria-label="Edit note text"></textarea>
 
         <div id="boardStatus" class="board-status">
           <span class="board-status-mode" id="boardModeLabel">Move</span>

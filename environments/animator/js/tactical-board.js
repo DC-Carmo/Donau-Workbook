@@ -900,6 +900,7 @@ const IMPORT_MAX_NAME_LENGTH = 120;
 const IMPORT_MAX_ID_LENGTH = 120;
 const PHONE_UI_ACTION_GUARD_MS = 300;
 const PHONE_DATA_ACTION_GUARD_MS = 400;
+const NOTE_INLINE_EDIT_DOUBLE_TAP_MS = 320;
 let lastPhoneAddAction = { team: null, at: -Infinity };
 let playerNumberPickerState = { team: null, anchorId: null };
 let phoneMoveToastTimer = null;
@@ -907,6 +908,9 @@ let phoneMoveToastShown = false;
 let phoneDeleteConfirmTimers = { phase: null, move: null };
 let phoneDeleteConfirmState = { phase: false, move: false };
 const phoneDataActionAt = new Map();
+let noteInlineEditorState = null;
+let noteSelectionClearTimer = null;
+let lastNoteSelectionTap = { id: null, at: 0 };
 const PROJECT_TYPE = 'coachmato.animator.project';
 const PLAYBACK_TIMELINE_MODEL = 'global_progress_v1';
 const DEFAULT_PLAYBACK_DURATION = 5;
@@ -2781,6 +2785,7 @@ function selectBall(candidateId = null) {
 }
 
 function selectAnnotationById(id) {
+  if (noteInlineEditorState && noteInlineEditorState.id !== id) endNoteInlineEdit();
   S.selectedPlayerId = null;
   S.selectedPlayerIds = [];
   clearSelectedGroup();
@@ -6005,6 +6010,117 @@ function noteHandleHitRadiusField(note) {
   return Math.min(baseRadius, cappedRadius);
 }
 
+function clearPendingNoteSelectionClear({ resetTap = false } = {}) {
+  if (noteSelectionClearTimer) {
+    clearTimeout(noteSelectionClearTimer);
+    noteSelectionClearTimer = null;
+  }
+  if (resetTap) lastNoteSelectionTap = { id: null, at: 0 };
+}
+
+function isInlineNoteEditing(noteId = null) {
+  return !!noteInlineEditorState && (!noteId || noteInlineEditorState.id === noteId);
+}
+
+function hideNoteInlineEditor() {
+  const editor = document.getElementById('noteInlineEditor');
+  if (!editor) return;
+  editor.hidden = true;
+  editor.style.left = '';
+  editor.style.top = '';
+  editor.style.width = '';
+  editor.style.height = '';
+}
+
+function endNoteInlineEdit({ keepSelection = true } = {}) {
+  const wasEditing = !!noteInlineEditorState;
+  noteInlineEditorState = null;
+  hideNoteInlineEditor();
+  clearPendingNoteSelectionClear({ resetTap: true });
+  if (!keepSelection && wasEditing) clearSelectedObject();
+}
+
+function syncNoteInlineEditor() {
+  const editor = document.getElementById('noteInlineEditor');
+  const wrap = document.getElementById('canvasWrap');
+  if (!editor || !wrap) return;
+  const note = noteInlineEditorState ? findAnnotationById(noteInlineEditorState.id) : null;
+  if (!note || note.type !== 'note' || selectedAnnotationId() !== note.id) {
+    if (noteInlineEditorState) noteInlineEditorState = null;
+    hideNoteInlineEditor();
+    return;
+  }
+
+  const box = noteMetrics(note);
+  const center = toC(note.x, note.y);
+  const left = center.x - (box.width / 2);
+  const top = center.y - (box.height / 2);
+  const opacity = clamp(Number(note.opacity) || 1, 0.2, 1);
+  const value = String(note.text ?? '');
+  if (editor.value !== value) editor.value = value;
+
+  editor.hidden = false;
+  editor.style.left = `${left}px`;
+  editor.style.top = `${top}px`;
+  editor.style.width = `${box.width}px`;
+  editor.style.height = `${box.height}px`;
+  editor.style.padding = `${box.paddingY}px ${box.paddingX}px`;
+  editor.style.fontSize = `${box.fontSize}px`;
+  editor.style.lineHeight = `${box.lineHeight}px`;
+  editor.style.textAlign = noteAlignValue(note);
+  editor.style.opacity = `${opacity}`;
+}
+
+function beginNoteInlineEdit(noteId, { selectAll = false } = {}) {
+  const note = findAnnotationById(noteId);
+  const editor = document.getElementById('noteInlineEditor');
+  if (!note || note.type !== 'note' || !editor) return false;
+  clearPendingNoteSelectionClear({ resetTap: true });
+  if (!isInlineNoteEditing(noteId)) snapshot();
+  noteInlineEditorState = { id: noteId };
+  selectAnnotationById(noteId);
+  closeFloatingToolbarFlyout();
+  refreshInteractionUI();
+  render();
+  requestAnimationFrame(() => {
+    syncNoteInlineEditor();
+    editor.focus();
+    if (selectAll) editor.select();
+    else {
+      const end = editor.value.length;
+      editor.setSelectionRange(end, end);
+    }
+  });
+  return true;
+}
+
+function beginSelectedNoteInlineEdit(options = {}) {
+  const note = selectedAnnotation();
+  if (!note || note.type !== 'note') return false;
+  return beginNoteInlineEdit(note.id, options);
+}
+window.beginSelectedNoteInlineEdit = beginSelectedNoteInlineEdit;
+
+function handleSelectedNoteTapForEditing(noteId) {
+  const note = findAnnotationById(noteId);
+  if (!note || note.type !== 'note') return false;
+  const now = Date.now();
+  if (lastNoteSelectionTap.id === noteId && (now - lastNoteSelectionTap.at) <= NOTE_INLINE_EDIT_DOUBLE_TAP_MS) {
+    beginNoteInlineEdit(noteId);
+    return true;
+  }
+  clearPendingNoteSelectionClear();
+  lastNoteSelectionTap = { id: noteId, at: now };
+  noteSelectionClearTimer = setTimeout(() => {
+    noteSelectionClearTimer = null;
+    if (!isInlineNoteEditing(noteId) && selectedAnnotationId() === noteId && lastNoteSelectionTap.id === noteId) {
+      clearSelection();
+    }
+    lastNoteSelectionTap = { id: null, at: 0 };
+  }, NOTE_INLINE_EDIT_DOUBLE_TAP_MS + 30);
+  return true;
+}
+
 function setNoteFromBounds(note, left, top, right, bottom) {
   const clampedLeft = Math.min(left, right);
   const clampedRight = Math.max(left, right);
@@ -6306,14 +6422,16 @@ function drawNoteAnnotation(note, selected = false) {
   const textTop = p.y - (height / 2) + box.paddingY;
   const totalTextHeight = box.visibleLines.length * box.lineHeight;
   const textY = textTop + Math.max(0, (box.innerHeight - totalTextHeight) / 2);
-  box.visibleLines.forEach((line, index) => {
-    const textX = box.align === 'center'
-      ? textCenter
-      : box.align === 'right'
-        ? textRight
-        : textLeft;
-    ctx.fillText(line || '', textX, textY + (index * box.lineHeight));
-  });
+  if (!isInlineNoteEditing(note.id)) {
+    box.visibleLines.forEach((line, index) => {
+      const textX = box.align === 'center'
+        ? textCenter
+        : box.align === 'right'
+          ? textRight
+          : textLeft;
+      ctx.fillText(line || '', textX, textY + (index * box.lineHeight));
+    });
+  }
   ctx.restore();
 
   if (selected) {
@@ -7211,6 +7329,7 @@ function showPhoneMoveToast() {
 }
 
 function handlePointerDown(e) {
+  clearPendingNoteSelectionClear();
   const fp = getF(e);
   const clampedFieldPoint = clampFieldPoint(fp);
   const canvasPoint = getPx(e);
@@ -7528,7 +7647,6 @@ function handlePointerDown(e) {
         try { cv.setPointerCapture(e.pointerId); } catch(_) {}
         refreshInteractionUI();
         render();
-        if (!isNoteResize) focusSelectedNoteInput(true);
         return;
       }
     }
@@ -7546,7 +7664,6 @@ function handlePointerDown(e) {
         setHint('Note selected. Drag it in Move, use the corner handles to resize it, or update the text from Selection.');
         refreshInteractionUI();
         render();
-        focusSelectedNoteInput(true);
         return;
       }
     }
@@ -7566,7 +7683,6 @@ function handlePointerDown(e) {
       setHint('Note placed. Drag it in Move, use the corner handles to resize it, or update the text from Selection.');
       refreshInteractionUI();
       render();
-      focusSelectedNoteInput(true);
     }
   }
 
@@ -8136,6 +8252,14 @@ function onPointerUp(e) {
     render();
     return;
   }
+  if (tap && !tap.moved && tap.payload?.type === 'annotation' && tap.payload.wasSelected && selectedAnnotationId() === tap.payload.id) {
+    const tappedAnnotation = findAnnotationById(tap.payload.id);
+    if (tappedAnnotation?.type === 'note' && handleSelectedNoteTapForEditing(tap.payload.id)) {
+      refreshInteractionUI();
+      render();
+      return;
+    }
+  }
   if (tap && !tap.moved && S.tool === 'move') {
     if (tap.payload.type === 'player' && tap.payload.wasSelected && isPlayerSelected(tap.payload.id)) {
       S.dragging = null;
@@ -8251,6 +8375,15 @@ document.addEventListener('keydown', (e) => {
     }
   }
 });
+
+document.addEventListener('pointerdown', (event) => {
+  if (!noteInlineEditorState) return;
+  const editor = document.getElementById('noteInlineEditor');
+  if (editor?.contains(event.target)) return;
+  endNoteInlineEdit();
+  refreshInteractionUI();
+  render();
+}, true);
 
 document.addEventListener('pointerdown', (event) => {
   if (!floatingToolbarOpenFlyout) return;
@@ -10833,13 +10966,7 @@ function updatePlayMetadataFromInputs() {
 }
 
 function focusSelectedNoteInput(selectAll = false) {
-  const ann = selectedAnnotation();
-  const noteInput = document.getElementById('selNoteInput');
-  if (!ann || ann.type !== 'note' || !noteInput) return;
-  requestAnimationFrame(() => {
-    noteInput.focus();
-    if (selectAll) noteInput.select();
-  });
+  beginSelectedNoteInlineEdit({ selectAll });
 }
 
 function updateSelectedNoteText(value) {
@@ -11108,6 +11235,7 @@ function refreshInteractionUI() {
   updateSmartPanel();
   syncHistoryControls();
   scheduleSequenceDockPosition();
+  syncNoteInlineEditor();
 }
 
 function scrollCompactToolbarToolIntoView(tool = S.tool) {
@@ -11468,6 +11596,7 @@ function updateMobileUI() {
 
 function clearPaths()  { snapshot(); S.paths=[]; S.passes=[]; S.drawing=null; setHint('Paths cleared. Choose the next action.'); refreshInteractionUI(); render(); }
 function clearSelection() {
+  endNoteInlineEdit();
   clearSelectedObject();
   S.selectedPassIdx = null;
   S.selectedPathPid = null;
@@ -11634,6 +11763,7 @@ function updateSelInfo() {
   const floatingToolbarOpacityLabel = document.getElementById('floatingToolbarOpacityLabel');
   const floatingToolbarOpacityValue = document.getElementById('floatingToolbarOpacityValue');
   const floatingToolbarOpacity = document.getElementById('floatingToolbarOpacity');
+  const floatingToolbarEditNoteBtn = document.getElementById('floatingToolbarEditNoteBtn');
   const summary = getSelectedSummary();
   const ann = selectedAnnotation();
   const group = selectedGroup();
@@ -11794,6 +11924,7 @@ function updateSelInfo() {
       }
 
       const showAlign = ann.type === 'note';
+      if (floatingToolbarEditNoteBtn) floatingToolbarEditNoteBtn.hidden = !showAlign;
       if (floatingToolbarAlignItem) floatingToolbarAlignItem.hidden = !showAlign;
       if (floatingToolbarAlignBtn) floatingToolbarAlignBtn.hidden = !showAlign;
       if (showAlign) {
@@ -11824,6 +11955,7 @@ function updateSelInfo() {
       scheduleFloatingSelectionToolbarUpdate();
     } else {
       floatingToolbar.dataset.kind = '';
+      if (floatingToolbarEditNoteBtn) floatingToolbarEditNoteBtn.hidden = true;
       closeFloatingToolbarFlyout();
     }
   }
@@ -12411,6 +12543,22 @@ document.getElementById('selNoteInput').addEventListener('keydown', e => {
       e.target.value = String(ann.text ?? '');
     }
     e.target.blur();
+  }
+});
+document.getElementById('noteInlineEditor').addEventListener('input', e => {
+  updateSelectedNoteText(e.target.value);
+  const ann = selectedAnnotation();
+  if (ann?.type === 'note' && e.target.value !== ann.text) {
+    e.target.value = ann.text;
+  }
+  syncNoteInlineEditor();
+});
+document.getElementById('noteInlineEditor').addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    endNoteInlineEdit();
+    refreshInteractionUI();
+    render();
   }
 });
 document.getElementById('importPlayInput').addEventListener('change', e => {
