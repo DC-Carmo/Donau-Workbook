@@ -2364,6 +2364,61 @@ html, body {
   margin-left: auto;
 }
 
+.tb-history-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tb-history-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255,255,255,0.12), transparent 58%),
+    rgba(255,255,255,0.04);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.18);
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease, opacity 0.18s ease, box-shadow 0.18s ease;
+}
+
+.tb-history-btn span {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.tb-history-btn:hover,
+.tb-history-btn:focus-visible {
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18), transparent 58%),
+    rgba(255,255,255,0.08);
+  border-color: rgba(227,178,60,0.4);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.tb-history-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  color: rgba(243,241,232,0.62);
+  box-shadow: none;
+  transform: none;
+}
+
+.tb-history-btn:disabled:hover,
+.tb-history-btn:disabled:focus-visible {
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255,255,255,0.12), transparent 58%),
+    rgba(255,255,255,0.04);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: rgba(243,241,232,0.62);
+  transform: none;
+}
+
 .tb-actions .c-btn {
   min-height: 34px;
   padding: 0 12px;
@@ -4128,6 +4183,19 @@ body.is-phone .tb-actions {
   background: transparent;
   box-shadow: none;
   gap: 8px;
+}
+
+body.is-phone .tb-history-controls {
+  gap: 6px;
+}
+
+body.is-phone .tb-history-btn {
+  width: 34px;
+  height: 34px;
+}
+
+body.is-phone .tb-history-btn span {
+  font-size: 0.9rem;
 }
 
 body.is-phone .tb-autosave-status {

@@ -63,6 +63,14 @@
     <button class="c-btn mobile-play-btn" id="mobileTopPlayBtn" type="button" onclick="toggleSmartPlay()" aria-label="Play from the current move to the end">Play</button>
 
     <div class="tb-actions">
+      <div class="tb-history-controls" aria-label="History controls">
+        <button class="tb-history-btn" id="topbarUndoBtn" type="button" onclick="undo()" aria-label="Undo" title="Nothing to undo">
+          <span aria-hidden="true">&#8630;</span>
+        </button>
+        <button class="tb-history-btn" id="topbarRedoBtn" type="button" onclick="redo()" aria-label="Redo" title="Nothing to redo">
+          <span aria-hidden="true">&#8631;</span>
+        </button>
+      </div>
       <a class="c-btn tb-portal" href="../../index.html"
          onclick="event.preventDefault(); location.href='../../index.html'"><span>&#8249;</span> Portal</a>
       <div id="autosaveStatus" class="tb-autosave-status" aria-live="polite">Saved</div>

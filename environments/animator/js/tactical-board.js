@@ -3355,7 +3355,7 @@ function togglePresetOpposition() {
   presetShowOpposition = !presetShowOpposition;
   updatePresetOptionsUI();
   if (currentPresetId) {
-    loadPlay(currentPresetId);
+    loadPlay(currentPresetId, { snapshotBefore: false });
     return;
   }
   render();
@@ -3444,11 +3444,16 @@ function buildPlayList() {
   });
 }
 
-function loadPlay(id) {
+function loadPlay(id, { snapshotBefore = true } = {}) {
   const play = PLAYS.find(p => p.id === id);
   if (!play) return;
   closeRadialMenu();
-  if (applyBoardData(presetToProject(play))) {
+  const presetProject = presetToProject(play);
+  presetProject.metadata = {
+    ...(presetProject.metadata || {}),
+    presetId: play.id,
+  };
+  if (applyBoardData(presetProject, { snapshotBefore })) {
     currentPresetId = play.id;
     updatePresetOptionsUI();
     const defaultGroup = S.groups.find(group => group.id === play.defaultGroupId) || null;
@@ -4548,6 +4553,9 @@ function restoreWholeGamePlanHistoryEntry(entry) {
   S.projectMeta = entry.projectMeta || null;
   S.playMetadata = entry.playMetadata ? cloneData(entry.playMetadata) : null;
   S.projectPlayback = entry.projectPlayback ? normalizePlaybackSettings(entry.projectPlayback) : null;
+  currentPresetId = entry.projectMeta?.source === 'preset' && typeof entry.projectMeta?.presetId === 'string'
+    ? entry.projectMeta.presetId
+    : null;
   S.animSpd = S.projectPlayback?.currentSpeed || 1;
   spdIdx = Math.max(0, SPEEDS.indexOf(S.animSpd));
 
@@ -4586,6 +4594,27 @@ function redo() {
   scheduleAutosave();
 }
 window.redo = redo;
+
+function syncHistoryControls() {
+  const editingLocked = !!S.animating;
+  const undoDisabled = editingLocked || !(S.history && S.history.length);
+  const redoDisabled = editingLocked || !(S.future && S.future.length);
+  const bindings = [
+    { id: 'topbarUndoBtn', disabled: undoDisabled, title: undoDisabled ? 'Nothing to undo' : 'Undo the last change' },
+    { id: 'topbarRedoBtn', disabled: redoDisabled, title: redoDisabled ? 'Nothing to redo' : 'Redo the last undone change' },
+    { id: 'mobileUndoBtn', disabled: undoDisabled, title: undoDisabled ? 'Nothing to undo' : 'Undo the last change' },
+    { id: 'mobileRedoBtn', disabled: redoDisabled, title: redoDisabled ? 'Nothing to redo' : 'Redo the last undone change' },
+    { id: 'mobileRailUndoBtn', disabled: undoDisabled, title: undoDisabled ? 'Nothing to undo' : 'Undo the last change' },
+    { id: 'mobileMoreRedoBtn', disabled: redoDisabled, title: redoDisabled ? 'Nothing to redo' : 'Redo the last undone change' },
+  ];
+  bindings.forEach(({ id, disabled, title }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.disabled = disabled;
+    el.title = title;
+    el.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+  });
+}
 
 //  FIELD RENDERING
 function drawField() {
@@ -10036,6 +10065,7 @@ function refreshInteractionUI() {
   updateSequenceUI();
   updateMobileUI();
   updateSmartPanel();
+  syncHistoryControls();
   scheduleSequenceDockPosition();
 }
 
