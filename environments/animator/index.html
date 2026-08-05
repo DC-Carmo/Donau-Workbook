@@ -180,6 +180,23 @@
               <button class="sp-color-swatch" data-color="#f97316" style="--sw:#f97316" onclick="setAnnotationColor('#f97316')" aria-label="Orange"></button>
             </div>
           </div>
+          <div id="spArrowStyleControls" class="sp-arrow-style" hidden>
+            <div class="sp-field-group">
+              <span class="sp-field-label">Line Style</span>
+              <div class="sp-note-align-buttons sp-arrow-style-buttons-2" role="group" aria-label="Arrow line style">
+                <button class="sp-btn sp-note-align-btn" data-arrow-dash="solid" type="button" onclick="setArrowDash('solid')">Solid</button>
+                <button class="sp-btn sp-note-align-btn" data-arrow-dash="dashed" type="button" onclick="setArrowDash('dashed')">Dashed</button>
+              </div>
+            </div>
+            <div class="sp-field-group">
+              <span class="sp-field-label">Thickness</span>
+              <div class="sp-note-align-buttons" role="group" aria-label="Arrow thickness">
+                <button class="sp-btn sp-note-align-btn" data-arrow-thickness="thin" type="button" onclick="setArrowThickness('thin')">Thin</button>
+                <button class="sp-btn sp-note-align-btn" data-arrow-thickness="normal" type="button" onclick="setArrowThickness('normal')">Normal</button>
+                <button class="sp-btn sp-note-align-btn" data-arrow-thickness="thick" type="button" onclick="setArrowThickness('thick')">Thick</button>
+              </div>
+            </div>
+          </div>
           <div class="sp-shape-actions" id="spShapeActions" hidden>
             <button class="sp-btn" id="duplicateSelectedBtn" type="button" onclick="duplicateSelected()">Duplicate</button>
             <div class="sp-field-group">

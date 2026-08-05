@@ -802,6 +802,9 @@ Object.assign(S, {
   playMetadata: null,
   projectPlayback: null,
   annotationDraft: null,
+  arrowColor: '#d9b46c',
+  arrowThickness: 'normal',
+  arrowDash: 'solid',
   // Selection model:
   // - selectedPlayerId: one player selected for editing at a time
   // - selectedObjectType/selectedAnnotationIdValue: non-player object selection
@@ -898,6 +901,37 @@ const NOTE_PADDING_Y = 0.6;
 const NOTE_HANDLE_HIT_PADDING = 1.25;
 const ANNOTATION_CLIPBOARD_OFFSET = 1.5;
 const ANNOTATION_NUDGE_STEP = 0.5;
+const ARROW_DEFAULT_COLOR = '#d9b46c';
+const ARROW_THICKNESS_PRESETS = Object.freeze({
+  thin: 2.2,
+  normal: 3.2,
+  thick: 4.6,
+});
+
+function normalizeHexColor(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function colorsMatchSwatch(currentColor, swatchColor) {
+  const current = normalizeHexColor(currentColor);
+  const swatch = normalizeHexColor(swatchColor);
+  if (!current || !swatch) return false;
+  if (current === swatch) return true;
+  return (current === '#d9b46c' && swatch === '#e3b23c')
+    || (current === '#e3b23c' && swatch === '#d9b46c');
+}
+
+function arrowThicknessValue(value) {
+  return Object.prototype.hasOwnProperty.call(ARROW_THICKNESS_PRESETS, value) ? value : 'normal';
+}
+
+function arrowDashValue(value) {
+  return value === 'dashed' ? 'dashed' : 'solid';
+}
+
+function arrowStrokeWidthPx(value) {
+  return ARROW_THICKNESS_PRESETS[arrowThicknessValue(value)] || ARROW_THICKNESS_PRESETS.normal;
+}
 const ANNOTATION_NUDGE_STEP_LARGE = 1.5;
 const NOTE_LEGACY_REFERENCE_SCALE = 10;
 const NOTE_LEGACY_FONT_PX = 12.5;
@@ -2517,6 +2551,12 @@ function selectAnnotationById(id) {
   S.selectedPassIdx = null;
   S.selectedPathPid = null;
   clearHighlightedPlayers();
+  const annotation = findAnnotationById(id);
+  if (annotation?.type === 'arrow') {
+    S.arrowColor = annotation.color || ARROW_DEFAULT_COLOR;
+    S.arrowThickness = arrowThicknessValue(annotation.thickness);
+    S.arrowDash = arrowDashValue(annotation.dash);
+  }
   syncLegacySelectionState();
 }
 
@@ -2633,6 +2673,53 @@ function annotationColor(type) {
   return '#f3f4f6';
 }
 
+function currentArrowStyleSelection() {
+  const selected = selectedAnnotation();
+  if (selected?.type === 'arrow') {
+    return {
+      color: selected.color || ARROW_DEFAULT_COLOR,
+      thickness: arrowThicknessValue(selected.thickness),
+      dash: arrowDashValue(selected.dash),
+    };
+  }
+  return {
+    color: S.arrowColor || ARROW_DEFAULT_COLOR,
+    thickness: arrowThicknessValue(S.arrowThickness),
+    dash: arrowDashValue(S.arrowDash),
+  };
+}
+
+function applyArrowStyleSelection(partial = {}) {
+  const selectedId = selectedAnnotationId();
+  const hasSelectedArrow = selectedAnnotation()?.type === 'arrow';
+  const current = currentArrowStyleSelection();
+  const next = {
+    color: partial.color || current.color || ARROW_DEFAULT_COLOR,
+    thickness: arrowThicknessValue(partial.thickness ?? current.thickness),
+    dash: arrowDashValue(partial.dash ?? current.dash),
+  };
+  S.arrowColor = next.color;
+  S.arrowThickness = next.thickness;
+  S.arrowDash = next.dash;
+  if (hasSelectedArrow && selectedId) {
+    snapshot();
+    const ann = findAnnotationById(selectedId);
+    if (ann?.type === 'arrow') {
+      ann.color = next.color;
+      ann.thickness = next.thickness;
+      ann.dash = next.dash;
+    }
+  }
+  if (!hasSelectedArrow) {
+    refreshInteractionUI();
+    render();
+    return next;
+  }
+  refreshInteractionUI();
+  render();
+  return next;
+}
+
 function noteScaleValue(note) {
   const scale = Number(note?.scale);
   return Number.isFinite(scale) ? clamp(scale, NOTE_LEGACY_SCALE_MIN, NOTE_LEGACY_SCALE_MAX) : 1;
@@ -2714,6 +2801,9 @@ function normalizeAnnotation(annotation) {
       ...base,
       start: { x: sx, y: sy },
       end: { x: ex, y: ey },
+      color: annotation.color || annotationColor('arrow'),
+      thickness: arrowThicknessValue(annotation.thickness),
+      dash: arrowDashValue(annotation.dash),
     };
   }
   if (annotation.type === 'zone') {
@@ -5748,33 +5838,52 @@ function noteResizeCursorForHandle(handle) {
 }
 
 function drawArrowAnnotation(arrow, selected = false, preview = false) {
-  const color = preview ? 'rgba(217,180,108,0.72)' : (arrow.color || annotationColor('arrow'));
-  const opacity = preview ? 1 : (Number(arrow.opacity) || 1);
+  const color = arrow.color || annotationColor('arrow');
+  const opacity = preview ? 0.82 : (Number(arrow.opacity) || 1);
+  const thicknessKey = arrowThicknessValue(arrow.thickness);
+  const strokeWidth = preview ? Math.max(2, arrowStrokeWidthPx(thicknessKey) - 0.3) : arrowStrokeWidthPx(thicknessKey);
+  const shaftDash = arrowDashValue(arrow.dash) === 'dashed'
+    ? [Math.max(8, strokeWidth * 2.8), Math.max(6, strokeWidth * 1.9)]
+    : [];
   const start = toC(arrow.start.x, arrow.start.y);
   const end = toC(arrow.end.x, arrow.end.y);
-  const ang = Math.atan2(end.y - start.y, end.x - start.x);
-  const head = Math.max(9, sc * 1.6);
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const len = Math.hypot(dx, dy);
+  const ang = Math.atan2(dy, dx);
+  const head = Math.max(11, strokeWidth * 3.8, sc * 1.6);
+  const shaftEnd = len > 0.001
+    ? {
+        x: end.x - Math.cos(ang) * Math.min(head * 0.78, Math.max(0, len - 1)),
+        y: end.y - Math.sin(ang) * Math.min(head * 0.78, Math.max(0, len - 1)),
+      }
+    : { ...end };
+  const underlayWidth = strokeWidth + (selected ? 3.2 : 2.2);
 
   ctx.save();
   ctx.globalAlpha = opacity;
   ctx.strokeStyle = 'rgba(7,16,24,0.46)';
-  ctx.lineWidth = 5.2;
+  ctx.lineWidth = underlayWidth;
   ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  if (shaftDash.length) ctx.setLineDash(shaftDash);
   ctx.beginPath();
   ctx.moveTo(start.x, start.y);
-  ctx.lineTo(end.x, end.y);
+  ctx.lineTo(shaftEnd.x, shaftEnd.y);
   ctx.stroke();
+  ctx.setLineDash([]);
   ctx.restore();
 
   if (selected) {
     ctx.save();
     ctx.strokeStyle = 'rgba(251,191,36,0.42)';
-    ctx.lineWidth = 8;
+    ctx.lineWidth = underlayWidth + 2.6;
     ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     ctx.setLineDash([10, 8]);
     ctx.beginPath();
     ctx.moveTo(start.x, start.y);
-    ctx.lineTo(end.x, end.y);
+    ctx.lineTo(shaftEnd.x, shaftEnd.y);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
@@ -5782,12 +5891,15 @@ function drawArrowAnnotation(arrow, selected = false, preview = false) {
 
   ctx.save();
   ctx.strokeStyle = color;
-  ctx.lineWidth = preview ? 2.6 : 3.2;
+  ctx.lineWidth = strokeWidth;
   ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  if (shaftDash.length) ctx.setLineDash(shaftDash);
   ctx.beginPath();
   ctx.moveTo(start.x, start.y);
-  ctx.lineTo(end.x, end.y);
+  ctx.lineTo(shaftEnd.x, shaftEnd.y);
   ctx.stroke();
+  ctx.setLineDash([]);
 
   ctx.fillStyle = color;
   ctx.beginPath();
@@ -6153,9 +6265,11 @@ function hitAnnotation(fp) {
       }
     }
     if (ann.type === 'arrow') {
-      if (d2(fp, ann.start) <= 2.8) return { id: ann.id, part: 'start' };
-      if (d2(fp, ann.end) <= 2.8) return { id: ann.id, part: 'end' };
-      if (pointSegDist(fp, ann.start, ann.end) <= 2.4) return { id: ann.id, part: 'move' };
+      const handleRadius = arrowThicknessValue(ann.thickness) === 'thick' ? 3.2 : 2.8;
+      const shaftTolerance = 2.4 + (arrowStrokeWidthPx(ann.thickness) * 0.25);
+      if (d2(fp, ann.start) <= handleRadius) return { id: ann.id, part: 'start' };
+      if (d2(fp, ann.end) <= handleRadius) return { id: ann.id, part: 'end' };
+      if (pointSegDist(fp, ann.start, ann.end) <= shaftTolerance) return { id: ann.id, part: 'move' };
     }
     if (ann.type === 'zone') {
       const handle = { x: ann.x + ann.r, y: ann.y };
@@ -6653,7 +6767,9 @@ function handlePointerDown(e) {
       type: 'arrow',
       start,
       end: { x: fp.x, y: fp.y },
-      color: annotationColor('arrow'),
+      color: currentArrowStyleSelection().color,
+      thickness: currentArrowStyleSelection().thickness,
+      dash: currentArrowStyleSelection().dash,
     });
     try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     setHint('Drag out the tactical arrow, then release to place it.');
@@ -9863,6 +9979,10 @@ window.toggleAccordion = toggleAccordion;
 
 function setAnnotationColor(color) {
   const ann = selectedAnnotation();
+  if (ann?.type === 'arrow' || (!ann && S.tool === 'arrow')) {
+    applyArrowStyleSelection({ color });
+    return;
+  }
   if (ann) {
     snapshot();
     ann.color = color;
@@ -9876,6 +9996,18 @@ function setAnnotationColor(color) {
   }
 }
 window.setAnnotationColor = setAnnotationColor;
+
+function setArrowThickness(thickness) {
+  if (S.tool !== 'arrow' && selectedAnnotation()?.type !== 'arrow') return;
+  applyArrowStyleSelection({ thickness });
+}
+window.setArrowThickness = setArrowThickness;
+
+function setArrowDash(dash) {
+  if (S.tool !== 'arrow' && selectedAnnotation()?.type !== 'arrow') return;
+  applyArrowStyleSelection({ dash });
+}
+window.setArrowDash = setArrowDash;
 
 function refreshInteractionUI() {
   persistCurrentStep();
@@ -10347,18 +10479,32 @@ function updateSelInfo() {
     }
   }
   const colorPicker = document.getElementById('spColorPicker');
+  const arrowStyleControls = document.getElementById('spArrowStyleControls');
+  const arrowStyle = currentArrowStyleSelection();
+  const arrowStyleVisible = S.tool === 'arrow' || ann?.type === 'arrow';
   if (colorPicker) {
-    colorPicker.hidden = !ann && !group && !selectedPlayer;
-    if (ann || group || selectedPlayer) {
+    colorPicker.hidden = !ann && !group && !selectedPlayer && !arrowStyleVisible;
+    if (ann || group || selectedPlayer || arrowStyleVisible) {
       const currentColor = ann
         ? (ann.color || annotationColor(ann.type))
+        : arrowStyleVisible
+          ? arrowStyle.color
         : group
           ? (group.color || PRESET_GROUP_ATTACK)
           : (selectedPlayer?.colorOverride || playerColorPalette(selectedPlayer).fill);
       colorPicker.querySelectorAll('.sp-color-swatch').forEach(sw => {
-        sw.classList.toggle('active', sw.dataset.color === currentColor);
+        sw.classList.toggle('active', colorsMatchSwatch(currentColor, sw.dataset.color));
       });
     }
+  }
+  if (arrowStyleControls) {
+    arrowStyleControls.hidden = !arrowStyleVisible;
+    arrowStyleControls.querySelectorAll('[data-arrow-thickness]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.arrowThickness === arrowStyle.thickness);
+    });
+    arrowStyleControls.querySelectorAll('[data-arrow-dash]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.arrowDash === arrowStyle.dash);
+    });
   }
   const shapeActions = document.getElementById('spShapeActions');
   const shapeOpacity = document.getElementById('shapeOpacity');

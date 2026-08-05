@@ -3464,6 +3464,14 @@ html, body {
   flex-direction: column;
   gap: 5px;
 }
+.sp-arrow-style {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sp-arrow-style-buttons-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
 .sp-note-align-buttons {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
