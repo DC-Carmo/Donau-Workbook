@@ -2564,9 +2564,24 @@ html, body {
   flex: 1;
   min-height: 0;
   min-width: 0;
-  --desktop-toolbar-h: 40px;
-  --desktop-player-rail-h: 64px;
+  --desktop-toolbar-h: clamp(34px, 3.8vh, 48px);
+  --desktop-player-rail-h: clamp(52px, 6.8vh, 82px);
   --desktop-bottom-rail-h: calc(var(--desktop-toolbar-h) + var(--desktop-player-rail-h));
+  --desktop-rail-pad-x: clamp(8px, 0.9vw, 14px);
+  --desktop-rail-gap: clamp(3px, 0.32vw, 7px);
+  --desktop-pill-min-h: clamp(28px, calc(var(--desktop-toolbar-h) * 0.78), 38px);
+  --desktop-pill-pad-y: clamp(4px, 0.48vh, 7px);
+  --desktop-pill-pad-x: clamp(6px, 0.6vw, 12px);
+  --desktop-pill-font: clamp(8px, 0.64vw, 12px);
+  --desktop-pill-letter: clamp(0.05em, 0.08em, 0.08em);
+  --desktop-divider-h: clamp(18px, 2.2vh, 24px);
+  --desktop-player-gap: clamp(4px, 0.4vw, 7px);
+  --desktop-player-pad-y: clamp(3px, 0.45vh, 5px);
+  --desktop-token-size: clamp(33px, 3.8vh, 44px);
+  --desktop-token-font: clamp(10px, 0.78vw, 12px);
+  --desktop-lane-label-font: clamp(8px, 0.6vw, 10px);
+  --desktop-lane-divider-h: clamp(32px, 4.3vh, 42px);
+  --desktop-toolbar-mode-font: clamp(9px, 0.62vw, 11px);
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) var(--desktop-bottom-rail-h);
@@ -2752,12 +2767,12 @@ html, body {
 
 #compactToolbar {
   height: var(--desktop-toolbar-h);
-  padding: 0 12px;
+  padding: 0 var(--desktop-rail-pad-x);
   background: #0a1a12;
   border-top: 0.5px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--desktop-rail-gap);
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
@@ -2771,24 +2786,24 @@ html, body {
 
 .toolbar-divider {
   width: 1px;
-  height: 24px;
+  height: var(--desktop-divider-h);
   background: rgba(255, 255, 255, 0.1);
-  margin: 0 4px;
+  margin: 0 clamp(2px, 0.25vw, 4px);
   flex: 0 0 auto;
 }
 
 .board-pill {
   flex: 0 0 auto;
-  min-height: 30px;
-  padding: 5px 10px;
+  min-height: var(--desktop-pill-min-h);
+  padding: var(--desktop-pill-pad-y) var(--desktop-pill-pad-x);
   border-radius: 4px;
   border: 0.5px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.05);
   color: #fff;
   font-family: 'Barlow', sans-serif;
-  font-size: 10px;
+  font-size: var(--desktop-pill-font);
   font-weight: 600;
-  letter-spacing: 0.07em;
+  letter-spacing: var(--desktop-pill-letter);
   text-transform: uppercase;
   white-space: nowrap;
   cursor: pointer;
@@ -2816,7 +2831,7 @@ html, body {
 }
 
 .play-btn {
-  min-width: 84px;
+  min-width: clamp(72px, 6vw, 92px);
   background: #1A2E24;
 }
 
@@ -2825,20 +2840,20 @@ html, body {
 }
 
 .speed-btn {
-  min-width: 42px;
-  padding-inline: 10px;
+  min-width: clamp(36px, 3vw, 44px);
+  padding-inline: clamp(8px, 0.72vw, 11px);
 }
 .spd-group {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 0 6px;
+  gap: clamp(3px, 0.3vw, 5px);
+  padding: 0 clamp(4px, 0.4vw, 7px);
   border-left: 1px solid rgba(255,255,255,0.10);
   border-right: 1px solid rgba(255,255,255,0.10);
 }
 .spd-group-label {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 0.68rem;
+  font-size: clamp(0.58rem, 0.9vw, 0.72rem);
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -2861,7 +2876,7 @@ html, body {
 .tb-group {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--desktop-rail-gap);
   flex: 0 0 auto;
 }
 
@@ -2923,7 +2938,7 @@ html, body {
   margin-left: auto;
   padding-left: 8px;
   color: rgba(255, 255, 255, 0.5);
-  font-size: 10px;
+  font-size: var(--desktop-toolbar-mode-font);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2936,7 +2951,7 @@ html, body {
   border-top: 0.5px solid rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
-  padding: 0 12px;
+  padding: 0 var(--desktop-rail-pad-x);
   overflow: hidden;
 }
 
@@ -2948,9 +2963,9 @@ html, body {
 }
 
 .player-lane-label {
-  margin-right: 10px;
+  margin-right: clamp(7px, 0.7vw, 10px);
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 9px;
+  font-size: var(--desktop-lane-label-font);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -2962,9 +2977,9 @@ html, body {
 
 .player-lane-divider {
   width: 1px;
-  height: 40px;
+  height: var(--desktop-lane-divider-h);
   background: rgba(255, 255, 255, 0.1);
-  margin: 0 12px;
+  margin: 0 clamp(9px, 0.9vw, 14px);
   flex-shrink: 0;
 }
 
@@ -2972,19 +2987,19 @@ html, body {
   flex: 1;
   min-width: 0;
   display: flex;
-  gap: 6px;
+  gap: var(--desktop-player-gap);
   flex-wrap: nowrap;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 4px 0;
+  padding: var(--desktop-player-pad-y) 0;
   scrollbar-width: none;
 }
 
 .player-token {
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  min-height: 36px;
+  width: var(--desktop-token-size);
+  height: var(--desktop-token-size);
+  min-width: var(--desktop-token-size);
+  min-height: var(--desktop-token-size);
   border-radius: 50%;
   border: 2px solid transparent;
   color: #fff;
@@ -2992,10 +3007,47 @@ html, body {
   align-items: center;
   justify-content: center;
   font-family: 'Barlow', sans-serif;
-  font-size: 11px;
+  font-size: var(--desktop-token-font);
   font-weight: 700;
   cursor: pointer;
   transition: border-color 0.15s ease, transform 0.18s ease, opacity 0.18s ease, box-shadow 0.18s ease;
+}
+
+@media (max-width: 1680px) {
+  body:not(.is-phone) #toolbarModeInline {
+    display: none;
+  }
+}
+
+@media (max-width: 1500px) {
+  body:not(.is-phone) #compactToolbar .board-pill[data-label-mobile] {
+    font-size: 0;
+    letter-spacing: 0;
+  }
+
+  body:not(.is-phone) #compactToolbar .board-pill[data-label-mobile]::after {
+    content: attr(data-label-mobile);
+    font-size: var(--desktop-pill-font);
+    letter-spacing: 0.06em;
+  }
+
+  body:not(.is-phone) #gainlineToggleBtn,
+  body:not(.is-phone) #ghostPreviousToggleBtn {
+    font-size: 0;
+    letter-spacing: 0;
+  }
+
+  body:not(.is-phone) #gainlineToggleBtn::after {
+    content: 'GL';
+    font-size: var(--desktop-pill-font);
+    letter-spacing: 0.06em;
+  }
+
+  body:not(.is-phone) #ghostPreviousToggleBtn::after {
+    content: 'GHOST';
+    font-size: var(--desktop-pill-font);
+    letter-spacing: 0.06em;
+  }
 }
 
 .player-token:hover,
@@ -3014,75 +3066,6 @@ html, body {
 
 .player-token.on {
   opacity: 0.4;
-}
-
-@media (min-width: 1024px) {
-  .player-token {
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
-    min-height: 40px;
-  }
-}
-
-@media (min-width: 1024px) and (max-height: 820px) {
-  #workspace {
-    --desktop-toolbar-h: 36px;
-    --desktop-player-rail-h: 54px;
-  }
-
-  #canvasWrap {
-    padding-top: 6px;
-  }
-
-  #compactToolbar {
-    padding-inline: 10px;
-    gap: 6px;
-  }
-
-  .toolbar-divider {
-    height: 20px;
-    margin-inline: 2px;
-  }
-
-  .board-pill {
-    min-height: 28px;
-    padding: 4px 9px;
-    font-size: 9px;
-    letter-spacing: 0.06em;
-  }
-
-  #toolbarModeInline,
-  .spd-group-label {
-    font-size: 9px;
-  }
-
-  #playerSelector {
-    padding-inline: 10px;
-  }
-
-  .player-lane-label {
-    margin-right: 8px;
-    font-size: 8px;
-  }
-
-  .player-lane-divider {
-    height: 34px;
-    margin-inline: 10px;
-  }
-
-  .player-token-row {
-    gap: 5px;
-    padding-block: 3px;
-  }
-
-  .player-token {
-    width: 34px;
-    height: 34px;
-    min-width: 34px;
-    min-height: 34px;
-    font-size: 10px;
-  }
 }
 
 @media (max-width: 1024px) {
