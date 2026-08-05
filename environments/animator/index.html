@@ -441,6 +441,7 @@
               <input id="floatingToolbarOpacity" class="sp-field-input floating-selection-toolbar-range" type="range" min="0.2" max="1" step="0.05" value="1" oninput="setSelectedAnnotationOpacity(this.value)">
             </div>
             <div class="floating-selection-toolbar-group floating-selection-toolbar-actions">
+              <button id="floatingToolbarClearBtn" class="sp-btn" type="button" onclick="clearSelection()">Deselect</button>
               <button id="floatingToolbarDuplicateBtn" class="sp-btn" type="button" onclick="duplicateSelected()">Duplicate</button>
               <button id="floatingToolbarDeleteBtn" class="sp-btn sp-btn-danger" type="button" onclick="deleteSelected()">Delete</button>
             </div>

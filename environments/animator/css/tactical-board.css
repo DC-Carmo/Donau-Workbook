@@ -1440,18 +1440,20 @@ body:not(.is-phone) #canvasWrap {
 
 .floating-selection-toolbar {
   --fst-caret-left: 28px;
+  --fst-surface: rgba(7, 13, 20, 0.9);
+  --fst-border: rgba(227,178,60,0.18);
   position: absolute;
   inset: auto auto 0 0;
   z-index: 24;
   width: max-content;
-  max-width: min(calc(100% - 16px), 620px);
-  padding: 10px;
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(6, 14, 22, 0.94);
-  box-shadow: 0 18px 40px rgba(0,0,0,0.34);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  max-width: min(calc(100% - 12px), 560px);
+  padding: 7px;
+  border-radius: 13px;
+  border: 1px solid var(--fst-border);
+  background: var(--fst-surface);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.24);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   pointer-events: auto;
 }
 .floating-selection-toolbar[hidden] {
@@ -1461,26 +1463,26 @@ body:not(.is-phone) #canvasWrap {
   content: '';
   position: absolute;
   left: var(--fst-caret-left);
-  bottom: -7px;
-  width: 14px;
-  height: 14px;
-  background: rgba(6, 14, 22, 0.94);
-  border-right: 1px solid rgba(255,255,255,0.12);
-  border-bottom: 1px solid rgba(255,255,255,0.12);
+  bottom: -6px;
+  width: 12px;
+  height: 12px;
+  background: var(--fst-surface);
+  border-right: 1px solid var(--fst-border);
+  border-bottom: 1px solid var(--fst-border);
   transform: rotate(45deg);
 }
 .floating-selection-toolbar[data-placement="bottom"]::after {
-  top: -7px;
+  top: -6px;
   bottom: auto;
   border-right: none;
   border-bottom: none;
-  border-left: 1px solid rgba(255,255,255,0.12);
-  border-top: 1px solid rgba(255,255,255,0.12);
+  border-left: 1px solid var(--fst-border);
+  border-top: 1px solid var(--fst-border);
 }
 .floating-selection-toolbar-scroll {
   display: flex;
   align-items: stretch;
-  gap: 8px;
+  gap: 6px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
@@ -1493,65 +1495,68 @@ body:not(.is-phone) #canvasWrap {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px 10px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.035);
+  gap: 5px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.028);
 }
 .floating-selection-toolbar-label {
-  min-width: 92px;
+  min-width: 78px;
   justify-content: center;
-  background: rgba(227,178,60,0.08);
-  border-color: rgba(227,178,60,0.18);
+  background: rgba(227,178,60,0.06);
+  border-color: rgba(227,178,60,0.16);
 }
 .floating-selection-toolbar-kicker,
 .floating-selection-toolbar-group-label {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 0.58rem;
+  font-size: 0.5rem;
   font-weight: 700;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(255,255,255,0.46);
+  color: rgba(255,255,255,0.42);
 }
 .floating-selection-toolbar-title {
   font-family: 'Barlow Condensed', sans-serif;
-  font-size: 0.92rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   color: #f8fafc;
 }
 .floating-selection-toolbar .sp-color-swatches {
   flex-wrap: nowrap;
 }
 .floating-selection-toolbar .sp-color-swatch {
-  width: 20px;
-  height: 20px;
+  width: 17px;
+  height: 17px;
 }
 .floating-selection-toolbar .sp-btn {
-  min-height: 32px;
-  padding: 6px 10px;
-  font-size: 0.62rem;
+  min-height: 28px;
+  padding: 5px 9px;
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
 }
 .floating-selection-toolbar .sp-note-align-buttons {
   gap: 5px;
 }
 .floating-selection-toolbar .sp-note-align-btn {
-  min-height: 30px;
-  padding-inline: 10px;
+  min-height: 28px;
+  padding-inline: 8px;
 }
 .floating-selection-toolbar-slider-group {
-  min-width: 132px;
+  min-width: 118px;
 }
 .floating-selection-toolbar-range {
-  width: 132px;
+  width: 118px;
   padding: 0;
 }
 .floating-selection-toolbar-actions {
+  flex-direction: row;
+  align-items: center;
   justify-content: center;
 }
 .floating-selection-toolbar-actions .sp-btn {
-  min-width: 88px;
+  min-width: 72px;
 }
 
 .board-status {
@@ -4073,19 +4078,19 @@ body:not(.is-phone) .play-category-list {
 
 @media (max-width: 640px) {
   .floating-selection-toolbar {
-    max-width: min(calc(100% - 12px), 360px);
-    padding: 8px;
-    border-radius: 14px;
+    max-width: min(calc(100% - 10px), 332px);
+    padding: 6px;
+    border-radius: 12px;
   }
   .floating-selection-toolbar-group {
-    padding: 7px 8px;
+    padding: 6px 7px;
   }
   .floating-selection-toolbar .sp-btn {
-    min-height: 30px;
-    padding: 6px 8px;
+    min-height: 27px;
+    padding: 5px 7px;
   }
   .floating-selection-toolbar-range {
-    width: 112px;
+    width: 104px;
   }
 }
 .sp-notes-panel::-webkit-scrollbar { width: 3px; }

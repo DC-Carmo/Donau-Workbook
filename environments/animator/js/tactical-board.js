@@ -6071,18 +6071,44 @@ function positionFloatingSelectionToolbar() {
   if (!bounds) return;
 
   const wrapRect = wrap.getBoundingClientRect();
-  const padding = 8;
+  const host = document.getElementById('canvasHost');
+  const hostRect = host ? host.getBoundingClientRect() : wrapRect;
+  const edgeMargin = 8;
   const gap = 14;
   const toolbarWidth = toolbar.offsetWidth || 0;
   const toolbarHeight = toolbar.offsetHeight || 0;
-  const anchorX = clamp(bounds.left + (bounds.width / 2), padding + 10, wrapRect.width - padding - 10);
+  const visibleLeft = Math.max(
+    edgeMargin,
+    Math.round(Math.max(0, hostRect.left - wrapRect.left, -wrapRect.left))
+  );
+  const visibleTop = Math.max(
+    edgeMargin,
+    Math.round(Math.max(0, hostRect.top - wrapRect.top, -wrapRect.top))
+  );
+  const visibleRight = Math.min(
+    wrapRect.width - edgeMargin,
+    Math.round(Math.min(wrapRect.width, hostRect.right - wrapRect.left, window.innerWidth - wrapRect.left))
+  );
+  const visibleBottom = Math.min(
+    wrapRect.height - edgeMargin,
+    Math.round(Math.min(wrapRect.height, hostRect.bottom - wrapRect.top, window.innerHeight - wrapRect.top))
+  );
+  const minLeft = visibleLeft;
+  const maxLeft = Math.max(minLeft, visibleRight - toolbarWidth);
+  const minTop = visibleTop;
+  const maxTop = Math.max(minTop, visibleBottom - toolbarHeight);
+  const anchorX = clamp(bounds.left + (bounds.width / 2), visibleLeft + 10, visibleRight - 10);
+  const anchorTop = clamp(bounds.top, visibleTop, visibleBottom);
+  const anchorBottom = clamp(bounds.bottom, visibleTop, visibleBottom);
   const preferredTop = bounds.top - toolbarHeight - gap;
   const preferredBottom = bounds.bottom + gap;
-  const placeBelow = preferredTop < padding && preferredBottom + toolbarHeight <= wrapRect.height - padding;
+  const fitsAbove = preferredTop >= minTop;
+  const fitsBelow = preferredBottom + toolbarHeight <= visibleBottom;
+  const placeBelow = !fitsAbove && fitsBelow;
   const top = placeBelow
-    ? clamp(preferredBottom, padding, Math.max(padding, wrapRect.height - toolbarHeight - padding))
-    : clamp(preferredTop, padding, Math.max(padding, wrapRect.height - toolbarHeight - padding));
-  const left = clamp(anchorX - (toolbarWidth / 2), padding, Math.max(padding, wrapRect.width - toolbarWidth - padding));
+    ? clamp(preferredBottom, minTop, maxTop)
+    : clamp(preferredTop, minTop, maxTop);
+  const left = clamp(anchorX - (toolbarWidth / 2), minLeft, maxLeft);
   const caretLeft = clamp(anchorX - left, 18, Math.max(18, toolbarWidth - 18));
 
   toolbar.dataset.placement = placeBelow ? 'bottom' : 'top';
@@ -11208,7 +11234,7 @@ function updateSelInfo() {
   const arrowStyleVisible = S.tool === 'arrow' || ann?.type === 'arrow';
   const shapeStyleVisible = !!activeShapeType;
   const annotationToolbarVisible = !!ann && S.selectedPassIdx === null && S.selectedPathPid === null;
-  const showSelectionCard = summary.title !== '-' && (!ann || ann.type === 'note');
+  const showSelectionCard = summary.title !== '-' && !ann;
   document.getElementById('selName').textContent = summary.title;
   if (meta) meta.textContent = summary.meta;
   box.classList.toggle('visible', showSelectionCard);
