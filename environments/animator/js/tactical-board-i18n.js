@@ -37,6 +37,7 @@ window.AnimatorBoardI18n = (() => {
       'export.json': 'Export JSON',
       'import': 'Import',
       'menu': 'Menu',
+      'close.coaching.notes': 'Close coaching notes',
       'recovery.kicker': 'Recovery Draft',
       'recovery.title': 'Unsaved play found',
       'recovery.message': 'We found an unsaved play.',
@@ -83,11 +84,24 @@ window.AnimatorBoardI18n = (() => {
       'note.text': 'Note Text',
       'note.placeholder': 'Update note text',
       'details': 'Details',
+      'fill': 'Fill',
+      'transparency': 'Transparency',
       'giveBall': 'Give Ball',
+      'giveBall.to': 'Give Ball to {team} #{num}',
       'deselect': 'Deselect',
+      'selection.clear': 'Clear Selection',
+      'selection.none': 'No Selection',
       'remove': 'Remove',
+      'remove.runPath': 'Remove Run Path',
+      'remove.pass': 'Remove Pass',
+      'remove.kick': 'Remove Kick',
+      'remove.ball': 'Remove Ball',
+      'remove.item': 'Remove {item}',
+      'remove.fromField': 'Remove from Field',
+      'remove.player': 'Remove Player',
       'editIndividuals': 'Edit Individuals',
       'regroupPack': 'Regroup Pack',
+      'regroup.packNamed': 'Regroup {label}',
       'gainline.status': 'On gainline',
       'plays.opposition': 'Plays & Opposition',
       'opposition.off': 'Opposition: Off',
@@ -104,6 +118,8 @@ window.AnimatorBoardI18n = (() => {
       'mistake.1': 'Mistake 1',
       'mistake.2': 'Mistake 2',
       'mistake.3': 'Mistake 3',
+      'untitled.play': 'Untitled Play',
+      'note.refineCue': 'Refine the coaching cue',
       'empty.kicker': 'Start Here',
       'empty.title': 'Build your first board state',
       'empty.copy': 'Add players from the bottom rail, place the ball, then choose a tool to draw movement.',
@@ -287,6 +303,7 @@ window.AnimatorBoardI18n = (() => {
       'export.json': 'Exportar JSON',
       'import': 'Importar',
       'menu': 'Menu',
+      'close.coaching.notes': 'Fechar notas de treino',
       'recovery.kicker': 'Rascunho de recuperação',
       'recovery.title': 'Jogada não salva encontrada',
       'recovery.message': 'Encontramos uma jogada não salva.',
@@ -333,11 +350,24 @@ window.AnimatorBoardI18n = (() => {
       'note.text': 'Texto da nota',
       'note.placeholder': 'Atualize o texto da nota',
       'details': 'Detalhes',
+      'fill': 'Preenchimento',
+      'transparency': 'Transparência',
       'giveBall': 'Dar bola',
+      'giveBall.to': 'Dar a bola para {team} #{num}',
       'deselect': 'Desselecionar',
+      'selection.clear': 'Limpar seleção',
+      'selection.none': 'Sem seleção',
       'remove': 'Remover',
+      'remove.runPath': 'Remover trajeto de corrida',
+      'remove.pass': 'Remover passe',
+      'remove.kick': 'Remover chute',
+      'remove.ball': 'Remover bola',
+      'remove.item': 'Remover {item}',
+      'remove.fromField': 'Remover do campo',
+      'remove.player': 'Remover jogador',
       'editIndividuals': 'Editar individuais',
       'regroupPack': 'Reagrupar pack',
+      'regroup.packNamed': 'Reagrupar {label}',
       'gainline.status': 'Na linha de ganho',
       'plays.opposition': 'Jogadas e oposição',
       'opposition.off': 'Oposição: desligada',
@@ -354,6 +384,8 @@ window.AnimatorBoardI18n = (() => {
       'mistake.1': 'Erro 1',
       'mistake.2': 'Erro 2',
       'mistake.3': 'Erro 3',
+      'untitled.play': 'Jogada sem título',
+      'note.refineCue': 'Refine a orientação de treino',
       'empty.kicker': 'Comece aqui',
       'empty.title': 'Monte o primeiro estado do quadro',
       'empty.copy': 'Adicione jogadores pela barra inferior, coloque a bola e depois escolha uma ferramenta para desenhar o movimento.',
@@ -611,11 +643,44 @@ window.AnimatorBoardI18n = (() => {
     'tour.skip': 'Saltar tour',
     'tour.counter': 'Paso {current} de {total}',
     'dock.back': 'Volver',
-      'dock.duplicateMove': 'Duplicar movimiento',
-      'dock.deleteMove': 'Borrar movimiento',
-      'dock.addMove': 'Añadir movimiento',
-      'dock.previewMove': 'Vista previa del movimiento',
-      'dock.playPhase': 'Reproducir fase',
+    'dock.duplicateMove': 'Duplicar movimiento',
+    'dock.deleteMove': 'Borrar movimiento',
+    'dock.addMove': 'Añadir movimiento',
+    'dock.previewMove': 'Vista previa del movimiento',
+    'dock.playPhase': 'Reproducir fase',
+    'giveBall.to': 'Dar balon a {team} #{num}',
+    'remove.runPath': 'Eliminar trayecto de carrera',
+    'remove.pass': 'Eliminar pase',
+    'remove.kick': 'Eliminar patada',
+    'remove.ball': 'Eliminar balon',
+    'remove.item': 'Eliminar {item}',
+    'remove.fromField': 'Quitar del campo',
+    'remove.player': 'Eliminar jugador',
+    'regroup.packNamed': 'Reagrupar {label}',
+    'close.coaching.notes': 'Cerrar notas de coaching',
+    'details': 'Detalles',
+    'fill': 'Relleno',
+    'transparency': 'Transparencia',
+    'selection.clear': 'Limpiar selección',
+    'selection.none': 'Sin selección',
+    'phase.purpose.placeholder': '¿Qué busca conseguir esta jugada?',
+    'decision.cue.placeholder': '¿Qué debe leer el jugador?',
+    'coaching.point1': 'Punto 1',
+    'coaching.point2': 'Punto 2',
+    'coaching.point3': 'Punto 3',
+    'mistake.1': 'Error 1',
+    'mistake.2': 'Error 2',
+    'mistake.3': 'Error 3',
+    'untitled.play': 'Jugada sin título',
+    'note.refineCue': 'Ajusta la consigna de coaching',
+    'saved.empty': 'Todavía no hay guardados locales. Guarda la pizarra actual para seguir trabajando después.',
+    'saved.local': 'Guardado localmente',
+    'saved.load': 'Cargar',
+    'saved.export': 'Exportar',
+    'saved.delete': 'Eliminar',
+    'saved.meta': '{steps} {stepsLabel} · {players} jugadores · {paths} trayectos · {passes} pases',
+    'saved.step': 'movimiento',
+    'saved.steps': 'movimientos',
   };
   dictionaries.fr = {
     ...dictionaries.en,
@@ -719,6 +784,39 @@ window.AnimatorBoardI18n = (() => {
     'dock.addMove': 'Ajouter un mouvement',
     'dock.previewMove': 'Prévisualiser le mouvement',
     'dock.playPhase': 'Lire la phase',
+    'giveBall.to': 'Donner le ballon a {team} #{num}',
+    'remove.runPath': 'Supprimer la course',
+    'remove.pass': 'Supprimer la passe',
+    'remove.kick': 'Supprimer le coup de pied',
+    'remove.ball': 'Supprimer le ballon',
+    'remove.item': 'Supprimer {item}',
+    'remove.fromField': 'Retirer du terrain',
+    'remove.player': 'Supprimer le joueur',
+    'regroup.packNamed': 'Regrouper {label}',
+    'close.coaching.notes': 'Fermer les notes de coaching',
+    'details': 'Détails',
+    'fill': 'Remplissage',
+    'transparency': 'Transparence',
+    'selection.clear': 'Effacer la sélection',
+    'selection.none': 'Aucune sélection',
+    'phase.purpose.placeholder': 'Que cherche cette combinaison à obtenir ?',
+    'decision.cue.placeholder': 'Que doit lire le joueur ?',
+    'coaching.point1': 'Point 1',
+    'coaching.point2': 'Point 2',
+    'coaching.point3': 'Point 3',
+    'mistake.1': 'Erreur 1',
+    'mistake.2': 'Erreur 2',
+    'mistake.3': 'Erreur 3',
+    'untitled.play': 'Lancement sans titre',
+    'note.refineCue': 'Affinez la consigne de coaching',
+    'saved.empty': 'Aucune sauvegarde locale pour le moment. Enregistrez le tableau actuel pour reprendre plus tard.',
+    'saved.local': 'Enregistré localement',
+    'saved.load': 'Charger',
+    'saved.export': 'Exporter',
+    'saved.delete': 'Supprimer',
+    'saved.meta': '{steps} {stepsLabel} · {players} joueurs · {paths} tracés · {passes} passes',
+    'saved.step': 'mouvement',
+    'saved.steps': 'mouvements',
   };
 
   let currentLanguage = 'en';
@@ -810,6 +908,12 @@ window.AnimatorBoardI18n = (() => {
     setText('button[onclick="exportCurrentPlay()"]', 'export.json');
     setText('button[onclick="triggerImportPlay()"]', 'import');
     setText('#mobileBoardMenuBtn', 'menu');
+    setText('#mobileBoardMenuPlayBtn', 'play.play');
+    setText('#mobileBoardMenuNotesBtn', 'coaching.notes');
+    setText('#mobileBoardMenuSaveBtn', 'save');
+    setText('#mobileBoardMenuExportPdfBtn', 'export.pdf');
+    setText('#mobileBoardMenuExportJsonBtn', 'export.json');
+    setText('#mobileBoardMenuImportBtn', 'import');
     setText('.tb-recovery-prompt__kicker', 'recovery.kicker');
     setText('#recoveryDraftTitle', 'recovery.title');
     setText('#recoveryDraftMessage', 'recovery.message');
@@ -822,6 +926,9 @@ window.AnimatorBoardI18n = (() => {
     setAttr('#mobilePlayNameInput', 'placeholder', 'board.placeholder');
     setAttr('.mobile-notes-sheet', 'aria-label', 'coaching.notes');
     setText('.mobile-notes-sheet-head .mobile-board-menu-kicker', 'coaching.notes');
+    setText('#mobileNotesSheetTitle', 'coaching.notes');
+    setAttr('#mobileNotesBackdrop', 'aria-label', 'close.coaching.notes');
+    setAttr('#mobileNotesSheetCloseBtn', 'aria-label', 'close.coaching.notes');
     setAttr('#smartPanel', 'aria-label', 'context.panel');
     setText('.sp-default-copy', 'default.copy');
     setText('.sp-default-tip strong:nth-of-type(1)', 'default.tip.mode');
@@ -838,8 +945,21 @@ window.AnimatorBoardI18n = (() => {
     setText('#selInfo .sp-sel-label', 'selected');
     setText('#selEditLabel', 'note.text');
     setAttr('#selNoteInput', 'placeholder', 'note.placeholder');
+    setText('#coachNotesPanelLabel', 'coaching.notes');
+    setText('#accPurposeLabel', 'phase.purpose');
+    setText('#accDecisionLabel', 'decision.cue');
+    setText('#accCoachingLabel', 'coaching.points');
+    setText('#accMistakesLabel', 'common.mistakes');
+    setText('#accPresets .coach-panel-trigger span:first-child', 'plays.opposition');
+    setAttr('#metaPurpose', 'placeholder', 'phase.purpose.placeholder');
+    setAttr('#metaDecisionCue', 'placeholder', 'decision.cue.placeholder');
+    setAttr('#metaCoachingPoint1', 'placeholder', 'coaching.point1');
+    setAttr('#metaCoachingPoint2', 'placeholder', 'coaching.point2');
+    setAttr('#metaCoachingPoint3', 'placeholder', 'coaching.point3');
+    setAttr('#metaCommonMistake1', 'placeholder', 'mistake.1');
+    setAttr('#metaCommonMistake2', 'placeholder', 'mistake.2');
+    setAttr('#metaCommonMistake3', 'placeholder', 'mistake.3');
     setText('#floatingSelectionToolbar .floating-selection-toolbar-kicker', 'selected');
-    setText('#floatingToolbarColorGroup .floating-selection-toolbar-group-label', 'color');
     setText('#floatingToolbarOpacityLabel', 'fill');
     setText('#emptyState .empty-state-kicker', 'empty.kicker');
     setText('#emptyState .empty-state-title', 'empty.title');

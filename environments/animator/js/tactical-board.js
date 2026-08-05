@@ -170,7 +170,7 @@ function updateGainDisplayForY(y) {
   if (!el) return;
   const dist = Math.round((GAINLINE_Y - y) * 1);
   const sign = dist > 0 ? '+' : '';
-  el.textContent = dist === 0 ? 'On gainline' : `${sign}${dist}m`;
+  el.textContent = dist === 0 ? tr('gainline.status', {}, 'On gainline') : `${sign}${dist}m`;
   el.style.color = dist > 0 ? '#4ade80' : dist < 0 ? '#f87171' : '#fbbf24';
 }
 
@@ -3618,7 +3618,7 @@ function presetGroupsForView(play) {
 function updatePresetOptionsUI() {
   const btn = document.getElementById('presetOppositionToggle');
   if (!btn) return;
-  btn.textContent = presetShowOpposition ? 'Opposition: On' : 'Opposition: Off';
+  btn.textContent = presetShowOpposition ? tr('opposition.on', {}, 'Opposition: On') : tr('opposition.off', {}, 'Opposition: Off');
   btn.classList.toggle('sp-btn-accent', presetShowOpposition);
 }
 
@@ -10786,7 +10786,7 @@ function updateAnnotationPanel() {
 function updatePlayMetadataPanel() {
   const metadata = buildPlayMetadata();
   const titleValue = document.getElementById('metaTitleValue');
-  if (titleValue) titleValue.textContent = metadata.title || 'Untitled Play';
+  if (titleValue) titleValue.textContent = metadata.title || tr('untitled.play', {}, 'Untitled Play');
 
   const purpose = document.getElementById('metaPurpose');
   const decisionCue = document.getElementById('metaDecisionCue');
@@ -11219,6 +11219,10 @@ window.addEventListener('animator-languagechange', () => {
   MODE_LABELS.tele = modeLabel('tele');
 
   updateAnnotationPanel();
+  updatePresetOptionsUI();
+  updatePlayMetadataPanel();
+  refreshSavedPlayList();
+  updateSelInfo();
   refreshInteractionUI();
   if (!document.getElementById('playerNumberPopover')?.hidden) renderPlayerNumberPicker();
   if (_tourActive) _tourShowStep(_tourCurrentStep);
@@ -11475,7 +11479,7 @@ function clearSelection() {
   clearArmedRunState();
   S.drawing = null;
   S.annotationDraft = null;
-  setHint('Selection cleared. Choose the next action.');
+  setHint(tr('selection.clear', {}, 'Clear Selection'));
   updatePresetOptionsUI();
   updateAnnotationPanel();
   refreshInteractionUI();
@@ -11649,13 +11653,13 @@ function updateSelInfo() {
   box.classList.toggle('visible', showSelectionCard);
   box.classList.toggle('annotation-selected', !!ann && S.selectedPassIdx === null && S.selectedPathPid === null);
   if (editWrap) editWrap.classList.toggle('visible', ann?.type === 'note');
-  if (editLabel) editLabel.textContent = ann?.type === 'note' ? 'Note Text' : 'Details';
+  if (editLabel) editLabel.textContent = ann?.type === 'note' ? tr('note.text', {}, 'Note Text') : tr('details', {}, 'Details');
   if (noteInput) {
     if (noteInput !== document.activeElement) {
       noteInput.value = ann?.type === 'note' ? String(ann.text ?? '') : '';
     }
     noteInput.disabled = ann?.type !== 'note';
-    noteInput.placeholder = ann?.type === 'note' ? 'Refine the coaching cue' : 'Update note text';
+    noteInput.placeholder = ann?.type === 'note' ? tr('note.refineCue', {}, 'Refine the coaching cue') : tr('note.placeholder', {}, 'Update note text');
   }
   const giveBallTarget = manualBallAssignmentTarget();
   if (giveBallBtn) {
@@ -11663,7 +11667,10 @@ function updateSelInfo() {
     giveBallBtn.disabled = !giveBallTarget;
     giveBallBtn.onclick = giveBallToSelectedPlayer;
     if (giveBallTarget) {
-      giveBallBtn.textContent = `Give Ball to ${giveBallTarget.team === 'A' ? 'A' : 'D'} #${giveBallTarget.num}`;
+      giveBallBtn.textContent = tr('giveBall.to', {
+        team: giveBallTarget.team === 'A' ? 'A' : 'D',
+        num: giveBallTarget.num,
+      }, `Give Ball to ${giveBallTarget.team === 'A' ? 'A' : 'D'} #${giveBallTarget.num}`);
     }
   }
   const colorPicker = document.getElementById('spColorPicker');
@@ -11682,8 +11689,8 @@ function updateSelInfo() {
   arrowToolCards.forEach(card => { card.hidden = !arrowStyleVisible; });
   arrowToolCopies.forEach(copy => {
     copy.textContent = ann?.type === 'arrow'
-      ? 'Selected arrow updates live as you change style.'
-      : 'Choose the default style before drawing.';
+      ? tr('style.selectedLive', { item: tr('mode.arrow', {}, 'Arrow').toLowerCase() }, 'Selected arrow updates live as you change style.')
+      : tr('style.chooseDefault', {}, 'Choose the default style before drawing.');
   });
   arrowStyleControls.forEach(controlSet => {
     controlSet.hidden = !arrowStyleVisible;
@@ -11695,8 +11702,8 @@ function updateSelInfo() {
   shapeToolCards.forEach(card => { card.hidden = !shapeStyleVisible; });
   shapeToolCopies.forEach(copy => {
     copy.textContent = isShapeAnnotationType(ann?.type)
-      ? 'Selected shape updates live as you change style.'
-      : 'Choose the default style before drawing.';
+      ? tr('style.selectedLive', { item: tr('shape.style', {}, 'Shape Style').toLowerCase() }, 'Selected shape updates live as you change style.')
+      : tr('style.chooseDefault', {}, 'Choose the default style before drawing.');
   });
   shapeStyleControls.forEach(controlSet => {
     controlSet.hidden = !shapeStyleVisible;
@@ -11713,33 +11720,42 @@ function updateSelInfo() {
     if (groupModeBtn) {
       groupModeBtn.hidden = !canUnlock;
       groupModeBtn.onclick = editSelectedPackIndividuals;
+      groupModeBtn.textContent = tr('editIndividuals', {}, 'Edit Individuals');
     }
     if (regroupBtn) {
       regroupBtn.hidden = !canRegroup;
       regroupBtn.onclick = regroupSelectedPack;
-      if (canRegroup) regroupBtn.textContent = `Regroup ${playerGroup.label}`;
+      if (canRegroup) {
+        regroupBtn.textContent = tr('regroup.packNamed', { label: playerGroup.label }, `Regroup ${playerGroup.label}`);
+      } else {
+        regroupBtn.textContent = tr('regroupPack', {}, 'Regroup Pack');
+      }
     }
   }
   if (deleteBtn) {
     deleteBtn.onclick = deleteSelected;
-    if (S.selectedPathPid !== null) deleteBtn.textContent = 'Remove Run Path';
+    if (S.selectedPathPid !== null) deleteBtn.textContent = tr('remove.runPath', {}, 'Remove Run Path');
     else if (S.selectedPassIdx !== null) {
       const pass = S.passes[S.selectedPassIdx];
-      deleteBtn.textContent = pass?.style === 'pass' ? 'Remove Pass' : 'Remove Kick';
+      deleteBtn.textContent = pass?.style === 'pass'
+        ? tr('remove.pass', {}, 'Remove Pass')
+        : tr('remove.kick', {}, 'Remove Kick');
     }
-    else if (isBallSelected()) deleteBtn.textContent = 'Remove Ball';
-    else if (ann) deleteBtn.textContent = `Remove ${MODE_LABELS[ann.type] || 'Item'}`;
+    else if (isBallSelected()) deleteBtn.textContent = tr('remove.ball', {}, 'Remove Ball');
+    else if (ann) deleteBtn.textContent = tr('remove.item', { item: MODE_LABELS[ann.type] || 'Item' }, `Remove ${MODE_LABELS[ann.type] || 'Item'}`);
     else if (S.selectedPlayerId !== null) {
       const pl = S.players.find(p => p.id === S.selectedPlayerId);
-      deleteBtn.textContent = pl ? 'Remove from Field' : 'Remove Player';
+      deleteBtn.textContent = pl
+        ? tr('remove.fromField', {}, 'Remove from Field')
+        : tr('remove.player', {}, 'Remove Player');
     } else {
-      deleteBtn.textContent = 'Remove Player';
+      deleteBtn.textContent = tr('remove.player', {}, 'Remove Player');
     }
     deleteBtn.disabled = !hasAnySelection || !!group;
   }
   if (clearBtn) {
     clearBtn.onclick = clearSelection;
-    clearBtn.textContent = hasAnySelection ? 'Clear Selection' : 'No Selection';
+    clearBtn.textContent = hasAnySelection ? tr('selection.clear', {}, 'Clear Selection') : tr('selection.none', {}, 'No Selection');
     clearBtn.disabled = !hasAnySelection;
   }
   if (actionRow) actionRow.hidden = !!ann;
@@ -11933,23 +11949,29 @@ function refreshSavedPlayList() {
   const saved = getSavedPlays();
   wrap.innerHTML = '';
   if (!saved.length) {
-    wrap.innerHTML = '<div class="saved-play-empty">No local saves yet. Save the current board to keep building from it later.</div>';
+    wrap.innerHTML = `<div class="saved-play-empty">${tr('saved.empty', {}, 'No local saves yet. Save the current board to keep building from it later.')}</div>`;
     return;
   }
   saved.forEach(item => {
     const card = document.createElement('div');
     card.className = 'saved-play-card';
-    const savedDate = item.savedAt ? new Date(item.savedAt).toLocaleString() : 'Saved locally';
+    const savedDate = item.savedAt ? new Date(item.savedAt).toLocaleString() : tr('saved.local', {}, 'Saved locally');
     card.innerHTML = `<div class="saved-play-main">
       <div>
         <div class="saved-play-name">${item.name}</div>
-        <div class="saved-play-meta">${savedDate}<br>${item.steps?.length || 1} step${(item.steps?.length || 1) === 1 ? '' : 's'} · ${item.players?.length || 0} players · ${(item.paths||[]).length} paths · ${(item.passes||[]).length} passes</div>
+        <div class="saved-play-meta">${savedDate}<br>${tr('saved.meta', {
+          steps: item.steps?.length || 1,
+          stepsLabel: (item.steps?.length || 1) === 1 ? tr('saved.step', {}, 'step') : tr('saved.steps', {}, 'steps'),
+          players: item.players?.length || 0,
+          paths: (item.paths || []).length,
+          passes: (item.passes || []).length,
+        }, `${item.steps?.length || 1} step${(item.steps?.length || 1) === 1 ? '' : 's'} · ${item.players?.length || 0} players · ${(item.paths||[]).length} paths · ${(item.passes||[]).length} passes`)}</div>
       </div>
     </div>
     <div class="saved-play-actions">
-      <button class="saved-play-btn" data-action="load">Load</button>
-      <button class="saved-play-btn" data-action="export">Export</button>
-      <button class="saved-play-btn danger" data-action="delete">Delete</button>
+      <button class="saved-play-btn" data-action="load">${tr('saved.load', {}, 'Load')}</button>
+      <button class="saved-play-btn" data-action="export">${tr('saved.export', {}, 'Export')}</button>
+      <button class="saved-play-btn danger" data-action="delete">${tr('saved.delete', {}, 'Delete')}</button>
     </div>`;
     card.querySelector('[data-action="load"]').onclick = () => {
       if (applyBoardData(item)) {

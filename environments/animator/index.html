@@ -116,22 +116,22 @@
       </div>
       <div class="mobile-board-menu-actions">
         <a class="mobile-board-menu-btn" href="../../index.html" onclick="event.preventDefault(); closeMobileBoardMenu(); location.href='../../index.html'">Portal</a>
-        <button class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); togglePlay()">Play</button>
-        <button class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); openMobileNotesSheet()">Coaching Notes</button>
-        <button class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); saveCurrentPlay()">Save</button>
-        <button class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); exportPDF()">Export PDF</button>
-        <button class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); exportCurrentPlay()">Export JSON</button>
-        <button class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); triggerImportPlay()">Import</button>
+        <button id="mobileBoardMenuPlayBtn" class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); togglePlay()">Play</button>
+        <button id="mobileBoardMenuNotesBtn" class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); openMobileNotesSheet()">Coaching Notes</button>
+        <button id="mobileBoardMenuSaveBtn" class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); saveCurrentPlay()">Save</button>
+        <button id="mobileBoardMenuExportPdfBtn" class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); exportPDF()">Export PDF</button>
+        <button id="mobileBoardMenuExportJsonBtn" class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); exportCurrentPlay()">Export JSON</button>
+        <button id="mobileBoardMenuImportBtn" class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); triggerImportPlay()">Import</button>
       </div>
     </div>
   </div>
 
   <div id="mobileNotesSheet" aria-hidden="true">
-    <button class="mobile-notes-backdrop" type="button" onclick="closeMobileNotesSheet()" aria-label="Close coaching notes"></button>
+    <button id="mobileNotesBackdrop" class="mobile-notes-backdrop" type="button" onclick="closeMobileNotesSheet()" aria-label="Close coaching notes"></button>
     <div class="mobile-notes-sheet" role="dialog" aria-modal="true" aria-label="Coaching notes">
       <div class="mobile-notes-sheet-head">
-        <span class="mobile-board-menu-kicker">Coaching Notes</span>
-        <button class="mobile-board-menu-close" type="button" onclick="closeMobileNotesSheet()" aria-label="Close coaching notes">&times;</button>
+        <span id="mobileNotesSheetTitle" class="mobile-board-menu-kicker">Coaching Notes</span>
+        <button id="mobileNotesSheetCloseBtn" class="mobile-board-menu-close" type="button" onclick="closeMobileNotesSheet()" aria-label="Close coaching notes">&times;</button>
       </div>
       <div id="mobileNotesSheetHost"></div>
     </div>
@@ -305,7 +305,7 @@
       <div class="sp-notes-panel sp-acc-section coach-panel-section" id="accCoachNotes" data-accordion-group="coach-panel">
         <button class="sp-notes-panel-hdr sp-acc-trigger coach-panel-trigger" type="button" onclick="toggleAccordion('accCoachNotes')" aria-expanded="false">
           <span class="sp-notes-panel-hdr-copy">
-            <span class="sp-notes-panel-label">Coaching Notes</span>
+            <span id="coachNotesPanelLabel" class="sp-notes-panel-label">Coaching Notes</span>
             <span class="sp-notes-play-name" id="metaTitleValue"></span>
           </span>
           <span class="sp-acc-chevron" aria-hidden="true">&#8250;</span>
@@ -315,7 +315,7 @@
 
         <div class="sp-acc-section" id="accPurpose" data-accordion-group="coach-notes">
           <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accPurpose')" aria-expanded="false">
-            <span>Phase Purpose</span>
+            <span id="accPurposeLabel">Phase Purpose</span>
             <span class="sp-acc-chevron" aria-hidden="true">›</span>
           </button>
           <div class="sp-acc-body">
@@ -327,7 +327,7 @@
 
         <div class="sp-acc-section" id="accDecision" data-accordion-group="coach-notes">
           <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accDecision')" aria-expanded="false">
-            <span>Decision Cue</span>
+            <span id="accDecisionLabel">Decision Cue</span>
             <span class="sp-acc-chevron" aria-hidden="true">›</span>
           </button>
           <div class="sp-acc-body">
@@ -339,7 +339,7 @@
 
         <div class="sp-acc-section" id="accCoaching" data-accordion-group="coach-notes">
           <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accCoaching')" aria-expanded="false">
-            <span>Coaching Points</span>
+            <span id="accCoachingLabel">Coaching Points</span>
             <span class="sp-acc-chevron" aria-hidden="true">›</span>
           </button>
           <div class="sp-acc-body">
@@ -353,7 +353,7 @@
 
         <div class="sp-acc-section" id="accMistakes" data-accordion-group="coach-notes">
           <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accMistakes')" aria-expanded="false">
-            <span>Common Mistakes</span>
+            <span id="accMistakesLabel">Common Mistakes</span>
             <span class="sp-acc-chevron" aria-hidden="true">›</span>
           </button>
           <div class="sp-acc-body">
