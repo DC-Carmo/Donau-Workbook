@@ -507,7 +507,7 @@
             </div>
 
             <div class="floating-selection-toolbar-item floating-selection-toolbar-actions">
-              <button id="floatingToolbarEditNoteBtn" class="floating-selection-toolbar-icon-btn" type="button" onclick="beginSelectedNoteInlineEdit()" aria-label="Edit note text" title="Edit text" hidden>
+              <button id="floatingToolbarEditNoteBtn" class="floating-selection-toolbar-icon-btn" type="button" onclick="beginSelectedNoteInlineEdit()" aria-label="Edit text" title="Edit text" hidden>
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m13.9 3.6 2.5 2.5m-9.8 9.8 3.2-.7 7.7-7.7a1.2 1.2 0 0 0 0-1.7l-1.5-1.5a1.2 1.2 0 0 0-1.7 0L6.6 12l-.7 3.2Zm-2.1.9h13"/></svg>
               </button>
               <button id="floatingToolbarDuplicateBtn" class="floating-selection-toolbar-icon-btn" type="button" onclick="duplicateSelected()" aria-label="Duplicate selected item" title="Duplicate">
@@ -522,7 +522,7 @@
             </div>
           </div>
         </div>
-        <textarea id="noteInlineEditor" class="note-inline-editor" hidden maxlength="160" spellcheck="false" aria-label="Edit note text"></textarea>
+        <textarea id="noteInlineEditor" class="note-inline-editor" hidden maxlength="160" spellcheck="false" aria-label="Edit text"></textarea>
 
         <div id="boardStatus" class="board-status">
           <span class="board-status-mode" id="boardModeLabel">Move</span>
@@ -831,6 +831,6 @@
   </div>
 </div>
 <script src="js/tactical-board-i18n.js?v=20260805-i18n"></script>
-<script src="js/tactical-board.js?v=20260805-move-nav"></script>
+<script src="js/tactical-board.js?v=20260805-player-labels"></script>
 </body>
 </html>

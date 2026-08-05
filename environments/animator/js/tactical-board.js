@@ -208,6 +208,34 @@ function resetRadialToolInteractionState(nextTool) {
   if (staleTool) S.tool = 'move';
 }
 
+function addPlayerAnchoredLabel(playerId, { beginEditing = true } = {}) {
+  const player = S.players.find(item => item.id === playerId) || null;
+  if (!player) return false;
+  snapshot();
+  const annotation = normalizeAnnotation({
+    id: mkAnnotationId(),
+    type: 'playerLabel',
+    playerId: player.id,
+    playerRef: playerRef(player),
+    offsetX: 0,
+    offsetY: PLAYER_LABEL_OFFSET_Y,
+    text: PLAYER_LABEL_DEFAULT,
+    color: annotationColor('playerLabel'),
+    align: 'center',
+    opacity: 1,
+  });
+  if (!annotation) return false;
+  S.annotations.push(annotation);
+  selectAnnotationById(annotation.id);
+  setHint(`${player.team === 'A' ? 'Attack' : 'Defence'} #${player.num} label added.`);
+  refreshInteractionUI();
+  render();
+  if (beginEditing) {
+    requestAnimationFrame(() => beginNoteInlineEdit(annotation.id, { selectAll: true }));
+  }
+  return true;
+}
+
 function activateRadialAction(action, sourcePlayerId) {
   closeRadialMenu();
   if (!action || sourcePlayerId === null || sourcePlayerId === undefined) return false;
@@ -236,6 +264,11 @@ function activateRadialAction(action, sourcePlayerId) {
     ensureRadialSourcePlayerSelected(sourcePlayer.id);
     addBall();
     return true;
+  }
+
+  if (action.kind === 'label') {
+    ensureRadialSourcePlayerSelected(sourcePlayer.id);
+    return addPlayerAnchoredLabel(sourcePlayer.id, { beginEditing: true });
   }
 
   if (action.kind === 'remove') {
@@ -280,11 +313,12 @@ function renderRadialMenu() {
     { label: 'Arrow', icon: '&#8599;', tool: 'arrow', ariaLabel: 'Draw tactical arrow' },
     { label: 'Pass', icon: '~', tool: 'pass' },
     { label: 'Kick', icon: '&uarr;', tool: 'kick' },
+    { label: 'Label', icon: '&#9998;', kind: 'label', ariaLabel: 'Add anchored player label' },
     { label: 'Ball', icon: '&#9679;', kind: 'ball' },
     { label: 'Remove', icon: '&#10005;', kind: 'remove', danger: true },
   ];
 
-  const radius = 52;
+  const radius = actions.length > 5 ? 58 : 52;
   actions.forEach((action, index) => {
     const angle = (-Math.PI / 2) + (index * (Math.PI * 2 / actions.length));
     const btn = document.createElement('button');
@@ -924,6 +958,7 @@ function claimPhoneDataAction(actionKey) {
   return true;
 }
 const ANNOTATION_NOTE_DEFAULT = 'Note';
+const PLAYER_LABEL_DEFAULT = 'Label';
 const NOTE_FONT = '"Barlow Condensed"';
 const NOTE_LEGACY_SCALE_MIN = 0.6;
 const NOTE_LEGACY_SCALE_MAX = 3.0;
@@ -936,6 +971,13 @@ const NOTE_MAX_HEIGHT = 18;
 const NOTE_PADDING_X = 0.78;
 const NOTE_PADDING_Y = 0.6;
 const NOTE_HANDLE_HIT_PADDING = 1.25;
+const PLAYER_LABEL_OFFSET_Y = -5.4;
+const PLAYER_LABEL_MIN_WIDTH = 3.2;
+const PLAYER_LABEL_MAX_WIDTH = 16;
+const PLAYER_LABEL_MIN_HEIGHT = 1.45;
+const PLAYER_LABEL_MAX_HEIGHT = 8.2;
+const PLAYER_LABEL_PADDING_X = 0.54;
+const PLAYER_LABEL_PADDING_Y = 0.34;
 const ANNOTATION_CLIPBOARD_OFFSET = 1.5;
 const ANNOTATION_NUDGE_STEP = 0.5;
 const ARROW_DEFAULT_COLOR = '#d9b46c';
@@ -2915,11 +2957,16 @@ function defaultAnnotationText() {
   return txt || ANNOTATION_NOTE_DEFAULT;
 }
 
+function isEditableTextAnnotationType(type) {
+  return type === 'note' || type === 'playerLabel';
+}
+
 function annotationColor(type) {
   if (type === 'zone') return '#10b981';
   if (type === 'box') return '#d9b46c';
   if (type === 'ellipse') return '#d9b46c';
   if (type === 'arrow') return '#d9b46c';
+  if (type === 'playerLabel') return '#f3f4f6';
   return '#f3f4f6';
 }
 
@@ -3021,6 +3068,22 @@ function noteAlignValue(note) {
   return note?.align === 'center' || note?.align === 'right' ? note.align : 'left';
 }
 
+function playerLabelPlayerRef(annotation) {
+  return normalizePlayerRef(annotation?.playerRef);
+}
+
+function findPlayerForAnchoredLabel(annotation, players = S.players) {
+  if (!annotation || annotation.type !== 'playerLabel' || !Array.isArray(players)) return null;
+  const playerId = Number(annotation.playerId);
+  if (Number.isFinite(playerId)) {
+    const byId = players.find(player => Number(player?.id) === playerId) || null;
+    if (byId) return byId;
+  }
+  const ref = playerLabelPlayerRef(annotation);
+  if (!ref) return null;
+  return players.find(player => playerMatchesRef(player, ref)) || null;
+}
+
 function normalizeAnnotation(annotation) {
   if (!annotation || typeof annotation !== 'object' || !annotation.type) return null;
   const base = {
@@ -3040,6 +3103,22 @@ function normalizeAnnotation(annotation) {
       align: noteAlignValue(annotation),
       width: noteWidthValue(annotation),
       height: noteHeightValue(annotation),
+    };
+  }
+  if (annotation.type === 'playerLabel') {
+    const playerId = Number(annotation.playerId);
+    const offsetX = Number(annotation.offsetX);
+    const offsetY = Number(annotation.offsetY);
+    if (!Number.isFinite(playerId) || !Number.isFinite(offsetX) || !Number.isFinite(offsetY)) return null;
+    return {
+      ...base,
+      playerId,
+      playerRef: playerLabelPlayerRef(annotation),
+      offsetX,
+      offsetY,
+      text: String(annotation.text ?? PLAYER_LABEL_DEFAULT).slice(0, 160),
+      align: noteAlignValue(annotation),
+      color: annotation.color || annotationColor('playerLabel'),
     };
   }
   if (annotation.type === 'arrow') {
@@ -4612,16 +4691,16 @@ function sanitizeNormalizedProjectTextFields(project) {
       label: sanitizeImportedText(phase.label, 120, `Phase ${phaseIndex + 1}`),
       notes: sanitizeImportedText(phase.notes, 1000, ''),
       annotations: Array.isArray(phase.annotations)
-        ? phase.annotations.map((annotation) => annotation?.type === 'note'
-          ? { ...annotation, text: sanitizeImportedText(annotation.text, 240, ANNOTATION_NOTE_DEFAULT) }
+        ? phase.annotations.map((annotation) => isEditableTextAnnotationType(annotation?.type)
+          ? { ...annotation, text: sanitizeImportedText(annotation.text, 240, annotation?.type === 'playerLabel' ? PLAYER_LABEL_DEFAULT : ANNOTATION_NOTE_DEFAULT) }
           : annotation)
         : [],
       steps: Array.isArray(phase.steps)
         ? phase.steps.map((step) => ({
           ...step,
           annotations: Array.isArray(step.annotations)
-            ? step.annotations.map((annotation) => annotation?.type === 'note'
-              ? { ...annotation, text: sanitizeImportedText(annotation.text, 240, ANNOTATION_NOTE_DEFAULT) }
+            ? step.annotations.map((annotation) => isEditableTextAnnotationType(annotation?.type)
+              ? { ...annotation, text: sanitizeImportedText(annotation.text, 240, annotation?.type === 'playerLabel' ? PLAYER_LABEL_DEFAULT : ANNOTATION_NOTE_DEFAULT) }
               : annotation)
             : [],
         }))
@@ -5956,6 +6035,107 @@ function noteMetrics(note) {
 }
 window.__noteBox = noteMetrics;
 
+function playerLabelMetrics(annotation, players = S.players) {
+  const player = findPlayerForAnchoredLabel(annotation, players);
+  const source = String(annotation?.text ?? PLAYER_LABEL_DEFAULT).replace(/\r\n?/g, '\n');
+  const rawLines = source.split('\n');
+  const minFontSize = Math.max(10, sc * 0.16);
+  const maxFontSize = Math.max(18, sc * 0.38);
+  let fontSize = clamp(sc * 0.26, minFontSize, maxFontSize);
+  const maxWidthPx = Math.max(72, PLAYER_LABEL_MAX_WIDTH * sc);
+  const minWidthPx = Math.max(40, PLAYER_LABEL_MIN_WIDTH * sc);
+  const measure = (value, size) => {
+    ctx.save();
+    ctx.font = `700 ${size}px ${NOTE_FONT}`;
+    const width = ctx.measureText(value).width;
+    ctx.restore();
+    return width;
+  };
+  const wrapText = (lines, size) => {
+    const wrapped = [];
+    lines.forEach((line) => {
+      if (!line.length) {
+        wrapped.push('');
+        return;
+      }
+      let remaining = line;
+      while (remaining.length) {
+        let fitIndex = 0;
+        let lastWhitespaceFit = -1;
+        for (let idx = 1; idx <= remaining.length; idx++) {
+          const segment = remaining.slice(0, idx);
+          if (measure(segment, size) <= maxWidthPx + 0.01) {
+            fitIndex = idx;
+            if (/\s/.test(remaining[idx - 1])) lastWhitespaceFit = idx;
+          } else {
+            break;
+          }
+        }
+        if (!fitIndex) {
+          wrapped.push(remaining[0]);
+          remaining = remaining.slice(1);
+          continue;
+        }
+        const breakIndex = fitIndex < remaining.length && lastWhitespaceFit > 0
+          ? lastWhitespaceFit
+          : fitIndex;
+        wrapped.push(remaining.slice(0, breakIndex));
+        remaining = remaining.slice(breakIndex);
+      }
+    });
+    return wrapped.length ? wrapped : [PLAYER_LABEL_DEFAULT];
+  };
+  let lines = wrapText(rawLines, fontSize);
+  let lineHeight = Math.max(fontSize * 1.04, fontSize + 0.2);
+  while (fontSize > minFontSize) {
+    const lineWidths = lines.map(line => measure(line || '', fontSize));
+    const width = Math.min(maxWidthPx, Math.max(minWidthPx, ...lineWidths, 0) + (PLAYER_LABEL_PADDING_X * sc * 2));
+    const height = Math.min(PLAYER_LABEL_MAX_HEIGHT * sc, Math.max(PLAYER_LABEL_MIN_HEIGHT * sc, (lines.length * lineHeight) + (PLAYER_LABEL_PADDING_Y * sc * 2)));
+    if (width <= maxWidthPx + 0.01 && height <= PLAYER_LABEL_MAX_HEIGHT * sc + 0.01) break;
+    fontSize = Math.max(minFontSize, fontSize - 0.3);
+    lines = wrapText(rawLines, fontSize);
+    lineHeight = Math.max(fontSize * 1.04, fontSize + 0.2);
+  }
+  const lineWidths = lines.map(line => measure(line || '', fontSize));
+  const width = Math.min(maxWidthPx, Math.max(minWidthPx, ...lineWidths, 0) + (PLAYER_LABEL_PADDING_X * sc * 2));
+  const height = Math.min(PLAYER_LABEL_MAX_HEIGHT * sc, Math.max(PLAYER_LABEL_MIN_HEIGHT * sc, (lines.length * lineHeight) + (PLAYER_LABEL_PADDING_Y * sc * 2)));
+  return {
+    player,
+    x: player ? player.x + Number(annotation.offsetX || 0) : 0,
+    y: player ? player.y + Number(annotation.offsetY || 0) : 0,
+    width,
+    height,
+    widthField: width / Math.max(sc, 0.001),
+    heightField: height / Math.max(sc, 0.001),
+    paddingX: Math.max(3, PLAYER_LABEL_PADDING_X * sc),
+    paddingY: Math.max(2, PLAYER_LABEL_PADDING_Y * sc),
+    fontSize,
+    lineHeight,
+    align: noteAlignValue(annotation),
+    lines,
+    lineWidths,
+    cornerRadius: Math.max(7, Math.min(13, height * 0.34)),
+    opacity: clamp(Number(annotation.opacity) || 1, 0.2, 1),
+  };
+}
+
+function playerLabelBounds(annotation, players = S.players) {
+  const box = playerLabelMetrics(annotation, players);
+  if (!box.player) return null;
+  const halfW = box.widthField / 2;
+  const halfH = box.heightField / 2;
+  return {
+    left: box.x - halfW,
+    right: box.x + halfW,
+    top: box.y - halfH,
+    bottom: box.y + halfH,
+    width: halfW * 2,
+    height: halfH * 2,
+    centerX: box.x,
+    centerY: box.y,
+  };
+}
+
 function noteAnnotationBounds(note) {
   const box = noteMetrics(note);
   const halfW = box.widthField / 2;
@@ -6040,19 +6220,24 @@ function syncNoteInlineEditor() {
   const editor = document.getElementById('noteInlineEditor');
   const wrap = document.getElementById('canvasWrap');
   if (!editor || !wrap) return;
-  const note = noteInlineEditorState ? findAnnotationById(noteInlineEditorState.id) : null;
-  if (!note || note.type !== 'note' || selectedAnnotationId() !== note.id) {
+  const annotation = noteInlineEditorState ? findAnnotationById(noteInlineEditorState.id) : null;
+  if (!annotation || !isEditableTextAnnotationType(annotation.type) || selectedAnnotationId() !== annotation.id) {
     if (noteInlineEditorState) noteInlineEditorState = null;
     hideNoteInlineEditor();
     return;
   }
 
-  const box = noteMetrics(note);
-  const center = toC(note.x, note.y);
+  const box = annotation.type === 'note' ? noteMetrics(annotation) : playerLabelMetrics(annotation);
+  if (annotation.type === 'playerLabel' && !box.player) {
+    noteInlineEditorState = null;
+    hideNoteInlineEditor();
+    return;
+  }
+  const center = toC(box.x, box.y);
   const left = center.x - (box.width / 2);
   const top = center.y - (box.height / 2);
-  const opacity = clamp(Number(note.opacity) || 1, 0.2, 1);
-  const value = String(note.text ?? '');
+  const opacity = clamp(Number(annotation.opacity) || 1, 0.2, 1);
+  const value = String(annotation.text ?? '');
   if (editor.value !== value) editor.value = value;
 
   editor.hidden = false;
@@ -6063,14 +6248,14 @@ function syncNoteInlineEditor() {
   editor.style.padding = `${box.paddingY}px ${box.paddingX}px`;
   editor.style.fontSize = `${box.fontSize}px`;
   editor.style.lineHeight = `${box.lineHeight}px`;
-  editor.style.textAlign = noteAlignValue(note);
+  editor.style.textAlign = noteAlignValue(annotation);
   editor.style.opacity = `${opacity}`;
 }
 
 function beginNoteInlineEdit(noteId, { selectAll = false } = {}) {
   const note = findAnnotationById(noteId);
   const editor = document.getElementById('noteInlineEditor');
-  if (!note || note.type !== 'note' || !editor) return false;
+  if (!note || !isEditableTextAnnotationType(note.type) || !editor) return false;
   clearPendingNoteSelectionClear({ resetTap: true });
   if (!isInlineNoteEditing(noteId)) snapshot();
   noteInlineEditorState = { id: noteId };
@@ -6092,14 +6277,14 @@ function beginNoteInlineEdit(noteId, { selectAll = false } = {}) {
 
 function beginSelectedNoteInlineEdit(options = {}) {
   const note = selectedAnnotation();
-  if (!note || note.type !== 'note') return false;
+  if (!note || !isEditableTextAnnotationType(note.type)) return false;
   return beginNoteInlineEdit(note.id, options);
 }
 window.beginSelectedNoteInlineEdit = beginSelectedNoteInlineEdit;
 
 function handleSelectedNoteTapForEditing(noteId) {
   const note = findAnnotationById(noteId);
-  if (!note || note.type !== 'note') return false;
+  if (!note || !isEditableTextAnnotationType(note.type)) return false;
   const now = Date.now();
   if (lastNoteSelectionTap.id === noteId && (now - lastNoteSelectionTap.at) <= NOTE_INLINE_EDIT_DOUBLE_TAP_MS) {
     beginNoteInlineEdit(noteId);
@@ -6195,6 +6380,7 @@ function zoneAnnotationBounds(zone) {
 function annotationFieldBounds(annotation) {
   if (!annotation) return null;
   if (annotation.type === 'note') return noteAnnotationBounds(annotation);
+  if (annotation.type === 'playerLabel') return playerLabelBounds(annotation);
   if (annotation.type === 'zone') return zoneAnnotationBounds(annotation);
   if (annotation.type === 'box') return boxAnnotationBounds(annotation);
   if (annotation.type === 'ellipse') return ellipseAnnotationBounds(annotation);
@@ -6230,6 +6416,7 @@ function annotationScreenBounds(annotation) {
 function annotationToolbarTitle(annotation) {
   if (!annotation) return '';
   if (annotation.type === 'note') return 'Note';
+  if (annotation.type === 'playerLabel') return 'Player Label';
   if (annotation.type === 'arrow') return 'Arrow';
   if (annotation.type === 'box') return 'Box';
   return 'Circle';
@@ -6907,7 +7094,50 @@ function drawEllipseAnnotation(ellipse, selected = false, preview = false) {
   }
 }
 
-function renderAnnotations(layer, annotations = S.annotations) {
+function drawPlayerLabelAnnotation(annotation, selected = false, players = S.players) {
+  const box = playerLabelMetrics(annotation, players);
+  if (!box.player) return;
+  const center = toC(box.x, box.y);
+  const left = center.x - (box.width / 2);
+  const top = center.y - (box.height / 2);
+  ctx.save();
+  ctx.globalAlpha = box.opacity;
+  ctx.fillStyle = 'rgba(7,16,24,0.82)';
+  ctx.strokeStyle = selected ? '#fbbf24' : 'rgba(251,191,36,0.24)';
+  ctx.lineWidth = selected ? 1.7 : 1;
+  roundRect(ctx, left, top, box.width, box.height, box.cornerRadius);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalAlpha = box.opacity;
+  ctx.fillStyle = annotation.color || annotationColor('playerLabel');
+  ctx.font = `700 ${box.fontSize}px ${NOTE_FONT}`;
+  ctx.textBaseline = 'middle';
+  box.lines.forEach((line, index) => {
+    const textWidth = box.lineWidths[index] || 0;
+    let x = left + box.paddingX;
+    if (box.align === 'center') x = center.x - (textWidth / 2);
+    else if (box.align === 'right') x = left + box.width - box.paddingX - textWidth;
+    const y = top + box.paddingY + (box.lineHeight * index) + (box.lineHeight / 2);
+    ctx.fillText(line || '', x, y);
+  });
+  ctx.restore();
+
+  if (selected) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(251,191,36,0.3)';
+    ctx.lineWidth = 1.4;
+    ctx.setLineDash([5, 4]);
+    roundRect(ctx, left - 3, top - 3, box.width + 6, box.height + 6, box.cornerRadius + 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+}
+
+function renderAnnotations(layer, annotations = S.annotations, players = S.players) {
   annotations.forEach(annotation => {
     const selected = annotations === S.annotations && selectedAnnotationId() === annotation.id;
     if (layer === 'zones' && annotation.type === 'zone') drawZoneAnnotation(annotation, selected);
@@ -6915,6 +7145,7 @@ function renderAnnotations(layer, annotations = S.annotations) {
     if (layer === 'zones' && annotation.type === 'ellipse') drawEllipseAnnotation(annotation, selected);
     if (layer === 'lines' && annotation.type === 'arrow') drawArrowAnnotation(annotation, selected);
     if (layer === 'notes' && annotation.type === 'note') drawNoteAnnotation(annotation, selected);
+    if (layer === 'notes' && annotation.type === 'playerLabel') drawPlayerLabelAnnotation(annotation, selected, players);
   });
 }
 
@@ -6949,7 +7180,7 @@ function render() {
     const frame = buildSequenceFrame(S.animT);
     const playerLookup = new Map(frame.players.map(pl => [playerKey(pl), pl]));
     const animatedKickBall = resolveAnimatedKickBall(frame, playerLookup);
-    renderAnnotations('zones', frame.annotations);
+    renderAnnotations('zones', frame.annotations, frame.players);
     frame.passes.forEach(pass => {
       const from = playerLookup.get(playerKey({ num: pass.fromNum, team: pass.fromT }));
       if (!from) return;
@@ -6966,7 +7197,7 @@ function render() {
       if (path.pts.length < 2) return;
       drawRunPath(path.pts, path.team === 'A' ? '#60a5fa' : '#f87171', 2.8, 1);
     });
-    renderAnnotations('lines', frame.annotations);
+    renderAnnotations('lines', frame.annotations, frame.players);
     renderPathOriginMarkers(frame.players, frame.paths);
     frame.players.forEach(pl => drawPlayer(pl.x, pl.y, pl.num, pl.team, false, samePlayerRef(playerRef(pl), frame.ballOwner), playerColorPalette(pl)));
     const frameBall = animatedKickBall || frame.ball;
@@ -6974,7 +7205,7 @@ function render() {
     frame.players.forEach(pl => {
       if (samePlayerRef(playerRef(pl), frame.ballOwner)) drawBallCarrierHighlight(pl.x, pl.y);
     });
-    renderAnnotations('notes', frame.annotations);
+    renderAnnotations('notes', frame.annotations, frame.players);
     closeRadialMenu();
     scheduleFloatingSelectionToolbarUpdate();
     return;
@@ -7138,6 +7369,16 @@ function pointSegDist(p, a, b) {
 function hitAnnotation(fp) {
   for (let i = S.annotations.length - 1; i >= 0; i--) {
     const ann = S.annotations[i];
+    if (ann.type === 'playerLabel') {
+      const bounds = playerLabelBounds(ann);
+      if (!bounds) continue;
+      if (
+        fp.x >= bounds.left - 0.7 && fp.x <= bounds.right + 0.7 &&
+        fp.y >= bounds.top - 0.7 && fp.y <= bounds.bottom + 0.7
+      ) {
+        return { id: ann.id, part: 'move' };
+      }
+    }
     if (ann.type === 'note') {
       const bounds = noteAnnotationBounds(ann);
       const corners = noteAnnotationCorners(ann);
@@ -7458,9 +7699,13 @@ function handlePointerDown(e) {
       const ann = findAnnotationById(annHit.id);
       const isNoteResize = ann?.type === 'note' && annHit.part === 'resize';
       if (!isNoteResize) snapshot();
-      const dragOff = ann && (ann.type === 'note' || ann.type === 'zone' || ann.type === 'box' || ann.type === 'ellipse')
-        ? { x: fp.x - ann.x, y: fp.y - ann.y }
-        : { x: 0, y: 0 };
+      let dragOff = { x: 0, y: 0 };
+      if (ann && (ann.type === 'note' || ann.type === 'zone' || ann.type === 'box' || ann.type === 'ellipse')) {
+        dragOff = { x: fp.x - ann.x, y: fp.y - ann.y };
+      } else if (ann?.type === 'playerLabel') {
+        const bounds = playerLabelBounds(ann);
+        if (bounds) dragOff = { x: fp.x - bounds.centerX, y: fp.y - bounds.centerY };
+      }
       const noteResize = isNoteResize
         ? (() => {
             const bounds = noteAnnotationBounds(ann);
@@ -8088,6 +8333,13 @@ function handlePointerMove(e) {
             return;
           }
           clampNoteAnnotation(ann);
+        } else if (ann.type === 'playerLabel') {
+          const player = findPlayerForAnchoredLabel(ann);
+          if (player) {
+            ann.playerRef = playerRef(player);
+            ann.offsetX = (fieldPoint.x - (S.dragging.dragOff?.x || 0)) - player.x;
+            ann.offsetY = (fieldPoint.y - (S.dragging.dragOff?.y || 0)) - player.y;
+          }
         } else if (ann.type === 'arrow') {
           if (S.dragging.part === 'start') {
             ann.start = { x: fp.x, y: fp.y };
@@ -8241,7 +8493,7 @@ function onPointerUp(e) {
   }
   if (tap && !tap.moved && tap.payload?.type === 'annotation' && tap.payload.wasSelected && selectedAnnotationId() === tap.payload.id) {
     const tappedAnnotation = findAnnotationById(tap.payload.id);
-    if (tappedAnnotation?.type === 'note' && handleSelectedNoteTapForEditing(tap.payload.id)) {
+    if (isEditableTextAnnotationType(tappedAnnotation?.type) && handleSelectedNoteTapForEditing(tap.payload.id)) {
       refreshInteractionUI();
       render();
       return;
@@ -8316,6 +8568,14 @@ if (!supportsPointerEvents) {
 document.addEventListener('keydown', (e) => {
   const tag = e.target.tagName;
   if (e.key === 'Escape') {
+    if (noteInlineEditorState) {
+      endNoteInlineEdit();
+      refreshInteractionUI();
+      render();
+      e.preventDefault();
+      e.stopPropagation?.();
+      return;
+    }
     if (floatingToolbarOpenFlyout) {
       closeFloatingToolbarFlyout();
       e.preventDefault();
@@ -8338,7 +8598,9 @@ document.addEventListener('keydown', (e) => {
       }
     }
     if (selectedAnnotationId()) {
-      deleteSelected();
+      clearSelection();
+      refreshInteractionUI();
+      render();
       e.preventDefault();
       return;
     }
@@ -8769,7 +9031,15 @@ function removePlayer(id) {
   }
   S.paths   = S.paths.filter(p => p.pid !== id);
   S.passes  = S.passes.filter(p => p.from!==id && p.to!==id);
+  S.annotations = S.annotations.filter((annotation) => {
+    if (annotation?.type !== 'playerLabel') return true;
+    const labelRef = playerLabelPlayerRef(annotation);
+    if (Number(annotation.playerId) === id) return false;
+    if (labelRef && playerMatchesRef(pl, labelRef)) return false;
+    return true;
+  });
   if (isPlayerSelected(id)) clearSelectedObject();
+  else if (selectedAnnotationId() && !findAnnotationById(selectedAnnotationId())) clearSelectedObject();
   if (S.activePasserId === id || S.activeKickerId === id) clearPassKickState();
   if (S.ballAssignCandidate === id) S.ballAssignCandidate = null;
   applyBallOwnershipVisualState();
@@ -8848,6 +9118,9 @@ function translateAnnotationCopy(sourceAnnotation, dx = ANNOTATION_CLIPBOARD_OFF
     copy.x += dx;
     copy.y += dy;
     clampEllipseAnnotation(copy);
+  } else if (copy.type === 'playerLabel') {
+    copy.offsetX = Number(copy.offsetX || 0) + dx;
+    copy.offsetY = Number(copy.offsetY || 0) + dy;
   }
   return copy;
 }
@@ -8920,6 +9193,9 @@ function nudgeSelectedAnnotation(dx, dy) {
     ann.start.y += shiftY;
     ann.end.x += shiftX;
     ann.end.y += shiftY;
+  } else if (ann.type === 'playerLabel') {
+    ann.offsetX = Number(ann.offsetX || 0) + dx;
+    ann.offsetY = Number(ann.offsetY || 0) + dy;
   } else {
     return false;
   }
@@ -10526,6 +10802,7 @@ HINTS.note  = 'NOTE – click the pitch to place a coaching cue card.';
 HINTS.arrow = 'ARROW – drag to draw a coaching annotation arrow. Does not animate players.';
 HINTS.zone  = 'CIRCLE – drag to place a circle or oval highlight. Hold Shift for a perfect circle.';
 MODE_LABELS.note  = 'Note';
+MODE_LABELS.playerLabel = 'Player Label';
 MODE_LABELS.arrow = 'Arrow';
 MODE_LABELS.zone  = 'Circle Highlight';
 
@@ -10806,6 +11083,9 @@ function getSelectedSummary() {
     if (ann.type === 'note') {
       return { title: 'Tactical Note', meta: 'Move it on the board, drag a corner handle to resize it, or update the note text below.' };
     }
+    if (ann.type === 'playerLabel') {
+      return { title: 'Player Label', meta: 'This label stays attached to its player. Drag it to change its offset, or edit the text inline.' };
+    }
     if (ann.type === 'arrow') {
       return { title: 'Free Arrow', meta: 'Drag the line or either endpoint in Move to refine the arrow.' };
     }
@@ -11083,9 +11363,9 @@ function focusSelectedNoteInput(selectAll = false) {
 
 function updateSelectedNoteText(value) {
   const ann = selectedAnnotation();
-  if (!ann || ann.type !== 'note') return;
+  if (!ann || !isEditableTextAnnotationType(ann.type)) return;
   ann.text = String(value ?? '').slice(0, 160);
-  clampNoteAnnotation(ann);
+  if (ann.type === 'note') clampNoteAnnotation(ann);
   scheduleAutosave();
   refreshInteractionUI();
   render();
@@ -11093,7 +11373,7 @@ function updateSelectedNoteText(value) {
 
 function setSelectedNoteAlign(align) {
   const ann = selectedAnnotation();
-  if (!ann || ann.type !== 'note') return;
+  if (!ann || !isEditableTextAnnotationType(ann.type)) return;
   ann.align = align === 'center' || align === 'right' ? align : 'left';
   scheduleAutosave();
   refreshInteractionUI();
@@ -12036,7 +12316,7 @@ function updateSelInfo() {
         if (floatingToolbarWeightValue) floatingToolbarWeightValue.textContent = styleWeightLabel(weightValue);
       }
 
-      const showAlign = ann.type === 'note';
+      const showAlign = ann.type === 'note' || ann.type === 'playerLabel';
       if (floatingToolbarEditNoteBtn) floatingToolbarEditNoteBtn.hidden = !showAlign;
       if (floatingToolbarAlignItem) floatingToolbarAlignItem.hidden = !showAlign;
       if (floatingToolbarAlignBtn) floatingToolbarAlignBtn.hidden = !showAlign;
@@ -12046,13 +12326,13 @@ function updateSelInfo() {
         if (floatingToolbarAlignValue) floatingToolbarAlignValue.textContent = noteAlignLabel(alignValue);
       }
 
-      const showOpacity = ann.type === 'note' || isShapeAnnotationType(ann.type);
+      const showOpacity = ann.type === 'note' || ann.type === 'playerLabel' || isShapeAnnotationType(ann.type);
       if (floatingToolbarOpacityItem) floatingToolbarOpacityItem.hidden = !showOpacity;
       if (floatingToolbarOpacityBtn) floatingToolbarOpacityBtn.hidden = !showOpacity;
       if (showOpacity) {
         const opacityValue = clamp(Number(ann.opacity) || 1, 0.2, 1);
         if (floatingToolbarOpacity) floatingToolbarOpacity.value = String(opacityValue);
-        if (floatingToolbarOpacityLabel) floatingToolbarOpacityLabel.textContent = ann.type === 'note' ? 'Transparency' : 'Fill';
+        if (floatingToolbarOpacityLabel) floatingToolbarOpacityLabel.textContent = ann.type === 'note' || ann.type === 'playerLabel' ? 'Transparency' : 'Fill';
         if (floatingToolbarOpacityValue) floatingToolbarOpacityValue.textContent = `${Math.round(opacityValue * 100)}%`;
       }
 
@@ -12503,6 +12783,12 @@ maybeOfferRecoveryDraftOnStartup();
 window.serializePlay = serializePlay;
 window.deserializePlay = deserializePlay;
 window.migratePlay = migratePlay;
+window.__animatorDebug = {
+  getState: () => S,
+  toCanvasPoint: (...args) => toC(...args),
+  playerLabelBounds: (...args) => playerLabelBounds(...args),
+  getRadialMenu: () => radialMenu,
+};
 
 document.addEventListener('pointerdown', e => {
   if (!radialMenu) return;
@@ -12660,7 +12946,7 @@ document.getElementById('selNoteInput').addEventListener('keydown', e => {
 document.getElementById('noteInlineEditor').addEventListener('input', e => {
   updateSelectedNoteText(e.target.value);
   const ann = selectedAnnotation();
-  if (ann?.type === 'note' && e.target.value !== ann.text) {
+  if (isEditableTextAnnotationType(ann?.type) && e.target.value !== ann.text) {
     e.target.value = ann.text;
   }
   syncNoteInlineEditor();
@@ -12668,6 +12954,7 @@ document.getElementById('noteInlineEditor').addEventListener('input', e => {
 document.getElementById('noteInlineEditor').addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     e.preventDefault();
+    e.stopPropagation?.();
     endNoteInlineEdit();
     refreshInteractionUI();
     render();
