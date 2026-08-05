@@ -156,9 +156,9 @@
         <div class="sp-default-state" id="spDefaultState">
           <div class="sp-default-copy">Choose a tool and build the phase. The panel updates as you work.</div>
           <div class="sp-default-tips">
-            <div class="sp-default-tip"><strong>Mode:</strong> <span id="spDefaultMode">Move</span></div>
-            <div class="sp-default-tip"><strong>Tip:</strong> Add a step to capture phase progression.</div>
-            <div class="sp-default-tip"><strong>Action:</strong> Tap a player to select, or use RUN / PASS / KICK.</div>
+            <div class="sp-default-tip"><strong id="spDefaultModeLabel">Mode:</strong> <span id="spDefaultMode">Move</span></div>
+            <div class="sp-default-tip"><strong id="spDefaultTipLabel">Tip:</strong> <span id="spDefaultTipValue">Add a step to capture phase progression.</span></div>
+            <div class="sp-default-tip"><strong id="spDefaultActionLabel">Action:</strong> <span id="spDefaultActionValue">Tap a player to select, or use RUN / PASS / KICK.</span></div>
           </div>
         </div>
 
@@ -536,7 +536,7 @@
 
     <aside id="sequenceControlDock" class="sequence-dock" aria-label="Sequence Control Dock">
       <div class="sequence-dock__head">
-        <span class="sequence-dock__eyebrow">Sequence</span>
+        <span class="sequence-dock__eyebrow" id="sequenceDockEyebrow">Sequence</span>
         <div class="sequence-dock__status" id="sequenceDockStatus" aria-live="polite">
           <span class="sequence-dock__status-move" id="sequenceDockMoveHeadline">Move 1 of 1</span>
           <span class="sequence-dock__status-phase" id="sequenceDockPhaseHeadline">Phase 1 of 1</span>

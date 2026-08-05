@@ -2213,10 +2213,10 @@ function getCanonicalPhaseActionDetails() {
   if (context.kind === 'unavailable') {
     return {
       context,
-      label: 'Start New Phase',
+      label: tr('dock.phaseAction.start'),
       note: '',
-      ariaLabel: 'Phase boundary unavailable',
-      title: 'Select a Move to manage phase boundaries',
+      ariaLabel: tr('dock.phaseAction.unavailable'),
+      title: tr('dock.phaseAction.unavailableTitle'),
       pressed: false,
       disabled: true,
     };
@@ -2225,10 +2225,10 @@ function getCanonicalPhaseActionDetails() {
     const currentMoveNumber = getCurrentCanonicalMoveIndex() + 1;
     return {
       context,
-      label: 'Remove Phase Break',
-      note: `Phase break after Move ${currentMoveNumber}.`,
-      ariaLabel: 'Remove the phase break after the selected move',
-      title: 'Merge the next Phase into the current Phase',
+      label: tr('dock.phaseAction.removeBreak'),
+      note: tr('dock.phaseAction.removeBreak.note', { move: currentMoveNumber }),
+      ariaLabel: tr('dock.phaseAction.removeBreak.aria'),
+      title: tr('dock.phaseAction.removeBreak.title'),
       pressed: false,
       disabled: false,
     };
@@ -2236,10 +2236,10 @@ function getCanonicalPhaseActionDetails() {
   if (context.kind === 'pending-final') {
     return {
       context,
-      label: 'Cancel New Phase',
-      note: 'Next added Move starts a new Phase.',
-      ariaLabel: 'Cancel the pending new phase boundary',
-      title: 'Keep the next added Move in the current Phase',
+      label: tr('dock.phaseAction.cancel'),
+      note: tr('dock.phaseAction.cancel.note'),
+      ariaLabel: tr('dock.phaseAction.cancel.aria'),
+      title: tr('dock.phaseAction.cancel.title'),
       pressed: true,
       disabled: false,
     };
@@ -2247,20 +2247,20 @@ function getCanonicalPhaseActionDetails() {
   if (context.kind === 'final-move') {
     return {
       context,
-      label: 'Next Move Starts New Phase',
+      label: tr('dock.phaseAction.next'),
       note: '',
-      ariaLabel: 'Start the next added move in a new phase',
-      title: 'Mark the next added Move to begin a new Phase',
+      ariaLabel: tr('dock.phaseAction.next.aria'),
+      title: tr('dock.phaseAction.next.title'),
       pressed: false,
       disabled: false,
     };
   }
   return {
     context,
-    label: 'Start New Phase',
-    note: `Next Move begins Phase ${context.currentRef.phaseIndex + 2}.`,
-    ariaLabel: 'Start a new phase after the selected move',
-    title: 'Split the current Phase after this Move',
+    label: tr('dock.phaseAction.start'),
+    note: tr('dock.phaseAction.start.note', { phase: context.currentRef.phaseIndex + 2 }),
+    ariaLabel: tr('dock.phaseAction.start.aria'),
+    title: tr('dock.phaseAction.start.title'),
     pressed: false,
     disabled: false,
   };
@@ -4890,12 +4890,12 @@ function syncHistoryControls() {
   const undoDisabled = editingLocked || !(S.history && S.history.length);
   const redoDisabled = editingLocked || !(S.future && S.future.length);
   const bindings = [
-    { id: 'topbarUndoBtn', disabled: undoDisabled, title: undoDisabled ? 'Nothing to undo' : 'Undo the last change' },
-    { id: 'topbarRedoBtn', disabled: redoDisabled, title: redoDisabled ? 'Nothing to redo' : 'Redo the last undone change' },
-    { id: 'mobileUndoBtn', disabled: undoDisabled, title: undoDisabled ? 'Nothing to undo' : 'Undo the last change' },
-    { id: 'mobileRedoBtn', disabled: redoDisabled, title: redoDisabled ? 'Nothing to redo' : 'Redo the last undone change' },
-    { id: 'mobileRailUndoBtn', disabled: undoDisabled, title: undoDisabled ? 'Nothing to undo' : 'Undo the last change' },
-    { id: 'mobileMoreRedoBtn', disabled: redoDisabled, title: redoDisabled ? 'Nothing to redo' : 'Redo the last undone change' },
+    { id: 'topbarUndoBtn', disabled: undoDisabled, title: undoDisabled ? tr('dock.undo.none') : tr('dock.undo.ready') },
+    { id: 'topbarRedoBtn', disabled: redoDisabled, title: redoDisabled ? tr('dock.redo.none') : tr('dock.redo.ready') },
+    { id: 'mobileUndoBtn', disabled: undoDisabled, title: undoDisabled ? tr('dock.undo.none') : tr('dock.undo.ready') },
+    { id: 'mobileRedoBtn', disabled: redoDisabled, title: redoDisabled ? tr('dock.redo.none') : tr('dock.redo.ready') },
+    { id: 'mobileRailUndoBtn', disabled: undoDisabled, title: undoDisabled ? tr('dock.undo.none') : tr('dock.undo.ready') },
+    { id: 'mobileMoreRedoBtn', disabled: redoDisabled, title: redoDisabled ? tr('dock.redo.none') : tr('dock.redo.ready') },
   ];
   bindings.forEach(({ id, disabled, title }) => {
     const el = document.getElementById(id);
@@ -9845,11 +9845,11 @@ function updatePhaseUI() {
 
 function getCanonicalPhaseActionShortLabel(kind) {
   switch (kind) {
-    case 'existing-boundary': return 'Remove Break';
-    case 'pending-final': return 'Cancel Phase';
-    case 'final-move': return 'New Phase';
-    case 'split-available': return 'New Phase';
-    default: return 'Phase';
+    case 'existing-boundary': return tr('dock.removeBreak');
+    case 'pending-final': return tr('dock.cancelPhase');
+    case 'final-move': return tr('dock.newPhase');
+    case 'split-available': return tr('dock.newPhase');
+    default: return tr('dock.phase');
   }
 }
 
@@ -9857,31 +9857,31 @@ function getSequenceDockModeLabels(mode) {
   const phaseAction = getCanonicalPhaseActionDetails();
   if (mode === 'collapsed' || mode === 'compact') {
     return {
-      addMove: '+ Move',
-      play: 'Play',
-      playPhase: 'Play Phase',
-      more: 'More',
-      back: 'Back',
-      duplicate: 'Duplicate',
-      preview: 'Preview',
-      undo: 'Undo',
-      redo: 'Redo',
+      addMove: tr('dock.addMove.short'),
+      play: tr('dock.play'),
+      playPhase: tr('dock.playPhase'),
+      more: tr('dock.more'),
+      back: tr('dock.back'),
+      duplicate: tr('dock.duplicate'),
+      preview: tr('dock.preview'),
+      undo: tr('dock.undo'),
+      redo: tr('dock.redo'),
       addPhase: getCanonicalPhaseActionShortLabel(phaseAction.context.kind),
-      deleteMove: 'Delete Move',
+      deleteMove: tr('dock.deleteMove'),
     };
   }
   return {
-    addMove: 'Add Move',
-    play: 'Play from Here',
-    playPhase: 'Play Phase',
-    more: 'More',
-    back: 'Back',
-    duplicate: 'Duplicate Move',
-    preview: 'Preview Move',
-    undo: 'Undo',
-    redo: 'Redo',
+    addMove: tr('dock.addMove'),
+    play: tr('dock.playFromHere'),
+    playPhase: tr('dock.playPhase'),
+    more: tr('dock.more'),
+    back: tr('dock.back'),
+    duplicate: tr('dock.duplicateMove'),
+    preview: tr('dock.previewMove'),
+    undo: tr('dock.undo'),
+    redo: tr('dock.redo'),
     addPhase: phaseAction.label,
-    deleteMove: 'Delete Move',
+    deleteMove: tr('dock.deleteMove'),
   };
 }
 
@@ -9944,12 +9944,22 @@ function updateSequenceDockUI() {
   const futureDisabled = editingLocked || !(S.future && S.future.length);
   // Exactly one universal Pause/Resume control (sequenceDockPlay). The secondary
   // control is Stop-only; Play Phase and Preview never relabel themselves.
-  const playbackControlLabel = showPlaybackControl ? 'Stop' : '';
-  const playbackControlAria = 'Stop playback';
+  const playbackControlLabel = showPlaybackControl ? tr('dock.stop') : '';
+  const playbackControlAria = tr('dock.stop.aria');
 
   sequenceDockEls.dock.dataset.mode = sequenceDockMode;
   sequenceDockEls.dock.dataset.side = sequenceDockSide;
   sequenceDockEls.dock.dataset.view = isFullMode ? 'full' : sequenceDockView;
+  const translatedMoveHeadline = canonicalMove.hasSelection
+    ? (isFullMode
+      ? tr('dock.moveOf', { current: canonicalMove.current, total: canonicalMove.count })
+      : tr('dock.moveCompact', { current: canonicalMove.current, total: canonicalMove.count }))
+    : (isFullMode ? tr('dock.moveEmpty') : tr('dock.moveCompactEmpty'));
+  const translatedPhaseHeadline = currentPhase !== null
+    ? (isFullMode
+      ? tr('dock.phaseOf', { current: currentPhase, total: phaseCount })
+      : tr('dock.phaseCompact', { current: currentPhase, total: phaseCount }))
+    : (isFullMode ? tr('dock.phaseEmpty') : tr('dock.phaseCompactEmpty'));
 
   sequenceDockEls.moveHeadline.textContent = canonicalMove.hasSelection
     ? (isFullMode ? `Move ${canonicalMove.current} of ${canonicalMove.count}` : `M ${canonicalMove.current}/${canonicalMove.count}`)
@@ -9958,12 +9968,21 @@ function updateSequenceDockUI() {
     ? (isFullMode ? `Phase ${currentPhase} of ${phaseCount}` : `P ${currentPhase}/${phaseCount}`)
     : (isFullMode ? 'Phase — of —' : 'P —/—');
 
+  sequenceDockEls.moveHeadline.textContent = translatedMoveHeadline;
+  sequenceDockEls.phaseHeadline.textContent = translatedPhaseHeadline;
+
   // sequenceDockPlay is the ONE universal Pause/Resume control in the dock.
   let playLabel = labels.play;
   let playAria = 'Play from the selected move to the end';
   if (anySessionActive) {
     playLabel = isAnimating ? 'Pause' : 'Resume';
     playAria = isAnimating ? 'Pause playback' : 'Resume playback';
+  }
+  if (anySessionActive) {
+    playLabel = isAnimating ? tr('dock.pause') : tr('dock.resume');
+    playAria = isAnimating ? tr('dock.pause.aria') : tr('dock.resume.aria');
+  } else {
+    playAria = tr('dock.playFromHere.aria');
   }
   sequenceDockEls.play.textContent = playLabel;
   sequenceDockEls.play.setAttribute('aria-label', playAria);
@@ -9981,6 +10000,12 @@ function updateSequenceDockUI() {
   sequenceDockEls.playPhase.setAttribute('aria-label', anySessionActive
     ? 'Play Phase unavailable: stop the current playback first'
     : (playPhasePlayable ? 'Play the current Phase from its first move' : 'Play Phase unavailable: this Phase contains only one Move'));
+  sequenceDockEls.playPhase.title = anySessionActive
+    ? tr('dock.playPhase.title.busy')
+    : (playPhasePlayable ? tr('dock.playPhase.title.ready') : tr('dock.playPhase.title.single'));
+  sequenceDockEls.playPhase.setAttribute('aria-label', anySessionActive
+    ? tr('dock.playPhase.aria.busy')
+    : (playPhasePlayable ? tr('dock.playPhase.aria.ready') : tr('dock.playPhase.aria.single')));
 
   sequenceDockEls.addMove.textContent = labels.addMove;
   sequenceDockEls.addMove.disabled = editingLocked || sequenceDockAddMoveLock;
@@ -9994,6 +10019,12 @@ function updateSequenceDockUI() {
   sequenceDockEls.preview.setAttribute('aria-label', anySessionActive
     ? 'Preview unavailable: stop the current playback first'
     : (previewPlayable ? 'Preview only the selected move' : 'Preview unavailable: no later move'));
+  sequenceDockEls.preview.title = anySessionActive
+    ? tr('dock.preview.title.busy')
+    : (previewPlayable ? tr('dock.preview.title.ready') : tr('dock.preview.title.none'));
+  sequenceDockEls.preview.setAttribute('aria-label', anySessionActive
+    ? tr('dock.preview.aria.busy')
+    : (previewPlayable ? tr('dock.preview.aria.ready') : tr('dock.preview.aria.none')));
   sequenceDockEls.more.textContent = labels.more;
   sequenceDockEls.more.hidden = isFullMode;
   sequenceDockEls.more.disabled = isFullMode;
@@ -10029,12 +10060,17 @@ function updateSequenceDockUI() {
   sequenceDockEls.deleteMove.title = canonicalMove.count <= 1
     ? 'A play must contain at least one Move'
     : 'Delete the selected Move';
+  sequenceDockEls.deleteMove.title = canonicalMove.count <= 1
+    ? tr('dock.delete.disabled')
+    : tr('dock.delete.ready');
   sequenceDockEls.undo.textContent = labels.undo;
   sequenceDockEls.undo.disabled = historyDisabled;
   sequenceDockEls.undo.title = historyDisabled ? 'Nothing to undo' : 'Undo the last change';
+  sequenceDockEls.undo.title = historyDisabled ? tr('dock.undo.none') : tr('dock.undo.ready');
   sequenceDockEls.redo.textContent = labels.redo;
   sequenceDockEls.redo.disabled = futureDisabled;
   sequenceDockEls.redo.title = futureDisabled ? 'Nothing to redo' : 'Redo the last undone change';
+  sequenceDockEls.redo.title = futureDisabled ? tr('dock.redo.none') : tr('dock.redo.ready');
 }
 
 function initSequenceControlDock() {
