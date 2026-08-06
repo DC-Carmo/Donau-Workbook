@@ -1783,15 +1783,57 @@ function emptyStepState() {
   return { players: [], ball: null, ballOwner: null, ballAttached: false, paths: [], passes: [], annotations: [] };
 }
 
+function effectiveBallCarryState(players = S.players, ball = S.ball, ownerRef = S.ballOwner, attached = S.ballAttached) {
+  const normalizedBall = normalizeBallPosition(ball);
+  const normalizedOwner = normalizePlayerRef(ownerRef);
+  if (!normalizedBall || !normalizedOwner) {
+    return {
+      ball: normalizedBall,
+      ballOwner: normalizedOwner,
+      ballAttached: !!(normalizedBall && normalizedOwner && attached),
+    };
+  }
+  const owner = (Array.isArray(players) ? players : []).find(player => samePlayerRef(playerRef(player), normalizedOwner)) || null;
+  if (!owner) {
+    return {
+      ball: normalizedBall,
+      ballOwner: normalizedOwner,
+      ballAttached: false,
+    };
+  }
+  const attachedBall = attachedBallPositionForPlayer(owner);
+  if (attached) {
+    return {
+      ball: attachedBall,
+      ballOwner: playerRef(owner),
+      ballAttached: true,
+    };
+  }
+  const attachedDistance = d2(normalizedBall, attachedBall);
+  if (attachedDistance <= 0.9) {
+    return {
+      ball: attachedBall,
+      ballOwner: playerRef(owner),
+      ballAttached: true,
+    };
+  }
+  return {
+    ball: normalizedBall,
+    ballOwner: playerRef(owner),
+    ballAttached: false,
+  };
+}
+
 function liveBoardToStepState() {
+  const ballCarry = effectiveBallCarryState();
   return normalizeStepState({
     players: S.players.map(({ id, num, team, x, y, colorOverride }) => ({
       id, num, team, x, y,
       ...(colorOverride ? { colorOverride } : {}),
     })),
-    ball: S.ball ? { ...S.ball } : null,
-    ballOwner: normalizePlayerRef(S.ballOwner),
-    ballAttached: !!S.ballAttached,
+    ball: ballCarry.ball ? { ...ballCarry.ball } : null,
+    ballOwner: normalizePlayerRef(ballCarry.ballOwner),
+    ballAttached: !!ballCarry.ballAttached,
     paths: S.paths.map(path => {
       const pl = S.players.find(q => q.id === path.pid);
       return pl ? { num: pl.num, team: pl.team, pts: path.pts.map(pt => ({ ...pt })) } : null;
@@ -4423,8 +4465,15 @@ function updateBallOwnerFromPosition() {
       best = pl;
     }
   });
-  S.ballOwner = best && bestDist <= 3.5 ? playerRef(best) : null;
-  S.ballAttached = false;
+  if (best && bestDist <= 3.5) {
+    const effective = effectiveBallCarryState(S.players, S.ball, playerRef(best), false);
+    S.ballOwner = effective.ballOwner;
+    S.ballAttached = !!effective.ballAttached;
+    S.ball = effective.ball ? { ...effective.ball } : null;
+  } else {
+    S.ballOwner = null;
+    S.ballAttached = false;
+  }
   applyBallOwnershipVisualState();
 }
 
