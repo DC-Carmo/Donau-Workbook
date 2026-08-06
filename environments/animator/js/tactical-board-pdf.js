@@ -1,5 +1,9 @@
 window.AnimatorBoardPdf = (() => {
-  const LOGO_URL = '../../assets/donau/images/rugby_ball_fire_scalable_bottom_right_fixed.svg';
+  const LOGO_URLS = [
+    '../../assets/donau/images/LogoRDA2.png',
+    '../../assets/donau/images/LogoRDA.png',
+    '../../assets/donau/images/rugby_ball_fire_scalable_bottom_right_fixed.svg',
+  ];
   const PREVIEW_ROOT_ID = 'pdfReportPreviewRoot';
   const MID_DOT = ' \u00b7 ';
   const palette = {
@@ -171,6 +175,27 @@ window.AnimatorBoardPdf = (() => {
     return /^data:image\//i.test(candidate) ? candidate : '';
   }
 
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('Failed to read logo asset.'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  function loadImageSize(dataUrl) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve({
+        width: Math.max(1, img.naturalWidth || img.width || 1),
+        height: Math.max(1, img.naturalHeight || img.height || 1),
+      });
+      img.onerror = () => reject(new Error('Failed to decode logo asset.'));
+      img.src = dataUrl;
+    });
+  }
+
   async function rasterizeSvg(svgText, width, height, scale = 4) {
     const blob = new Blob([svgText], { type: 'image/svg+xml' });
     const url = URL.createObjectURL(blob);
@@ -196,33 +221,54 @@ window.AnimatorBoardPdf = (() => {
     }
   }
 
-  async function loadLogoAsset() {
-    if (cachedLogoAsset) return cachedLogoAsset;
-    const response = await fetch(LOGO_URL, { cache: 'no-store' });
-    if (!response.ok) {
-      throw new Error(`Failed to load logo asset (${response.status})`);
-    }
+  async function loadRasterLogoAsset(url) {
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Failed to load logo asset (${response.status})`);
+    const blob = await response.blob();
+    const dataUrl = await blobToDataUrl(blob);
+    const { width, height } = await loadImageSize(dataUrl);
+    return { dataUrl, width, height };
+  }
+
+  async function loadSvgLogoAsset(url) {
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Failed to load logo asset (${response.status})`);
     const svgText = await response.text();
     const { width, height } = parseSvgBox(svgText);
     const embeddedDataUrl = extractEmbeddedImageDataUrl(svgText);
     const dataUrl = embeddedDataUrl || await rasterizeSvg(svgText, width, height, 4);
-    cachedLogoAsset = { dataUrl, width, height };
-    return cachedLogoAsset;
+    return { dataUrl, width, height };
+  }
+
+  async function loadLogoAsset() {
+    if (cachedLogoAsset) return cachedLogoAsset;
+    let lastError = null;
+    for (const url of LOGO_URLS) {
+      try {
+        cachedLogoAsset = url.toLowerCase().endsWith('.svg')
+          ? await loadSvgLogoAsset(url)
+          : await loadRasterLogoAsset(url);
+        return cachedLogoAsset;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError || new Error('Failed to load logo asset.');
   }
 
   function normalizeSnapshotImage(snapshot) {
     if (typeof snapshot === 'string') {
       return {
         dataUrl: snapshot,
-        width: 2200,
-        height: 1320,
+        width: 1800,
+        height: 3000,
       };
     }
     if (snapshot && typeof snapshot === 'object' && typeof snapshot.dataUrl === 'string') {
       return {
         dataUrl: snapshot.dataUrl,
-        width: Math.max(1, Number(snapshot.width) || 2200),
-        height: Math.max(1, Number(snapshot.height) || 1320),
+        width: Math.max(1, Number(snapshot.width) || 1800),
+        height: Math.max(1, Number(snapshot.height) || 3000),
       };
     }
     throw new Error('Invalid snapshot payload for PDF export.');
@@ -307,6 +353,16 @@ window.AnimatorBoardPdf = (() => {
       background: options.background || palette.paperSoft,
       boxShadow: options.shadow || '0 18px 34px rgba(6, 17, 13, 0.10)',
       padding: options.padding || '10px',
+      width: options.width || '100%',
+      maxWidth: options.maxWidth || '100%',
+      minHeight: options.minHeight || '0',
+      height: options.height || 'auto',
+      alignSelf: options.alignSelf || 'stretch',
+      margin: options.margin || '0',
+      boxSizing: 'border-box',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
     });
     const img = document.createElement('img');
     img.src = image.dataUrl;
@@ -314,9 +370,9 @@ window.AnimatorBoardPdf = (() => {
     style(img, {
       display: 'block',
       width: '100%',
-      height: 'auto',
+      height: options.imageHeight || 'auto',
       maxHeight: options.maxHeight || 'none',
-      objectFit: 'contain',
+      objectFit: options.objectFit || 'contain',
       borderRadius: options.imageRadius || '16px',
       background: options.imageBackground || '#dfe9df',
     });
@@ -351,12 +407,12 @@ window.AnimatorBoardPdf = (() => {
           borderRadius: '28px',
           background: `linear-gradient(155deg, ${palette.ink} 0%, ${palette.panel} 44%, ${palette.emerald} 100%)`,
           color: palette.white,
-          padding: '34px 34px 30px',
+          padding: '32px 34px 28px',
           position: 'relative',
           overflow: 'hidden',
-          display: 'grid',
-          gridTemplateRows: 'auto 1fr auto auto',
-          gap: '24px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '18px',
         });
         const glowA = style(document.createElement('div'), {
           position: 'absolute',
@@ -390,20 +446,20 @@ window.AnimatorBoardPdf = (() => {
         });
         const brand = style(document.createElement('div'), {
           display: 'flex',
-          gap: '16px',
+          gap: '14px',
           alignItems: 'center',
         });
         const logo = document.createElement('img');
         logo.src = report.logo.dataUrl;
         logo.alt = 'RDA';
         style(logo, {
-          width: '148px',
-          height: '84px',
+          width: '132px',
+          height: '72px',
           objectFit: 'contain',
-          objectPosition: 'left center',
+          objectPosition: 'center center',
         });
         const brandCopy = document.createElement('div');
-        brandCopy.innerHTML = `<div style="font-size:11px;letter-spacing:0.30em;text-transform:uppercase;color:${palette.goldSoft};">RDA</div><div style="font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:28px;line-height:0.92;letter-spacing:0.04em;text-transform:uppercase;">${tr(report.language, 'boardTitle')}</div>`;
+        brandCopy.innerHTML = `<div style="font-size:11px;letter-spacing:0.30em;text-transform:uppercase;color:${palette.goldSoft};">RDA</div><div style="font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:26px;line-height:0.92;letter-spacing:0.04em;text-transform:uppercase;">${tr(report.language, 'boardTitle')}</div>`;
         brand.append(logo, brandCopy);
 
         const date = style(document.createElement('div'), {
@@ -421,12 +477,10 @@ window.AnimatorBoardPdf = (() => {
         const titleWrap = style(document.createElement('div'), {
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'center',
-          gap: '16px',
-          alignSelf: 'center',
+          gap: '12px',
           position: 'relative',
           zIndex: '1',
-          padding: '22px 0 10px',
+          padding: '6px 0 0',
         });
         const kicker = style(document.createElement('div'), {
           fontSize: '12px',
@@ -439,11 +493,11 @@ window.AnimatorBoardPdf = (() => {
         const title = style(document.createElement('h1'), {
           margin: '0',
           fontFamily: '"Barlow Condensed","Arial Narrow",sans-serif',
-          fontSize: '86px',
-          lineHeight: '0.90',
+          fontSize: '72px',
+          lineHeight: '0.92',
           letterSpacing: '0.03em',
           textTransform: 'uppercase',
-          maxWidth: '600px',
+          maxWidth: '620px',
         });
         title.textContent = report.name;
         const tagline = style(document.createElement('div'), {
@@ -458,13 +512,13 @@ window.AnimatorBoardPdf = (() => {
           alignItems: 'center',
           gap: '10px',
           width: 'fit-content',
-          padding: '11px 15px',
+          padding: '10px 15px',
           borderRadius: '999px',
           border: '1px solid rgba(245,215,123,0.34)',
           background: 'rgba(6,17,13,0.24)',
           color: palette.white,
           fontFamily: '"Barlow Condensed","Arial Narrow",sans-serif',
-          fontSize: '26px',
+          fontSize: '23px',
           letterSpacing: '0.05em',
           textTransform: 'uppercase',
         });
@@ -477,9 +531,15 @@ window.AnimatorBoardPdf = (() => {
             radius: '24px',
             background: 'rgba(245,240,223,0.10)',
             shadow: '0 18px 40px rgba(0,0,0,0.24)',
-            padding: '10px',
+            padding: '12px',
             imageRadius: '18px',
             imageBackground: '#d5e6d4',
+            width: '432px',
+            maxWidth: '100%',
+            minHeight: '556px',
+            height: '556px',
+            imageHeight: '100%',
+            alignSelf: 'center',
           });
           coverImageCard.dataset.coverHero = 'true';
           hero.append(header, titleWrap, coverImageCard);
@@ -492,10 +552,11 @@ window.AnimatorBoardPdf = (() => {
           gridTemplateColumns: '1fr auto',
           gap: '20px',
           alignItems: 'end',
-          paddingTop: '18px',
+          paddingTop: '16px',
           borderTop: '1px solid rgba(245,215,123,0.24)',
           position: 'relative',
           zIndex: '1',
+          marginTop: 'auto',
         });
         footerBand.innerHTML = `<div style="font-size:15px;line-height:1.55;color:rgba(255,255,255,0.88);max-width:430px;">${tr(report.language, 'moveReport')}</div><div style="font-size:13px;letter-spacing:0.18em;text-transform:uppercase;color:${palette.goldSoft};">${report.summaryLine}</div>`;
         hero.appendChild(footerBand);
@@ -527,9 +588,15 @@ window.AnimatorBoardPdf = (() => {
           radius: '22px',
           background: '#eef3ea',
           shadow: '0 16px 34px rgba(6, 17, 13, 0.10)',
-          padding: '10px',
+          padding: '12px',
           imageRadius: '16px',
           imageBackground: '#dfe9df',
+          width: '438px',
+          maxWidth: '100%',
+          minHeight: '650px',
+          height: '650px',
+          imageHeight: '100%',
+          alignSelf: 'center',
         });
         imageCard.dataset.contentImage = 'true';
 
@@ -606,12 +673,19 @@ window.AnimatorBoardPdf = (() => {
     const usable = mmFit(image.width, image.height, Math.max(8, maxWidth - (padding * 2)), Math.max(8, maxHeight - (padding * 2)));
     const cardWidth = usable.width + (padding * 2);
     const cardHeight = usable.height + (padding * 2);
+    let drawX = x;
+    if (options.align === 'center') {
+      drawX = x + Math.max(0, (maxWidth - cardWidth) / 2);
+    } else if (options.align === 'right') {
+      drawX = x + Math.max(0, maxWidth - cardWidth);
+    }
     doc.setFillColor(...fillColor);
     doc.setDrawColor(...borderColor);
     doc.setLineWidth(0.35);
-    doc.roundedRect(x, y, cardWidth, cardHeight, radius, radius, 'FD');
-    doc.addImage(image.dataUrl, 'PNG', x + padding, y + padding, usable.width, usable.height, undefined, 'FAST');
+    doc.roundedRect(drawX, y, cardWidth, cardHeight, radius, radius, 'FD');
+    doc.addImage(image.dataUrl, 'PNG', drawX + padding, y + padding, usable.width, usable.height, undefined, 'FAST');
     return {
+      x: drawX,
       width: cardWidth,
       height: cardHeight,
       innerWidth: usable.width,
@@ -681,56 +755,62 @@ window.AnimatorBoardPdf = (() => {
     doc.setFillColor(31, 107, 67);
     doc.circle(20, pageHeight - 70, 34, 'F');
 
-    const logoWidth = 34;
+    const logoWidth = 30;
     const logoHeight = (logoWidth / report.logo.width) * report.logo.height;
     if (report.logo.dataUrl) {
-      doc.addImage(report.logo.dataUrl, 'PNG', 16, 16, logoWidth, logoHeight, undefined, 'FAST');
+      doc.addImage(report.logo.dataUrl, 'PNG', 16, 16, logoWidth, logoHeight, undefined, 'MEDIUM');
     }
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
     doc.setTextColor(245, 215, 123);
-    doc.text('RDA', 54, 21);
-    doc.setFontSize(19);
-    doc.text(tr(report.language, 'boardTitle'), 54, 29);
+    doc.text('RDA', 48, 21);
+    doc.setFontSize(18);
+    doc.text(tr(report.language, 'boardTitle'), 48, 28);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.8);
+    doc.setTextColor(245, 215, 123);
+    doc.text(buildGeneratedLine(report.language, report.dateLabel), pageWidth - 16, 21, { align: 'right' });
 
     const titleLines = doc.splitTextToSize(report.name, pageWidth - 34);
-    let titleY = report.coverImage ? 68 : 88;
+    let titleY = 48;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(28);
+    doc.setFontSize(10.5);
+    doc.setTextColor(245, 215, 123);
+    doc.text(tr(report.language, 'summaryLead'), 16, titleY);
+    titleY += 8;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(26);
     doc.setTextColor(255, 255, 255);
     doc.text(titleLines, 16, titleY);
-    titleY += (titleLines.length * 10) + 4;
+    titleY += (titleLines.length * 9.2) + 3;
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
+    doc.setFontSize(12);
     doc.setTextColor(245, 215, 123);
     doc.text(tr(report.language, 'tagline'), 16, titleY);
-    titleY += 10;
+    titleY += 8;
 
     doc.setFillColor(8, 23, 17);
     doc.setDrawColor(245, 215, 123);
     doc.setLineWidth(0.4);
-    doc.roundedRect(16, titleY, 74, 12, 6, 6, 'FD');
+    doc.roundedRect(16, titleY, 68, 11, 5.5, 5.5, 'FD');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
+    doc.setFontSize(10.8);
     doc.setTextColor(255, 255, 255);
-    doc.text(report.summaryLine, 20, titleY + 7.8);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10.5);
-    doc.setTextColor(220, 227, 223);
-    doc.text(buildGeneratedLine(report.language, report.dateLabel), 16, titleY + 21);
+    doc.text(report.summaryLine, 19, titleY + 7.1);
 
     if (report.coverImage) {
-      const maxWidth = pageWidth - 32;
-      const maxHeight = 102;
-      const imageY = pageHeight - 28 - maxHeight;
-      drawImageCard(doc, report.coverImage, 16, imageY, maxWidth, maxHeight, {
-        padding: 2.2,
-        radius: 5,
+      const imageTop = titleY + 17;
+      const maxWidth = pageWidth - 36;
+      const maxHeight = pageHeight - imageTop - 36;
+      drawImageCard(doc, report.coverImage, 18, imageTop, maxWidth, maxHeight, {
+        padding: 2.4,
+        radius: 6,
         borderColor: [245, 215, 123],
         fillColor: [18, 53, 36],
+        align: 'center',
       });
     }
   }
@@ -755,11 +835,12 @@ window.AnimatorBoardPdf = (() => {
     doc.setTextColor(104, 112, 119);
     doc.text(buildGeneratedLine(report.language, report.dateLabel), pageWidth - 16, 15, { align: 'right' });
 
-    const imageCard = drawImageCard(doc, page.image, 16, 32, pageWidth - 32, 118, {
-      padding: 2.1,
-      radius: 5,
+    const imageCard = drawImageCard(doc, page.image, 16, 32, pageWidth - 32, 170, {
+      padding: 2.4,
+      radius: 6,
       borderColor: [220, 215, 195],
       fillColor: [250, 247, 237],
+      align: 'center',
     });
 
     const notesHeadingY = 32 + imageCard.height + 11;
@@ -807,10 +888,10 @@ window.AnimatorBoardPdf = (() => {
 
     for (const move of moves) {
       const image = normalizeSnapshotImage(await captureStepImage(move.step, {
-        width: 2200,
-        height: 1320,
+        width: 1800,
+        height: 3000,
         dpr: 2,
-        rotateLandscape: true,
+        rotateLandscape: false,
       }));
       if (!coverImage) coverImage = image;
       pages.push({
