@@ -22,6 +22,7 @@ const FVW = F.DX1 - F.DX0;
 const FVH = F.DY1 - F.DY0;
 const FIELD_X_STRETCH = 1.7;
 const BALL_CARRY_OFFSET = { x: 1.45, y: -1.05 };
+const BALL_CARRY_SNAP = 2.2; // a ball within ~2 units of the owner's centre counts as carried
 const MOBILE_TAP_TOGGLE_PX = 5;
 const PENDING_GROUP_DRAG_PX = 8;
 const SNAP_RADIUS = 4; // field units (~4m)
@@ -968,12 +969,15 @@ Object.assign(S, {
   zoneColor: '#10b981',
   zoneThickness: 'normal',
   zoneDash: 'solid',
+  zoneFill: 'none',
   boxColor: '#d9b46c',
   boxThickness: 'normal',
   boxDash: 'solid',
+  boxFill: 'none',
   ellipseColor: '#d9b46c',
   ellipseThickness: 'normal',
   ellipseDash: 'solid',
+  ellipseFill: 'none',
   // Selection model:
   // - selectedPlayerId: one player selected for editing at a time
   // - selectedObjectType/selectedAnnotationIdValue: non-player object selection
@@ -1051,6 +1055,11 @@ let lastNoteSelectionTap = { id: null, at: 0 };
 const PROJECT_TYPE = 'coachmato.animator.project';
 const PLAYBACK_TIMELINE_MODEL = 'global_progress_v1';
 const DEFAULT_PLAYBACK_DURATION = 5;
+const PLAYBACK_MOVE_UNITS_PER_SECOND = 6;
+const PLAYBACK_BALL_UNITS_PER_SECOND = 8;
+const PLAYBACK_MIN_MOVE_DURATION = 2.4;
+const PLAYBACK_MAX_MOVE_DURATION = 8;
+const PLAYBACK_STATIC_MOVE_DURATION = 2.8;
 
 function claimPhoneDataAction(actionKey) {
   if (!isPhoneViewport) return true;
@@ -1085,9 +1094,9 @@ const ANNOTATION_CLIPBOARD_OFFSET = 1.5;
 const ANNOTATION_NUDGE_STEP = 0.5;
 const ARROW_DEFAULT_COLOR = '#d9b46c';
 const SHAPE_DEFAULTS = Object.freeze({
-  zone: { color: '#10b981', thickness: 'normal', dash: 'solid' },
-  box: { color: '#d9b46c', thickness: 'normal', dash: 'solid' },
-  ellipse: { color: '#d9b46c', thickness: 'normal', dash: 'solid' },
+  zone: { color: '#10b981', thickness: 'normal', dash: 'solid', fill: 'none' },
+  box: { color: '#d9b46c', thickness: 'normal', dash: 'solid', fill: 'none' },
+  ellipse: { color: '#d9b46c', thickness: 'normal', dash: 'solid', fill: 'none' },
 });
 const ARROW_THICKNESS_PRESETS = Object.freeze({
   thin: 2.2,
@@ -1129,8 +1138,13 @@ function defaultShapeStyle(type) {
 }
 
 function shapeStyleStateKeys(type) {
-  if (type === 'zone' || type === 'ellipse') return { color: 'zoneColor', thickness: 'zoneThickness', dash: 'zoneDash' };
-  return { color: 'boxColor', thickness: 'boxThickness', dash: 'boxDash' };
+  if (type === 'zone' || type === 'ellipse') return { color: 'zoneColor', thickness: 'zoneThickness', dash: 'zoneDash', fill: 'zoneFill' };
+  return { color: 'boxColor', thickness: 'boxThickness', dash: 'boxDash', fill: 'boxFill' };
+}
+
+function normalizeShapeFill(value) {
+  if (value === 'solid' || value === 'hatch' || value === 'grid') return value;
+  return 'none';
 }
 
 function constrainEllipseBounds(anchorX, anchorY, pointX, pointY) {
@@ -1157,6 +1171,7 @@ function currentShapeStyleSelection(type = null) {
       color: selected.color || defaults.color,
       thickness: arrowThicknessValue(selected.thickness),
       dash: arrowDashValue(selected.dash),
+      fill: normalizeShapeFill(selected.fill ?? defaults.fill),
     };
   }
   const keys = shapeStyleStateKeys(styleType);
@@ -1165,6 +1180,7 @@ function currentShapeStyleSelection(type = null) {
     color: S[keys.color] || defaults.color,
     thickness: arrowThicknessValue(S[keys.thickness]),
     dash: arrowDashValue(S[keys.dash]),
+    fill: normalizeShapeFill(S[keys.fill] ?? defaults.fill),
   };
 }
 
@@ -1178,11 +1194,13 @@ function applyShapeStyleSelection(partial = {}) {
     color: partial.color || current.color || defaultShapeStyle(styleType).color,
     thickness: arrowThicknessValue(partial.thickness ?? current.thickness),
     dash: arrowDashValue(partial.dash ?? current.dash),
+    fill: normalizeShapeFill(partial.fill ?? current.fill ?? defaultShapeStyle(styleType).fill),
   };
   const keys = shapeStyleStateKeys(styleType);
   S[keys.color] = next.color;
   S[keys.thickness] = next.thickness;
   S[keys.dash] = next.dash;
+  S[keys.fill] = next.fill;
   if (selected?.type === styleType && selectedId) {
     snapshot();
     const ann = findAnnotationById(selectedId);
@@ -1190,6 +1208,7 @@ function applyShapeStyleSelection(partial = {}) {
       ann.color = next.color;
       ann.thickness = next.thickness;
       ann.dash = next.dash;
+      ann.fill = next.fill;
     }
   }
   refreshInteractionUI();
@@ -1210,6 +1229,37 @@ function hexToRgba(color, alpha) {
   const g = parseInt(hex.slice(2, 4), 16);
   const b = parseInt(hex.slice(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function drawShapeFillPattern(fill, color, bounds) {
+  if (fill === 'none') return;
+  const width = Math.max(1, Number(bounds?.width) || 1);
+  const height = Math.max(1, Number(bounds?.height) || 1);
+  const left = Number(bounds?.left) || 0;
+  const top = Number(bounds?.top) || 0;
+  const preview = !!bounds?.preview;
+  const strokeWidth = Math.max(1, Number(bounds?.strokeWidth) || 1);
+  const tintAlpha = preview ? 0.18 : 0.14;
+  const lineAlpha = preview ? 0.34 : 0.28;
+  const spacing = Math.max(10, Math.min(24, strokeWidth * 4.5));
+  const diag = Math.sqrt((width * width) + (height * height)) + (spacing * 2);
+  ctx.fillStyle = hexToRgba(color, tintAlpha);
+  ctx.fillRect(left - 1, top - 1, width + 2, height + 2);
+  if (fill === 'solid') return;
+  ctx.strokeStyle = hexToRgba(color, lineAlpha);
+  ctx.lineWidth = Math.max(1.15, Math.min(2.2, strokeWidth * 0.5));
+  ctx.beginPath();
+  for (let offset = -diag; offset <= diag; offset += spacing) {
+    ctx.moveTo(left + offset, top + height);
+    ctx.lineTo(left + offset + diag, top);
+  }
+  if (fill === 'grid') {
+    for (let offset = -diag; offset <= diag; offset += spacing) {
+      ctx.moveTo(left + offset, top);
+      ctx.lineTo(left + offset + diag, top + height);
+    }
+  }
+  ctx.stroke();
 }
 
 function syncColorSwatches(root, currentColor) {
@@ -1236,6 +1286,13 @@ function syncShapeStyleButtons(root, shapeStyle) {
   });
   root.querySelectorAll('[data-shape-dash]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.shapeDash === shapeStyle.dash);
+  });
+  root.querySelectorAll('[data-shape-fill]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.shapeFill === shapeStyle.fill);
+  });
+  root.querySelectorAll('[data-shape-fill-preview]').forEach(preview => {
+    preview.dataset.fill = shapeStyle.fill;
+    preview.style.color = shapeStyle.color || annotationColor(shapeStyle.type || 'box');
   });
 }
 
@@ -1265,6 +1322,13 @@ function styleWeightLabel(weight) {
 
 function styleLineLabel(dash) {
   return arrowDashValue(dash) === 'dashed' ? 'Dashed' : 'Solid';
+}
+
+function shapeFillLabel(fill) {
+  if (fill === 'solid') return 'Solid';
+  if (fill === 'hatch') return 'Hatch';
+  if (fill === 'grid') return 'Grid';
+  return 'None';
 }
 
 function noteAlignLabel(align) {
@@ -1313,6 +1377,12 @@ function setFloatingToolbarWeight(thickness) {
   closeFloatingToolbarFlyout();
 }
 window.setFloatingToolbarWeight = setFloatingToolbarWeight;
+
+function setFloatingToolbarShapeFill(fill) {
+  setShapeFill(fill);
+  closeFloatingToolbarFlyout();
+}
+window.setFloatingToolbarShapeFill = setFloatingToolbarShapeFill;
 
 function setFloatingToolbarNoteAlign(align) {
   setSelectedNoteAlign(align);
@@ -1686,8 +1756,14 @@ function normalizeBallPosition(ball) {
   return { x, y };
 }
 
+function normalizeRunPathKind(value) {
+  if (value === undefined || value === null || value === '') return 'run';
+  return value === 'run' ? 'run' : null;
+}
+
 function normalizeStepPath(path) {
   if (!path || typeof path !== 'object') return null;
+  const kind = normalizeRunPathKind(path.kind);
   const team = path.team === 'D' ? 'D' : path.team === 'A' ? 'A' : null;
   const num = Number(path.num);
   const pts = Array.isArray(path.pts)
@@ -1699,8 +1775,8 @@ function normalizeStepPath(path) {
         })
         .filter(Boolean)
     : [];
-  if (!team || !Number.isFinite(num) || pts.length < 2) return null;
-  return { num, team, pts };
+  if (!kind || !team || !Number.isFinite(num) || pts.length < 2) return null;
+  return { kind, num, team, pts };
 }
 
 function normalizeStepPass(pass) {
@@ -1783,18 +1859,89 @@ function emptyStepState() {
   return { players: [], ball: null, ballOwner: null, ballAttached: false, paths: [], passes: [], annotations: [] };
 }
 
+function effectiveBallCarryState(players = S.players, ball = S.ball, ownerRef = S.ballOwner, attached = S.ballAttached) {
+  const normalizedBall = normalizeBallPosition(ball);
+  const normalizedOwner = normalizePlayerRef(ownerRef);
+  if (!normalizedBall || !normalizedOwner) {
+    return {
+      ball: normalizedBall,
+      ballOwner: normalizedOwner,
+      ballAttached: !!(normalizedBall && normalizedOwner && attached),
+    };
+  }
+  const owner = (Array.isArray(players) ? players : []).find(player => samePlayerRef(playerRef(player), normalizedOwner)) || null;
+  if (!owner) {
+    return {
+      ball: normalizedBall,
+      ballOwner: normalizedOwner,
+      ballAttached: false,
+    };
+  }
+  const attachedBall = attachedBallPositionForPlayer(owner);
+  if (attached) {
+    return {
+      ball: attachedBall,
+      ballOwner: playerRef(owner),
+      ballAttached: true,
+    };
+  }
+  const attachedDistance = d2(normalizedBall, attachedBall);
+  const centerDistance = d2(normalizedBall, { x: owner.x, y: owner.y });
+  if (attachedDistance <= 0.9 || centerDistance <= BALL_CARRY_SNAP) {
+    return {
+      ball: attachedBall,
+      ballOwner: playerRef(owner),
+      ballAttached: true,
+    };
+  }
+  return {
+    ball: normalizedBall,
+    ballOwner: playerRef(owner),
+    ballAttached: false,
+  };
+}
+
+function projectPlayersToRunEndpoints(players = S.players, paths = S.paths) {
+  const sourcePlayers = Array.isArray(players) ? players : [];
+  const pathByPlayerId = new Map(
+    (Array.isArray(paths) ? paths : [])
+      .filter(path => Number.isFinite(path?.pid) && Array.isArray(path?.pts) && path.pts.length >= 2)
+      .map(path => [Number(path.pid), path])
+  );
+  return sourcePlayers.map(player => {
+    const path = pathByPlayerId.get(Number(player?.id));
+    if (!path) return { ...player };
+    const end = catmullRom(path.pts, 1.0);
+    return {
+      ...player,
+      x: end.x,
+      y: end.y,
+    };
+  });
+}
+
+function effectiveBallCarryStateForRuntimeStep(players = S.players, paths = S.paths, ball = S.ball, ownerRef = S.ballOwner, attached = S.ballAttached) {
+  // Keep the ball with its carrier at the carrier's CURRENT position for the
+  // resting/committed step (a ball on the carrier stays attached via the centre
+  // check in effectiveBallCarryState). Playback is what moves the ball ALONG the
+  // run - do NOT pre-project it to the run end here, or the ball teleports to the
+  // finish the moment the run is drawn.
+  return effectiveBallCarryState(players, ball, ownerRef, attached);
+}
+
 function liveBoardToStepState() {
+  const ballCarry = effectiveBallCarryStateForRuntimeStep();
   return normalizeStepState({
     players: S.players.map(({ id, num, team, x, y, colorOverride }) => ({
       id, num, team, x, y,
       ...(colorOverride ? { colorOverride } : {}),
     })),
-    ball: S.ball ? { ...S.ball } : null,
-    ballOwner: normalizePlayerRef(S.ballOwner),
-    ballAttached: !!S.ballAttached,
+    ball: ballCarry.ball ? { ...ballCarry.ball } : null,
+    ballOwner: normalizePlayerRef(ballCarry.ballOwner),
+    ballAttached: !!ballCarry.ballAttached,
     paths: S.paths.map(path => {
       const pl = S.players.find(q => q.id === path.pid);
-      return pl ? { num: pl.num, team: pl.team, pts: path.pts.map(pt => ({ ...pt })) } : null;
+      return pl ? { kind: 'run', num: pl.num, team: pl.team, pts: path.pts.map(pt => ({ ...pt })) } : null;
     }).filter(Boolean),
     passes: S.passes.map(pass => {
       const from = S.players.find(q => q.id === pass.from);
@@ -1905,7 +2052,7 @@ function setLiveBoardFromStep(step, { keepSelection = false } = {}) {
   S.paths = normalized.paths.map(path => {
     const pl = S.players.find(q => q.num === path.num && q.team === path.team);
     const col = path.team === 'A' ? '#60a5fa' : '#f87171';
-    return pl ? { pid: pl.id, pts: path.pts || [], color: col } : null;
+    return pl ? { kind: 'run', pid: pl.id, pts: path.pts || [], color: col } : null;
   }).filter(Boolean);
 
   S.passes = normalized.passes.map(pass => {
@@ -2205,21 +2352,40 @@ function createCarryForwardStep(step) {
   );
 
   let ball = source.ball ? cloneData(source.ball) : null;
+  let ballOwner = normalizePlayerRef(source.ballOwner);
+  let ballAttached = !!source.ballAttached;
   const finalPass = source.passes[source.passes.length - 1];
   if (finalPass?.style === 'kick' && finalPass.targetX !== undefined && finalPass.targetY !== undefined) {
     ball = { x: finalPass.targetX, y: finalPass.targetY };
+    ballOwner = null;
+    ballAttached = false;
   } else if (finalPass && finalPass.toT !== undefined && finalPass.toNum !== undefined) {
     const receiver = carriedPlayerByRef.get(playerKey({ team: finalPass.toT, num: finalPass.toNum }));
     if (receiver) {
-      ball = { x: receiver.x, y: receiver.y };
+      if (finalPass.style === 'pass') {
+        ball = attachedBallPositionForPlayer(receiver);
+        ballOwner = playerRef(receiver);
+        ballAttached = true;
+      } else {
+        ball = { x: receiver.x, y: receiver.y };
+        ballOwner = null;
+        ballAttached = false;
+      }
+    }
+  } else if (ballAttached && ballOwner) {
+    const carrier = carriedPlayerByRef.get(playerKey(ballOwner));
+    if (carrier) {
+      ball = attachedBallPositionForPlayer(carrier);
+      ballOwner = playerRef(carrier);
+      ballAttached = true;
     }
   }
 
   return normalizeStepState({
     players,
     ball,
-    ballOwner: null,
-    ballAttached: false,
+    ballOwner,
+    ballAttached,
     paths: [],
     passes: [],
     annotations: cloneData(source.annotations || []),
@@ -2600,7 +2766,7 @@ function addCanonicalMove() {
 
 function phasePathForPlayer(step, player) {
   const key = playerKey(player);
-  return step.paths.find(path => playerKey({ team: path.team, num: path.num }) === key) || null;
+  return step.paths.find(path => normalizeRunPathKind(path?.kind) === 'run' && playerKey({ team: path.team, num: path.num }) === key) || null;
 }
 
 function emptyPlayMetadata(title = '') {
@@ -3251,6 +3417,7 @@ function normalizeAnnotation(annotation) {
       color: annotation.color || annotationColor('zone'),
       thickness: arrowThicknessValue(annotation.thickness),
       dash: arrowDashValue(annotation.dash),
+      fill: normalizeShapeFill(annotation.fill),
     };
   }
   if (annotation.type === 'circle') {
@@ -3269,6 +3436,7 @@ function normalizeAnnotation(annotation) {
       color: annotation.color || annotationColor('zone'),
       thickness: arrowThicknessValue(annotation.thickness),
       dash: arrowDashValue(annotation.dash),
+      fill: normalizeShapeFill(annotation.fill),
     };
   }
   if (annotation.type === 'box') {
@@ -3287,6 +3455,7 @@ function normalizeAnnotation(annotation) {
       color: annotation.color || annotationColor('box'),
       thickness: arrowThicknessValue(annotation.thickness),
       dash: arrowDashValue(annotation.dash),
+      fill: normalizeShapeFill(annotation.fill),
     };
   }
   if (annotation.type === 'ellipse') {
@@ -3305,6 +3474,7 @@ function normalizeAnnotation(annotation) {
       color: annotation.color || annotationColor('ellipse'),
       thickness: arrowThicknessValue(annotation.thickness),
       dash: arrowDashValue(annotation.dash),
+      fill: normalizeShapeFill(annotation.fill),
     };
   }
   return null;
@@ -4423,8 +4593,15 @@ function updateBallOwnerFromPosition() {
       best = pl;
     }
   });
-  S.ballOwner = best && bestDist <= 3.5 ? playerRef(best) : null;
-  S.ballAttached = false;
+  if (best && bestDist <= 3.5) {
+    const effective = effectiveBallCarryState(S.players, S.ball, playerRef(best), false);
+    S.ballOwner = effective.ballOwner;
+    S.ballAttached = !!effective.ballAttached;
+    S.ball = effective.ball ? { ...effective.ball } : null;
+  } else {
+    S.ballOwner = null;
+    S.ballAttached = false;
+  }
   applyBallOwnershipVisualState();
 }
 
@@ -7080,15 +7257,29 @@ function drawZoneAnnotation(zone, selected = false, preview = false) {
   const opacity = preview ? 1 : (Number(zone.opacity) || 1);
   const strokeWidth = preview ? Math.max(1.8, arrowStrokeWidthPx(zone.thickness) - 0.3) : arrowStrokeWidthPx(zone.thickness);
   const dash = shapeDashPattern(zone.dash, strokeWidth);
+  const fill = normalizeShapeFill(zone.fill);
   ctx.save();
   ctx.globalAlpha = opacity;
-  ctx.fillStyle = hexToRgba(zone.color || annotationColor('zone'), preview ? 0.08 : 0.12);
+  if (fill !== 'none') {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+    ctx.clip();
+    drawShapeFillPattern(fill, zone.color || annotationColor('zone'), {
+      preview,
+      left: p.x - radius,
+      top: p.y - radius,
+      width: radius * 2,
+      height: radius * 2,
+      strokeWidth,
+    });
+    ctx.restore();
+  }
   ctx.strokeStyle = selected ? '#fbbf24' : (zone.color || annotationColor('zone'));
   ctx.lineWidth = selected ? strokeWidth + 0.35 : strokeWidth;
   ctx.setLineDash(dash);
   ctx.beginPath();
   ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-  ctx.fill();
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.restore();
@@ -7139,17 +7330,30 @@ function drawBoxAnnotation(box, selected = false, preview = false) {
   const strokeWidth = preview ? Math.max(1.8, arrowStrokeWidthPx(box.thickness) - 0.3) : arrowStrokeWidthPx(box.thickness);
   const dash = shapeDashPattern(box.dash, strokeWidth);
   const rotation = normalizeShapeRotation(box.rotation) * (Math.PI / 180);
+  const fill = normalizeShapeFill(box.fill);
 
   ctx.save();
   ctx.globalAlpha = opacity;
   ctx.translate(centerPx.x, centerPx.y);
   ctx.rotate(rotation);
-  ctx.fillStyle = hexToRgba(box.color || annotationColor('box'), preview ? 0.09 : 0.13);
+  if (fill !== 'none') {
+    ctx.save();
+    roundRect(ctx, -(width / 2), -(height / 2), width, height, 14);
+    ctx.clip();
+    drawShapeFillPattern(fill, box.color || annotationColor('box'), {
+      preview,
+      left: -(width / 2),
+      top: -(height / 2),
+      width,
+      height,
+      strokeWidth,
+    });
+    ctx.restore();
+  }
   ctx.strokeStyle = selected ? '#fbbf24' : (box.color || annotationColor('box'));
   ctx.lineWidth = selected ? Math.max(2.4, strokeWidth) : strokeWidth;
   if (dash.length) ctx.setLineDash(dash);
   roundRect(ctx, -(width / 2), -(height / 2), width, height, 14);
-  ctx.fill();
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.restore();
@@ -7195,18 +7399,32 @@ function drawEllipseAnnotation(ellipse, selected = false, preview = false) {
   const strokeWidth = preview ? Math.max(1.8, arrowStrokeWidthPx(ellipse.thickness) - 0.3) : arrowStrokeWidthPx(ellipse.thickness);
   const dash = shapeDashPattern(ellipse.dash, strokeWidth);
   const rotation = normalizeShapeRotation(ellipse.rotation) * (Math.PI / 180);
+  const fill = normalizeShapeFill(ellipse.fill);
 
   ctx.save();
   ctx.globalAlpha = opacity;
   ctx.translate(centerPx.x, centerPx.y);
   ctx.rotate(rotation);
-  ctx.fillStyle = hexToRgba(ellipse.color || annotationColor('ellipse'), preview ? 0.08 : 0.12);
+  if (fill !== 'none') {
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
+    ctx.clip();
+    drawShapeFillPattern(fill, ellipse.color || annotationColor('ellipse'), {
+      preview,
+      left: -radiusX,
+      top: -radiusY,
+      width,
+      height,
+      strokeWidth,
+    });
+    ctx.restore();
+  }
   ctx.strokeStyle = selected ? '#fbbf24' : (ellipse.color || annotationColor('ellipse'));
   ctx.lineWidth = selected ? Math.max(2.4, strokeWidth) : strokeWidth;
   if (dash.length) ctx.setLineDash(dash);
   ctx.beginPath();
   ctx.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
-  ctx.fill();
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.restore();
@@ -7358,7 +7576,7 @@ function render() {
     return;
   }
 
-  const t = S.animating ? S.animT : 0;
+  const t = (S.animating || isCanonicalPlaybackPaused()) ? S.animT : 0;
   const animatedKickBall = resolveLiveAnimatedKickBall(t);
   renderAnnotations('zones');
 
@@ -7944,33 +8162,38 @@ function handlePointerDown(e) {
   else if (S.tool === 'run') {
     const pl = hitPlayer(fp);
     if (S.activeRunSourceId) {
-      if (pl && pl.id === S.activeRunSourceId) {
+      const sourceId = pl ? pl.id : S.activeRunSourceId;
+      const source = S.players.find(player => player.id === sourceId);
+      if (!source) {
         cancelArmedRun();
       } else {
-        const source = S.players.find(player => player.id === S.activeRunSourceId);
-        if (!source) {
-          cancelArmedRun();
-        } else {
-          clearDragPlayer();
-          clearPassKickState();
-          selectPlayer(source.id, { highlightedIds: [source.id] });
-          S.drawing = {
-            pid: source.id,
-            pts: [{ x: source.x, y: source.y }, { x: fp.x, y: fp.y }],
-            last: { x: fp.x, y: fp.y },
-          };
-          try { cv.setPointerCapture(e.pointerId); } catch(_) {}
-          setHint('Draw the run path, then release to finish.');
-          refreshInteractionUI();
-        }
+        clearDragPlayer();
+        clearPassKickState();
+        setArmedRunSource(source.id);
+        selectPlayer(source.id, { highlightedIds: [source.id] });
+        S.drawing = {
+          kind: 'run',
+          pid: source.id,
+          pts: [{ x: source.x, y: source.y }],
+          last: { x: source.x, y: source.y },
+        };
+        try { cv.setPointerCapture(e.pointerId); } catch(_) {}
+        setHint('Draw the run path, then release to finish.');
+        refreshInteractionUI();
       }
     } else if (pl) {
       clearDragPlayer();
       clearPassKickState();
       setArmedRunSource(pl.id);
       selectPlayer(pl.id, { highlightedIds: [pl.id] });
-      const teamLabel = pl.team === 'A' ? 'Attack' : 'Defence';
-      setHint(`Run from ${teamLabel} #${pl.num}. Drag on the pitch to draw the path, or tap the same player again to cancel.`);
+      S.drawing = {
+        kind: 'run',
+        pid: pl.id,
+        pts: [{ x: pl.x, y: pl.y }],
+        last: { x: pl.x, y: pl.y },
+      };
+      try { cv.setPointerCapture(e.pointerId); } catch(_) {}
+      setHint('Draw the run path, then release to finish.');
       refreshInteractionUI();
     } else {
       setHint('Click a player first to start their run path.');
@@ -8116,6 +8339,7 @@ function handlePointerDown(e) {
       color: shapeStyle.color,
       thickness: shapeStyle.thickness,
       dash: shapeStyle.dash,
+      fill: shapeStyle.fill,
     });
     S.annotationDraft.anchor = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
     try { cv.setPointerCapture(e.pointerId); } catch(_) {}
@@ -8141,6 +8365,7 @@ function handlePointerDown(e) {
       color: shapeStyle.color,
       thickness: shapeStyle.thickness,
       dash: shapeStyle.dash,
+      fill: shapeStyle.fill,
     });
     S.annotationDraft.anchor = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
     try { cv.setPointerCapture(e.pointerId); } catch(_) {}
@@ -8166,6 +8391,7 @@ function handlePointerDown(e) {
       color: shapeStyle.color,
       thickness: shapeStyle.thickness,
       dash: shapeStyle.dash,
+      fill: shapeStyle.fill,
     });
     S.annotationDraft.anchor = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
     try { cv.setPointerCapture(e.pointerId); } catch(_) {}
@@ -8797,13 +9023,21 @@ document.addEventListener('pointerdown', (event) => {
 
 function finishDraw() {
   if (!S.drawing) return;
+  if (S.drawing.kind !== 'run') {
+    S.drawing = null;
+    clearArmedRunState();
+    clearSelectedObject();
+    refreshInteractionUI();
+    render();
+    return;
+  }
   if (S.drawing.pts.length >= 2) {
     snapshot();
     const simplified = dpSimplify(S.drawing.pts, 0.8);
     const pl  = S.players.find(p => p.id === S.drawing.pid);
     const col = pl?.team === 'A' ? '#60a5fa' : '#f87171';
     S.paths = S.paths.filter(p => p.pid !== S.drawing.pid);
-    S.paths.push({ pid:S.drawing.pid, pts:simplified, color:col });
+    S.paths.push({ kind: 'run', pid:S.drawing.pid, pts:simplified, color:col });
     commitLiveBoardToCurrentStep();
     S.drawing = null;
     clearArmedRunState();
@@ -9376,8 +9610,55 @@ function currentPlaybackUsesImplicitMotion() {
   return canonicalPlaybackTargetIndex() !== null;
 }
 
+function playbackPathDistance(path) {
+  if (!Array.isArray(path?.pts) || path.pts.length < 2) return 0;
+  let total = 0;
+  for (let i = 1; i < path.pts.length; i++) {
+    total += d2(path.pts[i - 1], path.pts[i]);
+  }
+  return total;
+}
+
+function computePlaybackSegmentDurationSeconds(fromStep, toStep, motionStep = toStep) {
+  const from = normalizeStepState(fromStep || emptyStepState());
+  const to = normalizeStepState(toStep || from);
+  const motion = normalizeStepState(motionStep || to);
+  const fromLookup = buildStepLookup(from.players);
+  const toLookup = buildStepLookup(to.players);
+  const allKeys = new Set([...fromLookup.keys(), ...toLookup.keys()]);
+  let maxPlayerDistance = 0;
+
+  allKeys.forEach(key => {
+    const fromPlayer = fromLookup.get(key) || toLookup.get(key);
+    const toPlayer = toLookup.get(key) || fromLookup.get(key);
+    if (!fromPlayer || !toPlayer) return;
+    const path = phasePathForPlayer(motion, toPlayer);
+    const distance = Math.max(
+      path ? playbackPathDistance(path) : 0,
+      d2({ x: fromPlayer.x, y: fromPlayer.y }, { x: toPlayer.x, y: toPlayer.y })
+    );
+    maxPlayerDistance = Math.max(maxPlayerDistance, distance);
+  });
+
+  const fromBall = resolveStepBall(from);
+  const toBall = resolveStepBall(to);
+  const ballDistance = fromBall && toBall ? d2(fromBall, toBall) : 0;
+  const passOrKickDistance = Array.isArray(motion.passes) && motion.passes.length ? ballDistance : 0;
+  const dominantDistance = Math.max(maxPlayerDistance, passOrKickDistance);
+  if (dominantDistance <= 0.05) return PLAYBACK_STATIC_MOVE_DURATION;
+  const playerDuration = maxPlayerDistance > 0 ? (maxPlayerDistance / PLAYBACK_MOVE_UNITS_PER_SECOND) : 0;
+  const ballDuration = passOrKickDistance > 0 ? (passOrKickDistance / PLAYBACK_BALL_UNITS_PER_SECOND) : 0;
+  return clamp(Math.max(playerDuration, ballDuration) + 0.8, PLAYBACK_MIN_MOVE_DURATION, PLAYBACK_MAX_MOVE_DURATION);
+}
+
 function playbackDurationSeconds() {
-  return DEFAULT_PLAYBACK_DURATION;
+  const fromIdx = getCurrentCanonicalMoveIndex();
+  const toIdx = canonicalPlaybackTargetIndex(fromIdx);
+  const fromRef = getCanonicalMoveRef(fromIdx);
+  const toRef = getCanonicalMoveRef(toIdx);
+  const from = canonicalPlaybackStepAt(fromRef) || emptyStepState();
+  const to = canonicalPlaybackStepAt(toRef) || from;
+  return computePlaybackSegmentDurationSeconds(from, to, to);
 }
 
 function currentStepStartProgress() {
@@ -9392,6 +9673,7 @@ function stopPlayback(resetProgress = false) {
   cancelCanonicalPlaybackFrame();
   S.animating = false;
   S.lastTs = null;
+  if (resetProgress) clearCanonicalPlaybackOrigin();
   if (resetProgress) {
     S.animT = 0;
     canonicalPlaybackBoundaryIndex = null;
@@ -9422,7 +9704,13 @@ function resolveStepBall(step) {
   if (step?.ballAttached && owner) {
     const lookup = buildStepLookup(step?.players || []);
     const ownerPlayer = lookup.get(playerKey(owner));
-    return ownerPlayer ? attachedBallPositionForPlayer(ownerPlayer) : null;
+    if (!ownerPlayer) return null;
+    const path = phasePathForPlayer(step, ownerPlayer);
+    const finalPoint = path?.pts?.length ? catmullRom(path.pts, 1.0) : null;
+    if (finalPoint) {
+      return attachedBallPositionForPlayer({ ...ownerPlayer, x: finalPoint.x, y: finalPoint.y });
+    }
+    return attachedBallPositionForPlayer(ownerPlayer);
   }
   const ball = normalizeBallPosition(step?.ball);
   if (ball) return ball;
@@ -9570,6 +9858,17 @@ function buildSequenceFrame(progress) {
   } else if (fromBall) {
     ball = { ...fromBall };
   }
+  const carriedFromOwner = from.ballAttached ? normalizePlayerRef(from.ballOwner) : null;
+  const carriedToOwner = to.ballAttached ? normalizePlayerRef(to.ballOwner) : null;
+  const carriedOwner = samePlayerRef(carriedFromOwner, carriedToOwner)
+    ? carriedToOwner
+    : (carriedToOwner && !carriedFromOwner ? carriedToOwner : null);
+  if (carriedOwner && !(motionStep?.passes?.length)) {
+    const animatedOwner = players.find(player => samePlayerRef(playerRef(player), carriedOwner)) || null;
+    if (animatedOwner) {
+      ball = attachedBallPositionForPlayer(animatedOwner);
+    }
+  }
   return {
     players,
     ball,
@@ -9623,7 +9922,7 @@ function resolveLiveAnimatedKickBall(progress) {
 }
 
 function shouldRenderSequencePreview() {
-  if (!S.animating) return false;
+  if (!S.animating && !isCanonicalPlaybackPaused()) return false;
   return currentPhaseHasPlayablePlayback();
 }
 
@@ -9803,12 +10102,36 @@ function sequenceDockWidthForMode(mode, viewportWidth, viewportHeight) {
 // GamePlan/save/export/import/history) - reset to 'idle' whenever playback fully stops.
 let canonicalPlaybackMode = 'idle'; // 'idle' | 'preview' | 'phase' | 'from-here'
 let canonicalPlaybackRafHandle = null;
+let canonicalPlaybackOriginRef = null;
 
 function cancelCanonicalPlaybackFrame() {
   if (canonicalPlaybackRafHandle !== null) {
     cancelAnimationFrame(canonicalPlaybackRafHandle);
     canonicalPlaybackRafHandle = null;
   }
+}
+
+function captureCanonicalPlaybackOrigin() {
+  const currentIndex = getCurrentCanonicalMoveIndex();
+  const currentRef = getCanonicalMoveRef(currentIndex);
+  canonicalPlaybackOriginRef = currentRef ? { ...currentRef } : null;
+}
+
+function clearCanonicalPlaybackOrigin() {
+  canonicalPlaybackOriginRef = null;
+}
+
+function restoreCanonicalPlaybackOrigin() {
+  if (!canonicalPlaybackOriginRef) return false;
+  const refs = getCanonicalMoveRefs();
+  const originIndex = refs.findIndex(ref => ref.phaseIndex === canonicalPlaybackOriginRef.phaseIndex && ref.stepIndex === canonicalPlaybackOriginRef.stepIndex);
+  if (originIndex < 0) {
+    clearCanonicalPlaybackOrigin();
+    return false;
+  }
+  const restored = activateCanonicalMoveForPlayback(originIndex, { resetProgress: true });
+  clearCanonicalPlaybackOrigin();
+  return restored;
 }
 
 function setSequenceDockVisibility(isVisible) {
@@ -10711,6 +11034,7 @@ function getActiveCanonicalTransitionRefs() {
 // (Previous/Next), Move chips and Phase labels - never a second engine.
 function cancelPlaybackAndSelect(index) {
   stopPlayback(true);
+  clearCanonicalPlaybackOrigin();
   activateCanonicalMoveForPlayback(index, { resetProgress: true });
   updateTL();
   render();
@@ -10788,7 +11112,9 @@ function togglePlay() {
   canonicalPlaybackBoundaryIndex = null;
   canonicalPlaybackMode = 'preview';
   persistCurrentPhase();
+  captureCanonicalPlaybackOrigin();
   if (!currentPhaseHasPlayablePlayback()) {
+    clearCanonicalPlaybackOrigin();
     stopPlayback(false);
     setHint('This is the final move. There is no next move to preview.');
     refreshInteractionUI();
@@ -10818,7 +11144,9 @@ function togglePlayAll() {
   }
 
   persistCurrentPhase();
+  captureCanonicalPlaybackOrigin();
   if (!currentPhaseHasPlayablePlayback()) {
+    clearCanonicalPlaybackOrigin();
     stopPlayback(false);
     setHint('This is the final move. There are no later moves to play.');
     refreshInteractionUI();
@@ -10845,6 +11173,7 @@ function playCurrentCanonicalPhase() {
   if (!range || range.moveCount <= 1) return;
   persistCurrentPhase();
   goToCanonicalMove(range.firstIndex);
+  captureCanonicalPlaybackOrigin();
   canonicalPlaybackBoundaryIndex = range.lastIndex;
   canonicalPlaybackMode = 'phase';
   S.playAll = true;
@@ -10879,6 +11208,7 @@ function animLoop(ts) {
       }
       S.animating = false;
       S.playAll = false;
+      restoreCanonicalPlaybackOrigin();
       S.animT = 0;
       S.lastTs = null;
       canonicalPlaybackBoundaryIndex = null;
@@ -11834,6 +12164,12 @@ function setShapeDash(dash) {
 }
 window.setShapeDash = setShapeDash;
 
+function setShapeFill(fill) {
+  if (!isShapeAnnotationType(S.tool) && !isShapeAnnotationType(selectedAnnotation()?.type)) return;
+  applyShapeStyleSelection({ fill });
+}
+window.setShapeFill = setShapeFill;
+
 function refreshInteractionUI() {
   persistCurrentStep();
   updateSelInfo();
@@ -12369,6 +12705,10 @@ function updateSelInfo() {
   const floatingToolbarWeightBtn = document.getElementById('floatingToolbarWeightBtn');
   const floatingToolbarWeightValue = document.getElementById('floatingToolbarWeightValue');
   const floatingToolbarWeightPreview = document.getElementById('floatingToolbarWeightPreview');
+  const floatingToolbarFillItem = document.getElementById('floatingToolbarFillItem');
+  const floatingToolbarFillBtn = document.getElementById('floatingToolbarFillBtn');
+  const floatingToolbarFillValue = document.getElementById('floatingToolbarFillValue');
+  const floatingToolbarFillPreview = document.getElementById('floatingToolbarFillPreview');
   const floatingToolbarAlignItem = document.getElementById('floatingToolbarAlignItem');
   const floatingToolbarAlignBtn = document.getElementById('floatingToolbarAlignBtn');
   const floatingToolbarAlignValue = document.getElementById('floatingToolbarAlignValue');
@@ -12540,6 +12880,18 @@ function updateSelInfo() {
         if (floatingToolbarWeightValue) floatingToolbarWeightValue.textContent = styleWeightLabel(weightValue);
       }
 
+      const showFill = isShapeAnnotationType(ann.type);
+      if (floatingToolbarFillItem) floatingToolbarFillItem.hidden = !showFill;
+      if (floatingToolbarFillBtn) floatingToolbarFillBtn.hidden = !showFill;
+      if (showFill) {
+        const fillValue = currentShapeStyleSelection(ann.type).fill;
+        if (floatingToolbarFillPreview) {
+          floatingToolbarFillPreview.dataset.fill = fillValue;
+          floatingToolbarFillPreview.style.color = ann.color || annotationColor(ann.type);
+        }
+        if (floatingToolbarFillValue) floatingToolbarFillValue.textContent = shapeFillLabel(fillValue);
+      }
+
       const showAlign = ann.type === 'note' || ann.type === 'playerLabel';
       if (floatingToolbarEditNoteBtn) floatingToolbarEditNoteBtn.hidden = !showAlign;
       if (floatingToolbarAlignItem) floatingToolbarAlignItem.hidden = !showAlign;
@@ -12556,7 +12908,7 @@ function updateSelInfo() {
       if (showOpacity) {
         const opacityValue = clamp(Number(ann.opacity) || 1, 0.2, 1);
         if (floatingToolbarOpacity) floatingToolbarOpacity.value = String(opacityValue);
-        if (floatingToolbarOpacityLabel) floatingToolbarOpacityLabel.textContent = ann.type === 'note' || ann.type === 'playerLabel' ? 'Transparency' : 'Fill';
+        if (floatingToolbarOpacityLabel) floatingToolbarOpacityLabel.textContent = ann.type === 'note' || ann.type === 'playerLabel' ? 'Transparency' : 'Opacity';
         if (floatingToolbarOpacityValue) floatingToolbarOpacityValue.textContent = `${Math.round(opacityValue * 100)}%`;
       }
 
