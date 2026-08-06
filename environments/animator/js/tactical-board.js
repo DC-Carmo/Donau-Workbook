@@ -7460,7 +7460,7 @@ function render() {
     return;
   }
 
-  const t = S.animating ? S.animT : 0;
+  const t = (S.animating || isCanonicalPlaybackPaused()) ? S.animT : 0;
   const animatedKickBall = resolveLiveAnimatedKickBall(t);
   renderAnnotations('zones');
 
@@ -9741,7 +9741,9 @@ function buildSequenceFrame(progress) {
   }
   const carriedFromOwner = from.ballAttached ? normalizePlayerRef(from.ballOwner) : null;
   const carriedToOwner = to.ballAttached ? normalizePlayerRef(to.ballOwner) : null;
-  const carriedOwner = samePlayerRef(carriedFromOwner, carriedToOwner) ? carriedToOwner : null;
+  const carriedOwner = samePlayerRef(carriedFromOwner, carriedToOwner)
+    ? carriedToOwner
+    : (carriedToOwner && !carriedFromOwner ? carriedToOwner : null);
   if (carriedOwner && !(motionStep?.passes?.length)) {
     const animatedOwner = players.find(player => samePlayerRef(playerRef(player), carriedOwner)) || null;
     if (animatedOwner) {
@@ -9801,7 +9803,7 @@ function resolveLiveAnimatedKickBall(progress) {
 }
 
 function shouldRenderSequencePreview() {
-  if (!S.animating) return false;
+  if (!S.animating && !isCanonicalPlaybackPaused()) return false;
   return currentPhaseHasPlayablePlayback();
 }
 
