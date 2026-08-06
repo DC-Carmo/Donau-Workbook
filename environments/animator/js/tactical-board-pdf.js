@@ -1,14 +1,17 @@
 window.AnimatorBoardPdf = (() => {
   const LOGO_URL = '../../assets/donau/images/rugby_ball_fire_scalable_bottom_right_fixed.svg';
   const PREVIEW_ROOT_ID = 'pdfReportPreviewRoot';
+  const MID_DOT = ' \u00b7 ';
   const palette = {
     ink: '#06110d',
     panel: '#0d1b14',
     emerald: '#1f6b43',
+    emeraldDeep: '#123524',
     gold: '#e3b23c',
     goldSoft: '#f5d77b',
     line: '#c8ad63',
     paper: '#f5f0df',
+    paperSoft: '#fbf7eb',
     muted: '#6b7280',
     white: '#ffffff',
   };
@@ -23,6 +26,12 @@ window.AnimatorBoardPdf = (() => {
       coachingNotes: 'Coaching Notes',
       noNotes: 'No coaching notes for this phase.',
       tagline: 'Develop. Perform. Succeed.',
+      moveSingular: 'move',
+      movePlural: 'moves',
+      phaseSingular: 'phase',
+      phasePlural: 'phases',
+      summaryLead: 'Board Summary',
+      moveReport: 'Move Report',
     },
     'pt-BR': {
       boardTitle: 'Relatorio do Quadro Tatico',
@@ -33,6 +42,12 @@ window.AnimatorBoardPdf = (() => {
       coachingNotes: 'Notas de treino',
       noNotes: 'Sem notas de treino para esta fase.',
       tagline: 'Develop. Perform. Succeed.',
+      moveSingular: 'movimento',
+      movePlural: 'movimentos',
+      phaseSingular: 'fase',
+      phasePlural: 'fases',
+      summaryLead: 'Resumo do quadro',
+      moveReport: 'Relatorio de movimentos',
     },
     es: {
       boardTitle: 'Informe del tablero tactico',
@@ -43,6 +58,12 @@ window.AnimatorBoardPdf = (() => {
       coachingNotes: 'Notas de coaching',
       noNotes: 'No hay notas de coaching para esta fase.',
       tagline: 'Develop. Perform. Succeed.',
+      moveSingular: 'movimiento',
+      movePlural: 'movimientos',
+      phaseSingular: 'fase',
+      phasePlural: 'fases',
+      summaryLead: 'Resumen del tablero',
+      moveReport: 'Informe de movimientos',
     },
     fr: {
       boardTitle: 'Rapport du tableau tactique',
@@ -53,10 +74,16 @@ window.AnimatorBoardPdf = (() => {
       coachingNotes: 'Notes de coaching',
       noNotes: 'Aucune note de coaching pour cette phase.',
       tagline: 'Develop. Perform. Succeed.',
+      moveSingular: 'mouvement',
+      movePlural: 'mouvements',
+      phaseSingular: 'phase',
+      phasePlural: 'phases',
+      summaryLead: 'Resume du tableau',
+      moveReport: 'Rapport des mouvements',
     },
   };
 
-  let cachedLogoDataUrl = '';
+  let cachedLogoAsset = null;
 
   function resolveLanguage(code) {
     if (reportDict[code]) return code;
@@ -103,6 +130,104 @@ window.AnimatorBoardPdf = (() => {
       .filter(Boolean);
   }
 
+  function pluralLabel(language, count, singularKey, pluralKey) {
+    return count === 1
+      ? tr(language, singularKey, singularKey)
+      : tr(language, pluralKey, pluralKey);
+  }
+
+  function buildSummaryLine(language, moveCount, phaseCount) {
+    return `${moveCount} ${pluralLabel(language, moveCount, 'moveSingular', 'movePlural')}${MID_DOT}${phaseCount} ${pluralLabel(language, phaseCount, 'phaseSingular', 'phasePlural')}`;
+  }
+
+  function buildGeneratedLine(language, dateLabel) {
+    return `${tr(language, 'generated')} ${dateLabel}`;
+  }
+
+  function parseSvgDimension(value, fallback) {
+    const numeric = parseFloat(String(value || '').replace(/[^\d.]/g, ''));
+    return Number.isFinite(numeric) && numeric > 0 ? numeric : fallback;
+  }
+
+  function parseSvgBox(svgText) {
+    const viewBoxMatch = svgText.match(/viewBox\s*=\s*"([^"]+)"/i);
+    if (viewBoxMatch) {
+      const parts = viewBoxMatch[1].trim().split(/\s+/).map(Number);
+      if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) {
+        return { width: parts[2], height: parts[3] };
+      }
+    }
+    const widthMatch = svgText.match(/\swidth\s*=\s*"([^"]+)"/i);
+    const heightMatch = svgText.match(/\sheight\s*=\s*"([^"]+)"/i);
+    const width = parseSvgDimension(widthMatch?.[1], 616);
+    const height = parseSvgDimension(heightMatch?.[1], 348);
+    return { width, height };
+  }
+
+  function extractEmbeddedImageDataUrl(svgText) {
+    const match = svgText.match(/<image[^>]+href="([^"]+)"/i) || svgText.match(/<image[^>]+xlink:href="([^"]+)"/i);
+    if (!match) return '';
+    const candidate = String(match[1] || '').trim();
+    return /^data:image\//i.test(candidate) ? candidate : '';
+  }
+
+  async function rasterizeSvg(svgText, width, height, scale = 4) {
+    const blob = new Blob([svgText], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    try {
+      return await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(width * scale));
+          canvas.height = Math.max(1, Math.round(height * scale));
+          const context = canvas.getContext('2d');
+          context.imageSmoothingEnabled = true;
+          context.imageSmoothingQuality = 'high';
+          context.clearRect(0, 0, canvas.width, canvas.height);
+          context.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => reject(new Error('Failed to rasterize logo'));
+        img.src = url;
+      });
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  async function loadLogoAsset() {
+    if (cachedLogoAsset) return cachedLogoAsset;
+    const response = await fetch(LOGO_URL, { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`Failed to load logo asset (${response.status})`);
+    }
+    const svgText = await response.text();
+    const { width, height } = parseSvgBox(svgText);
+    const embeddedDataUrl = extractEmbeddedImageDataUrl(svgText);
+    const dataUrl = embeddedDataUrl || await rasterizeSvg(svgText, width, height, 4);
+    cachedLogoAsset = { dataUrl, width, height };
+    return cachedLogoAsset;
+  }
+
+  function normalizeSnapshotImage(snapshot) {
+    if (typeof snapshot === 'string') {
+      return {
+        dataUrl: snapshot,
+        width: 2200,
+        height: 1320,
+      };
+    }
+    if (snapshot && typeof snapshot === 'object' && typeof snapshot.dataUrl === 'string') {
+      return {
+        dataUrl: snapshot.dataUrl,
+        width: Math.max(1, Number(snapshot.width) || 2200),
+        height: Math.max(1, Number(snapshot.height) || 1320),
+      };
+    }
+    throw new Error('Invalid snapshot payload for PDF export.');
+  }
+
   function buildNotes(project, phase) {
     const meta = phase?.metadata || project?.metadata || {};
     return [
@@ -143,36 +268,6 @@ window.AnimatorBoardPdf = (() => {
     return moves;
   }
 
-  async function loadLogoDataUrl() {
-    if (cachedLogoDataUrl) return cachedLogoDataUrl;
-    const response = await fetch(LOGO_URL, { cache: 'no-store' });
-    if (!response.ok) {
-      throw new Error(`Failed to load logo asset (${response.status})`);
-    }
-    const svgText = await response.text();
-    const blob = new Blob([svgText], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
-    try {
-      const dataUrl = await new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = Math.max(1, img.naturalWidth || 600);
-          canvas.height = Math.max(1, img.naturalHeight || 600);
-          const context = canvas.getContext('2d');
-          context.drawImage(img, 0, 0, canvas.width, canvas.height);
-          resolve(canvas.toDataURL('image/png'));
-        };
-        img.onerror = () => reject(new Error('Failed to rasterize logo'));
-        img.src = url;
-      });
-      cachedLogoDataUrl = dataUrl;
-      return dataUrl;
-    } finally {
-      URL.revokeObjectURL(url);
-    }
-  }
-
   function clearPreviewRoot() {
     const existing = document.getElementById(PREVIEW_ROOT_ID);
     if (existing) existing.remove();
@@ -204,6 +299,31 @@ window.AnimatorBoardPdf = (() => {
     return node;
   }
 
+  function buildPreviewImageCard(image, altText, options = {}) {
+    const card = style(document.createElement('div'), {
+      border: options.border || `1px solid rgba(6, 17, 13, 0.12)`,
+      borderRadius: options.radius || '22px',
+      overflow: 'hidden',
+      background: options.background || palette.paperSoft,
+      boxShadow: options.shadow || '0 18px 34px rgba(6, 17, 13, 0.10)',
+      padding: options.padding || '10px',
+    });
+    const img = document.createElement('img');
+    img.src = image.dataUrl;
+    img.alt = altText;
+    style(img, {
+      display: 'block',
+      width: '100%',
+      height: 'auto',
+      maxHeight: options.maxHeight || 'none',
+      objectFit: 'contain',
+      borderRadius: options.imageRadius || '16px',
+      background: options.imageBackground || '#dfe9df',
+    });
+    card.appendChild(img);
+    return card;
+  }
+
   function buildPreviewPages(report) {
     const root = createPreviewRoot();
     report.pages.forEach((page, pageIndex) => {
@@ -214,7 +334,7 @@ window.AnimatorBoardPdf = (() => {
         color: palette.ink,
         marginBottom: '20px',
         boxSizing: 'border-box',
-        padding: '48px 46px 56px',
+        padding: '36px 42px 52px',
         position: 'relative',
         fontFamily: '"Barlow", Arial, sans-serif',
         display: 'flex',
@@ -227,57 +347,103 @@ window.AnimatorBoardPdf = (() => {
 
       if (page.kind === 'cover') {
         const hero = style(document.createElement('div'), {
-          minHeight: '980px',
+          minHeight: '1018px',
           borderRadius: '28px',
-          background: `linear-gradient(150deg, ${palette.ink} 0%, ${palette.panel} 45%, ${palette.emerald} 100%)`,
+          background: `linear-gradient(155deg, ${palette.ink} 0%, ${palette.panel} 44%, ${palette.emerald} 100%)`,
           color: palette.white,
-          padding: '44px',
+          padding: '34px 34px 30px',
           position: 'relative',
           overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
+          display: 'grid',
+          gridTemplateRows: 'auto 1fr auto auto',
+          gap: '24px',
         });
+        const glowA = style(document.createElement('div'), {
+          position: 'absolute',
+          width: '380px',
+          height: '380px',
+          right: '-80px',
+          top: '-80px',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(245,215,123,0.22) 0%, rgba(245,215,123,0.04) 55%, rgba(245,215,123,0) 75%)',
+          pointerEvents: 'none',
+        });
+        const glowB = style(document.createElement('div'), {
+          position: 'absolute',
+          width: '320px',
+          height: '320px',
+          left: '-110px',
+          bottom: '240px',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(31,107,67,0.30) 0%, rgba(31,107,67,0.08) 52%, rgba(31,107,67,0) 72%)',
+          pointerEvents: 'none',
+        });
+        hero.append(glowA, glowB);
+
         const header = style(document.createElement('div'), {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'flex-start',
-          gap: '24px',
+          gap: '22px',
+          position: 'relative',
+          zIndex: '1',
         });
         const brand = style(document.createElement('div'), {
           display: 'flex',
-          gap: '18px',
+          gap: '16px',
           alignItems: 'center',
         });
         const logo = document.createElement('img');
-        logo.src = report.logoDataUrl;
+        logo.src = report.logo.dataUrl;
         logo.alt = 'RDA';
-        style(logo, { width: '88px', height: '88px', objectFit: 'contain' });
+        style(logo, {
+          width: '148px',
+          height: '84px',
+          objectFit: 'contain',
+          objectPosition: 'left center',
+        });
         const brandCopy = document.createElement('div');
-        brandCopy.innerHTML = `<div style="font-size:12px;letter-spacing:0.28em;text-transform:uppercase;color:${palette.goldSoft};">RDA</div><div style="font-size:20px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">${tr(report.language, 'boardTitle')}</div>`;
+        brandCopy.innerHTML = `<div style="font-size:11px;letter-spacing:0.30em;text-transform:uppercase;color:${palette.goldSoft};">RDA</div><div style="font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:28px;line-height:0.92;letter-spacing:0.04em;text-transform:uppercase;">${tr(report.language, 'boardTitle')}</div>`;
         brand.append(logo, brandCopy);
+
         const date = style(document.createElement('div'), {
-          fontSize: '14px',
-          letterSpacing: '0.12em',
+          fontSize: '13px',
+          letterSpacing: '0.14em',
           textTransform: 'uppercase',
           color: palette.goldSoft,
+          textAlign: 'right',
+          lineHeight: '1.45',
+          maxWidth: '210px',
         });
-        date.textContent = `${tr(report.language, 'generated')} · ${report.dateLabel}`;
+        date.textContent = buildGeneratedLine(report.language, report.dateLabel);
         header.append(brand, date);
 
         const titleWrap = style(document.createElement('div'), {
           display: 'flex',
           flexDirection: 'column',
-          gap: '14px',
+          justifyContent: 'center',
+          gap: '16px',
+          alignSelf: 'center',
+          position: 'relative',
+          zIndex: '1',
+          padding: '22px 0 10px',
         });
+        const kicker = style(document.createElement('div'), {
+          fontSize: '12px',
+          letterSpacing: '0.28em',
+          textTransform: 'uppercase',
+          color: palette.goldSoft,
+          fontWeight: '700',
+        });
+        kicker.textContent = tr(report.language, 'summaryLead');
         const title = style(document.createElement('h1'), {
           margin: '0',
-          fontFamily: '"Barlow Condensed", "Barlow", sans-serif',
-          fontSize: '72px',
-          lineHeight: '0.94',
-          letterSpacing: '0.02em',
+          fontFamily: '"Barlow Condensed","Arial Narrow",sans-serif',
+          fontSize: '86px',
+          lineHeight: '0.90',
+          letterSpacing: '0.03em',
           textTransform: 'uppercase',
-          maxWidth: '520px',
+          maxWidth: '600px',
         });
         title.textContent = report.name;
         const tagline = style(document.createElement('div'), {
@@ -287,19 +453,52 @@ window.AnimatorBoardPdf = (() => {
           color: palette.goldSoft,
         });
         tagline.textContent = tr(report.language, 'tagline');
-        titleWrap.append(title, tagline);
+        const summaryPill = style(document.createElement('div'), {
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '10px',
+          width: 'fit-content',
+          padding: '11px 15px',
+          borderRadius: '999px',
+          border: '1px solid rgba(245,215,123,0.34)',
+          background: 'rgba(6,17,13,0.24)',
+          color: palette.white,
+          fontFamily: '"Barlow Condensed","Arial Narrow",sans-serif',
+          fontSize: '26px',
+          letterSpacing: '0.05em',
+          textTransform: 'uppercase',
+        });
+        summaryPill.textContent = report.summaryLine;
+        titleWrap.append(kicker, title, tagline, summaryPill);
+
+        if (report.coverImage) {
+          const coverImageCard = buildPreviewImageCard(report.coverImage, report.name, {
+            border: '1px solid rgba(245,215,123,0.28)',
+            radius: '24px',
+            background: 'rgba(245,240,223,0.10)',
+            shadow: '0 18px 40px rgba(0,0,0,0.24)',
+            padding: '10px',
+            imageRadius: '18px',
+            imageBackground: '#d5e6d4',
+          });
+          coverImageCard.dataset.coverHero = 'true';
+          hero.append(header, titleWrap, coverImageCard);
+        } else {
+          hero.append(header, titleWrap);
+        }
 
         const footerBand = style(document.createElement('div'), {
           display: 'grid',
           gridTemplateColumns: '1fr auto',
-          gap: '24px',
+          gap: '20px',
           alignItems: 'end',
-          paddingTop: '24px',
-          borderTop: `1px solid rgba(245, 215, 123, 0.35)`,
+          paddingTop: '18px',
+          borderTop: '1px solid rgba(245,215,123,0.24)',
+          position: 'relative',
+          zIndex: '1',
         });
-        footerBand.innerHTML = `<div style="font-size:16px;line-height:1.6;color:rgba(255,255,255,0.88);max-width:420px;">${tr(report.language, 'boardTitle')}</div><div style="font-size:14px;letter-spacing:0.16em;text-transform:uppercase;color:${palette.goldSoft};">${report.moveCount} ${boardTr('toolbar.addMove', report.language, 'moves').toLowerCase()}</div>`;
-
-        hero.append(header, titleWrap, footerBand);
+        footerBand.innerHTML = `<div style="font-size:15px;line-height:1.55;color:rgba(255,255,255,0.88);max-width:430px;">${tr(report.language, 'moveReport')}</div><div style="font-size:13px;letter-spacing:0.18em;text-transform:uppercase;color:${palette.goldSoft};">${report.summaryLine}</div>`;
+        hero.appendChild(footerBand);
         pageEl.appendChild(hero);
       } else {
         const top = style(document.createElement('div'), {
@@ -309,46 +508,40 @@ window.AnimatorBoardPdf = (() => {
           alignItems: 'flex-start',
         });
         const left = document.createElement('div');
-        left.innerHTML = `<div style="font-size:12px;letter-spacing:0.22em;text-transform:uppercase;color:${palette.emerald};font-weight:700;">RDA</div><h2 style="margin:6px 0 0;font-family:'Barlow Condensed','Barlow',sans-serif;font-size:40px;line-height:1;letter-spacing:0.03em;text-transform:uppercase;color:${palette.ink};">${page.title}</h2>`;
+        left.innerHTML = `<div style="font-size:11px;letter-spacing:0.24em;text-transform:uppercase;color:${palette.emerald};font-weight:700;">RDA</div><h2 style="margin:6px 0 0;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-size:44px;line-height:0.95;letter-spacing:0.04em;text-transform:uppercase;color:${palette.ink};">${page.title}</h2>`;
         const right = style(document.createElement('div'), {
           textAlign: 'right',
-          fontSize: '13px',
+          fontSize: '12px',
           letterSpacing: '0.12em',
           textTransform: 'uppercase',
           color: palette.muted,
           paddingTop: '6px',
+          maxWidth: '190px',
+          lineHeight: '1.45',
         });
-        right.textContent = `${tr(report.language, 'generated')} · ${report.dateLabel}`;
+        right.textContent = buildGeneratedLine(report.language, report.dateLabel);
         top.append(left, right);
 
-        const imageCard = style(document.createElement('div'), {
-          border: `1px solid rgba(6, 17, 13, 0.12)`,
-          borderRadius: '22px',
-          overflow: 'hidden',
-          background: '#dde8df',
-          boxShadow: '0 14px 30px rgba(6, 17, 13, 0.08)',
+        const imageCard = buildPreviewImageCard(page.image, page.title, {
+          border: '1px solid rgba(6, 17, 13, 0.14)',
+          radius: '22px',
+          background: '#eef3ea',
+          shadow: '0 16px 34px rgba(6, 17, 13, 0.10)',
+          padding: '10px',
+          imageRadius: '16px',
+          imageBackground: '#dfe9df',
         });
-        const image = document.createElement('img');
-        image.src = page.image;
-        image.alt = page.title;
-        style(image, {
-          display: 'block',
-          width: '100%',
-          height: '390px',
-          objectFit: 'cover',
-          background: '#0b1712',
-        });
-        imageCard.appendChild(image);
+        imageCard.dataset.contentImage = 'true';
 
         const notesWrap = style(document.createElement('div'), {
           display: 'flex',
           flexDirection: 'column',
           gap: '10px',
-          padding: '22px 24px 0',
+          padding: '6px 4px 0',
         });
         const notesTitle = style(document.createElement('div'), {
-          fontSize: '12px',
-          letterSpacing: '0.2em',
+          fontSize: '11px',
+          letterSpacing: '0.24em',
           textTransform: 'uppercase',
           color: palette.emerald,
           fontWeight: '700',
@@ -358,10 +551,10 @@ window.AnimatorBoardPdf = (() => {
         if (page.notes.length) {
           page.notes.forEach((note) => {
             const block = style(document.createElement('div'), {
-              borderTop: `1px solid rgba(6, 17, 13, 0.08)`,
+              borderTop: '1px solid rgba(6, 17, 13, 0.08)',
               paddingTop: '12px',
             });
-            block.innerHTML = `<div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:${palette.gold};font-weight:700;margin-bottom:6px;">${note.label}</div><div style="font-size:15px;line-height:1.55;color:${palette.ink};white-space:pre-wrap;">${note.value}</div>`;
+            block.innerHTML = `<div style="font-size:10px;letter-spacing:0.20em;text-transform:uppercase;color:${palette.gold};font-weight:700;margin-bottom:6px;">${note.label}</div><div style="font-size:15px;line-height:1.58;color:${palette.ink};white-space:pre-wrap;">${note.value}</div>`;
             notesWrap.appendChild(block);
           });
         } else {
@@ -381,11 +574,11 @@ window.AnimatorBoardPdf = (() => {
       const footer = style(document.createElement('div'), {
         marginTop: 'auto',
         paddingTop: '18px',
-        borderTop: `1px solid rgba(6, 17, 13, 0.12)`,
+        borderTop: '1px solid rgba(6, 17, 13, 0.12)',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        fontSize: '12px',
+        fontSize: '11px',
         letterSpacing: '0.18em',
         textTransform: 'uppercase',
         color: palette.muted,
@@ -405,6 +598,27 @@ window.AnimatorBoardPdf = (() => {
     };
   }
 
+  function drawImageCard(doc, image, x, y, maxWidth, maxHeight, options = {}) {
+    const padding = Number(options.padding) || 2.2;
+    const radius = Number(options.radius) || 4;
+    const borderColor = options.borderColor || [210, 197, 156];
+    const fillColor = options.fillColor || [250, 247, 237];
+    const usable = mmFit(image.width, image.height, Math.max(8, maxWidth - (padding * 2)), Math.max(8, maxHeight - (padding * 2)));
+    const cardWidth = usable.width + (padding * 2);
+    const cardHeight = usable.height + (padding * 2);
+    doc.setFillColor(...fillColor);
+    doc.setDrawColor(...borderColor);
+    doc.setLineWidth(0.35);
+    doc.roundedRect(x, y, cardWidth, cardHeight, radius, radius, 'FD');
+    doc.addImage(image.dataUrl, 'PNG', x + padding, y + padding, usable.width, usable.height, undefined, 'FAST');
+    return {
+      width: cardWidth,
+      height: cardHeight,
+      innerWidth: usable.width,
+      innerHeight: usable.height,
+    };
+  }
+
   function addFooter(doc, language, pageNumber, pageCount, pageWidth, pageHeight) {
     doc.setDrawColor(210, 197, 156);
     doc.setLineWidth(0.3);
@@ -420,7 +634,7 @@ window.AnimatorBoardPdf = (() => {
   }
 
   function renderNotesToPdf(doc, notes, language, startY, pageWidth, pageHeight, createContinuationPage, titleText) {
-    const maxWidth = pageWidth - 28;
+    const maxWidth = pageWidth - 32;
     const bottomLimit = pageHeight - 20;
     let y = startY;
     const safeNotes = Array.isArray(notes) ? notes : [];
@@ -434,21 +648,24 @@ window.AnimatorBoardPdf = (() => {
     safeNotes.forEach((note) => {
       const labelLines = doc.splitTextToSize(String(note.label || ''), maxWidth);
       const valueLines = doc.splitTextToSize(String(note.value || ''), maxWidth);
-      const blockHeight = (labelLines.length * 4.4) + (valueLines.length * 5) + 8;
+      const blockHeight = (labelLines.length * 4.3) + (valueLines.length * 5) + 8;
       if (y + blockHeight > bottomLimit) {
         createContinuationPage(titleText);
-        y = 28;
+        y = 32;
       }
+      doc.setDrawColor(228, 221, 196);
+      doc.setLineWidth(0.25);
+      doc.line(16, y - 2.5, pageWidth - 16, y - 2.5);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8.8);
       doc.setTextColor(227, 178, 60);
-      doc.text(labelLines, 16, y);
-      y += labelLines.length * 4.4 + 1.6;
+      doc.text(labelLines, 16, y + 2);
+      y += (labelLines.length * 4.3) + 2.6;
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10.4);
+      doc.setFontSize(10.3);
       doc.setTextColor(18, 24, 21);
       doc.text(valueLines, 16, y);
-      y += valueLines.length * 5 + 5;
+      y += (valueLines.length * 5) + 5.5;
     });
     return y;
   }
@@ -457,49 +674,148 @@ window.AnimatorBoardPdf = (() => {
     doc.setFillColor(6, 17, 13);
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
     doc.setFillColor(15, 43, 29);
-    doc.roundedRect(12, 12, pageWidth - 24, pageHeight - 24, 10, 10, 'F');
-    if (report.logoDataUrl) {
-      doc.addImage(report.logoDataUrl, 'PNG', 16, 18, 26, 26);
+    doc.roundedRect(10, 10, pageWidth - 20, pageHeight - 20, 12, 12, 'F');
+
+    doc.setFillColor(18, 53, 36);
+    doc.circle(pageWidth - 18, 18, 28, 'F');
+    doc.setFillColor(31, 107, 67);
+    doc.circle(20, pageHeight - 70, 34, 'F');
+
+    const logoWidth = 34;
+    const logoHeight = (logoWidth / report.logo.width) * report.logo.height;
+    if (report.logo.dataUrl) {
+      doc.addImage(report.logo.dataUrl, 'PNG', 16, 16, logoWidth, logoHeight, undefined, 'FAST');
     }
+
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(15);
-    doc.setTextColor(245, 215, 123);
-    doc.text('RDA', 48, 26);
     doc.setFontSize(11);
-    doc.setTextColor(255, 255, 255);
-    doc.text(tr(report.language, 'boardTitle'), 48, 33);
+    doc.setTextColor(245, 215, 123);
+    doc.text('RDA', 54, 21);
+    doc.setFontSize(19);
+    doc.text(tr(report.language, 'boardTitle'), 54, 29);
+
+    const titleLines = doc.splitTextToSize(report.name, pageWidth - 34);
+    let titleY = report.coverImage ? 68 : 88;
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(28);
     doc.setTextColor(255, 255, 255);
-    doc.text(report.name, 16, 70, { maxWidth: pageWidth - 32 });
-    doc.setFontSize(14);
+    doc.text(titleLines, 16, titleY);
+    titleY += (titleLines.length * 10) + 4;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
     doc.setTextColor(245, 215, 123);
-    doc.text(tr(report.language, 'tagline'), 16, 84);
+    doc.text(tr(report.language, 'tagline'), 16, titleY);
+    titleY += 10;
+
+    doc.setFillColor(8, 23, 17);
     doc.setDrawColor(245, 215, 123);
-    doc.setLineWidth(0.5);
-    doc.line(16, 95, pageWidth - 16, 95);
-    doc.setFontSize(11);
+    doc.setLineWidth(0.4);
+    doc.roundedRect(16, titleY, 74, 12, 6, 6, 'FD');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(255, 255, 255);
+    doc.text(report.summaryLine, 20, titleY + 7.8);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10.5);
     doc.setTextColor(220, 227, 223);
-    doc.text(`${tr(report.language, 'generated')} · ${report.dateLabel}`, 16, 106);
-    doc.setFontSize(10);
-    doc.setTextColor(200, 210, 205);
-    doc.text(`${report.moveCount} total moves · ${report.phaseCount} phases`, 16, 116);
+    doc.text(buildGeneratedLine(report.language, report.dateLabel), 16, titleY + 21);
+
+    if (report.coverImage) {
+      const maxWidth = pageWidth - 32;
+      const maxHeight = 102;
+      const imageY = pageHeight - 28 - maxHeight;
+      drawImageCard(doc, report.coverImage, 16, imageY, maxWidth, maxHeight, {
+        padding: 2.2,
+        radius: 5,
+        borderColor: [245, 215, 123],
+        fillColor: [18, 53, 36],
+      });
+    }
+  }
+
+  function renderMovePage(doc, page, report, pageWidth, pageHeight) {
+    doc.addPage('a4', 'portrait');
+    doc.setFillColor(245, 240, 223);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(31, 107, 67);
+    doc.text('RDA', 16, 15);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(6, 17, 13);
+    doc.text(page.title, 16, 26);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(104, 112, 119);
+    doc.text(buildGeneratedLine(report.language, report.dateLabel), pageWidth - 16, 15, { align: 'right' });
+
+    const imageCard = drawImageCard(doc, page.image, 16, 32, pageWidth - 32, 118, {
+      padding: 2.1,
+      radius: 5,
+      borderColor: [220, 215, 195],
+      fillColor: [250, 247, 237],
+    });
+
+    const notesHeadingY = 32 + imageCard.height + 11;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(31, 107, 67);
+    doc.text(tr(report.language, 'coachingNotes'), 16, notesHeadingY);
+
+    const createContinuationPage = (titleText) => {
+      doc.addPage('a4', 'portrait');
+      doc.setFillColor(245, 240, 223);
+      doc.rect(0, 0, pageWidth, pageHeight, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(31, 107, 67);
+      doc.text('RDA', 16, 15);
+      doc.setFontSize(17);
+      doc.setTextColor(6, 17, 13);
+      doc.text(titleText, 16, 25);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.2);
+      doc.setTextColor(104, 112, 119);
+      doc.text(tr(report.language, 'coachingNotes'), pageWidth - 16, 15, { align: 'right' });
+    };
+
+    renderNotesToPdf(
+      doc,
+      page.notes,
+      report.language,
+      notesHeadingY + 10,
+      pageWidth,
+      pageHeight,
+      createContinuationPage,
+      page.title
+    );
   }
 
   async function buildReport(project, language, captureStepImage) {
     const safeLanguage = resolveLanguage(language);
     const dateLabel = formatDate(safeLanguage);
-    const logoDataUrl = await loadLogoDataUrl();
+    const logo = await loadLogoAsset();
     const moves = extractMoves(project);
-    const pages = [{
-      kind: 'cover',
-      title: project.name || 'Play',
-    }];
+    const pages = [];
+    let coverImage = null;
+
     for (const move of moves) {
-      const image = await captureStepImage(move.step, { width: 2200, height: 1320, dpr: 2 });
-      const title = `${tr(safeLanguage, 'phase')} ${move.phaseIndex + 1} · ${tr(safeLanguage, 'move')} ${move.stepIndex + 1}`;
+      const image = normalizeSnapshotImage(await captureStepImage(move.step, {
+        width: 2200,
+        height: 1320,
+        dpr: 2,
+        rotateLandscape: true,
+      }));
+      if (!coverImage) coverImage = image;
       pages.push({
         kind: 'move',
-        title,
+        title: `${tr(safeLanguage, 'phase')} ${move.phaseIndex + 1}${MID_DOT}${tr(safeLanguage, 'move')} ${move.stepIndex + 1}`,
         image,
         notes: move.notes.map((note) => ({
           label: boardTr(note.key, safeLanguage, note.key),
@@ -507,6 +823,13 @@ window.AnimatorBoardPdf = (() => {
         })),
       });
     }
+
+    const summaryLine = buildSummaryLine(safeLanguage, moves.length, Array.isArray(project?.phases) ? project.phases.length : 0);
+    pages.unshift({
+      kind: 'cover',
+      title: project.name || 'Play',
+    });
+
     return {
       name: project.name || 'Play',
       fileName: sanitizeFileName(project.name || 'tactical-board-report'),
@@ -514,7 +837,9 @@ window.AnimatorBoardPdf = (() => {
       phaseCount: Array.isArray(project?.phases) ? project.phases.length : 0,
       language: safeLanguage,
       dateLabel,
-      logoDataUrl,
+      logo,
+      coverImage,
+      summaryLine,
       pages,
     };
   }
@@ -526,6 +851,7 @@ window.AnimatorBoardPdf = (() => {
     if (!window.jspdf?.jsPDF) {
       throw new Error('jsPDF is unavailable.');
     }
+
     const report = await buildReport(project, language, captureStepImage);
     if (fileName) report.fileName = sanitizeFileName(fileName);
     buildPreviewPages(report);
@@ -534,58 +860,10 @@ window.AnimatorBoardPdf = (() => {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
+
     renderCoverPage(doc, report, pageWidth, pageHeight);
     for (let i = 1; i < report.pages.length; i += 1) {
-      const page = report.pages[i];
-      doc.addPage('a4', 'portrait');
-      doc.setFillColor(245, 240, 223);
-      doc.rect(0, 0, pageWidth, pageHeight, 'F');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(31, 107, 67);
-      doc.text('RDA', 16, 16);
-      doc.setFontSize(23);
-      doc.setTextColor(6, 17, 13);
-      doc.text(page.title, 16, 27);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8.6);
-      doc.setTextColor(104, 112, 119);
-      doc.text(`${tr(report.language, 'generated')} · ${report.dateLabel}`, pageWidth - 16, 16, { align: 'right' });
-
-      const fit = mmFit(2200, 1320, pageWidth - 32, 108);
-      doc.addImage(page.image, 'PNG', 16, 34, fit.width, fit.height, undefined, 'FAST');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(31, 107, 67);
-      doc.text(tr(report.language, 'coachingNotes'), 16, 34 + fit.height + 12);
-
-      const createContinuationPage = (titleText) => {
-        doc.addPage('a4', 'portrait');
-        doc.setFillColor(245, 240, 223);
-        doc.rect(0, 0, pageWidth, pageHeight, 'F');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.setTextColor(31, 107, 67);
-        doc.text('RDA', 16, 16);
-        doc.setFontSize(18);
-        doc.setTextColor(6, 17, 13);
-        doc.text(titleText, 16, 26);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8.2);
-        doc.setTextColor(104, 112, 119);
-        doc.text(`${tr(report.language, 'coachingNotes')}`, pageWidth - 16, 16, { align: 'right' });
-      };
-
-      renderNotesToPdf(
-        doc,
-        page.notes,
-        report.language,
-        34 + fit.height + 20,
-        pageWidth,
-        pageHeight,
-        createContinuationPage,
-        page.title
-      );
+      renderMovePage(doc, report.pages[i], report, pageWidth, pageHeight);
     }
 
     const pageCount = doc.getNumberOfPages();
@@ -599,6 +877,7 @@ window.AnimatorBoardPdf = (() => {
     if (window.__lastPdfReport?.blobUrl) {
       URL.revokeObjectURL(window.__lastPdfReport.blobUrl);
     }
+
     const downloadName = `${report.fileName}.pdf`;
     const anchor = document.createElement('a');
     anchor.href = blobUrl;
@@ -612,6 +891,7 @@ window.AnimatorBoardPdf = (() => {
       name: report.name,
       language: report.language,
       dateLabel: report.dateLabel,
+      summaryLine: report.summaryLine,
       pageCount,
       pages: report.pages.map((page, index) => ({
         kind: page.kind,
@@ -629,6 +909,7 @@ window.AnimatorBoardPdf = (() => {
       pageCount,
       fileName: report.fileName,
       blobSize: blob.size,
+      summaryLine: report.summaryLine,
     };
   }
 

@@ -12696,6 +12696,7 @@ async function capturePdfStepSnapshot(step, options = {}) {
   const width = Math.max(1200, Number(options.width) || 2200);
   const height = Math.max(700, Number(options.height) || 1320);
   const dpr = Math.max(1, Number(options.dpr) || 2);
+  const rotateLandscape = options.rotateLandscape !== false;
   const offscreen = document.createElement('canvas');
   const offscreenCtx = offscreen.getContext('2d');
   const savedStep = liveBoardToStepState();
@@ -12788,7 +12789,41 @@ async function capturePdfStepSnapshot(step, options = {}) {
     radialMenu = null;
     invalidateStaticFieldCache();
     withRenderContext(offscreenCtx, () => render());
-    return offscreen.toDataURL('image/png');
+    const pitchStart = toC(0, F.YMIN);
+    const pitchEnd = toC(F.W, F.YMAX);
+    const cropLeft = Math.max(0, Math.floor(Math.min(pitchStart.x, pitchEnd.x) * renderDpr));
+    const cropTop = Math.max(0, Math.floor(Math.min(pitchStart.y, pitchEnd.y) * renderDpr));
+    const cropRight = Math.min(offscreen.width, Math.ceil(Math.max(pitchStart.x, pitchEnd.x) * renderDpr));
+    const cropBottom = Math.min(offscreen.height, Math.ceil(Math.max(pitchStart.y, pitchEnd.y) * renderDpr));
+    const cropWidth = Math.max(1, cropRight - cropLeft);
+    const cropHeight = Math.max(1, cropBottom - cropTop);
+    const cropped = document.createElement('canvas');
+    cropped.width = cropWidth;
+    cropped.height = cropHeight;
+    const croppedCtx = cropped.getContext('2d');
+    croppedCtx.drawImage(offscreen, cropLeft, cropTop, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+
+    let finalCanvas = cropped;
+    if (rotateLandscape && cropHeight > cropWidth) {
+      const rotated = document.createElement('canvas');
+      rotated.width = cropHeight;
+      rotated.height = cropWidth;
+      const rotatedCtx = rotated.getContext('2d');
+      rotatedCtx.translate(rotated.width / 2, rotated.height / 2);
+      rotatedCtx.rotate(Math.PI / 2);
+      rotatedCtx.drawImage(cropped, -cropWidth / 2, -cropHeight / 2);
+      finalCanvas = rotated;
+    }
+
+    return {
+      dataUrl: finalCanvas.toDataURL('image/png'),
+      width: finalCanvas.width,
+      height: finalCanvas.height,
+      crop: {
+        width: cropWidth,
+        height: cropHeight,
+      },
+    };
   } finally {
     renderDpr = savedState.renderDpr;
     cvW = savedState.cvW;
