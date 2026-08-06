@@ -9783,6 +9783,22 @@ let sequenceDockVisible = false;
 let sequenceDockSide = 'right';
 let pendingCanonicalPhaseStart = false;
 let canonicalPlaybackBoundaryIndex = null;
+function clampDockWidth(value, min, max) {
+  return Math.round(clamp(value, min, max));
+}
+
+function sequenceDockWidthForMode(mode, viewportWidth, viewportHeight) {
+  const width = Number(viewportWidth) || window.innerWidth || SEQUENCE_DOCK_FULL_WIDTH;
+  const height = Number(viewportHeight) || window.innerHeight || 900;
+  const shortHeightBias = height <= 700 ? -10 : (height <= 780 ? -6 : 0);
+  if (mode === 'collapsed') {
+    return clampDockWidth((width * 0.114) + (shortHeightBias * 0.4), 150, 176);
+  }
+  if (mode === 'compact') {
+    return clampDockWidth((width * 0.13) + (shortHeightBias * 0.55), 172, 214);
+  }
+  return clampDockWidth((width * 0.18) + shortHeightBias, 236, 320);
+}
 // Runtime-only playback intent for the shared engine. Never persisted (not part of
 // GamePlan/save/export/import/history) - reset to 'idle' whenever playback fully stops.
 let canonicalPlaybackMode = 'idle'; // 'idle' | 'preview' | 'phase' | 'from-here'
@@ -9826,11 +9842,11 @@ function getRenderedPitchViewportRect() {
   };
 }
 
-function getSequenceDockPlacement(rightSpace, leftSpace) {
+function getSequenceDockPlacement(rightSpace, leftSpace, viewportWidth, viewportHeight) {
   const widths = [
-    { mode: 'full', width: SEQUENCE_DOCK_FULL_WIDTH },
-    { mode: 'compact', width: SEQUENCE_DOCK_COMPACT_WIDTH },
-    { mode: 'collapsed', width: SEQUENCE_DOCK_COLLAPSED_WIDTH },
+    { mode: 'full', width: sequenceDockWidthForMode('full', viewportWidth, viewportHeight) },
+    { mode: 'compact', width: sequenceDockWidthForMode('compact', viewportWidth, viewportHeight) },
+    { mode: 'collapsed', width: sequenceDockWidthForMode('collapsed', viewportWidth, viewportHeight) },
   ];
   for (const { mode, width } of widths) {
     if (rightSpace >= width + SEQUENCE_DOCK_GAP) return { mode, side: 'right', width };
@@ -9965,7 +9981,7 @@ function positionSequenceControlDock() {
   );
   const rightSpace = viewportRight - pitchRect.right;
   const leftSpace = pitchRect.left - safeLeftBoundary;
-  const placement = getSequenceDockPlacement(rightSpace, leftSpace);
+  const placement = getSequenceDockPlacement(rightSpace, leftSpace, viewportWidth, viewportHeight);
   if (!placement) {
     setSequenceDockVisibility(false);
     return;
