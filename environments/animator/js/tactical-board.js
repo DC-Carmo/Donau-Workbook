@@ -1830,8 +1830,31 @@ function effectiveBallCarryState(players = S.players, ball = S.ball, ownerRef = 
   };
 }
 
+function projectPlayersToRunEndpoints(players = S.players, paths = S.paths) {
+  const sourcePlayers = Array.isArray(players) ? players : [];
+  const pathByPlayerId = new Map(
+    (Array.isArray(paths) ? paths : [])
+      .filter(path => Number.isFinite(path?.pid) && Array.isArray(path?.pts) && path.pts.length >= 2)
+      .map(path => [Number(path.pid), path])
+  );
+  return sourcePlayers.map(player => {
+    const path = pathByPlayerId.get(Number(player?.id));
+    if (!path) return { ...player };
+    const end = catmullRom(path.pts, 1.0);
+    return {
+      ...player,
+      x: end.x,
+      y: end.y,
+    };
+  });
+}
+
+function effectiveBallCarryStateForRuntimeStep(players = S.players, paths = S.paths, ball = S.ball, ownerRef = S.ballOwner, attached = S.ballAttached) {
+  return effectiveBallCarryState(projectPlayersToRunEndpoints(players, paths), ball, ownerRef, attached);
+}
+
 function liveBoardToStepState() {
-  const ballCarry = effectiveBallCarryState();
+  const ballCarry = effectiveBallCarryStateForRuntimeStep();
   return normalizeStepState({
     players: S.players.map(({ id, num, team, x, y, colorOverride }) => ({
       id, num, team, x, y,
@@ -2253,21 +2276,34 @@ function createCarryForwardStep(step) {
   );
 
   let ball = source.ball ? cloneData(source.ball) : null;
+  let ballOwner = normalizePlayerRef(source.ballOwner);
+  let ballAttached = !!source.ballAttached;
   const finalPass = source.passes[source.passes.length - 1];
   if (finalPass?.style === 'kick' && finalPass.targetX !== undefined && finalPass.targetY !== undefined) {
     ball = { x: finalPass.targetX, y: finalPass.targetY };
+    ballOwner = null;
+    ballAttached = false;
   } else if (finalPass && finalPass.toT !== undefined && finalPass.toNum !== undefined) {
     const receiver = carriedPlayerByRef.get(playerKey({ team: finalPass.toT, num: finalPass.toNum }));
     if (receiver) {
       ball = { x: receiver.x, y: receiver.y };
+    }
+    ballOwner = null;
+    ballAttached = false;
+  } else if (ballAttached && ballOwner) {
+    const carrier = carriedPlayerByRef.get(playerKey(ballOwner));
+    if (carrier) {
+      ball = attachedBallPositionForPlayer(carrier);
+      ballOwner = playerRef(carrier);
+      ballAttached = true;
     }
   }
 
   return normalizeStepState({
     players,
     ball,
-    ballOwner: null,
-    ballAttached: false,
+    ballOwner,
+    ballAttached,
     paths: [],
     passes: [],
     annotations: cloneData(source.annotations || []),
@@ -7999,34 +8035,38 @@ function handlePointerDown(e) {
   else if (S.tool === 'run') {
     const pl = hitPlayer(fp);
     if (S.activeRunSourceId) {
-      if (pl && pl.id === S.activeRunSourceId) {
+      const sourceId = pl ? pl.id : S.activeRunSourceId;
+      const source = S.players.find(player => player.id === sourceId);
+      if (!source) {
         cancelArmedRun();
       } else {
-        const source = S.players.find(player => player.id === S.activeRunSourceId);
-        if (!source) {
-          cancelArmedRun();
-        } else {
-          clearDragPlayer();
-          clearPassKickState();
-          selectPlayer(source.id, { highlightedIds: [source.id] });
-          S.drawing = {
-            kind: 'run',
-            pid: source.id,
-            pts: [{ x: source.x, y: source.y }, { x: fp.x, y: fp.y }],
-            last: { x: fp.x, y: fp.y },
-          };
-          try { cv.setPointerCapture(e.pointerId); } catch(_) {}
-          setHint('Draw the run path, then release to finish.');
-          refreshInteractionUI();
-        }
+        clearDragPlayer();
+        clearPassKickState();
+        setArmedRunSource(source.id);
+        selectPlayer(source.id, { highlightedIds: [source.id] });
+        S.drawing = {
+          kind: 'run',
+          pid: source.id,
+          pts: [{ x: source.x, y: source.y }],
+          last: { x: source.x, y: source.y },
+        };
+        try { cv.setPointerCapture(e.pointerId); } catch(_) {}
+        setHint('Draw the run path, then release to finish.');
+        refreshInteractionUI();
       }
     } else if (pl) {
       clearDragPlayer();
       clearPassKickState();
       setArmedRunSource(pl.id);
       selectPlayer(pl.id, { highlightedIds: [pl.id] });
-      const teamLabel = pl.team === 'A' ? 'Attack' : 'Defence';
-      setHint(`Run from ${teamLabel} #${pl.num}. Drag on the pitch to draw the path, or tap the same player again to cancel.`);
+      S.drawing = {
+        kind: 'run',
+        pid: pl.id,
+        pts: [{ x: pl.x, y: pl.y }],
+        last: { x: pl.x, y: pl.y },
+      };
+      try { cv.setPointerCapture(e.pointerId); } catch(_) {}
+      setHint('Draw the run path, then release to finish.');
       refreshInteractionUI();
     } else {
       setHint('Click a player first to start their run path.');
@@ -9486,7 +9526,13 @@ function resolveStepBall(step) {
   if (step?.ballAttached && owner) {
     const lookup = buildStepLookup(step?.players || []);
     const ownerPlayer = lookup.get(playerKey(owner));
-    return ownerPlayer ? attachedBallPositionForPlayer(ownerPlayer) : null;
+    if (!ownerPlayer) return null;
+    const path = phasePathForPlayer(step, ownerPlayer);
+    const finalPoint = path?.pts?.length ? catmullRom(path.pts, 1.0) : null;
+    if (finalPoint) {
+      return attachedBallPositionForPlayer({ ...ownerPlayer, x: finalPoint.x, y: finalPoint.y });
+    }
+    return attachedBallPositionForPlayer(ownerPlayer);
   }
   const ball = normalizeBallPosition(step?.ball);
   if (ball) return ball;
@@ -9633,6 +9679,15 @@ function buildSequenceFrame(progress) {
     ball = { ...toBall };
   } else if (fromBall) {
     ball = { ...fromBall };
+  }
+  const carriedFromOwner = from.ballAttached ? normalizePlayerRef(from.ballOwner) : null;
+  const carriedToOwner = to.ballAttached ? normalizePlayerRef(to.ballOwner) : null;
+  const carriedOwner = samePlayerRef(carriedFromOwner, carriedToOwner) ? carriedToOwner : null;
+  if (carriedOwner && !(motionStep?.passes?.length)) {
+    const animatedOwner = players.find(player => samePlayerRef(playerRef(player), carriedOwner)) || null;
+    if (animatedOwner) {
+      ball = attachedBallPositionForPlayer(animatedOwner);
+    }
   }
   return {
     players,
