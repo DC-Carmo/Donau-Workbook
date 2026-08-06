@@ -7558,12 +7558,10 @@ function render() {
       const col = pass.style === 'kick' ? '#f59e0b' : 'rgba(255,255,255,0.75)';
       drawArc(from.x, from.y, to.x, to.y, col, 1, pass.style === 'kick');
     });
-    frame.paths.forEach(path => {
-      if (path.pts.length < 2) return;
-      drawRunPath(path.pts, path.team === 'A' ? '#60a5fa' : '#f87171', 2.8, 1);
-    });
+    // Run-path arrows are hidden during playback/pause for a clean animation - the
+    // moving players and ball ARE the path. Run arrows still show while editing a
+    // move. Decorative annotations below still render.
     renderAnnotations('lines', frame.annotations, frame.players);
-    renderPathOriginMarkers(frame.players, frame.paths);
     frame.players.forEach(pl => drawPlayer(pl.x, pl.y, pl.num, pl.team, false, samePlayerRef(playerRef(pl), frame.ballOwner), playerColorPalette(pl)));
     const frameBall = animatedKickBall || frame.ball;
     if (frameBall) drawBall(frameBall.x, frameBall.y, false);
