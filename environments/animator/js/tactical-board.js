@@ -1051,6 +1051,11 @@ let lastNoteSelectionTap = { id: null, at: 0 };
 const PROJECT_TYPE = 'coachmato.animator.project';
 const PLAYBACK_TIMELINE_MODEL = 'global_progress_v1';
 const DEFAULT_PLAYBACK_DURATION = 5;
+const PLAYBACK_MOVE_UNITS_PER_SECOND = 6;
+const PLAYBACK_BALL_UNITS_PER_SECOND = 8;
+const PLAYBACK_MIN_MOVE_DURATION = 2.4;
+const PLAYBACK_MAX_MOVE_DURATION = 8;
+const PLAYBACK_STATIC_MOVE_DURATION = 2.8;
 
 function claimPhoneDataAction(actionKey) {
   if (!isPhoneViewport) return true;
@@ -9480,8 +9485,55 @@ function currentPlaybackUsesImplicitMotion() {
   return canonicalPlaybackTargetIndex() !== null;
 }
 
+function playbackPathDistance(path) {
+  if (!Array.isArray(path?.pts) || path.pts.length < 2) return 0;
+  let total = 0;
+  for (let i = 1; i < path.pts.length; i++) {
+    total += d2(path.pts[i - 1], path.pts[i]);
+  }
+  return total;
+}
+
+function computePlaybackSegmentDurationSeconds(fromStep, toStep, motionStep = toStep) {
+  const from = normalizeStepState(fromStep || emptyStepState());
+  const to = normalizeStepState(toStep || from);
+  const motion = normalizeStepState(motionStep || to);
+  const fromLookup = buildStepLookup(from.players);
+  const toLookup = buildStepLookup(to.players);
+  const allKeys = new Set([...fromLookup.keys(), ...toLookup.keys()]);
+  let maxPlayerDistance = 0;
+
+  allKeys.forEach(key => {
+    const fromPlayer = fromLookup.get(key) || toLookup.get(key);
+    const toPlayer = toLookup.get(key) || fromLookup.get(key);
+    if (!fromPlayer || !toPlayer) return;
+    const path = phasePathForPlayer(motion, toPlayer);
+    const distance = Math.max(
+      path ? playbackPathDistance(path) : 0,
+      d2({ x: fromPlayer.x, y: fromPlayer.y }, { x: toPlayer.x, y: toPlayer.y })
+    );
+    maxPlayerDistance = Math.max(maxPlayerDistance, distance);
+  });
+
+  const fromBall = resolveStepBall(from);
+  const toBall = resolveStepBall(to);
+  const ballDistance = fromBall && toBall ? d2(fromBall, toBall) : 0;
+  const passOrKickDistance = Array.isArray(motion.passes) && motion.passes.length ? ballDistance : 0;
+  const dominantDistance = Math.max(maxPlayerDistance, passOrKickDistance);
+  if (dominantDistance <= 0.05) return PLAYBACK_STATIC_MOVE_DURATION;
+  const playerDuration = maxPlayerDistance > 0 ? (maxPlayerDistance / PLAYBACK_MOVE_UNITS_PER_SECOND) : 0;
+  const ballDuration = passOrKickDistance > 0 ? (passOrKickDistance / PLAYBACK_BALL_UNITS_PER_SECOND) : 0;
+  return clamp(Math.max(playerDuration, ballDuration) + 0.8, PLAYBACK_MIN_MOVE_DURATION, PLAYBACK_MAX_MOVE_DURATION);
+}
+
 function playbackDurationSeconds() {
-  return DEFAULT_PLAYBACK_DURATION;
+  const fromIdx = getCurrentCanonicalMoveIndex();
+  const toIdx = canonicalPlaybackTargetIndex(fromIdx);
+  const fromRef = getCanonicalMoveRef(fromIdx);
+  const toRef = getCanonicalMoveRef(toIdx);
+  const from = canonicalPlaybackStepAt(fromRef) || emptyStepState();
+  const to = canonicalPlaybackStepAt(toRef) || from;
+  return computePlaybackSegmentDurationSeconds(from, to, to);
 }
 
 function currentStepStartProgress() {
