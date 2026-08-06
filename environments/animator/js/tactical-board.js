@@ -25,6 +25,11 @@ const BALL_CARRY_OFFSET = { x: 1.45, y: -1.05 };
 const MOBILE_TAP_TOGGLE_PX = 5;
 const PENDING_GROUP_DRAG_PX = 8;
 const SNAP_RADIUS = 4; // field units (~4m)
+const GEOMETRIC_ANNOTATION_MIN_SIZE = 1.5;
+const GEOMETRIC_ANNOTATION_MIN_VISIBLE = 1.5;
+const GEOMETRIC_ANNOTATION_MAX_WIDTH = FVW;
+const GEOMETRIC_ANNOTATION_MAX_HEIGHT = FVH;
+const GEOMETRIC_ANNOTATION_MAX_RADIUS = Math.max(FVW, FVH);
 let GAINLINE_Y = 50;      // default: halfway
 let showGainline = false;
 const ATTACK_DIRECTION_UP = 'up';
@@ -236,6 +241,23 @@ function clampFieldPoint(point) {
   return {
     x: clamp(point.x, F.XMIN, F.XMAX),
     y: clamp(point.y, F.YMIN, F.YMAX),
+  };
+}
+
+function annotationBoardBounds() {
+  return {
+    left: F.DX0,
+    right: F.DX1,
+    top: F.DY0,
+    bottom: F.DY1,
+  };
+}
+
+function clampGeometricFieldPoint(point) {
+  const bounds = annotationBoardBounds();
+  return {
+    x: clamp(point.x, bounds.left, bounds.right),
+    y: clamp(point.y, bounds.top, bounds.bottom),
   };
 }
 
@@ -6424,19 +6446,23 @@ function setEllipseFromBounds(ellipse, left, top, right, bottom) {
 function setBoxFromBounds(box, left, top, right, bottom) {
   box.x = Math.min(left, right);
   box.y = Math.min(top, bottom);
-  box.w = Math.max(1.5, Math.abs(right - left));
-  box.h = Math.max(1.5, Math.abs(bottom - top));
+  box.w = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, Math.abs(right - left));
+  box.h = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, Math.abs(bottom - top));
 }
 
 function clampZoneAnnotation(zone) {
-  zone.r = Math.max(1.5, zone.r);
-  const maxRadius = Math.max(
-    1.5,
-    Math.min(zone.x - F.XMIN, F.XMAX - zone.x, zone.y - F.YMIN, F.YMAX - zone.y)
+  const bounds = annotationBoardBounds();
+  zone.r = clamp(zone.r, GEOMETRIC_ANNOTATION_MIN_SIZE, GEOMETRIC_ANNOTATION_MAX_RADIUS);
+  zone.x = clamp(
+    zone.x,
+    bounds.left - zone.r + GEOMETRIC_ANNOTATION_MIN_VISIBLE,
+    bounds.right + zone.r - GEOMETRIC_ANNOTATION_MIN_VISIBLE
   );
-  zone.r = Math.min(zone.r, maxRadius);
-  zone.x = clamp(zone.x, F.XMIN + zone.r, F.XMAX - zone.r);
-  zone.y = clamp(zone.y, F.YMIN + zone.r, F.YMAX - zone.r);
+  zone.y = clamp(
+    zone.y,
+    bounds.top - zone.r + GEOMETRIC_ANNOTATION_MIN_VISIBLE,
+    bounds.bottom + zone.r - GEOMETRIC_ANNOTATION_MIN_VISIBLE
+  );
   return zone;
 }
 
@@ -6827,8 +6853,8 @@ function shapeHandleHitRadiusField() {
 }
 
 function setShapeFrameFromCenter(shape, center, width, height) {
-  const nextWidth = Math.max(1.5, width);
-  const nextHeight = Math.max(1.5, height);
+  const nextWidth = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, width);
+  const nextHeight = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, height);
   shape.x = center.x - (nextWidth / 2);
   shape.y = center.y - (nextHeight / 2);
   shape.w = nextWidth;
@@ -6836,24 +6862,56 @@ function setShapeFrameFromCenter(shape, center, width, height) {
 }
 
 function clampRotatedShapeAnnotation(shape) {
+  const boundsLimit = annotationBoardBounds();
   const frame = shapeFrameBounds(shape);
-  shape.w = Math.min(frame.width, F.XMAX - F.XMIN);
-  shape.h = Math.min(frame.height, F.YMAX - F.YMIN);
+  shape.w = clamp(frame.width, GEOMETRIC_ANNOTATION_MIN_SIZE, GEOMETRIC_ANNOTATION_MAX_WIDTH);
+  shape.h = clamp(frame.height, GEOMETRIC_ANNOTATION_MIN_SIZE, GEOMETRIC_ANNOTATION_MAX_HEIGHT);
   const bounds = rotatedShapeAnnotationBounds(shape);
   let dx = 0;
   let dy = 0;
-  if (bounds.left < F.XMIN) dx = F.XMIN - bounds.left;
-  else if (bounds.right > F.XMAX) dx = F.XMAX - bounds.right;
-  if (bounds.top < F.YMIN) dy = F.YMIN - bounds.top;
-  else if (bounds.bottom > F.YMAX) dy = F.YMAX - bounds.bottom;
+  if (bounds.left > boundsLimit.right - GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dx = (boundsLimit.right - GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.left;
+  } else if (bounds.right < boundsLimit.left + GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dx = (boundsLimit.left + GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.right;
+  }
+  if (bounds.top > boundsLimit.bottom - GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dy = (boundsLimit.bottom - GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.top;
+  } else if (bounds.bottom < boundsLimit.top + GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dy = (boundsLimit.top + GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.bottom;
+  }
   shape.x += dx;
   shape.y += dy;
   return shape;
 }
 
 function constrainEllipseSize(width, height) {
-  const size = Math.max(1.5, Math.max(width, height));
+  const size = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, Math.max(width, height));
   return { width: size, height: size };
+}
+
+function clampArrowAnnotation(arrow) {
+  const boundsLimit = annotationBoardBounds();
+  const bounds = annotationFieldBounds(arrow);
+  if (!bounds) return arrow;
+  let dx = 0;
+  let dy = 0;
+  if (bounds.left > boundsLimit.right - GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dx = (boundsLimit.right - GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.left;
+  } else if (bounds.right < boundsLimit.left + GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dx = (boundsLimit.left + GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.right;
+  }
+  if (bounds.top > boundsLimit.bottom - GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dy = (boundsLimit.bottom - GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.top;
+  } else if (bounds.bottom < boundsLimit.top + GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dy = (boundsLimit.top + GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.bottom;
+  }
+  if (dx || dy) {
+    arrow.start.x += dx;
+    arrow.start.y += dy;
+    arrow.end.x += dx;
+    arrow.end.y += dy;
+  }
+  return arrow;
 }
 
 function resizeRotatedShapeAnnotation(shape, base, handle, point, constrainCircle = false) {
@@ -6870,8 +6928,8 @@ function resizeRotatedShapeAnnotation(shape, base, handle, point, constrainCircl
         : { x: 1, y: 1 };
   const anchorWorld = shapeWorldPointFromLocal(base, -signs.x * halfW, -signs.y * halfH);
   const localDelta = rotateOffset(point.x - anchorWorld.x, point.y - anchorWorld.y, -(rotation * (Math.PI / 180)));
-  let width = Math.max(1.5, Math.abs(localDelta.x));
-  let height = Math.max(1.5, Math.abs(localDelta.y));
+  let width = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, Math.abs(localDelta.x));
+  let height = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, Math.abs(localDelta.y));
   if (constrainCircle) {
     const constrained = constrainEllipseSize(width, height);
     width = constrained.width;
@@ -7651,6 +7709,7 @@ function handlePointerDown(e) {
   clearPendingNoteSelectionClear();
   const fp = getF(e);
   const clampedFieldPoint = clampFieldPoint(fp);
+  const geometricFieldPoint = clampGeometricFieldPoint(fp);
   const canvasPoint = getPx(e);
 
   // Canonical radial-menu dismissal: a radial menu can only be open while
@@ -8017,12 +8076,12 @@ function handlePointerDown(e) {
     const radialSource = S.radialArrowSourcePlayerId !== null && S.radialArrowSourcePlayerId !== undefined
       ? S.players.find(player => player.id === S.radialArrowSourcePlayerId) || null
       : null;
-    const start = radialSource ? { x: radialSource.x, y: radialSource.y } : { x: fp.x, y: fp.y };
+    const start = radialSource ? { x: radialSource.x, y: radialSource.y } : { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
     S.annotationDraft = normalizeAnnotation({
       id: mkAnnotationId(),
       type: 'arrow',
       start,
-      end: { x: fp.x, y: fp.y },
+      end: { x: geometricFieldPoint.x, y: geometricFieldPoint.y },
       color: currentArrowStyleSelection().color,
       thickness: currentArrowStyleSelection().thickness,
       dash: currentArrowStyleSelection().dash,
@@ -8043,15 +8102,15 @@ function handlePointerDown(e) {
     S.annotationDraft = normalizeAnnotation({
       id: mkAnnotationId(),
       type: 'ellipse',
-      x: clampedFieldPoint.x,
-      y: clampedFieldPoint.y,
-      w: 1.5,
-      h: 1.5,
+      x: geometricFieldPoint.x,
+      y: geometricFieldPoint.y,
+      w: GEOMETRIC_ANNOTATION_MIN_SIZE,
+      h: GEOMETRIC_ANNOTATION_MIN_SIZE,
       color: shapeStyle.color,
       thickness: shapeStyle.thickness,
       dash: shapeStyle.dash,
     });
-    S.annotationDraft.anchor = { x: clampedFieldPoint.x, y: clampedFieldPoint.y };
+    S.annotationDraft.anchor = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
     try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     setHint('Drag outward to size the circle or oval highlight. Hold Shift for a perfect circle.');
     refreshInteractionUI();
@@ -8068,15 +8127,15 @@ function handlePointerDown(e) {
     S.annotationDraft = normalizeAnnotation({
       id: mkAnnotationId(),
       type: 'box',
-      x: clampedFieldPoint.x,
-      y: clampedFieldPoint.y,
-      w: 1.5,
-      h: 1.5,
+      x: geometricFieldPoint.x,
+      y: geometricFieldPoint.y,
+      w: GEOMETRIC_ANNOTATION_MIN_SIZE,
+      h: GEOMETRIC_ANNOTATION_MIN_SIZE,
       color: shapeStyle.color,
       thickness: shapeStyle.thickness,
       dash: shapeStyle.dash,
     });
-    S.annotationDraft.anchor = { x: clampedFieldPoint.x, y: clampedFieldPoint.y };
+    S.annotationDraft.anchor = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
     try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     setHint('Drag outward to size the box highlight.');
     refreshInteractionUI();
@@ -8093,15 +8152,15 @@ function handlePointerDown(e) {
     S.annotationDraft = normalizeAnnotation({
       id: mkAnnotationId(),
       type: 'ellipse',
-      x: clampedFieldPoint.x,
-      y: clampedFieldPoint.y,
-      w: 1.5,
-      h: 1.5,
+      x: geometricFieldPoint.x,
+      y: geometricFieldPoint.y,
+      w: GEOMETRIC_ANNOTATION_MIN_SIZE,
+      h: GEOMETRIC_ANNOTATION_MIN_SIZE,
       color: shapeStyle.color,
       thickness: shapeStyle.thickness,
       dash: shapeStyle.dash,
     });
-    S.annotationDraft.anchor = { x: clampedFieldPoint.x, y: clampedFieldPoint.y };
+    S.annotationDraft.anchor = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
     try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     setHint('Drag outward to size the ellipse highlight.');
     refreshInteractionUI();
@@ -8245,6 +8304,7 @@ function handlePointerMove(e) {
   const latestSample = samples[samples.length - 1] || e;
   const fp = getF(latestSample);
   const fieldPoint = clampFieldPoint(fp);
+  const geometricFieldPoint = clampGeometricFieldPoint(fp);
   updatePointerTapMovement(latestSample);
 
   if (
@@ -8424,61 +8484,62 @@ function handlePointerMove(e) {
           }
         } else if (ann.type === 'arrow') {
           if (S.dragging.part === 'start') {
-            ann.start = { x: fp.x, y: fp.y };
+            ann.start = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
           } else if (S.dragging.part === 'end') {
-            ann.end = { x: fp.x, y: fp.y };
+            ann.end = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
           } else {
-            const dx = fp.x - S.dragging.anchor.x;
-            const dy = fp.y - S.dragging.anchor.y;
+            const dx = geometricFieldPoint.x - S.dragging.anchor.x;
+            const dy = geometricFieldPoint.y - S.dragging.anchor.y;
             ann.start = { x: ann.start.x + dx, y: ann.start.y + dy };
             ann.end = { x: ann.end.x + dx, y: ann.end.y + dy };
-            S.dragging.anchor = { x: fp.x, y: fp.y };
+            S.dragging.anchor = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
           }
+          clampArrowAnnotation(ann);
         } else if (ann.type === 'zone') {
           if (S.dragging.part === 'radius') {
-            ann.r = Math.max(1.5, d2(fieldPoint, { x: ann.x, y: ann.y }));
+            ann.r = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, d2(geometricFieldPoint, { x: ann.x, y: ann.y }));
           } else if (S.dragging.part === 'center') {
             const base = S.dragging.startSnapshot || ann;
-            const angle = Math.atan2(fieldPoint.y - base.y, fieldPoint.x - base.x);
-            ann.r = Math.max(1.5, d2(fieldPoint, { x: base.x, y: base.y }));
+            const angle = Math.atan2(geometricFieldPoint.y - base.y, geometricFieldPoint.x - base.x);
+            ann.r = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, d2(geometricFieldPoint, { x: base.x, y: base.y }));
             ann.x = base.x;
             ann.y = base.y;
             S.dragging.lastAngle = angle;
           } else {
-            ann.x = fieldPoint.x - (S.dragging.dragOff?.x || 0);
-            ann.y = fieldPoint.y - (S.dragging.dragOff?.y || 0);
+            ann.x = geometricFieldPoint.x - (S.dragging.dragOff?.x || 0);
+            ann.y = geometricFieldPoint.y - (S.dragging.dragOff?.y || 0);
           }
           clampZoneAnnotation(ann);
         } else if (ann.type === 'box') {
           if (S.dragging.part === 'move') {
-            ann.x = fieldPoint.x - (S.dragging.dragOff?.x || 0);
-            ann.y = fieldPoint.y - (S.dragging.dragOff?.y || 0);
+            ann.x = geometricFieldPoint.x - (S.dragging.dragOff?.x || 0);
+            ann.y = geometricFieldPoint.y - (S.dragging.dragOff?.y || 0);
           } else if (S.dragging.part === 'rotate') {
             const rotateState = S.dragging.shapeRotate;
             if (rotateState) {
-              const currentAngle = Math.atan2(fieldPoint.y - rotateState.center.y, fieldPoint.x - rotateState.center.x);
+              const currentAngle = Math.atan2(geometricFieldPoint.y - rotateState.center.y, geometricFieldPoint.x - rotateState.center.x);
               let nextRotation = rotateState.baseRotation + ((currentAngle - rotateState.startPointerAngle) * (180 / Math.PI));
               if (latestSample.shiftKey) nextRotation = Math.round(nextRotation / 15) * 15;
               ann.rotation = normalizeShapeRotation(nextRotation);
             }
           } else {
-            resizeRotatedShapeAnnotation(ann, S.dragging.startSnapshot || ann, S.dragging.part, fieldPoint, false);
+            resizeRotatedShapeAnnotation(ann, S.dragging.startSnapshot || ann, S.dragging.part, geometricFieldPoint, false);
           }
           clampBoxAnnotation(ann);
         } else if (ann.type === 'ellipse') {
           if (S.dragging.part === 'move') {
-            ann.x = fieldPoint.x - (S.dragging.dragOff?.x || 0);
-            ann.y = fieldPoint.y - (S.dragging.dragOff?.y || 0);
+            ann.x = geometricFieldPoint.x - (S.dragging.dragOff?.x || 0);
+            ann.y = geometricFieldPoint.y - (S.dragging.dragOff?.y || 0);
           } else if (S.dragging.part === 'rotate') {
             const rotateState = S.dragging.shapeRotate;
             if (rotateState) {
-              const currentAngle = Math.atan2(fieldPoint.y - rotateState.center.y, fieldPoint.x - rotateState.center.x);
+              const currentAngle = Math.atan2(geometricFieldPoint.y - rotateState.center.y, geometricFieldPoint.x - rotateState.center.x);
               let nextRotation = rotateState.baseRotation + ((currentAngle - rotateState.startPointerAngle) * (180 / Math.PI));
               if (latestSample.shiftKey) nextRotation = Math.round(nextRotation / 15) * 15;
               ann.rotation = normalizeShapeRotation(nextRotation);
             }
           } else {
-            resizeRotatedShapeAnnotation(ann, S.dragging.startSnapshot || ann, S.dragging.part, fieldPoint, !!latestSample.shiftKey);
+            resizeRotatedShapeAnnotation(ann, S.dragging.startSnapshot || ann, S.dragging.part, geometricFieldPoint, !!latestSample.shiftKey);
           }
           clampEllipseAnnotation(ann);
         }
@@ -8499,24 +8560,25 @@ function handlePointerMove(e) {
 
   if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box' || S.tool === 'ellipse')) {
     if (S.annotationDraft.type === 'arrow') {
-      S.annotationDraft.end = { x: fp.x, y: fp.y };
+      S.annotationDraft.end = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
+      clampArrowAnnotation(S.annotationDraft);
     }
     if (S.annotationDraft.type === 'zone') {
-      S.annotationDraft.r = Math.max(1.5, d2(fieldPoint, { x: S.annotationDraft.x, y: S.annotationDraft.y }));
+      S.annotationDraft.r = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, d2(geometricFieldPoint, { x: S.annotationDraft.x, y: S.annotationDraft.y }));
       clampZoneAnnotation(S.annotationDraft);
     }
     if (S.annotationDraft.type === 'box') {
       const start = S.annotationDraft.anchor || { x: S.annotationDraft.x, y: S.annotationDraft.y };
-      setBoxFromBounds(S.annotationDraft, start.x, start.y, fieldPoint.x, fieldPoint.y);
+      setBoxFromBounds(S.annotationDraft, start.x, start.y, geometricFieldPoint.x, geometricFieldPoint.y);
       clampBoxAnnotation(S.annotationDraft);
     }
     if (S.annotationDraft.type === 'ellipse') {
       const start = S.annotationDraft.anchor || { x: S.annotationDraft.x, y: S.annotationDraft.y };
       if (latestSample.shiftKey) {
-        const constrained = constrainEllipseBounds(start.x, start.y, fieldPoint.x, fieldPoint.y);
+        const constrained = constrainEllipseBounds(start.x, start.y, geometricFieldPoint.x, geometricFieldPoint.y);
         setEllipseFromBounds(S.annotationDraft, constrained.left, constrained.top, constrained.right, constrained.bottom);
       } else {
-        setEllipseFromBounds(S.annotationDraft, start.x, start.y, fieldPoint.x, fieldPoint.y);
+        setEllipseFromBounds(S.annotationDraft, start.x, start.y, geometricFieldPoint.x, geometricFieldPoint.y);
       }
       clampEllipseAnnotation(S.annotationDraft);
     }
@@ -9178,16 +9240,11 @@ function translateAnnotationCopy(sourceAnnotation, dx = ANNOTATION_CLIPBOARD_OFF
   } else if (copy.type === 'arrow') {
     copy.start = { ...copy.start };
     copy.end = { ...copy.end };
-    const dxMin = Math.max(F.XMIN - copy.start.x, F.XMIN - copy.end.x);
-    const dxMax = Math.min(F.XMAX - copy.start.x, F.XMAX - copy.end.x);
-    const dyMin = Math.max(F.YMIN - copy.start.y, F.YMIN - copy.end.y);
-    const dyMax = Math.min(F.YMAX - copy.start.y, F.YMAX - copy.end.y);
-    const shiftX = clamp(dx, dxMin, dxMax);
-    const shiftY = clamp(dy, dyMin, dyMax);
-    copy.start.x += shiftX;
-    copy.start.y += shiftY;
-    copy.end.x += shiftX;
-    copy.end.y += shiftY;
+    copy.start.x += dx;
+    copy.start.y += dy;
+    copy.end.x += dx;
+    copy.end.y += dy;
+    clampArrowAnnotation(copy);
   } else if (copy.type === 'zone') {
     copy.x += dx;
     copy.y += dy;
@@ -9265,16 +9322,11 @@ function nudgeSelectedAnnotation(dx, dy) {
     ann.y += dy;
     clampZoneAnnotation(ann);
   } else if (ann.type === 'arrow') {
-    const dxMin = Math.max(F.XMIN - ann.start.x, F.XMIN - ann.end.x);
-    const dxMax = Math.min(F.XMAX - ann.start.x, F.XMAX - ann.end.x);
-    const dyMin = Math.max(F.YMIN - ann.start.y, F.YMIN - ann.end.y);
-    const dyMax = Math.min(F.YMAX - ann.start.y, F.YMAX - ann.end.y);
-    const shiftX = clamp(dx, dxMin, dxMax);
-    const shiftY = clamp(dy, dyMin, dyMax);
-    ann.start.x += shiftX;
-    ann.start.y += shiftY;
-    ann.end.x += shiftX;
-    ann.end.y += shiftY;
+    ann.start.x += dx;
+    ann.start.y += dy;
+    ann.end.x += dx;
+    ann.end.y += dy;
+    clampArrowAnnotation(ann);
   } else if (ann.type === 'playerLabel') {
     ann.offsetX = Number(ann.offsetX || 0) + dx;
     ann.offsetY = Number(ann.offsetY || 0) + dy;
