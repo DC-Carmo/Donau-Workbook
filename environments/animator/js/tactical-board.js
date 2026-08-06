@@ -245,11 +245,18 @@ function clampFieldPoint(point) {
 }
 
 function annotationBoardBounds() {
+  const pitchWidth = F.XMAX - F.XMIN;
+  const pitchHeight = F.YMAX - F.YMIN;
+  // Give geometric annotations a much larger working envelope than the field
+  // itself so coaches can straddle touchlines and push shapes past in-goals
+  // while still keeping every element at least partly reachable.
+  const horizontalMargin = pitchWidth * 0.5;
+  const verticalMargin = pitchHeight * 0.5;
   return {
-    left: F.DX0,
-    right: F.DX1,
-    top: F.DY0,
-    bottom: F.DY1,
+    left: F.XMIN - horizontalMargin,
+    right: F.XMAX + horizontalMargin,
+    top: F.YMIN - verticalMargin,
+    bottom: F.YMAX + verticalMargin,
   };
 }
 
