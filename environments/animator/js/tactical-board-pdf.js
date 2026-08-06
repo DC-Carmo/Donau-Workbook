@@ -711,13 +711,13 @@ window.AnimatorBoardPdf = (() => {
     return {
       columns: 2,
       columnGap: 8,
-      labelFontSize: 7.8,
-      labelLineHeight: 3.4,
+      labelFontSize: 8.2,
+      labelLineHeight: 3.6,
       labelGap: 2,
-      textFontSize: 8.7,
-      textLineHeight: 4.15,
+      textFontSize: 9.1,
+      textLineHeight: 4.35,
       blockPaddingTop: 3,
-      blockGap: 4.5,
+      blockGap: 4.2,
       topRuleOffset: 1.8,
       ruleInset: 0,
     };
@@ -854,17 +854,17 @@ window.AnimatorBoardPdf = (() => {
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
+    doc.setFontSize(9.5);
     doc.setTextColor(31, 107, 67);
     doc.text('RDA', 16, 15);
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(17);
+    doc.setFontSize(18);
     doc.setTextColor(6, 17, 13);
     doc.text(page.title, 16, 25);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.2);
+    doc.setFontSize(8.8);
     doc.setTextColor(104, 112, 119);
     doc.text(tr(report.language, 'coachingNotes'), pageWidth - 16, 15, { align: 'right' });
 
@@ -881,11 +881,6 @@ window.AnimatorBoardPdf = (() => {
     doc.setFillColor(15, 43, 29);
     doc.roundedRect(10, 10, pageWidth - 20, pageHeight - 20, 12, 12, 'F');
 
-    doc.setFillColor(18, 53, 36);
-    doc.circle(pageWidth - 18, 18, 28, 'F');
-    doc.setFillColor(31, 107, 67);
-    doc.circle(20, pageHeight - 70, 34, 'F');
-
     const logoWidth = 30;
     const logoHeight = (logoWidth / report.logo.width) * report.logo.height;
     if (report.logo.dataUrl) {
@@ -893,32 +888,32 @@ window.AnimatorBoardPdf = (() => {
     }
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
+    doc.setFontSize(11.5);
     doc.setTextColor(245, 215, 123);
     doc.text('RDA', 48, 21);
-    doc.setFontSize(18);
+    doc.setFontSize(19.5);
     doc.text(tr(report.language, 'boardTitle'), 48, 28);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9.8);
+    doc.setFontSize(10.4);
     doc.setTextColor(245, 215, 123);
     doc.text(buildGeneratedLine(report.language, report.dateLabel), pageWidth - 16, 21, { align: 'right' });
 
     const titleLines = doc.splitTextToSize(report.name, pageWidth - 34);
     let titleY = 48;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10.5);
+    doc.setFontSize(11.2);
     doc.setTextColor(245, 215, 123);
     doc.text(tr(report.language, 'summaryLead'), 16, titleY);
     titleY += 8;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(26);
+    doc.setFontSize(28);
     doc.setTextColor(255, 255, 255);
     doc.text(titleLines, 16, titleY);
-    titleY += (titleLines.length * 9.2) + 3;
+    titleY += (titleLines.length * 9.8) + 3;
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
+    doc.setFontSize(12.8);
     doc.setTextColor(245, 215, 123);
     doc.text(tr(report.language, 'tagline'), 16, titleY);
     titleY += 8;
@@ -926,11 +921,11 @@ window.AnimatorBoardPdf = (() => {
     doc.setFillColor(8, 23, 17);
     doc.setDrawColor(245, 215, 123);
     doc.setLineWidth(0.4);
-    doc.roundedRect(16, titleY, 68, 11, 5.5, 5.5, 'FD');
+    doc.roundedRect(16, titleY, 72, 11.8, 5.9, 5.9, 'FD');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10.8);
+    doc.setFontSize(11.4);
     doc.setTextColor(255, 255, 255);
-    doc.text(report.summaryLine, 19, titleY + 7.1);
+    doc.text(report.summaryLine, 19, titleY + 7.6);
 
     if (report.coverImage) {
       const imageTop = titleY + 17;
@@ -952,17 +947,17 @@ window.AnimatorBoardPdf = (() => {
     doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
+    doc.setFontSize(9.5);
     doc.setTextColor(31, 107, 67);
     doc.text('RDA', 16, 15);
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(22);
+    doc.setFontSize(23.5);
     doc.setTextColor(6, 17, 13);
     doc.text(page.title, 16, 26);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
+    doc.setFontSize(8.9);
     doc.setTextColor(104, 112, 119);
     doc.text(buildGeneratedLine(report.language, report.dateLabel), pageWidth - 16, 15, { align: 'right' });
 
@@ -977,13 +972,13 @@ window.AnimatorBoardPdf = (() => {
     });
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
+    doc.setFontSize(9.5);
     doc.setTextColor(31, 107, 67);
     doc.text(tr(report.language, 'coachingNotes'), 16, layout.notesHeadingY);
 
     if (!layout.notePages[0]?.columns.some((column) => column.blocks.length)) {
       doc.setFont('helvetica', 'italic');
-      doc.setFontSize(10.5);
+      doc.setFontSize(11);
       doc.setTextColor(104, 112, 119);
       doc.text(tr(report.language, 'noNotes'), 16, layout.notesStartY);
       return;
