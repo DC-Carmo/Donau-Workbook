@@ -1686,8 +1686,14 @@ function normalizeBallPosition(ball) {
   return { x, y };
 }
 
+function normalizeRunPathKind(value) {
+  if (value === undefined || value === null || value === '') return 'run';
+  return value === 'run' ? 'run' : null;
+}
+
 function normalizeStepPath(path) {
   if (!path || typeof path !== 'object') return null;
+  const kind = normalizeRunPathKind(path.kind);
   const team = path.team === 'D' ? 'D' : path.team === 'A' ? 'A' : null;
   const num = Number(path.num);
   const pts = Array.isArray(path.pts)
@@ -1699,8 +1705,8 @@ function normalizeStepPath(path) {
         })
         .filter(Boolean)
     : [];
-  if (!team || !Number.isFinite(num) || pts.length < 2) return null;
-  return { num, team, pts };
+  if (!kind || !team || !Number.isFinite(num) || pts.length < 2) return null;
+  return { kind, num, team, pts };
 }
 
 function normalizeStepPass(pass) {
@@ -1836,7 +1842,7 @@ function liveBoardToStepState() {
     ballAttached: !!ballCarry.ballAttached,
     paths: S.paths.map(path => {
       const pl = S.players.find(q => q.id === path.pid);
-      return pl ? { num: pl.num, team: pl.team, pts: path.pts.map(pt => ({ ...pt })) } : null;
+      return pl ? { kind: 'run', num: pl.num, team: pl.team, pts: path.pts.map(pt => ({ ...pt })) } : null;
     }).filter(Boolean),
     passes: S.passes.map(pass => {
       const from = S.players.find(q => q.id === pass.from);
@@ -1947,7 +1953,7 @@ function setLiveBoardFromStep(step, { keepSelection = false } = {}) {
   S.paths = normalized.paths.map(path => {
     const pl = S.players.find(q => q.num === path.num && q.team === path.team);
     const col = path.team === 'A' ? '#60a5fa' : '#f87171';
-    return pl ? { pid: pl.id, pts: path.pts || [], color: col } : null;
+    return pl ? { kind: 'run', pid: pl.id, pts: path.pts || [], color: col } : null;
   }).filter(Boolean);
 
   S.passes = normalized.passes.map(pass => {
@@ -2642,7 +2648,7 @@ function addCanonicalMove() {
 
 function phasePathForPlayer(step, player) {
   const key = playerKey(player);
-  return step.paths.find(path => playerKey({ team: path.team, num: path.num }) === key) || null;
+  return step.paths.find(path => normalizeRunPathKind(path?.kind) === 'run' && playerKey({ team: path.team, num: path.num }) === key) || null;
 }
 
 function emptyPlayMetadata(title = '') {
@@ -8004,6 +8010,7 @@ function handlePointerDown(e) {
           clearPassKickState();
           selectPlayer(source.id, { highlightedIds: [source.id] });
           S.drawing = {
+            kind: 'run',
             pid: source.id,
             pts: [{ x: source.x, y: source.y }, { x: fp.x, y: fp.y }],
             last: { x: fp.x, y: fp.y },
@@ -8846,13 +8853,21 @@ document.addEventListener('pointerdown', (event) => {
 
 function finishDraw() {
   if (!S.drawing) return;
+  if (S.drawing.kind !== 'run') {
+    S.drawing = null;
+    clearArmedRunState();
+    clearSelectedObject();
+    refreshInteractionUI();
+    render();
+    return;
+  }
   if (S.drawing.pts.length >= 2) {
     snapshot();
     const simplified = dpSimplify(S.drawing.pts, 0.8);
     const pl  = S.players.find(p => p.id === S.drawing.pid);
     const col = pl?.team === 'A' ? '#60a5fa' : '#f87171';
     S.paths = S.paths.filter(p => p.pid !== S.drawing.pid);
-    S.paths.push({ pid:S.drawing.pid, pts:simplified, color:col });
+    S.paths.push({ kind: 'run', pid:S.drawing.pid, pts:simplified, color:col });
     commitLiveBoardToCurrentStep();
     S.drawing = null;
     clearArmedRunState();
