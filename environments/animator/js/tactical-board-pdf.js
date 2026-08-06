@@ -711,13 +711,13 @@ window.AnimatorBoardPdf = (() => {
     return {
       columns: 2,
       columnGap: 8,
-      labelFontSize: 8.2,
-      labelLineHeight: 3.6,
+      labelFontSize: 8.6,
+      labelLineHeight: 3.8,
       labelGap: 2,
-      textFontSize: 9.1,
-      textLineHeight: 4.35,
+      textFontSize: 9.5,
+      textLineHeight: 4.55,
       blockPaddingTop: 3,
-      blockGap: 4.2,
+      blockGap: 4,
       topRuleOffset: 1.8,
       ruleInset: 0,
     };
@@ -1005,9 +1005,9 @@ window.AnimatorBoardPdf = (() => {
 
     for (const move of moves) {
       const image = normalizeSnapshotImage(await captureStepImage(move.step, {
-        width: 1800,
+        width: 820,
         height: 3000,
-        dpr: 2,
+        dpr: 3,
         rotateLandscape: false,
       }));
       if (!coverImage) coverImage = image;
