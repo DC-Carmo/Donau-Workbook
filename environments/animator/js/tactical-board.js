@@ -1857,8 +1857,12 @@ function projectPlayersToRunEndpoints(players = S.players, paths = S.paths) {
 }
 
 function effectiveBallCarryStateForRuntimeStep(players = S.players, paths = S.paths, ball = S.ball, ownerRef = S.ballOwner, attached = S.ballAttached) {
-  const preRun = effectiveBallCarryState(players, ball, ownerRef, attached);
-  return effectiveBallCarryState(projectPlayersToRunEndpoints(players, paths), ball, ownerRef, preRun.ballAttached);
+  // Keep the ball with its carrier at the carrier's CURRENT position for the
+  // resting/committed step (a ball on the carrier stays attached via the centre
+  // check in effectiveBallCarryState). Playback is what moves the ball ALONG the
+  // run - do NOT pre-project it to the run end here, or the ball teleports to the
+  // finish the moment the run is drawn.
+  return effectiveBallCarryState(players, ball, ownerRef, attached);
 }
 
 function liveBoardToStepState() {
