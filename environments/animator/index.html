@@ -287,6 +287,16 @@
             <button id="selClearBtn" class="sp-btn" onclick="clearSelection()">Deselect</button>
             <button id="selDeleteBtn" class="sp-btn sp-btn-danger" onclick="deleteSelected()">Remove</button>
           </div>
+          <div id="gainlinePanel" class="sp-gainline-panel" hidden>
+            <div id="gainDisplay" class="sp-gain-display">On gainline</div>
+            <div class="sp-attack-direction" aria-label="Attack direction">
+              <span id="attackDirectionLabel" class="sp-attack-direction-label">Attack</span>
+              <div id="attackDirectionGroup" class="sp-attack-direction-toggle" role="group" aria-label="Attack">
+                <button id="attackDirectionUpBtn" class="sp-attack-direction-btn" type="button" onclick="setAttackDirection('up')">â†‘</button>
+                <button id="attackDirectionDownBtn" class="sp-attack-direction-btn" type="button" onclick="setAttackDirection('down')">â†“</button>
+              </div>
+            </div>
+          </div>
           <div id="spGroupActions" class="sp-group-actions" hidden>
             <button id="selGroupModeBtn" class="sp-btn" type="button">Edit Individuals</button>
             <button id="selRegroupBtn" class="sp-btn sp-btn-accent" type="button" hidden>Regroup Pack</button>

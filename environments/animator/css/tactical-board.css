@@ -4099,6 +4099,7 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 .sel-info.sp-sel-card.annotation-selected {
   gap: 10px;
@@ -4235,18 +4236,25 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
+}
+.sp-sel-card + .sp-gainline-panel {
+  display: none;
 }
 .sp-attack-direction {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 10px;
   padding: 8px 10px;
   border-radius: 10px;
   border: 1px solid rgba(255,255,255,0.08);
   background: rgba(255,255,255,0.03);
+  min-width: 0;
 }
 .sp-attack-direction-label {
+  flex: 1 1 100%;
   font-family: 'Barlow Condensed', sans-serif;
   font-size: 0.72rem;
   font-weight: 700;
@@ -4255,12 +4263,13 @@ html, body {
   color: rgba(243, 241, 232, 0.78);
 }
 .sp-attack-direction-toggle {
-  display: inline-flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
+  width: 100%;
 }
 .sp-attack-direction-btn {
-  min-width: 40px;
+  min-width: 0;
   min-height: 34px;
   border-radius: 10px;
   border: 1px solid rgba(255,255,255,0.12);
@@ -4286,7 +4295,7 @@ html, body {
 }
 .sp-sel-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
 }
 .sp-group-actions {
@@ -4348,6 +4357,27 @@ html, body {
   text-transform: uppercase;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
   white-space: nowrap;
+}
+.sel-info.sp-sel-card .sp-btn,
+.sel-info.sp-sel-card .sp-btn-accent,
+.sel-info.sp-sel-card .sp-btn-danger {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.2;
+  text-align: center;
+}
+.sel-info.sp-sel-card .sp-color-picker,
+.sel-info.sp-sel-card .sp-color-swatches,
+.sel-info.sp-sel-card .sp-sel-chip,
+.sel-info.sp-sel-card .sp-sel-meta,
+.sel-info.sp-sel-card .sp-group-actions,
+.sel-info.sp-sel-card .sp-sel-actions {
+  min-width: 0;
+}
+.sel-info.sp-sel-card .sp-color-swatches {
+  row-gap: 6px;
 }
 .sp-btn:hover {
   background: rgba(255,255,255,0.07);

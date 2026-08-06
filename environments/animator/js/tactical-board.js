@@ -12240,6 +12240,7 @@ function updateSelInfo() {
   const meta = document.getElementById('selMeta');
   const clearBtn = document.getElementById('selClearBtn');
   const deleteBtn = document.getElementById('selDeleteBtn');
+  const gainlinePanel = document.getElementById('gainlinePanel');
   const actionRow = box?.querySelector('.sp-sel-actions') || null;
   const giveBallBtn = document.getElementById('selGiveBallBtn');
   const groupActions = document.getElementById('spGroupActions');
@@ -12427,8 +12428,11 @@ function updateSelInfo() {
     clearBtn.disabled = !hasAnySelection;
   }
   if (actionRow) actionRow.hidden = !!ann;
-  const carrier = S.players.find(p => p.isBC);
-  if (carrier) updateGainDisplayForY(carrier.y);
+  if (gainlinePanel) {
+    gainlinePanel.hidden = !selectedPlayer;
+  }
+  const gainTarget = selectedPlayer || S.players.find(p => p.isBC) || null;
+  if (gainTarget) updateGainDisplayForY(gainTarget.y);
   else updateGainDisplayForY(GAINLINE_Y);
 
   if (floatingToolbar) {
