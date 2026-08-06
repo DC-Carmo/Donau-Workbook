@@ -968,12 +968,15 @@ Object.assign(S, {
   zoneColor: '#10b981',
   zoneThickness: 'normal',
   zoneDash: 'solid',
+  zoneFill: 'none',
   boxColor: '#d9b46c',
   boxThickness: 'normal',
   boxDash: 'solid',
+  boxFill: 'none',
   ellipseColor: '#d9b46c',
   ellipseThickness: 'normal',
   ellipseDash: 'solid',
+  ellipseFill: 'none',
   // Selection model:
   // - selectedPlayerId: one player selected for editing at a time
   // - selectedObjectType/selectedAnnotationIdValue: non-player object selection
@@ -1085,9 +1088,9 @@ const ANNOTATION_CLIPBOARD_OFFSET = 1.5;
 const ANNOTATION_NUDGE_STEP = 0.5;
 const ARROW_DEFAULT_COLOR = '#d9b46c';
 const SHAPE_DEFAULTS = Object.freeze({
-  zone: { color: '#10b981', thickness: 'normal', dash: 'solid' },
-  box: { color: '#d9b46c', thickness: 'normal', dash: 'solid' },
-  ellipse: { color: '#d9b46c', thickness: 'normal', dash: 'solid' },
+  zone: { color: '#10b981', thickness: 'normal', dash: 'solid', fill: 'none' },
+  box: { color: '#d9b46c', thickness: 'normal', dash: 'solid', fill: 'none' },
+  ellipse: { color: '#d9b46c', thickness: 'normal', dash: 'solid', fill: 'none' },
 });
 const ARROW_THICKNESS_PRESETS = Object.freeze({
   thin: 2.2,
@@ -1129,8 +1132,13 @@ function defaultShapeStyle(type) {
 }
 
 function shapeStyleStateKeys(type) {
-  if (type === 'zone' || type === 'ellipse') return { color: 'zoneColor', thickness: 'zoneThickness', dash: 'zoneDash' };
-  return { color: 'boxColor', thickness: 'boxThickness', dash: 'boxDash' };
+  if (type === 'zone' || type === 'ellipse') return { color: 'zoneColor', thickness: 'zoneThickness', dash: 'zoneDash', fill: 'zoneFill' };
+  return { color: 'boxColor', thickness: 'boxThickness', dash: 'boxDash', fill: 'boxFill' };
+}
+
+function normalizeShapeFill(value) {
+  if (value === 'solid' || value === 'hatch' || value === 'grid') return value;
+  return 'none';
 }
 
 function constrainEllipseBounds(anchorX, anchorY, pointX, pointY) {
@@ -1157,6 +1165,7 @@ function currentShapeStyleSelection(type = null) {
       color: selected.color || defaults.color,
       thickness: arrowThicknessValue(selected.thickness),
       dash: arrowDashValue(selected.dash),
+      fill: normalizeShapeFill(selected.fill ?? defaults.fill),
     };
   }
   const keys = shapeStyleStateKeys(styleType);
@@ -1165,6 +1174,7 @@ function currentShapeStyleSelection(type = null) {
     color: S[keys.color] || defaults.color,
     thickness: arrowThicknessValue(S[keys.thickness]),
     dash: arrowDashValue(S[keys.dash]),
+    fill: normalizeShapeFill(S[keys.fill] ?? defaults.fill),
   };
 }
 
@@ -1178,11 +1188,13 @@ function applyShapeStyleSelection(partial = {}) {
     color: partial.color || current.color || defaultShapeStyle(styleType).color,
     thickness: arrowThicknessValue(partial.thickness ?? current.thickness),
     dash: arrowDashValue(partial.dash ?? current.dash),
+    fill: normalizeShapeFill(partial.fill ?? current.fill ?? defaultShapeStyle(styleType).fill),
   };
   const keys = shapeStyleStateKeys(styleType);
   S[keys.color] = next.color;
   S[keys.thickness] = next.thickness;
   S[keys.dash] = next.dash;
+  S[keys.fill] = next.fill;
   if (selected?.type === styleType && selectedId) {
     snapshot();
     const ann = findAnnotationById(selectedId);
@@ -1190,6 +1202,7 @@ function applyShapeStyleSelection(partial = {}) {
       ann.color = next.color;
       ann.thickness = next.thickness;
       ann.dash = next.dash;
+      ann.fill = next.fill;
     }
   }
   refreshInteractionUI();
@@ -1210,6 +1223,37 @@ function hexToRgba(color, alpha) {
   const g = parseInt(hex.slice(2, 4), 16);
   const b = parseInt(hex.slice(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function drawShapeFillPattern(fill, color, bounds) {
+  if (fill === 'none') return;
+  const width = Math.max(1, Number(bounds?.width) || 1);
+  const height = Math.max(1, Number(bounds?.height) || 1);
+  const left = Number(bounds?.left) || 0;
+  const top = Number(bounds?.top) || 0;
+  const preview = !!bounds?.preview;
+  const strokeWidth = Math.max(1, Number(bounds?.strokeWidth) || 1);
+  const tintAlpha = preview ? 0.18 : 0.14;
+  const lineAlpha = preview ? 0.34 : 0.28;
+  const spacing = Math.max(10, Math.min(24, strokeWidth * 4.5));
+  const diag = Math.sqrt((width * width) + (height * height)) + (spacing * 2);
+  ctx.fillStyle = hexToRgba(color, tintAlpha);
+  ctx.fillRect(left - 1, top - 1, width + 2, height + 2);
+  if (fill === 'solid') return;
+  ctx.strokeStyle = hexToRgba(color, lineAlpha);
+  ctx.lineWidth = Math.max(1.15, Math.min(2.2, strokeWidth * 0.5));
+  ctx.beginPath();
+  for (let offset = -diag; offset <= diag; offset += spacing) {
+    ctx.moveTo(left + offset, top + height);
+    ctx.lineTo(left + offset + diag, top);
+  }
+  if (fill === 'grid') {
+    for (let offset = -diag; offset <= diag; offset += spacing) {
+      ctx.moveTo(left + offset, top);
+      ctx.lineTo(left + offset + diag, top + height);
+    }
+  }
+  ctx.stroke();
 }
 
 function syncColorSwatches(root, currentColor) {
@@ -1236,6 +1280,13 @@ function syncShapeStyleButtons(root, shapeStyle) {
   });
   root.querySelectorAll('[data-shape-dash]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.shapeDash === shapeStyle.dash);
+  });
+  root.querySelectorAll('[data-shape-fill]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.shapeFill === shapeStyle.fill);
+  });
+  root.querySelectorAll('[data-shape-fill-preview]').forEach(preview => {
+    preview.dataset.fill = shapeStyle.fill;
+    preview.style.color = shapeStyle.color || annotationColor(shapeStyle.type || 'box');
   });
 }
 
@@ -1265,6 +1316,13 @@ function styleWeightLabel(weight) {
 
 function styleLineLabel(dash) {
   return arrowDashValue(dash) === 'dashed' ? 'Dashed' : 'Solid';
+}
+
+function shapeFillLabel(fill) {
+  if (fill === 'solid') return 'Solid';
+  if (fill === 'hatch') return 'Hatch';
+  if (fill === 'grid') return 'Grid';
+  return 'None';
 }
 
 function noteAlignLabel(align) {
@@ -1313,6 +1371,12 @@ function setFloatingToolbarWeight(thickness) {
   closeFloatingToolbarFlyout();
 }
 window.setFloatingToolbarWeight = setFloatingToolbarWeight;
+
+function setFloatingToolbarShapeFill(fill) {
+  setShapeFill(fill);
+  closeFloatingToolbarFlyout();
+}
+window.setFloatingToolbarShapeFill = setFloatingToolbarShapeFill;
 
 function setFloatingToolbarNoteAlign(align) {
   setSelectedNoteAlign(align);
@@ -3251,6 +3315,7 @@ function normalizeAnnotation(annotation) {
       color: annotation.color || annotationColor('zone'),
       thickness: arrowThicknessValue(annotation.thickness),
       dash: arrowDashValue(annotation.dash),
+      fill: normalizeShapeFill(annotation.fill),
     };
   }
   if (annotation.type === 'circle') {
@@ -3269,6 +3334,7 @@ function normalizeAnnotation(annotation) {
       color: annotation.color || annotationColor('zone'),
       thickness: arrowThicknessValue(annotation.thickness),
       dash: arrowDashValue(annotation.dash),
+      fill: normalizeShapeFill(annotation.fill),
     };
   }
   if (annotation.type === 'box') {
@@ -3287,6 +3353,7 @@ function normalizeAnnotation(annotation) {
       color: annotation.color || annotationColor('box'),
       thickness: arrowThicknessValue(annotation.thickness),
       dash: arrowDashValue(annotation.dash),
+      fill: normalizeShapeFill(annotation.fill),
     };
   }
   if (annotation.type === 'ellipse') {
@@ -3305,6 +3372,7 @@ function normalizeAnnotation(annotation) {
       color: annotation.color || annotationColor('ellipse'),
       thickness: arrowThicknessValue(annotation.thickness),
       dash: arrowDashValue(annotation.dash),
+      fill: normalizeShapeFill(annotation.fill),
     };
   }
   return null;
@@ -7080,15 +7148,29 @@ function drawZoneAnnotation(zone, selected = false, preview = false) {
   const opacity = preview ? 1 : (Number(zone.opacity) || 1);
   const strokeWidth = preview ? Math.max(1.8, arrowStrokeWidthPx(zone.thickness) - 0.3) : arrowStrokeWidthPx(zone.thickness);
   const dash = shapeDashPattern(zone.dash, strokeWidth);
+  const fill = normalizeShapeFill(zone.fill);
   ctx.save();
   ctx.globalAlpha = opacity;
-  ctx.fillStyle = hexToRgba(zone.color || annotationColor('zone'), preview ? 0.08 : 0.12);
+  if (fill !== 'none') {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+    ctx.clip();
+    drawShapeFillPattern(fill, zone.color || annotationColor('zone'), {
+      preview,
+      left: p.x - radius,
+      top: p.y - radius,
+      width: radius * 2,
+      height: radius * 2,
+      strokeWidth,
+    });
+    ctx.restore();
+  }
   ctx.strokeStyle = selected ? '#fbbf24' : (zone.color || annotationColor('zone'));
   ctx.lineWidth = selected ? strokeWidth + 0.35 : strokeWidth;
   ctx.setLineDash(dash);
   ctx.beginPath();
   ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-  ctx.fill();
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.restore();
@@ -7139,17 +7221,30 @@ function drawBoxAnnotation(box, selected = false, preview = false) {
   const strokeWidth = preview ? Math.max(1.8, arrowStrokeWidthPx(box.thickness) - 0.3) : arrowStrokeWidthPx(box.thickness);
   const dash = shapeDashPattern(box.dash, strokeWidth);
   const rotation = normalizeShapeRotation(box.rotation) * (Math.PI / 180);
+  const fill = normalizeShapeFill(box.fill);
 
   ctx.save();
   ctx.globalAlpha = opacity;
   ctx.translate(centerPx.x, centerPx.y);
   ctx.rotate(rotation);
-  ctx.fillStyle = hexToRgba(box.color || annotationColor('box'), preview ? 0.09 : 0.13);
+  if (fill !== 'none') {
+    ctx.save();
+    roundRect(ctx, -(width / 2), -(height / 2), width, height, 14);
+    ctx.clip();
+    drawShapeFillPattern(fill, box.color || annotationColor('box'), {
+      preview,
+      left: -(width / 2),
+      top: -(height / 2),
+      width,
+      height,
+      strokeWidth,
+    });
+    ctx.restore();
+  }
   ctx.strokeStyle = selected ? '#fbbf24' : (box.color || annotationColor('box'));
   ctx.lineWidth = selected ? Math.max(2.4, strokeWidth) : strokeWidth;
   if (dash.length) ctx.setLineDash(dash);
   roundRect(ctx, -(width / 2), -(height / 2), width, height, 14);
-  ctx.fill();
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.restore();
@@ -7195,18 +7290,32 @@ function drawEllipseAnnotation(ellipse, selected = false, preview = false) {
   const strokeWidth = preview ? Math.max(1.8, arrowStrokeWidthPx(ellipse.thickness) - 0.3) : arrowStrokeWidthPx(ellipse.thickness);
   const dash = shapeDashPattern(ellipse.dash, strokeWidth);
   const rotation = normalizeShapeRotation(ellipse.rotation) * (Math.PI / 180);
+  const fill = normalizeShapeFill(ellipse.fill);
 
   ctx.save();
   ctx.globalAlpha = opacity;
   ctx.translate(centerPx.x, centerPx.y);
   ctx.rotate(rotation);
-  ctx.fillStyle = hexToRgba(ellipse.color || annotationColor('ellipse'), preview ? 0.08 : 0.12);
+  if (fill !== 'none') {
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
+    ctx.clip();
+    drawShapeFillPattern(fill, ellipse.color || annotationColor('ellipse'), {
+      preview,
+      left: -radiusX,
+      top: -radiusY,
+      width,
+      height,
+      strokeWidth,
+    });
+    ctx.restore();
+  }
   ctx.strokeStyle = selected ? '#fbbf24' : (ellipse.color || annotationColor('ellipse'));
   ctx.lineWidth = selected ? Math.max(2.4, strokeWidth) : strokeWidth;
   if (dash.length) ctx.setLineDash(dash);
   ctx.beginPath();
   ctx.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
-  ctx.fill();
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.restore();
@@ -8116,6 +8225,7 @@ function handlePointerDown(e) {
       color: shapeStyle.color,
       thickness: shapeStyle.thickness,
       dash: shapeStyle.dash,
+      fill: shapeStyle.fill,
     });
     S.annotationDraft.anchor = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
     try { cv.setPointerCapture(e.pointerId); } catch(_) {}
@@ -8141,6 +8251,7 @@ function handlePointerDown(e) {
       color: shapeStyle.color,
       thickness: shapeStyle.thickness,
       dash: shapeStyle.dash,
+      fill: shapeStyle.fill,
     });
     S.annotationDraft.anchor = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
     try { cv.setPointerCapture(e.pointerId); } catch(_) {}
@@ -8166,6 +8277,7 @@ function handlePointerDown(e) {
       color: shapeStyle.color,
       thickness: shapeStyle.thickness,
       dash: shapeStyle.dash,
+      fill: shapeStyle.fill,
     });
     S.annotationDraft.anchor = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
     try { cv.setPointerCapture(e.pointerId); } catch(_) {}
@@ -11818,6 +11930,12 @@ function setShapeDash(dash) {
 }
 window.setShapeDash = setShapeDash;
 
+function setShapeFill(fill) {
+  if (!isShapeAnnotationType(S.tool) && !isShapeAnnotationType(selectedAnnotation()?.type)) return;
+  applyShapeStyleSelection({ fill });
+}
+window.setShapeFill = setShapeFill;
+
 function refreshInteractionUI() {
   persistCurrentStep();
   updateSelInfo();
@@ -12353,6 +12471,10 @@ function updateSelInfo() {
   const floatingToolbarWeightBtn = document.getElementById('floatingToolbarWeightBtn');
   const floatingToolbarWeightValue = document.getElementById('floatingToolbarWeightValue');
   const floatingToolbarWeightPreview = document.getElementById('floatingToolbarWeightPreview');
+  const floatingToolbarFillItem = document.getElementById('floatingToolbarFillItem');
+  const floatingToolbarFillBtn = document.getElementById('floatingToolbarFillBtn');
+  const floatingToolbarFillValue = document.getElementById('floatingToolbarFillValue');
+  const floatingToolbarFillPreview = document.getElementById('floatingToolbarFillPreview');
   const floatingToolbarAlignItem = document.getElementById('floatingToolbarAlignItem');
   const floatingToolbarAlignBtn = document.getElementById('floatingToolbarAlignBtn');
   const floatingToolbarAlignValue = document.getElementById('floatingToolbarAlignValue');
@@ -12524,6 +12646,18 @@ function updateSelInfo() {
         if (floatingToolbarWeightValue) floatingToolbarWeightValue.textContent = styleWeightLabel(weightValue);
       }
 
+      const showFill = isShapeAnnotationType(ann.type);
+      if (floatingToolbarFillItem) floatingToolbarFillItem.hidden = !showFill;
+      if (floatingToolbarFillBtn) floatingToolbarFillBtn.hidden = !showFill;
+      if (showFill) {
+        const fillValue = currentShapeStyleSelection(ann.type).fill;
+        if (floatingToolbarFillPreview) {
+          floatingToolbarFillPreview.dataset.fill = fillValue;
+          floatingToolbarFillPreview.style.color = ann.color || annotationColor(ann.type);
+        }
+        if (floatingToolbarFillValue) floatingToolbarFillValue.textContent = shapeFillLabel(fillValue);
+      }
+
       const showAlign = ann.type === 'note' || ann.type === 'playerLabel';
       if (floatingToolbarEditNoteBtn) floatingToolbarEditNoteBtn.hidden = !showAlign;
       if (floatingToolbarAlignItem) floatingToolbarAlignItem.hidden = !showAlign;
@@ -12540,7 +12674,7 @@ function updateSelInfo() {
       if (showOpacity) {
         const opacityValue = clamp(Number(ann.opacity) || 1, 0.2, 1);
         if (floatingToolbarOpacity) floatingToolbarOpacity.value = String(opacityValue);
-        if (floatingToolbarOpacityLabel) floatingToolbarOpacityLabel.textContent = ann.type === 'note' || ann.type === 'playerLabel' ? 'Transparency' : 'Fill';
+        if (floatingToolbarOpacityLabel) floatingToolbarOpacityLabel.textContent = ann.type === 'note' || ann.type === 'playerLabel' ? 'Transparency' : 'Opacity';
         if (floatingToolbarOpacityValue) floatingToolbarOpacityValue.textContent = `${Math.round(opacityValue * 100)}%`;
       }
 
