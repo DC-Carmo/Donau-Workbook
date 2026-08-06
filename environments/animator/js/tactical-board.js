@@ -2291,10 +2291,16 @@ function createCarryForwardStep(step) {
   } else if (finalPass && finalPass.toT !== undefined && finalPass.toNum !== undefined) {
     const receiver = carriedPlayerByRef.get(playerKey({ team: finalPass.toT, num: finalPass.toNum }));
     if (receiver) {
-      ball = { x: receiver.x, y: receiver.y };
+      if (finalPass.style === 'pass') {
+        ball = attachedBallPositionForPlayer(receiver);
+        ballOwner = playerRef(receiver);
+        ballAttached = true;
+      } else {
+        ball = { x: receiver.x, y: receiver.y };
+        ballOwner = null;
+        ballAttached = false;
+      }
     }
-    ballOwner = null;
-    ballAttached = false;
   } else if (ballAttached && ballOwner) {
     const carrier = carriedPlayerByRef.get(playerKey(ballOwner));
     if (carrier) {
@@ -9548,6 +9554,7 @@ function stopPlayback(resetProgress = false) {
   cancelCanonicalPlaybackFrame();
   S.animating = false;
   S.lastTs = null;
+  if (resetProgress) clearCanonicalPlaybackOrigin();
   if (resetProgress) {
     S.animT = 0;
     canonicalPlaybackBoundaryIndex = null;
@@ -9958,12 +9965,36 @@ let canonicalPlaybackBoundaryIndex = null;
 // GamePlan/save/export/import/history) - reset to 'idle' whenever playback fully stops.
 let canonicalPlaybackMode = 'idle'; // 'idle' | 'preview' | 'phase' | 'from-here'
 let canonicalPlaybackRafHandle = null;
+let canonicalPlaybackOriginRef = null;
 
 function cancelCanonicalPlaybackFrame() {
   if (canonicalPlaybackRafHandle !== null) {
     cancelAnimationFrame(canonicalPlaybackRafHandle);
     canonicalPlaybackRafHandle = null;
   }
+}
+
+function captureCanonicalPlaybackOrigin() {
+  const currentIndex = getCurrentCanonicalMoveIndex();
+  const currentRef = getCanonicalMoveRef(currentIndex);
+  canonicalPlaybackOriginRef = currentRef ? { ...currentRef } : null;
+}
+
+function clearCanonicalPlaybackOrigin() {
+  canonicalPlaybackOriginRef = null;
+}
+
+function restoreCanonicalPlaybackOrigin() {
+  if (!canonicalPlaybackOriginRef) return false;
+  const refs = getCanonicalMoveRefs();
+  const originIndex = refs.findIndex(ref => ref.phaseIndex === canonicalPlaybackOriginRef.phaseIndex && ref.stepIndex === canonicalPlaybackOriginRef.stepIndex);
+  if (originIndex < 0) {
+    clearCanonicalPlaybackOrigin();
+    return false;
+  }
+  const restored = activateCanonicalMoveForPlayback(originIndex, { resetProgress: true });
+  clearCanonicalPlaybackOrigin();
+  return restored;
 }
 
 function setSequenceDockVisibility(isVisible) {
@@ -10866,6 +10897,7 @@ function getActiveCanonicalTransitionRefs() {
 // (Previous/Next), Move chips and Phase labels - never a second engine.
 function cancelPlaybackAndSelect(index) {
   stopPlayback(true);
+  clearCanonicalPlaybackOrigin();
   activateCanonicalMoveForPlayback(index, { resetProgress: true });
   updateTL();
   render();
@@ -10943,7 +10975,9 @@ function togglePlay() {
   canonicalPlaybackBoundaryIndex = null;
   canonicalPlaybackMode = 'preview';
   persistCurrentPhase();
+  captureCanonicalPlaybackOrigin();
   if (!currentPhaseHasPlayablePlayback()) {
+    clearCanonicalPlaybackOrigin();
     stopPlayback(false);
     setHint('This is the final move. There is no next move to preview.');
     refreshInteractionUI();
@@ -10973,7 +11007,9 @@ function togglePlayAll() {
   }
 
   persistCurrentPhase();
+  captureCanonicalPlaybackOrigin();
   if (!currentPhaseHasPlayablePlayback()) {
+    clearCanonicalPlaybackOrigin();
     stopPlayback(false);
     setHint('This is the final move. There are no later moves to play.');
     refreshInteractionUI();
@@ -11000,6 +11036,7 @@ function playCurrentCanonicalPhase() {
   if (!range || range.moveCount <= 1) return;
   persistCurrentPhase();
   goToCanonicalMove(range.firstIndex);
+  captureCanonicalPlaybackOrigin();
   canonicalPlaybackBoundaryIndex = range.lastIndex;
   canonicalPlaybackMode = 'phase';
   S.playAll = true;
@@ -11034,6 +11071,7 @@ function animLoop(ts) {
       }
       S.animating = false;
       S.playAll = false;
+      restoreCanonicalPlaybackOrigin();
       S.animT = 0;
       S.lastTs = null;
       canonicalPlaybackBoundaryIndex = null;
