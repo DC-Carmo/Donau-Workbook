@@ -22,6 +22,7 @@ const FVW = F.DX1 - F.DX0;
 const FVH = F.DY1 - F.DY0;
 const FIELD_X_STRETCH = 1.7;
 const BALL_CARRY_OFFSET = { x: 1.45, y: -1.05 };
+const BALL_CARRY_SNAP = 2.2; // a ball within ~2 units of the owner's centre counts as carried
 const MOBILE_TAP_TOGGLE_PX = 5;
 const PENDING_GROUP_DRAG_PX = 8;
 const SNAP_RADIUS = 4; // field units (~4m)
@@ -1821,7 +1822,8 @@ function effectiveBallCarryState(players = S.players, ball = S.ball, ownerRef = 
     };
   }
   const attachedDistance = d2(normalizedBall, attachedBall);
-  if (attachedDistance <= 0.9) {
+  const centerDistance = d2(normalizedBall, { x: owner.x, y: owner.y });
+  if (attachedDistance <= 0.9 || centerDistance <= BALL_CARRY_SNAP) {
     return {
       ball: attachedBall,
       ballOwner: playerRef(owner),
@@ -1855,7 +1857,8 @@ function projectPlayersToRunEndpoints(players = S.players, paths = S.paths) {
 }
 
 function effectiveBallCarryStateForRuntimeStep(players = S.players, paths = S.paths, ball = S.ball, ownerRef = S.ballOwner, attached = S.ballAttached) {
-  return effectiveBallCarryState(projectPlayersToRunEndpoints(players, paths), ball, ownerRef, attached);
+  const preRun = effectiveBallCarryState(players, ball, ownerRef, attached);
+  return effectiveBallCarryState(projectPlayersToRunEndpoints(players, paths), ball, ownerRef, preRun.ballAttached);
 }
 
 function liveBoardToStepState() {
