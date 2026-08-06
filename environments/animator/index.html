@@ -22,8 +22,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tactical Board - Coach Mato</title>
+<link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/tactical-board.css?v=20260728-portrait-direction-fix">
+<link rel="stylesheet" href="css/tactical-board.css?v=20260805-move-nav">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 </head>
@@ -45,7 +46,19 @@
 
     <div class="seq-bar" aria-label="Sequence controls">
       <button class="seq-bar-nav" id="seqBarPrev" onclick="handleCanonicalPrevious()" aria-label="Previous move" title="Previous Move">&#8249;&#xFE0E;</button>
-      <div class="seq-bar-chips" id="phaseChipStrip"></div>
+      <div class="seq-bar-body">
+        <div class="seq-bar-summary" aria-live="polite">
+          <span class="seq-bar-summary-phase" id="seqBarPhaseIndicator">PHASE 1 / 1</span>
+          <span class="seq-bar-summary-move" id="seqBarMoveIndicator">Move 1 / 1</span>
+        </div>
+        <div class="seq-bar-strip-shell" id="seqBarStripShell" data-can-scroll-left="false" data-can-scroll-right="false">
+          <button class="seq-bar-scroll-btn" id="seqBarScrollPrev" type="button" aria-label="Scroll moves left" title="Scroll moves left">&#8249;&#xFE0E;</button>
+          <div class="seq-bar-strip-viewport">
+            <div class="seq-bar-chips" id="phaseChipStrip"></div>
+          </div>
+          <button class="seq-bar-scroll-btn" id="seqBarScrollNext" type="button" aria-label="Scroll moves right" title="Scroll moves right">&#8250;&#xFE0E;</button>
+        </div>
+      </div>
       <button class="seq-bar-nav" id="seqBarNext" onclick="handleCanonicalNext()" aria-label="Next move" title="Next Move">&#8250;&#xFE0E;</button>
       <button class="seq-bar-play" id="seqBarPlay" onclick="toggleSmartPlay()" aria-label="Play from here to the end" title="Play from the current phase through to the end (Space)">
         <span class="seq-bar-play-icon" id="seqBarPlayIcon">&#9654;</span>
@@ -62,8 +75,23 @@
     <button class="c-btn mobile-play-btn" id="mobileTopPlayBtn" type="button" onclick="toggleSmartPlay()" aria-label="Play from the current move to the end">Play</button>
 
     <div class="tb-actions">
+      <div class="tb-history-controls" aria-label="History controls">
+        <button class="tb-history-btn" id="topbarUndoBtn" type="button" onclick="undo()" aria-label="Undo" title="Nothing to undo">
+          <span aria-hidden="true">&#8630;</span>
+        </button>
+        <button class="tb-history-btn" id="topbarRedoBtn" type="button" onclick="redo()" aria-label="Redo" title="Nothing to redo">
+          <span aria-hidden="true">&#8631;</span>
+        </button>
+      </div>
       <a class="c-btn tb-portal" href="../../index.html"
          onclick="event.preventDefault(); location.href='../../index.html'"><span>&#8249;</span> Portal</a>
+      <div class="tb-language-switcher" id="languageSwitcher">
+        <button class="tb-language-btn" id="languageSwitcherBtn" type="button" aria-label="Change language" aria-expanded="false" aria-controls="languageSwitcherMenu">
+          <span class="tb-language-globe" aria-hidden="true">&#127760;</span>
+          <span id="languageSwitcherLabel">EN</span>
+        </button>
+        <div class="tb-language-menu" id="languageSwitcherMenu" hidden></div>
+      </div>
       <div id="autosaveStatus" class="tb-autosave-status" aria-live="polite">Saved</div>
       <button class="c-btn" id="mobileSaveBtn" onclick="saveCurrentPlay()">Save</button>
       <button class="c-btn primary desktop-only" onclick="exportPDF()">Export PDF</button>
@@ -100,22 +128,22 @@
       </div>
       <div class="mobile-board-menu-actions">
         <a class="mobile-board-menu-btn" href="../../index.html" onclick="event.preventDefault(); closeMobileBoardMenu(); location.href='../../index.html'">Portal</a>
-        <button class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); togglePlay()">Play</button>
-        <button class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); openMobileNotesSheet()">Coaching Notes</button>
-        <button class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); saveCurrentPlay()">Save</button>
-        <button class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); exportPDF()">Export PDF</button>
-        <button class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); exportCurrentPlay()">Export JSON</button>
-        <button class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); triggerImportPlay()">Import</button>
+        <button id="mobileBoardMenuPlayBtn" class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); togglePlay()">Play</button>
+        <button id="mobileBoardMenuNotesBtn" class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); openMobileNotesSheet()">Coaching Notes</button>
+        <button id="mobileBoardMenuSaveBtn" class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); saveCurrentPlay()">Save</button>
+        <button id="mobileBoardMenuExportPdfBtn" class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); exportPDF()">Export PDF</button>
+        <button id="mobileBoardMenuExportJsonBtn" class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); exportCurrentPlay()">Export JSON</button>
+        <button id="mobileBoardMenuImportBtn" class="mobile-board-menu-btn" type="button" onclick="closeMobileBoardMenu(); triggerImportPlay()">Import</button>
       </div>
     </div>
   </div>
 
   <div id="mobileNotesSheet" aria-hidden="true">
-    <button class="mobile-notes-backdrop" type="button" onclick="closeMobileNotesSheet()" aria-label="Close coaching notes"></button>
+    <button id="mobileNotesBackdrop" class="mobile-notes-backdrop" type="button" onclick="closeMobileNotesSheet()" aria-label="Close coaching notes"></button>
     <div class="mobile-notes-sheet" role="dialog" aria-modal="true" aria-label="Coaching notes">
       <div class="mobile-notes-sheet-head">
-        <span class="mobile-board-menu-kicker">Coaching Notes</span>
-        <button class="mobile-board-menu-close" type="button" onclick="closeMobileNotesSheet()" aria-label="Close coaching notes">&times;</button>
+        <span id="mobileNotesSheetTitle" class="mobile-board-menu-kicker">Coaching Notes</span>
+        <button id="mobileNotesSheetCloseBtn" class="mobile-board-menu-close" type="button" onclick="closeMobileNotesSheet()" aria-label="Close coaching notes">&times;</button>
       </div>
       <div id="mobileNotesSheetHost"></div>
     </div>
@@ -140,9 +168,9 @@
         <div class="sp-default-state" id="spDefaultState">
           <div class="sp-default-copy">Choose a tool and build the phase. The panel updates as you work.</div>
           <div class="sp-default-tips">
-            <div class="sp-default-tip"><strong>Mode:</strong> <span id="spDefaultMode">Move</span></div>
-            <div class="sp-default-tip"><strong>Tip:</strong> Add a step to capture phase progression.</div>
-            <div class="sp-default-tip"><strong>Action:</strong> Tap a player to select, or use RUN / PASS / KICK.</div>
+            <div class="sp-default-tip"><strong id="spDefaultModeLabel">Mode:</strong> <span id="spDefaultMode">Move</span></div>
+            <div class="sp-default-tip"><strong id="spDefaultTipLabel">Tip:</strong> <span id="spDefaultTipValue">Add a step to capture phase progression.</span></div>
+            <div class="sp-default-tip"><strong id="spDefaultActionLabel">Action:</strong> <span id="spDefaultActionValue">Tap a player to select, or use RUN / PASS / KICK.</span></div>
           </div>
         </div>
 
@@ -163,6 +191,76 @@
           <p class="sp-ann-copy" id="annotationCopy">Click or drag on the field to place.</p>
         </div>
 
+        <div id="spArrowToolCard" class="sp-ctx-card sp-arrow-tool-card" hidden>
+          <div class="sp-arrow-tool-head">
+            <span class="sp-sel-label">Arrow Style</span>
+            <span class="sp-arrow-tool-copy" id="spArrowToolCopy">Choose the default style before drawing.</span>
+          </div>
+          <div class="sp-color-picker sp-arrow-color-picker" id="spArrowColorPicker">
+            <span class="sp-field-label">Color</span>
+            <div class="sp-color-swatches">
+              <button class="sp-color-swatch" data-color="#ffffff" style="--sw:#ffffff" onclick="setAnnotationColor('#ffffff')" aria-label="White"></button>
+              <button class="sp-color-swatch" data-color="#e3b23c" style="--sw:#e3b23c" onclick="setAnnotationColor('#e3b23c')" aria-label="Gold"></button>
+              <button class="sp-color-swatch" data-color="#10b981" style="--sw:#10b981" onclick="setAnnotationColor('#10b981')" aria-label="Green"></button>
+              <button class="sp-color-swatch" data-color="#ef4444" style="--sw:#ef4444" onclick="setAnnotationColor('#ef4444')" aria-label="Red"></button>
+              <button class="sp-color-swatch" data-color="#3b82f6" style="--sw:#3b82f6" onclick="setAnnotationColor('#3b82f6')" aria-label="Blue"></button>
+              <button class="sp-color-swatch" data-color="#f97316" style="--sw:#f97316" onclick="setAnnotationColor('#f97316')" aria-label="Orange"></button>
+            </div>
+          </div>
+          <div id="spArrowStyleControls" class="sp-arrow-style" hidden>
+            <div class="sp-field-group">
+              <span class="sp-field-label">Line Style</span>
+              <div class="sp-note-align-buttons sp-arrow-style-buttons-2" role="group" aria-label="Arrow line style">
+                <button class="sp-btn sp-note-align-btn" data-arrow-dash="solid" type="button" onclick="setArrowDash('solid')">Solid</button>
+                <button class="sp-btn sp-note-align-btn" data-arrow-dash="dashed" type="button" onclick="setArrowDash('dashed')">Dashed</button>
+              </div>
+            </div>
+            <div class="sp-field-group">
+              <span class="sp-field-label">Thickness</span>
+              <div class="sp-note-align-buttons" role="group" aria-label="Arrow thickness">
+                <button class="sp-btn sp-note-align-btn" data-arrow-thickness="thin" type="button" onclick="setArrowThickness('thin')">Thin</button>
+                <button class="sp-btn sp-note-align-btn" data-arrow-thickness="normal" type="button" onclick="setArrowThickness('normal')">Normal</button>
+                <button class="sp-btn sp-note-align-btn" data-arrow-thickness="thick" type="button" onclick="setArrowThickness('thick')">Thick</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="spShapeToolCard" class="sp-ctx-card sp-shape-tool-card" hidden>
+          <div class="sp-arrow-tool-head">
+            <span class="sp-sel-label">Shape Style</span>
+            <span class="sp-arrow-tool-copy" id="spShapeToolCopy">Choose the default style before drawing.</span>
+          </div>
+          <div class="sp-color-picker sp-arrow-color-picker" id="spShapeColorPicker">
+            <span class="sp-field-label">Color</span>
+            <div class="sp-color-swatches">
+              <button class="sp-color-swatch" data-color="#ffffff" style="--sw:#ffffff" onclick="setAnnotationColor('#ffffff')" aria-label="White"></button>
+              <button class="sp-color-swatch" data-color="#e3b23c" style="--sw:#e3b23c" onclick="setAnnotationColor('#e3b23c')" aria-label="Gold"></button>
+              <button class="sp-color-swatch" data-color="#10b981" style="--sw:#10b981" onclick="setAnnotationColor('#10b981')" aria-label="Green"></button>
+              <button class="sp-color-swatch" data-color="#ef4444" style="--sw:#ef4444" onclick="setAnnotationColor('#ef4444')" aria-label="Red"></button>
+              <button class="sp-color-swatch" data-color="#3b82f6" style="--sw:#3b82f6" onclick="setAnnotationColor('#3b82f6')" aria-label="Blue"></button>
+              <button class="sp-color-swatch" data-color="#f97316" style="--sw:#f97316" onclick="setAnnotationColor('#f97316')" aria-label="Orange"></button>
+            </div>
+          </div>
+          <div id="spShapeStyleControls" class="sp-arrow-style" hidden>
+            <div class="sp-field-group">
+              <span class="sp-field-label">Line Style</span>
+              <div class="sp-note-align-buttons sp-arrow-style-buttons-2" role="group" aria-label="Shape line style">
+                <button class="sp-btn sp-note-align-btn" data-shape-dash="solid" type="button" onclick="setShapeDash('solid')">Solid</button>
+                <button class="sp-btn sp-note-align-btn" data-shape-dash="dashed" type="button" onclick="setShapeDash('dashed')">Dashed</button>
+              </div>
+            </div>
+            <div class="sp-field-group">
+              <span class="sp-field-label">Thickness</span>
+              <div class="sp-note-align-buttons" role="group" aria-label="Shape thickness">
+                <button class="sp-btn sp-note-align-btn" data-shape-thickness="thin" type="button" onclick="setShapeThickness('thin')">Thin</button>
+                <button class="sp-btn sp-note-align-btn" data-shape-thickness="normal" type="button" onclick="setShapeThickness('normal')">Normal</button>
+                <button class="sp-btn sp-note-align-btn" data-shape-thickness="thick" type="button" onclick="setShapeThickness('thick')">Thick</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div id="selInfo" class="sel-info sp-ctx-card sp-sel-card">
           <div class="sp-sel-chip">
             <span class="sp-sel-label">Selected</span>
@@ -180,29 +278,24 @@
               <button class="sp-color-swatch" data-color="#f97316" style="--sw:#f97316" onclick="setAnnotationColor('#f97316')" aria-label="Orange"></button>
             </div>
           </div>
-          <div class="sp-shape-actions" id="spShapeActions" hidden>
-            <button class="sp-btn" id="duplicateSelectedBtn" type="button" onclick="duplicateSelected()">Duplicate</button>
-            <div class="sp-field-group">
-              <label class="sp-field-label" for="shapeOpacity">Transparency</label>
-              <input id="shapeOpacity" class="sp-field-input" type="range" min="0.2" max="1" step="0.05" value="1" oninput="setSelectedAnnotationOpacity(this.value)">
-            </div>
-          </div>
           <div id="selEditWrap" class="sel-edit sp-sel-edit">
             <label id="selEditLabel" class="sp-field-label" for="selNoteInput">Note Text</label>
             <textarea id="selNoteInput" class="sp-field-input sp-field-textarea" rows="3" maxlength="160" placeholder="Update note text"></textarea>
-            <div id="selNoteAlignWrap" class="sp-note-align" hidden>
-              <span class="sp-field-label">Align</span>
-              <div class="sp-note-align-buttons" role="group" aria-label="Note alignment">
-                <button id="selNoteAlignLeft" class="sp-btn sp-note-align-btn" type="button" onclick="setSelectedNoteAlign('left')">Left</button>
-                <button id="selNoteAlignCenter" class="sp-btn sp-note-align-btn" type="button" onclick="setSelectedNoteAlign('center')">Center</button>
-                <button id="selNoteAlignRight" class="sp-btn sp-note-align-btn" type="button" onclick="setSelectedNoteAlign('right')">Right</button>
-              </div>
-            </div>
           </div>
           <button id="selGiveBallBtn" class="sp-btn sp-btn-accent" onclick="giveBall(S.selected)" hidden>Give Ball</button>
           <div class="sp-sel-actions">
             <button id="selClearBtn" class="sp-btn" onclick="clearSelection()">Deselect</button>
             <button id="selDeleteBtn" class="sp-btn sp-btn-danger" onclick="deleteSelected()">Remove</button>
+          </div>
+          <div id="gainlinePanel" class="sp-gainline-panel" hidden>
+            <div id="gainDisplay" class="sp-gain-display">On gainline</div>
+            <div class="sp-attack-direction" aria-label="Attack direction">
+              <span id="attackDirectionLabel" class="sp-attack-direction-label">Attack</span>
+              <div id="attackDirectionGroup" class="sp-attack-direction-toggle" role="group" aria-label="Attack">
+                <button id="attackDirectionUpBtn" class="sp-attack-direction-btn" type="button" onclick="setAttackDirection('up')">â†‘</button>
+                <button id="attackDirectionDownBtn" class="sp-attack-direction-btn" type="button" onclick="setAttackDirection('down')">â†“</button>
+              </div>
+            </div>
           </div>
           <div id="spGroupActions" class="sp-group-actions" hidden>
             <button id="selGroupModeBtn" class="sp-btn" type="button">Edit Individuals</button>
@@ -210,31 +303,50 @@
           </div>
         </div>
 
-        <div id="gainDisplay" class="sp-gain-display">On gainline</div>
-
-      </div>
+        <div class="sp-gainline-panel">
+          <div id="gainDisplay" class="sp-gain-display">On gainline</div>
+          <div class="sp-attack-direction" aria-label="Attack direction">
+            <span id="attackDirectionLabel" class="sp-attack-direction-label">Attack</span>
+            <div id="attackDirectionGroup" class="sp-attack-direction-toggle" role="group" aria-label="Attack">
+              <button id="attackDirectionUpBtn" class="sp-attack-direction-btn" type="button" onclick="setAttackDirection('up')">↑</button>
+              <button id="attackDirectionDownBtn" class="sp-attack-direction-btn" type="button" onclick="setAttackDirection('down')">↓</button>
+            </div>
+          </div>
+        </div>
 
         <!-- PLAYS section -->
-        <div class="section-block">
-          <div class="section-label">PLAYS</div>
-          <button id="presetOppositionToggle" class="sp-btn sp-btn-ghost sp-btn-compact" type="button" onclick="togglePresetOpposition()">
-            Opposition: Off
+        <div class="section-block sp-acc-section coach-panel-section" id="accPresets" data-accordion-group="coach-panel">
+          <button class="section-label sp-acc-trigger coach-panel-trigger" type="button" onclick="toggleAccordion('accPresets')" aria-expanded="false">
+            <span>Plays & Opposition</span>
+            <span class="sp-acc-chevron" aria-hidden="true">&#8250;</span>
           </button>
-          <div id="playList"></div>
+          <div class="sp-acc-body coach-panel-body">
+            <div class="sp-acc-body-inner coach-panel-body-inner">
+              <button id="presetOppositionToggle" class="sp-btn sp-btn-ghost sp-btn-compact" type="button" onclick="togglePresetOpposition()">
+                Opposition: Off
+              </button>
+              <div id="playList"></div>
+            </div>
+          </div>
         </div>
 
       <div id="smartPanelNotesAnchor"></div>
 
       <!-- BOTTOM: Coaching Notes accordion -->
-      <div class="sp-notes-panel">
-        <div class="sp-notes-panel-hdr">
-          <span class="sp-notes-panel-label">Coaching Notes</span>
-          <span class="sp-notes-play-name" id="metaTitleValue"></span>
-        </div>
+      <div class="sp-notes-panel sp-acc-section coach-panel-section" id="accCoachNotes" data-accordion-group="coach-panel">
+        <button class="sp-notes-panel-hdr sp-acc-trigger coach-panel-trigger" type="button" onclick="toggleAccordion('accCoachNotes')" aria-expanded="false">
+          <span class="sp-notes-panel-hdr-copy">
+            <span id="coachNotesPanelLabel" class="sp-notes-panel-label">Coaching Notes</span>
+            <span class="sp-notes-play-name" id="metaTitleValue"></span>
+          </span>
+          <span class="sp-acc-chevron" aria-hidden="true">&#8250;</span>
+        </button>
+        <div class="sp-acc-body coach-panel-body">
+          <div class="sp-acc-body-inner coach-panel-body-inner coach-panel-notes-body">
 
-        <div class="sp-acc-section" id="accPurpose">
+        <div class="sp-acc-section" id="accPurpose" data-accordion-group="coach-notes">
           <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accPurpose')" aria-expanded="false">
-            <span>Phase Purpose</span>
+            <span id="accPurposeLabel">Phase Purpose</span>
             <span class="sp-acc-chevron" aria-hidden="true">›</span>
           </button>
           <div class="sp-acc-body">
@@ -244,9 +356,9 @@
           </div>
         </div>
 
-        <div class="sp-acc-section" id="accDecision">
+        <div class="sp-acc-section" id="accDecision" data-accordion-group="coach-notes">
           <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accDecision')" aria-expanded="false">
-            <span>Decision Cue</span>
+            <span id="accDecisionLabel">Decision Cue</span>
             <span class="sp-acc-chevron" aria-hidden="true">›</span>
           </button>
           <div class="sp-acc-body">
@@ -256,9 +368,9 @@
           </div>
         </div>
 
-        <div class="sp-acc-section" id="accCoaching">
+        <div class="sp-acc-section" id="accCoaching" data-accordion-group="coach-notes">
           <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accCoaching')" aria-expanded="false">
-            <span>Coaching Points</span>
+            <span id="accCoachingLabel">Coaching Points</span>
             <span class="sp-acc-chevron" aria-hidden="true">›</span>
           </button>
           <div class="sp-acc-body">
@@ -270,9 +382,9 @@
           </div>
         </div>
 
-        <div class="sp-acc-section" id="accMistakes">
+        <div class="sp-acc-section" id="accMistakes" data-accordion-group="coach-notes">
           <button class="sp-acc-trigger" type="button" onclick="toggleAccordion('accMistakes')" aria-expanded="false">
-            <span>Common Mistakes</span>
+            <span id="accMistakesLabel">Common Mistakes</span>
             <span class="sp-acc-chevron" aria-hidden="true">›</span>
           </button>
           <div class="sp-acc-body">
@@ -283,7 +395,9 @@
             </div>
           </div>
         </div>
-
+          </div>
+        </div>
+      </div>
       </div>
 
     </div>
@@ -305,10 +419,129 @@
         <div id="radialMenu" aria-hidden="true"></div>
 
         <!-- Floating delete/deselect bar — appears when annotation is selected -->
-        <div id="floatDeleteBar" hidden>
-          <button id="floatDeleteBtn" onclick="deleteSelected()">&#10005; Delete</button>
-          <button id="floatDeselectBtn" onclick="clearSelection()">Deselect</button>
+        <div id="floatingSelectionToolbar" class="floating-selection-toolbar" hidden data-placement="top" data-kind="">
+          <div class="floating-selection-toolbar-row">
+            <div class="floating-selection-toolbar-item floating-selection-toolbar-label">
+              <span class="floating-selection-toolbar-kicker">Selected</span>
+              <span class="floating-selection-toolbar-title" id="floatingSelectionToolbarTitle">Arrow</span>
+            </div>
+
+            <div class="floating-selection-toolbar-item" id="floatingToolbarColorItem">
+              <button id="floatingToolbarColorBtn" class="floating-selection-toolbar-trigger" type="button" data-flyout-target="color" aria-expanded="false" aria-controls="floatingToolbarColorFlyout" onclick="toggleFloatingToolbarFlyout('color', event)">
+                <span class="floating-toolbar-trigger-kicker">Color</span>
+                <span class="floating-toolbar-trigger-main">
+                  <span id="floatingToolbarColorSwatch" class="floating-toolbar-color-chip" aria-hidden="true"></span>
+                  <span id="floatingToolbarColorValue" class="floating-toolbar-trigger-value">Gold</span>
+                </span>
+              </button>
+              <div id="floatingToolbarColorFlyout" class="floating-selection-toolbar-flyout" data-flyout="color" hidden>
+                <div class="sp-color-swatches">
+                  <button class="sp-color-swatch" data-color="#ffffff" style="--sw:#ffffff" onclick="setFloatingToolbarColor('#ffffff')" aria-label="White"></button>
+                  <button class="sp-color-swatch" data-color="#e3b23c" style="--sw:#e3b23c" onclick="setFloatingToolbarColor('#e3b23c')" aria-label="Gold"></button>
+                  <button class="sp-color-swatch" data-color="#10b981" style="--sw:#10b981" onclick="setFloatingToolbarColor('#10b981')" aria-label="Green"></button>
+                  <button class="sp-color-swatch" data-color="#ef4444" style="--sw:#ef4444" onclick="setFloatingToolbarColor('#ef4444')" aria-label="Red"></button>
+                  <button class="sp-color-swatch" data-color="#3b82f6" style="--sw:#3b82f6" onclick="setFloatingToolbarColor('#3b82f6')" aria-label="Blue"></button>
+                  <button class="sp-color-swatch" data-color="#f97316" style="--sw:#f97316" onclick="setFloatingToolbarColor('#f97316')" aria-label="Orange"></button>
+                </div>
+              </div>
+            </div>
+
+            <div class="floating-selection-toolbar-item" id="floatingToolbarLineItem" hidden>
+              <button id="floatingToolbarLineBtn" class="floating-selection-toolbar-trigger" type="button" data-flyout-target="line" aria-expanded="false" aria-controls="floatingToolbarLineFlyout" onclick="toggleFloatingToolbarFlyout('line', event)">
+                <span class="floating-toolbar-trigger-kicker">Line</span>
+                <span class="floating-toolbar-trigger-main">
+                  <span id="floatingToolbarLinePreview" class="floating-toolbar-line-preview" data-line="solid" aria-hidden="true"></span>
+                  <span id="floatingToolbarLineValue" class="floating-toolbar-trigger-value">Solid</span>
+                </span>
+              </button>
+              <div id="floatingToolbarLineFlyout" class="floating-selection-toolbar-flyout" data-flyout="line" hidden>
+                <div class="floating-selection-toolbar-choice-list" role="group" aria-label="Floating line style">
+                  <button class="sp-btn sp-note-align-btn floating-selection-toolbar-choice" data-arrow-dash="solid" data-shape-dash="solid" type="button" onclick="setFloatingToolbarLineStyle('solid')">
+                    <span class="floating-toolbar-line-preview" data-line="solid" aria-hidden="true"></span>
+                    <span>Solid</span>
+                  </button>
+                  <button class="sp-btn sp-note-align-btn floating-selection-toolbar-choice" data-arrow-dash="dashed" data-shape-dash="dashed" type="button" onclick="setFloatingToolbarLineStyle('dashed')">
+                    <span class="floating-toolbar-line-preview" data-line="dashed" aria-hidden="true"></span>
+                    <span>Dashed</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="floating-selection-toolbar-item" id="floatingToolbarWeightItem" hidden>
+              <button id="floatingToolbarWeightBtn" class="floating-selection-toolbar-trigger" type="button" data-flyout-target="weight" aria-expanded="false" aria-controls="floatingToolbarWeightFlyout" onclick="toggleFloatingToolbarFlyout('weight', event)">
+                <span class="floating-toolbar-trigger-kicker">Weight</span>
+                <span class="floating-toolbar-trigger-main">
+                  <span id="floatingToolbarWeightPreview" class="floating-toolbar-weight-preview" data-weight="normal" aria-hidden="true">
+                    <span></span><span></span><span></span>
+                  </span>
+                  <span id="floatingToolbarWeightValue" class="floating-toolbar-trigger-value">Normal</span>
+                </span>
+              </button>
+              <div id="floatingToolbarWeightFlyout" class="floating-selection-toolbar-flyout" data-flyout="weight" hidden>
+                <div class="floating-selection-toolbar-choice-list" role="group" aria-label="Floating weight">
+                  <button class="sp-btn sp-note-align-btn floating-selection-toolbar-choice" data-arrow-thickness="thin" data-shape-thickness="thin" type="button" onclick="setFloatingToolbarWeight('thin')">
+                    <span class="floating-toolbar-weight-preview" data-weight="thin" aria-hidden="true"><span></span><span></span><span></span></span>
+                    <span>Thin</span>
+                  </button>
+                  <button class="sp-btn sp-note-align-btn floating-selection-toolbar-choice" data-arrow-thickness="normal" data-shape-thickness="normal" type="button" onclick="setFloatingToolbarWeight('normal')">
+                    <span class="floating-toolbar-weight-preview" data-weight="normal" aria-hidden="true"><span></span><span></span><span></span></span>
+                    <span>Normal</span>
+                  </button>
+                  <button class="sp-btn sp-note-align-btn floating-selection-toolbar-choice" data-arrow-thickness="thick" data-shape-thickness="thick" type="button" onclick="setFloatingToolbarWeight('thick')">
+                    <span class="floating-toolbar-weight-preview" data-weight="thick" aria-hidden="true"><span></span><span></span><span></span></span>
+                    <span>Thick</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="floating-selection-toolbar-item" id="floatingToolbarAlignItem" hidden>
+              <button id="floatingToolbarAlignBtn" class="floating-selection-toolbar-trigger" type="button" data-flyout-target="align" aria-expanded="false" aria-controls="floatingToolbarAlignFlyout" onclick="toggleFloatingToolbarFlyout('align', event)">
+                <span class="floating-toolbar-trigger-kicker">Align</span>
+                <span class="floating-toolbar-trigger-main">
+                  <span id="floatingToolbarAlignValue" class="floating-toolbar-align-preview">L</span>
+                </span>
+              </button>
+              <div id="floatingToolbarAlignFlyout" class="floating-selection-toolbar-flyout" data-flyout="align" hidden>
+                <div class="floating-selection-toolbar-choice-list floating-selection-toolbar-align-list" role="group" aria-label="Floating note alignment">
+                  <button class="sp-btn sp-note-align-btn floating-selection-toolbar-choice" data-note-align="left" type="button" onclick="setFloatingToolbarNoteAlign('left')">L</button>
+                  <button class="sp-btn sp-note-align-btn floating-selection-toolbar-choice" data-note-align="center" type="button" onclick="setFloatingToolbarNoteAlign('center')">C</button>
+                  <button class="sp-btn sp-note-align-btn floating-selection-toolbar-choice" data-note-align="right" type="button" onclick="setFloatingToolbarNoteAlign('right')">R</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="floating-selection-toolbar-item" id="floatingToolbarOpacityItem" hidden>
+              <button id="floatingToolbarOpacityBtn" class="floating-selection-toolbar-trigger" type="button" data-flyout-target="opacity" aria-expanded="false" aria-controls="floatingToolbarOpacityFlyout" onclick="toggleFloatingToolbarFlyout('opacity', event)">
+                <span id="floatingToolbarOpacityLabel" class="floating-toolbar-trigger-kicker">Fill</span>
+                <span class="floating-toolbar-trigger-main">
+                  <span id="floatingToolbarOpacityValue" class="floating-toolbar-trigger-value">100%</span>
+                </span>
+              </button>
+              <div id="floatingToolbarOpacityFlyout" class="floating-selection-toolbar-flyout floating-selection-toolbar-slider-flyout" data-flyout="opacity" hidden>
+                <label class="floating-selection-toolbar-flyout-label" for="floatingToolbarOpacity">Opacity</label>
+                <input id="floatingToolbarOpacity" class="sp-field-input floating-selection-toolbar-range" type="range" min="0.2" max="1" step="0.05" value="1" oninput="setSelectedAnnotationOpacity(this.value)" onchange="closeFloatingToolbarFlyout()">
+              </div>
+            </div>
+
+            <div class="floating-selection-toolbar-item floating-selection-toolbar-actions">
+              <button id="floatingToolbarEditNoteBtn" class="floating-selection-toolbar-icon-btn" type="button" onclick="beginSelectedNoteInlineEdit()" aria-label="Edit text" title="Edit text" hidden>
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m13.9 3.6 2.5 2.5m-9.8 9.8 3.2-.7 7.7-7.7a1.2 1.2 0 0 0 0-1.7l-1.5-1.5a1.2 1.2 0 0 0-1.7 0L6.6 12l-.7 3.2Zm-2.1.9h13"/></svg>
+              </button>
+              <button id="floatingToolbarDuplicateBtn" class="floating-selection-toolbar-icon-btn" type="button" onclick="duplicateSelected()" aria-label="Duplicate selected item" title="Duplicate">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 5.5h7a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1Zm-2 3h-1a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v1"/></svg>
+              </button>
+              <button id="floatingToolbarDeleteBtn" class="floating-selection-toolbar-icon-btn floating-selection-toolbar-icon-btn-danger" type="button" onclick="deleteSelected()" aria-label="Delete selected item" title="Delete">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5.5 6.5h9m-7.5 0v8m3-8v8m3-8v8M7 3.5h6l.5 1.5h2v1H4.5v-1h2zM6.5 6.5h7v9a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1z"/></svg>
+              </button>
+              <button id="floatingToolbarClearBtn" class="floating-selection-toolbar-icon-btn" type="button" onclick="clearSelection()" aria-label="Deselect" title="Deselect">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5.5 5.5 9 9m0-9-9 9"/></svg>
+              </button>
+            </div>
+          </div>
         </div>
+        <textarea id="noteInlineEditor" class="note-inline-editor" hidden maxlength="160" spellcheck="false" aria-label="Edit text"></textarea>
 
         <div id="boardStatus" class="board-status">
           <span class="board-status-mode" id="boardModeLabel">Move</span>
@@ -334,7 +567,7 @@
 
     <aside id="sequenceControlDock" class="sequence-dock" aria-label="Sequence Control Dock">
       <div class="sequence-dock__head">
-        <span class="sequence-dock__eyebrow">Sequence</span>
+        <span class="sequence-dock__eyebrow" id="sequenceDockEyebrow">Sequence</span>
         <div class="sequence-dock__status" id="sequenceDockStatus" aria-live="polite">
           <span class="sequence-dock__status-move" id="sequenceDockMoveHeadline">Move 1 of 1</span>
           <span class="sequence-dock__status-phase" id="sequenceDockPhaseHeadline">Phase 1 of 1</span>
@@ -351,7 +584,6 @@
             <button id="sequenceDockAddMove" class="sequence-dock__btn sequence-dock__btn--accent" type="button" aria-label="Add move after the current move">Add Move</button>
             <button id="sequenceDockAddPhase" class="sequence-dock__btn" type="button" aria-label="Start a new phase after the selected move">Start New Phase</button>
             <button id="sequenceDockDelete" class="sequence-dock__btn sequence-dock__btn--danger" type="button" aria-label="Delete selected move">Delete Move</button>
-            <button id="sequenceDockUndo" class="sequence-dock__btn" type="button" aria-label="Undo the last change">Undo</button>
             <button id="sequenceDockMore" class="sequence-dock__btn sequence-dock__btn--ghost sequence-dock__btn--full" type="button" aria-expanded="false" aria-controls="sequenceDockSecondaryPanel">More</button>
           </div>
           <div id="sequenceDockPhaseActionStatus" class="sequence-dock__action-status" hidden></div>
@@ -360,7 +592,6 @@
         <div id="sequenceDockSecondaryPanel" class="sequence-dock__panel sequence-dock__panel--secondary" hidden>
           <div class="sequence-dock__grid sequence-dock__grid--secondary">
             <button id="sequenceDockDuplicate" class="sequence-dock__btn" type="button" aria-label="Duplicate the selected move">Duplicate Move</button>
-            <button id="sequenceDockRedo" class="sequence-dock__btn" type="button" aria-label="Redo the last undone change">Redo</button>
             <button id="sequenceDockBack" class="sequence-dock__btn sequence-dock__btn--ghost sequence-dock__btn--full" type="button" aria-label="Back to primary sequence actions">Back</button>
           </div>
         </div>
@@ -391,7 +622,84 @@
           <span class="mob-stepper-label">GAINLINE</span>
           <button class="mob-toggle-btn" id="mobGainlineBtn" type="button" onclick="toggleGainline()">OFF</button>
         </div>
+        <div class="mob-toggle-row mob-attack-direction-row" aria-label="Attack direction">
+          <span class="mob-stepper-label" id="mobAttackDirectionLabel">ATTACK</span>
+          <div id="mobAttackDirectionGroup" class="mob-attack-direction-toggle" role="group" aria-label="Attack">
+            <button class="mob-toggle-btn mob-attack-direction-btn" id="mobAttackDirectionUpBtn" type="button" onclick="setAttackDirection('up')">↑</button>
+            <button class="mob-toggle-btn mob-attack-direction-btn" id="mobAttackDirectionDownBtn" type="button" onclick="setAttackDirection('down')">↓</button>
+          </div>
+        </div>
         <button class="mob-more-btn" id="mobileMoreEraseBtn" type="button" data-tool="erase" onclick="setTool('erase')">ERASE</button>
+        <button class="mob-more-btn" id="mobileMoreArrowBtn" type="button" data-tool="arrow" onclick="setTool('arrow')">ARROW</button>
+        <button class="mob-more-btn" id="mobileMoreCircleBtn" type="button" data-tool="zone" onclick="setTool('zone')">CIRCLE</button>
+        <div id="mobileArrowToolCard" class="mob-arrow-style-panel sp-arrow-tool-card" hidden>
+          <div class="sp-arrow-tool-head">
+            <span class="sp-sel-label">Arrow Style</span>
+            <span class="sp-arrow-tool-copy" id="mobileArrowToolCopy">Choose the default style before drawing.</span>
+          </div>
+          <div class="sp-color-picker sp-arrow-color-picker" id="mobileArrowColorPicker">
+            <span class="sp-field-label">Color</span>
+            <div class="sp-color-swatches">
+              <button class="sp-color-swatch" data-color="#ffffff" style="--sw:#ffffff" onclick="setAnnotationColor('#ffffff')" aria-label="White"></button>
+              <button class="sp-color-swatch" data-color="#e3b23c" style="--sw:#e3b23c" onclick="setAnnotationColor('#e3b23c')" aria-label="Gold"></button>
+              <button class="sp-color-swatch" data-color="#10b981" style="--sw:#10b981" onclick="setAnnotationColor('#10b981')" aria-label="Green"></button>
+              <button class="sp-color-swatch" data-color="#ef4444" style="--sw:#ef4444" onclick="setAnnotationColor('#ef4444')" aria-label="Red"></button>
+              <button class="sp-color-swatch" data-color="#3b82f6" style="--sw:#3b82f6" onclick="setAnnotationColor('#3b82f6')" aria-label="Blue"></button>
+              <button class="sp-color-swatch" data-color="#f97316" style="--sw:#f97316" onclick="setAnnotationColor('#f97316')" aria-label="Orange"></button>
+            </div>
+          </div>
+          <div id="mobileArrowStyleControls" class="sp-arrow-style" hidden>
+            <div class="sp-field-group">
+              <span class="sp-field-label">Line Style</span>
+              <div class="sp-note-align-buttons sp-arrow-style-buttons-2" role="group" aria-label="Mobile arrow line style">
+                <button class="sp-btn sp-note-align-btn" data-arrow-dash="solid" type="button" onclick="setArrowDash('solid')">Solid</button>
+                <button class="sp-btn sp-note-align-btn" data-arrow-dash="dashed" type="button" onclick="setArrowDash('dashed')">Dashed</button>
+              </div>
+            </div>
+            <div class="sp-field-group">
+              <span class="sp-field-label">Thickness</span>
+              <div class="sp-note-align-buttons" role="group" aria-label="Mobile arrow thickness">
+                <button class="sp-btn sp-note-align-btn" data-arrow-thickness="thin" type="button" onclick="setArrowThickness('thin')">Thin</button>
+                <button class="sp-btn sp-note-align-btn" data-arrow-thickness="normal" type="button" onclick="setArrowThickness('normal')">Normal</button>
+                <button class="sp-btn sp-note-align-btn" data-arrow-thickness="thick" type="button" onclick="setArrowThickness('thick')">Thick</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="mobileShapeToolCard" class="mob-arrow-style-panel sp-shape-tool-card" hidden>
+          <div class="sp-arrow-tool-head">
+            <span class="sp-sel-label">Shape Style</span>
+            <span class="sp-arrow-tool-copy" id="mobileShapeToolCopy">Choose the default style before drawing.</span>
+          </div>
+          <div class="sp-color-picker sp-arrow-color-picker" id="mobileShapeColorPicker">
+            <span class="sp-field-label">Color</span>
+            <div class="sp-color-swatches">
+              <button class="sp-color-swatch" data-color="#ffffff" style="--sw:#ffffff" onclick="setAnnotationColor('#ffffff')" aria-label="White"></button>
+              <button class="sp-color-swatch" data-color="#e3b23c" style="--sw:#e3b23c" onclick="setAnnotationColor('#e3b23c')" aria-label="Gold"></button>
+              <button class="sp-color-swatch" data-color="#10b981" style="--sw:#10b981" onclick="setAnnotationColor('#10b981')" aria-label="Green"></button>
+              <button class="sp-color-swatch" data-color="#ef4444" style="--sw:#ef4444" onclick="setAnnotationColor('#ef4444')" aria-label="Red"></button>
+              <button class="sp-color-swatch" data-color="#3b82f6" style="--sw:#3b82f6" onclick="setAnnotationColor('#3b82f6')" aria-label="Blue"></button>
+              <button class="sp-color-swatch" data-color="#f97316" style="--sw:#f97316" onclick="setAnnotationColor('#f97316')" aria-label="Orange"></button>
+            </div>
+          </div>
+          <div id="mobileShapeStyleControls" class="sp-arrow-style" hidden>
+            <div class="sp-field-group">
+              <span class="sp-field-label">Line Style</span>
+              <div class="sp-note-align-buttons sp-arrow-style-buttons-2" role="group" aria-label="Mobile shape line style">
+                <button class="sp-btn sp-note-align-btn" data-shape-dash="solid" type="button" onclick="setShapeDash('solid')">Solid</button>
+                <button class="sp-btn sp-note-align-btn" data-shape-dash="dashed" type="button" onclick="setShapeDash('dashed')">Dashed</button>
+              </div>
+            </div>
+            <div class="sp-field-group">
+              <span class="sp-field-label">Thickness</span>
+              <div class="sp-note-align-buttons" role="group" aria-label="Mobile shape thickness">
+                <button class="sp-btn sp-note-align-btn" data-shape-thickness="thin" type="button" onclick="setShapeThickness('thin')">Thin</button>
+                <button class="sp-btn sp-note-align-btn" data-shape-thickness="normal" type="button" onclick="setShapeThickness('normal')">Normal</button>
+                <button class="sp-btn sp-note-align-btn" data-shape-thickness="thick" type="button" onclick="setShapeThickness('thick')">Thick</button>
+              </div>
+            </div>
+          </div>
+        </div>
         <button class="mob-more-btn" id="mobileMoreBallBtn" type="button" onclick="addBall()">BALL</button>
         <button class="mob-more-btn" id="mobileMorePlayPhaseBtn" type="button" onclick="handleSequenceDockPlayPhase()">PLAY PHASE</button>
         <button class="mob-more-btn" id="mobileMorePreviewBtn" type="button" onclick="previewCurrentMove()">PREVIEW MOVE</button>
@@ -401,7 +709,6 @@
           <button class="board-pill speed-btn" data-speed="3" onclick="setMobileSpd(3)">3&#215;</button>
         </div>
         <button class="mob-more-btn" id="mobileMoreNotesBtn" type="button" onclick="openMobileNotesSheet()">NOTES</button>
-        <button class="mob-more-btn" id="mobileMoreRedoBtn" type="button" onclick="redo()">&#8618; REDO</button>
         <button class="mob-more-btn" id="mobileMoreClearBtn" type="button" onclick="clearAll()">CLEAR</button>
         <!-- Placed last so it doesn't push the pre-existing playback/notes/
              redo/clear rows further down the scrollable drawer (portrait-
@@ -418,12 +725,17 @@
              vertical rail only in phone landscape, where these same two
              groups render as fixed side columns in the pitch letterboxing. -->
         <div id="mobileRailLeft" class="mob-rail">
-          <button class="mob-tool-btn" id="mobileRailAddAttackBtn" type="button" onclick="addNextAvailablePlayer('A')">+ ATTACK</button>
-          <button class="mob-tool-btn" id="mobileRailAddDefenceBtn" type="button" onclick="addNextAvailablePlayer('D')">+ DEFENCE</button>
+          <div class="player-add-combo player-add-combo-mobile" data-team="A">
+            <button class="mob-tool-btn player-add-main" id="mobileRailAddAttackBtn" type="button" onclick="addNextAvailablePlayer('A')">+ ATTACK</button>
+            <button class="mob-tool-btn player-add-caret" id="mobileRailAddAttackPickerBtn" type="button" onclick="togglePlayerNumberPicker('A','mobileRailAddAttackPickerBtn', event)" aria-label="Choose a specific attack number" aria-expanded="false" aria-controls="playerNumberPopover">&#9662;</button>
+          </div>
+          <div class="player-add-combo player-add-combo-mobile" data-team="D">
+            <button class="mob-tool-btn player-add-main" id="mobileRailAddDefenceBtn" type="button" onclick="addNextAvailablePlayer('D')">+ DEFENCE</button>
+            <button class="mob-tool-btn player-add-caret" id="mobileRailAddDefencePickerBtn" type="button" onclick="togglePlayerNumberPicker('D','mobileRailAddDefencePickerBtn', event)" aria-label="Choose a specific defence number" aria-expanded="false" aria-controls="playerNumberPopover">&#9662;</button>
+          </div>
         </div>
         <div id="mobileRailRight" class="mob-rail">
           <button class="mob-tool-btn" id="mobileStepBtn" type="button" onclick="addStep()">+ MOVE</button>
-          <button class="mob-tool-btn" id="mobileRailUndoBtn" type="button" onclick="undo()">UNDO</button>
           <button class="mob-tool-btn mob-tool-more" id="mobMoreBtn" onclick="toggleMobileMoreDrawer()">MORE &#9652;&#xFE0E;</button>
         </div>
       </div>
@@ -433,9 +745,15 @@
 
         <!-- Group A: Players & objects -->
         <div class="tb-group tb-group-a">
-          <button class="board-pill action-btn" id="mobileAddAttackBtn" onclick="addNextAvailablePlayer('A')" data-label-desktop="+ ATTACK" data-label-mobile="+ATK">+ ATTACK</button>
-          <button class="board-pill action-btn" id="mobileAddDefenceBtn" onclick="addNextAvailablePlayer('D')" data-label-desktop="+ DEFENCE" data-label-mobile="+DEF">+ DEFENCE</button>
-          <button class="board-pill ball-btn" id="mobileBallBtn" onclick="addBall()" data-label-desktop="BALL" data-label-mobile="BALL">BALL</button>
+          <div class="player-add-combo" data-team="A">
+            <button class="board-pill action-btn player-add-main" id="mobileAddAttackBtn" onclick="addNextAvailablePlayer('A')" data-label-desktop="+ ATTACK" data-label-mobile="+ATK" data-i18n-label-desktop="toolbar.addAttack.desktop" data-i18n-label-mobile="toolbar.addAttack.mobile">+ ATTACK</button>
+            <button class="board-pill action-btn player-add-caret" id="mobileAddAttackPickerBtn" type="button" onclick="togglePlayerNumberPicker('A','mobileAddAttackPickerBtn', event)" aria-label="Choose a specific attack number" aria-expanded="false" aria-controls="playerNumberPopover">&#9662;</button>
+          </div>
+          <div class="player-add-combo" data-team="D">
+            <button class="board-pill action-btn player-add-main" id="mobileAddDefenceBtn" onclick="addNextAvailablePlayer('D')" data-label-desktop="+ DEFENCE" data-label-mobile="+DEF" data-i18n-label-desktop="toolbar.addDefence.desktop" data-i18n-label-mobile="toolbar.addDefence.mobile">+ DEFENCE</button>
+            <button class="board-pill action-btn player-add-caret" id="mobileAddDefencePickerBtn" type="button" onclick="togglePlayerNumberPicker('D','mobileAddDefencePickerBtn', event)" aria-label="Choose a specific defence number" aria-expanded="false" aria-controls="playerNumberPopover">&#9662;</button>
+          </div>
+          <button class="board-pill ball-btn" id="mobileBallBtn" onclick="addBall()" data-label-desktop="BALL" data-label-mobile="BALL" data-i18n-label-desktop="toolbar.ball" data-i18n-label-mobile="toolbar.ball">BALL</button>
         </div>
 
         <span class="toolbar-divider" aria-hidden="true"></span>
@@ -454,47 +772,53 @@
 
         <!-- Group C: Drawing tools (active) -->
         <div class="tb-group tb-group-c">
-          <button class="board-pill tool-btn" data-tool="run" onclick="setTool('run')" data-label-desktop="RUN" data-label-mobile="RUN">RUN</button>
-          <button class="board-pill tool-btn" data-tool="pass" onclick="setTool('pass')" data-label-desktop="PASS" data-label-mobile="PASS">PASS</button>
-          <button class="board-pill tool-btn" data-tool="kick" onclick="setTool('kick')" data-label-desktop="KICK" data-label-mobile="KICK">KICK</button>
+          <button class="board-pill tool-btn" data-tool="run" onclick="setTool('run')" data-label-desktop="RUN" data-label-mobile="RUN" data-i18n-label-desktop="toolbar.run" data-i18n-label-mobile="toolbar.run">RUN</button>
+          <button class="board-pill tool-btn" data-tool="pass" onclick="setTool('pass')" data-label-desktop="PASS" data-label-mobile="PASS" data-i18n-label-desktop="toolbar.pass" data-i18n-label-mobile="toolbar.pass">PASS</button>
+          <button class="board-pill tool-btn" data-tool="kick" onclick="setTool('kick')" data-label-desktop="KICK" data-label-mobile="KICK" data-i18n-label-desktop="toolbar.kick" data-i18n-label-mobile="toolbar.kick">KICK</button>
           <span class="toolbar-divider" aria-hidden="true"></span>
-          <button class="board-pill tool-btn active" data-tool="move" onclick="setTool('move')" data-label-desktop="MOVE" data-label-mobile="MV">MOVE</button>
-          <button class="board-pill tool-btn" data-tool="erase" onclick="setTool('erase')" data-label-desktop="ERASE" data-label-mobile="DEL">ERASE</button>
-          <button class="board-pill tool-btn" data-tool="tele" onclick="setTool('tele')" data-label-desktop="TELE" data-label-mobile="TEL">TELE</button>
+          <button class="board-pill tool-btn active" data-tool="move" onclick="setTool('move')" data-label-desktop="MOVE" data-label-mobile="MV" data-i18n-label-desktop="toolbar.move" data-i18n-label-mobile="toolbar.move.mobile">MOVE</button>
+          <button class="board-pill tool-btn" data-tool="erase" onclick="setTool('erase')" data-label-desktop="ERASE" data-label-mobile="DEL" data-i18n-label-desktop="toolbar.erase" data-i18n-label-mobile="toolbar.erase.mobile">ERASE</button>
+          <button class="board-pill tool-btn" data-tool="tele" onclick="setTool('tele')" data-label-desktop="TELE" data-label-mobile="TEL" data-i18n-label-desktop="toolbar.tele" data-i18n-label-mobile="toolbar.tele.mobile">TELE</button>
           <button class="board-pill action-btn" id="gainlineToggleBtn" type="button" onclick="toggleGainline()">GAINLINE</button>
           <button class="board-pill action-btn" id="ghostPreviousToggleBtn" type="button" onclick="toggleGhostPrevious()" aria-pressed="false">GHOST PREV</button>
-          <button class="board-pill action-btn" id="mobileUndoBtn" onclick="undo()" data-label-desktop="UNDO" data-label-mobile="&#8617;">UNDO</button>
-          <button class="board-pill action-btn" id="mobileRedoBtn" onclick="redo()" data-label-desktop="REDO" data-label-mobile="&#8618;">REDO</button>
         </div>
 
         <span class="toolbar-divider" aria-hidden="true"></span>
 
         <!-- Group D: Annotation tools (coming soon) -->
         <div class="tb-group tb-group-d">
-          <button class="board-pill tool-btn" data-tool="zone" onclick="setTool('zone')" data-label-desktop="CIRCLE" data-label-mobile="O">CIRCLE</button>
-          <button class="board-pill tool-btn" data-tool="box" onclick="setTool('box')" data-label-desktop="BOX" data-label-mobile="BOX">BOX</button>
-          <button class="board-pill tool-btn" data-tool="arrow" onclick="setTool('arrow')" data-label-desktop="ARROW" data-label-mobile="ARR">ARROW</button>
-          <button class="board-pill tool-btn" data-tool="note" onclick="setTool('note')" data-label-desktop="NOTE" data-label-mobile="NOTE">NOTE</button>
+          <button class="board-pill tool-btn" data-tool="zone" onclick="setTool('zone')" data-label-desktop="CIRCLE" data-label-mobile="O" data-i18n-label-desktop="toolbar.circle" data-i18n-label-mobile="toolbar.circle.mobile">CIRCLE</button>
+          <button class="board-pill tool-btn" data-tool="box" onclick="setTool('box')" data-label-desktop="BOX" data-label-mobile="BOX" data-i18n-label-desktop="toolbar.box" data-i18n-label-mobile="toolbar.box">BOX</button>
+          <button class="board-pill tool-btn" data-tool="arrow" onclick="setTool('arrow')" data-label-desktop="ARROW" data-label-mobile="ARR" data-i18n-label-desktop="toolbar.arrow" data-i18n-label-mobile="toolbar.arrow.mobile">ARROW</button>
+          <button class="board-pill tool-btn" data-tool="note" onclick="setTool('note')" data-label-desktop="NOTE" data-label-mobile="NOTE" data-i18n-label-desktop="toolbar.note" data-i18n-label-mobile="toolbar.note">NOTE</button>
         </div>
 
         <!-- CLEAR: destructive action, far right -->
-        <button class="board-pill action-btn tb-clear-btn" id="mobileClearBtn" onclick="clearAll()" data-label-desktop="CLEAR" data-label-mobile="&#10005;" title="Clear all players and paths">CLEAR</button>
+        <button class="board-pill action-btn tb-clear-btn" id="mobileClearBtn" onclick="clearAll()" data-label-desktop="CLEAR" data-label-mobile="&#10005;" data-i18n-label-desktop="toolbar.clear" data-i18n-label-mobile="toolbar.clear.mobile" title="Clear all players and paths">CLEAR</button>
 
         <div id="toolbarModeInline">MODE: MOVE</div>
       </div>
 
       <div id="playerSelector">
-        <div class="player-lane player-lane-atk">
-          <div class="player-lane-label">ATK</div>
-          <div class="player-token-row" id="attackPlayerRow" aria-label="Attack players"></div>
+        <div class="player-summary-chip atk">
+          <span class="player-summary-label">ATK</span>
+          <strong id="attackPlayerCount">0 / 15</strong>
         </div>
-        <div class="player-lane-divider" aria-hidden="true"></div>
-        <div class="player-lane player-lane-def">
-          <div class="player-lane-label">DEF</div>
-          <div class="player-token-row" id="defencePlayerRow" aria-label="Defence players"></div>
+        <div class="player-summary-copy" id="playerSelectorCopy">Plain click adds the next player. Use &#9662; to choose a specific number.</div>
+        <div class="player-summary-chip def">
+          <span class="player-summary-label">DEF</span>
+          <strong id="defencePlayerCount">0 / 15</strong>
         </div>
       </div>
     </div>
+  </div>
+
+  <div id="playerNumberPopover" class="player-number-popover" hidden aria-hidden="true">
+    <div class="player-number-popover-head">
+      <span id="playerNumberPopoverTitle">Attack Numbers</span>
+      <span id="playerNumberPopoverMeta">Pick a number to place or select.</span>
+    </div>
+    <div id="playerNumberPopoverGrid" class="player-number-popover-grid" role="listbox" aria-label="Available player numbers"></div>
   </div>
 
   <div id="supportDock" aria-hidden="true">
@@ -532,6 +856,8 @@
     </div>
   </div>
 </div>
-<script src="js/tactical-board.js?v=20260728-portrait-direction-fix"></script>
+<script src="js/tactical-board-i18n.js?v=20260805-i18n"></script>
+<script src="js/tactical-board-pdf.js?v=20260806-report-pdf"></script>
+<script src="js/tactical-board.js?v=20260805-player-labels"></script>
 </body>
 </html>

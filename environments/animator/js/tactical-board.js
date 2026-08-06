@@ -25,8 +25,15 @@ const BALL_CARRY_OFFSET = { x: 1.45, y: -1.05 };
 const MOBILE_TAP_TOGGLE_PX = 5;
 const PENDING_GROUP_DRAG_PX = 8;
 const SNAP_RADIUS = 4; // field units (~4m)
+const GEOMETRIC_ANNOTATION_MIN_SIZE = 1.5;
+const GEOMETRIC_ANNOTATION_MIN_VISIBLE = 1.5;
+const GEOMETRIC_ANNOTATION_MAX_WIDTH = FVW;
+const GEOMETRIC_ANNOTATION_MAX_HEIGHT = FVH;
+const GEOMETRIC_ANNOTATION_MAX_RADIUS = Math.max(FVW, FVH);
 let GAINLINE_Y = 50;      // default: halfway
 let showGainline = false;
+const ATTACK_DIRECTION_UP = 'up';
+const ATTACK_DIRECTION_DOWN = 'down';
 let radialMenu = null; // { playerId, x, y } in canvas px
 let teleStrokes = []; // [{ pts:[{x,y}], born: timestamp, color }]
 let teleDrawing = null; // current stroke being drawn
@@ -61,6 +68,8 @@ const supportsPointerEvents = typeof window !== 'undefined' && 'PointerEvent' in
 let staticFieldCanvas = null;
 let staticFieldCtx = null;
 let staticFieldCacheKey = '';
+let floatingSelectionToolbarRaf = 0;
+let floatingToolbarOpenFlyout = '';
 
 function isVerticalPhoneBoard() {
   // Upright pitch in PORTRAIT. Landscape rotates to a horizontal pitch (see the
@@ -102,6 +111,78 @@ function syncCanvasResolution(canvas, context, width, height) {
   context.imageSmoothingEnabled = true;
   if ('imageSmoothingQuality' in context) context.imageSmoothingQuality = 'high';
   context.setTransform(renderDpr, 0, 0, renderDpr, 0, 0);
+}
+
+function normalizeAttackDirection(value) {
+  return value === ATTACK_DIRECTION_DOWN ? ATTACK_DIRECTION_DOWN : ATTACK_DIRECTION_UP;
+}
+
+function attackDirectionSign(direction = currentAttackDirection()) {
+  return normalizeAttackDirection(direction) === ATTACK_DIRECTION_DOWN ? -1 : 1;
+}
+
+function currentAttackDirection() {
+  return normalizeAttackDirection(S.playMetadata?.attackDirection);
+}
+
+function attackDirectionUiCopy() {
+  const lang = window.AnimatorBoardI18n?.getLanguage?.() || document.documentElement.lang || 'en';
+  const base = String(lang || 'en').toLowerCase();
+  if (base.startsWith('pt')) {
+    return {
+      label: 'Ataque',
+      up: 'Para cima',
+      down: 'Para baixo',
+      upShort: '↑',
+      downShort: '↓',
+    };
+  }
+  if (base.startsWith('es')) {
+    return {
+      label: 'Ataque',
+      up: 'Hacia arriba',
+      down: 'Hacia abajo',
+      upShort: '↑',
+      downShort: '↓',
+    };
+  }
+  if (base.startsWith('fr')) {
+    return {
+      label: 'Attaque',
+      up: 'Vers le haut',
+      down: 'Vers le bas',
+      upShort: '↑',
+      downShort: '↓',
+    };
+  }
+  return {
+    label: 'Attack',
+    up: 'Attacking Up',
+    down: 'Attacking Down',
+    upShort: '↑',
+    downShort: '↓',
+  };
+}
+
+function computeDesktopCanvasMetrics(width, height) {
+  const safeWidth = Math.max(1, Number(width) || 1);
+  const safeHeight = Math.max(1, Number(height) || 1);
+  const padX = Math.max(6, Math.min(12, safeWidth * 0.008));
+  const padY = Math.max(8, Math.min(14, safeHeight * 0.01));
+  const baseFromWidth = (safeWidth - padX * 2) / (FVW * FIELD_X_STRETCH);
+  const baseFromHeight = (safeHeight - padY * 2) / FVH;
+  const nextSc = Math.max(0.01, Math.min(baseFromWidth, baseFromHeight));
+  const nextSx = nextSc * FIELD_X_STRETCH;
+  const nextSy = nextSc;
+  return {
+    cvW: safeWidth,
+    cvH: safeHeight,
+    sc: nextSc,
+    sx: nextSx,
+    sy: nextSy,
+    ox: (safeWidth - FVW * nextSx) / 2,
+    oy: (safeHeight - FVH * nextSy) / 2,
+  };
 }
 
 function invalidateStaticFieldCache() {
@@ -163,12 +244,36 @@ function clampFieldPoint(point) {
   };
 }
 
+function annotationBoardBounds() {
+  const pitchWidth = F.XMAX - F.XMIN;
+  const pitchHeight = F.YMAX - F.YMIN;
+  // Give geometric annotations a much larger working envelope than the field
+  // itself so coaches can straddle touchlines and push shapes past in-goals
+  // while still keeping every element at least partly reachable.
+  const horizontalMargin = pitchWidth * 0.5;
+  const verticalMargin = pitchHeight * 0.5;
+  return {
+    left: F.XMIN - horizontalMargin,
+    right: F.XMAX + horizontalMargin,
+    top: F.YMIN - verticalMargin,
+    bottom: F.YMAX + verticalMargin,
+  };
+}
+
+function clampGeometricFieldPoint(point) {
+  const bounds = annotationBoardBounds();
+  return {
+    x: clamp(point.x, bounds.left, bounds.right),
+    y: clamp(point.y, bounds.top, bounds.bottom),
+  };
+}
+
 function updateGainDisplayForY(y) {
   const el = document.getElementById('gainDisplay');
   if (!el) return;
-  const dist = Math.round((GAINLINE_Y - y) * 1);
+  const dist = Math.round((GAINLINE_Y - y) * attackDirectionSign());
   const sign = dist > 0 ? '+' : '';
-  el.textContent = dist === 0 ? 'On gainline' : `${sign}${dist}m`;
+  el.textContent = dist === 0 ? tr('gainline.status', {}, 'On gainline') : `${sign}${dist}m`;
   el.style.color = dist > 0 ? '#4ade80' : dist < 0 ? '#f87171' : '#fbbf24';
 }
 
@@ -206,6 +311,34 @@ function resetRadialToolInteractionState(nextTool) {
   if (staleTool) S.tool = 'move';
 }
 
+function addPlayerAnchoredLabel(playerId, { beginEditing = true } = {}) {
+  const player = S.players.find(item => item.id === playerId) || null;
+  if (!player) return false;
+  snapshot();
+  const annotation = normalizeAnnotation({
+    id: mkAnnotationId(),
+    type: 'playerLabel',
+    playerId: player.id,
+    playerRef: playerRef(player),
+    offsetX: 0,
+    offsetY: PLAYER_LABEL_OFFSET_Y,
+    text: PLAYER_LABEL_DEFAULT,
+    color: annotationColor('playerLabel'),
+    align: 'center',
+    opacity: 1,
+  });
+  if (!annotation) return false;
+  S.annotations.push(annotation);
+  selectAnnotationById(annotation.id);
+  setHint(`${player.team === 'A' ? 'Attack' : 'Defence'} #${player.num} label added.`);
+  refreshInteractionUI();
+  render();
+  if (beginEditing) {
+    requestAnimationFrame(() => beginNoteInlineEdit(annotation.id, { selectAll: true }));
+  }
+  return true;
+}
+
 function activateRadialAction(action, sourcePlayerId) {
   closeRadialMenu();
   if (!action || sourcePlayerId === null || sourcePlayerId === undefined) return false;
@@ -234,6 +367,11 @@ function activateRadialAction(action, sourcePlayerId) {
     ensureRadialSourcePlayerSelected(sourcePlayer.id);
     addBall();
     return true;
+  }
+
+  if (action.kind === 'label') {
+    ensureRadialSourcePlayerSelected(sourcePlayer.id);
+    return addPlayerAnchoredLabel(sourcePlayer.id, { beginEditing: true });
   }
 
   if (action.kind === 'remove') {
@@ -278,11 +416,12 @@ function renderRadialMenu() {
     { label: 'Arrow', icon: '&#8599;', tool: 'arrow', ariaLabel: 'Draw tactical arrow' },
     { label: 'Pass', icon: '~', tool: 'pass' },
     { label: 'Kick', icon: '&uarr;', tool: 'kick' },
+    { label: 'Label', icon: '&#9998;', kind: 'label', ariaLabel: 'Add anchored player label' },
     { label: 'Ball', icon: '&#9679;', kind: 'ball' },
     { label: 'Remove', icon: '&#10005;', kind: 'remove', danger: true },
   ];
 
-  const radius = 52;
+  const radius = actions.length > 5 ? 58 : 52;
   actions.forEach((action, index) => {
     const angle = (-Math.PI / 2) + (index * (Math.PI * 2 / actions.length));
     const btn = document.createElement('button');
@@ -534,7 +673,13 @@ function resize() {
     scheduleResizePass();
     return;
   }
-  const isPhone = Math.min(vpW, vpH) <= 700;
+  const coarse = !!window.matchMedia?.('(pointer: coarse)')?.matches;
+  const noHover = !!window.matchMedia?.('(hover: none)')?.matches;
+  const small = Math.min(vpW, vpH);
+  const big = Math.max(vpW, vpH);
+  const isPhone = (coarse || noHover)
+    ? (small <= 560)
+    : (small <= 480 && big <= 900);
   const MOBILE_PORTRAIT = isPhone && vpH > vpW;
   const PHONE_LANDSCAPE = isPhone && !MOBILE_PORTRAIT;
   renderDpr = Math.max(1, window.devicePixelRatio || 1);
@@ -762,6 +907,21 @@ const GamePlan = {
 };
 window.GamePlan = GamePlan;
 
+function tr(key, params = {}, fallback = '') {
+  if (window.AnimatorBoardI18n && typeof window.AnimatorBoardI18n.t === 'function') {
+    return window.AnimatorBoardI18n.t(key, params, fallback);
+  }
+  return fallback || key;
+}
+
+function modeLabel(key) {
+  return tr(`mode.${key}`, {}, MODE_LABELS[key] || key);
+}
+
+function hintText(key) {
+  return tr(`hint.${key}`, {}, HINTS[key] || '');
+}
+
 function S() {
   return GamePlan.phases[GamePlan.currentPhase];
 }
@@ -802,6 +962,18 @@ Object.assign(S, {
   playMetadata: null,
   projectPlayback: null,
   annotationDraft: null,
+  arrowColor: '#d9b46c',
+  arrowThickness: 'normal',
+  arrowDash: 'solid',
+  zoneColor: '#10b981',
+  zoneThickness: 'normal',
+  zoneDash: 'solid',
+  boxColor: '#d9b46c',
+  boxThickness: 'normal',
+  boxDash: 'solid',
+  ellipseColor: '#d9b46c',
+  ellipseThickness: 'normal',
+  ellipseDash: 'solid',
   // Selection model:
   // - selectedPlayerId: one player selected for editing at a time
   // - selectedObjectType/selectedAnnotationIdValue: non-player object selection
@@ -865,12 +1037,17 @@ const IMPORT_MAX_NAME_LENGTH = 120;
 const IMPORT_MAX_ID_LENGTH = 120;
 const PHONE_UI_ACTION_GUARD_MS = 300;
 const PHONE_DATA_ACTION_GUARD_MS = 400;
+const NOTE_INLINE_EDIT_DOUBLE_TAP_MS = 320;
 let lastPhoneAddAction = { team: null, at: -Infinity };
+let playerNumberPickerState = { team: null, anchorId: null };
 let phoneMoveToastTimer = null;
 let phoneMoveToastShown = false;
 let phoneDeleteConfirmTimers = { phase: null, move: null };
 let phoneDeleteConfirmState = { phase: false, move: false };
 const phoneDataActionAt = new Map();
+let noteInlineEditorState = null;
+let noteSelectionClearTimer = null;
+let lastNoteSelectionTap = { id: null, at: 0 };
 const PROJECT_TYPE = 'coachmato.animator.project';
 const PLAYBACK_TIMELINE_MODEL = 'global_progress_v1';
 const DEFAULT_PLAYBACK_DURATION = 5;
@@ -884,6 +1061,7 @@ function claimPhoneDataAction(actionKey) {
   return true;
 }
 const ANNOTATION_NOTE_DEFAULT = 'Note';
+const PLAYER_LABEL_DEFAULT = 'Label';
 const NOTE_FONT = '"Barlow Condensed"';
 const NOTE_LEGACY_SCALE_MIN = 0.6;
 const NOTE_LEGACY_SCALE_MAX = 3.0;
@@ -896,8 +1074,251 @@ const NOTE_MAX_HEIGHT = 18;
 const NOTE_PADDING_X = 0.78;
 const NOTE_PADDING_Y = 0.6;
 const NOTE_HANDLE_HIT_PADDING = 1.25;
+const PLAYER_LABEL_OFFSET_Y = -5.4;
+const PLAYER_LABEL_MIN_WIDTH = 4.2;
+const PLAYER_LABEL_MAX_WIDTH = 16;
+const PLAYER_LABEL_MIN_HEIGHT = 1.9;
+const PLAYER_LABEL_MAX_HEIGHT = 8.2;
+const PLAYER_LABEL_PADDING_X = 0.72;
+const PLAYER_LABEL_PADDING_Y = 0.46;
 const ANNOTATION_CLIPBOARD_OFFSET = 1.5;
 const ANNOTATION_NUDGE_STEP = 0.5;
+const ARROW_DEFAULT_COLOR = '#d9b46c';
+const SHAPE_DEFAULTS = Object.freeze({
+  zone: { color: '#10b981', thickness: 'normal', dash: 'solid' },
+  box: { color: '#d9b46c', thickness: 'normal', dash: 'solid' },
+  ellipse: { color: '#d9b46c', thickness: 'normal', dash: 'solid' },
+});
+const ARROW_THICKNESS_PRESETS = Object.freeze({
+  thin: 2.2,
+  normal: 3.2,
+  thick: 4.6,
+});
+
+function normalizeHexColor(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function colorsMatchSwatch(currentColor, swatchColor) {
+  const current = normalizeHexColor(currentColor);
+  const swatch = normalizeHexColor(swatchColor);
+  if (!current || !swatch) return false;
+  if (current === swatch) return true;
+  return (current === '#d9b46c' && swatch === '#e3b23c')
+    || (current === '#e3b23c' && swatch === '#d9b46c');
+}
+
+function arrowThicknessValue(value) {
+  return Object.prototype.hasOwnProperty.call(ARROW_THICKNESS_PRESETS, value) ? value : 'normal';
+}
+
+function arrowDashValue(value) {
+  return value === 'dashed' ? 'dashed' : 'solid';
+}
+
+function arrowStrokeWidthPx(value) {
+  return ARROW_THICKNESS_PRESETS[arrowThicknessValue(value)] || ARROW_THICKNESS_PRESETS.normal;
+}
+
+function isShapeAnnotationType(type) {
+  return type === 'zone' || type === 'box' || type === 'ellipse';
+}
+
+function defaultShapeStyle(type) {
+  return SHAPE_DEFAULTS[type] || SHAPE_DEFAULTS.box;
+}
+
+function shapeStyleStateKeys(type) {
+  if (type === 'zone' || type === 'ellipse') return { color: 'zoneColor', thickness: 'zoneThickness', dash: 'zoneDash' };
+  return { color: 'boxColor', thickness: 'boxThickness', dash: 'boxDash' };
+}
+
+function constrainEllipseBounds(anchorX, anchorY, pointX, pointY) {
+  const dx = pointX - anchorX;
+  const dy = pointY - anchorY;
+  const size = Math.max(Math.abs(dx), Math.abs(dy), 1.5);
+  const nextX = anchorX + ((dx < 0) ? -size : size);
+  const nextY = anchorY + ((dy < 0) ? -size : size);
+  return {
+    left: Math.min(anchorX, nextX),
+    right: Math.max(anchorX, nextX),
+    top: Math.min(anchorY, nextY),
+    bottom: Math.max(anchorY, nextY),
+  };
+}
+
+function currentShapeStyleSelection(type = null) {
+  const selected = selectedAnnotation();
+  const styleType = isShapeAnnotationType(selected?.type) ? selected.type : (isShapeAnnotationType(type) ? type : (isShapeAnnotationType(S.tool) ? S.tool : 'box'));
+  const defaults = defaultShapeStyle(styleType);
+  if (selected?.type === styleType) {
+    return {
+      type: styleType,
+      color: selected.color || defaults.color,
+      thickness: arrowThicknessValue(selected.thickness),
+      dash: arrowDashValue(selected.dash),
+    };
+  }
+  const keys = shapeStyleStateKeys(styleType);
+  return {
+    type: styleType,
+    color: S[keys.color] || defaults.color,
+    thickness: arrowThicknessValue(S[keys.thickness]),
+    dash: arrowDashValue(S[keys.dash]),
+  };
+}
+
+function applyShapeStyleSelection(partial = {}) {
+  const selectedId = selectedAnnotationId();
+  const selected = selectedAnnotation();
+  const styleType = isShapeAnnotationType(selected?.type) ? selected.type : (isShapeAnnotationType(S.tool) ? S.tool : 'box');
+  const current = currentShapeStyleSelection(styleType);
+  const next = {
+    type: styleType,
+    color: partial.color || current.color || defaultShapeStyle(styleType).color,
+    thickness: arrowThicknessValue(partial.thickness ?? current.thickness),
+    dash: arrowDashValue(partial.dash ?? current.dash),
+  };
+  const keys = shapeStyleStateKeys(styleType);
+  S[keys.color] = next.color;
+  S[keys.thickness] = next.thickness;
+  S[keys.dash] = next.dash;
+  if (selected?.type === styleType && selectedId) {
+    snapshot();
+    const ann = findAnnotationById(selectedId);
+    if (ann?.type === styleType) {
+      ann.color = next.color;
+      ann.thickness = next.thickness;
+      ann.dash = next.dash;
+    }
+  }
+  refreshInteractionUI();
+  render();
+  return next;
+}
+
+function shapeDashPattern(dash, strokeWidth) {
+  return arrowDashValue(dash) === 'dashed'
+    ? [Math.max(8, strokeWidth * 2.8), Math.max(6, strokeWidth * 1.9)]
+    : [];
+}
+
+function hexToRgba(color, alpha) {
+  const hex = normalizeHexColor(color).replace('#', '');
+  if (hex.length !== 6) return `rgba(217,180,108,${alpha})`;
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function syncColorSwatches(root, currentColor) {
+  if (!root) return;
+  root.querySelectorAll('.sp-color-swatch').forEach(sw => {
+    sw.classList.toggle('active', colorsMatchSwatch(currentColor, sw.dataset.color));
+  });
+}
+
+function syncArrowStyleButtons(root, arrowStyle) {
+  if (!root) return;
+  root.querySelectorAll('[data-arrow-thickness]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.arrowThickness === arrowStyle.thickness);
+  });
+  root.querySelectorAll('[data-arrow-dash]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.arrowDash === arrowStyle.dash);
+  });
+}
+
+function syncShapeStyleButtons(root, shapeStyle) {
+  if (!root) return;
+  root.querySelectorAll('[data-shape-thickness]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.shapeThickness === shapeStyle.thickness);
+  });
+  root.querySelectorAll('[data-shape-dash]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.shapeDash === shapeStyle.dash);
+  });
+}
+
+function syncNoteAlignButtons(root, align) {
+  if (!root) return;
+  root.querySelectorAll('[data-note-align]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.noteAlign === align);
+  });
+}
+
+function annotationColorLabel(color) {
+  const normalized = normalizeHexColor(color);
+  if (normalized === '#ffffff') return 'White';
+  if (normalized === '#e3b23c') return 'Gold';
+  if (normalized === '#10b981') return 'Green';
+  if (normalized === '#ef4444') return 'Red';
+  if (normalized === '#3b82f6') return 'Blue';
+  if (normalized === '#f97316') return 'Orange';
+  return 'Color';
+}
+
+function styleWeightLabel(weight) {
+  if (weight === 'thin') return 'Thin';
+  if (weight === 'thick') return 'Thick';
+  return 'Normal';
+}
+
+function styleLineLabel(dash) {
+  return arrowDashValue(dash) === 'dashed' ? 'Dashed' : 'Solid';
+}
+
+function noteAlignLabel(align) {
+  if (align === 'center') return 'C';
+  if (align === 'right') return 'R';
+  return 'L';
+}
+
+function closeFloatingToolbarFlyout() {
+  floatingToolbarOpenFlyout = '';
+  const toolbar = document.getElementById('floatingSelectionToolbar');
+  if (!toolbar) return;
+  toolbar.querySelectorAll('[data-flyout-target]').forEach(btn => {
+    btn.setAttribute('aria-expanded', 'false');
+  });
+  toolbar.querySelectorAll('.floating-selection-toolbar-flyout').forEach(flyout => {
+    flyout.hidden = true;
+    flyout.dataset.placement = 'bottom';
+    flyout.style.left = '0px';
+    flyout.style.top = '';
+    flyout.style.bottom = '';
+  });
+}
+window.closeFloatingToolbarFlyout = closeFloatingToolbarFlyout;
+
+function setFloatingToolbarColor(color) {
+  setAnnotationColor(color);
+  closeFloatingToolbarFlyout();
+}
+window.setFloatingToolbarColor = setFloatingToolbarColor;
+
+function setFloatingToolbarLineStyle(dash) {
+  const ann = selectedAnnotation();
+  if (!ann) return;
+  if (ann.type === 'arrow') setArrowDash(dash);
+  else if (isShapeAnnotationType(ann.type)) setShapeDash(dash);
+  closeFloatingToolbarFlyout();
+}
+window.setFloatingToolbarLineStyle = setFloatingToolbarLineStyle;
+
+function setFloatingToolbarWeight(thickness) {
+  const ann = selectedAnnotation();
+  if (!ann) return;
+  if (ann.type === 'arrow') setArrowThickness(thickness);
+  else if (isShapeAnnotationType(ann.type)) setShapeThickness(thickness);
+  closeFloatingToolbarFlyout();
+}
+window.setFloatingToolbarWeight = setFloatingToolbarWeight;
+
+function setFloatingToolbarNoteAlign(align) {
+  setSelectedNoteAlign(align);
+  closeFloatingToolbarFlyout();
+}
+window.setFloatingToolbarNoteAlign = setFloatingToolbarNoteAlign;
 const ANNOTATION_NUDGE_STEP_LARGE = 1.5;
 const NOTE_LEGACY_REFERENCE_SCALE = 10;
 const NOTE_LEGACY_FONT_PX = 12.5;
@@ -984,38 +1405,38 @@ const TOUR_STEPS = [
   {
     targetId: 'mobileAddAttackBtn',
     position: 'above',
-    title: 'Add players',
-    body: 'Tap <strong>+ ATTACK</strong> or <strong>+ DEFENCE</strong> to drop numbered players onto the board. Add as many as you need.',
+    titleKey: 'tour.1.title',
+    bodyKey: 'tour.1.body',
   },
   {
     targetId: 'mobileBallBtn',
     position: 'above',
-    title: 'Place the ball',
-    body: 'Tap <strong>BALL</strong> to add the ball, then drag it to the starting position for your play.',
+    titleKey: 'tour.2.title',
+    bodyKey: 'tour.2.body',
   },
   {
     targetId: null,
     position: 'centre',
-    title: 'Drag & arrange',
-    body: 'With <strong>MOVE</strong> active, drag any player or the ball to set up your starting formation.',
+    titleKey: 'tour.3.title',
+    bodyKey: 'tour.3.body',
   },
   {
     targetId: 'bottomPanel',
     position: 'above',
-    title: 'Draw movement',
-    body: 'Select <strong>RUN</strong>, <strong>PASS</strong>, or <strong>KICK</strong> from the toolbar, then drag from a player to draw the action.',
+    titleKey: 'tour.4.title',
+    bodyKey: 'tour.4.body',
   },
   {
     targetId: 'phaseChipStrip',
     position: 'below',
-    title: 'Build moves',
-    body: 'Tap <strong>+</strong> to add the next move. Each chip represents one move - scrub through them to review the sequence.',
+    titleKey: 'tour.5.title',
+    bodyKey: 'tour.5.body',
   },
   {
     targetId: 'playBtn',
     position: 'above',
-    title: 'Play it back',
-    body: 'Tap <strong>PLAY</strong> to animate the whole sequence. Use <strong>PLAY ALL</strong> to run through every phase automatically. You\'re ready to coach!',
+    titleKey: 'tour.6.title',
+    bodyKey: 'tour.6.body',
   },
 ];
 
@@ -1076,10 +1497,11 @@ function _tourShowStep(index) {
   const step = TOUR_STEPS[index];
   const isLast = index === TOUR_STEPS.length - 1;
 
-  counter.textContent = `Step ${index + 1} of ${TOUR_STEPS.length}`;
-  title.textContent = step.title;
-  body.innerHTML = step.body;
-  nextBtn.textContent = isLast ? 'Done ✓' : 'Next →';
+  counter.textContent = tr('tour.counter', { current: index + 1, total: TOUR_STEPS.length }, `Step ${index + 1} of ${TOUR_STEPS.length}`);
+  title.textContent = tr(step.titleKey, {}, step.title || '');
+  body.innerHTML = tr(step.bodyKey, {}, step.body || '');
+  nextBtn.textContent = isLast ? tr('tour.done', {}, 'Done') : tr('tour.next', {}, 'Next');
+  if (skipBtn) skipBtn.textContent = tr('tour.skip', {}, 'Skip tour');
 
   const targetEl = step.targetId ? document.getElementById(step.targetId) : null;
   if (targetEl) {
@@ -1936,10 +2358,10 @@ function getCanonicalPhaseActionDetails() {
   if (context.kind === 'unavailable') {
     return {
       context,
-      label: 'Start New Phase',
+      label: tr('dock.phaseAction.start'),
       note: '',
-      ariaLabel: 'Phase boundary unavailable',
-      title: 'Select a Move to manage phase boundaries',
+      ariaLabel: tr('dock.phaseAction.unavailable'),
+      title: tr('dock.phaseAction.unavailableTitle'),
       pressed: false,
       disabled: true,
     };
@@ -1948,10 +2370,10 @@ function getCanonicalPhaseActionDetails() {
     const currentMoveNumber = getCurrentCanonicalMoveIndex() + 1;
     return {
       context,
-      label: 'Remove Phase Break',
-      note: `Phase break after Move ${currentMoveNumber}.`,
-      ariaLabel: 'Remove the phase break after the selected move',
-      title: 'Merge the next Phase into the current Phase',
+      label: tr('dock.phaseAction.removeBreak'),
+      note: tr('dock.phaseAction.removeBreak.note', { move: currentMoveNumber }),
+      ariaLabel: tr('dock.phaseAction.removeBreak.aria'),
+      title: tr('dock.phaseAction.removeBreak.title'),
       pressed: false,
       disabled: false,
     };
@@ -1959,10 +2381,10 @@ function getCanonicalPhaseActionDetails() {
   if (context.kind === 'pending-final') {
     return {
       context,
-      label: 'Cancel New Phase',
-      note: 'Next added Move starts a new Phase.',
-      ariaLabel: 'Cancel the pending new phase boundary',
-      title: 'Keep the next added Move in the current Phase',
+      label: tr('dock.phaseAction.cancel'),
+      note: tr('dock.phaseAction.cancel.note'),
+      ariaLabel: tr('dock.phaseAction.cancel.aria'),
+      title: tr('dock.phaseAction.cancel.title'),
       pressed: true,
       disabled: false,
     };
@@ -1970,20 +2392,20 @@ function getCanonicalPhaseActionDetails() {
   if (context.kind === 'final-move') {
     return {
       context,
-      label: 'Next Move Starts New Phase',
+      label: tr('dock.phaseAction.next'),
       note: '',
-      ariaLabel: 'Start the next added move in a new phase',
-      title: 'Mark the next added Move to begin a new Phase',
+      ariaLabel: tr('dock.phaseAction.next.aria'),
+      title: tr('dock.phaseAction.next.title'),
       pressed: false,
       disabled: false,
     };
   }
   return {
     context,
-    label: 'Start New Phase',
-    note: `Next Move begins Phase ${context.currentRef.phaseIndex + 2}.`,
-    ariaLabel: 'Start a new phase after the selected move',
-    title: 'Split the current Phase after this Move',
+    label: tr('dock.phaseAction.start'),
+    note: tr('dock.phaseAction.start.note', { phase: context.currentRef.phaseIndex + 2 }),
+    ariaLabel: tr('dock.phaseAction.start.aria'),
+    title: tr('dock.phaseAction.start.title'),
     pressed: false,
     disabled: false,
   };
@@ -2188,6 +2610,7 @@ function emptyPlayMetadata(title = '') {
     coachingPoints: [],
     decisionCue: '',
     commonMistakes: [],
+    attackDirection: ATTACK_DIRECTION_UP,
   };
 }
 
@@ -2207,6 +2630,7 @@ function normalizeProjectMetadata(project = {}, metadata = {}) {
     coachingPoints: normalizeTextList(metadata.coachingPoints, 3),
     decisionCue: String(metadata.decisionCue || '').trim(),
     commonMistakes: normalizeTextList(metadata.commonMistakes, 3),
+    attackDirection: normalizeAttackDirection(metadata.attackDirection || project.attackDirection || project.meta?.attackDirection),
     createdAt: metadata.createdAt || project.createdAt || project.savedAt || stamp,
     updatedAt: metadata.updatedAt || project.updatedAt || project.savedAt || stamp,
     source: metadata.source || project.source || 'animator',
@@ -2508,6 +2932,7 @@ function selectBall(candidateId = null) {
 }
 
 function selectAnnotationById(id) {
+  if (noteInlineEditorState && noteInlineEditorState.id !== id) endNoteInlineEdit();
   S.selectedPlayerId = null;
   S.selectedPlayerIds = [];
   clearSelectedGroup();
@@ -2517,6 +2942,17 @@ function selectAnnotationById(id) {
   S.selectedPassIdx = null;
   S.selectedPathPid = null;
   clearHighlightedPlayers();
+  const annotation = findAnnotationById(id);
+  if (annotation?.type === 'arrow') {
+    S.arrowColor = annotation.color || ARROW_DEFAULT_COLOR;
+    S.arrowThickness = arrowThicknessValue(annotation.thickness);
+    S.arrowDash = arrowDashValue(annotation.dash);
+  } else if (isShapeAnnotationType(annotation?.type)) {
+    const keys = shapeStyleStateKeys(annotation.type);
+    S[keys.color] = annotation.color || defaultShapeStyle(annotation.type).color;
+    S[keys.thickness] = arrowThicknessValue(annotation.thickness);
+    S[keys.dash] = arrowDashValue(annotation.dash);
+  }
   syncLegacySelectionState();
 }
 
@@ -2626,11 +3062,64 @@ function defaultAnnotationText() {
   return txt || ANNOTATION_NOTE_DEFAULT;
 }
 
+function isEditableTextAnnotationType(type) {
+  return type === 'note' || type === 'playerLabel';
+}
+
 function annotationColor(type) {
   if (type === 'zone') return '#10b981';
   if (type === 'box') return '#d9b46c';
+  if (type === 'ellipse') return '#d9b46c';
   if (type === 'arrow') return '#d9b46c';
+  if (type === 'playerLabel') return '#f3f4f6';
   return '#f3f4f6';
+}
+
+function currentArrowStyleSelection() {
+  const selected = selectedAnnotation();
+  if (selected?.type === 'arrow') {
+    return {
+      color: selected.color || ARROW_DEFAULT_COLOR,
+      thickness: arrowThicknessValue(selected.thickness),
+      dash: arrowDashValue(selected.dash),
+    };
+  }
+  return {
+    color: S.arrowColor || ARROW_DEFAULT_COLOR,
+    thickness: arrowThicknessValue(S.arrowThickness),
+    dash: arrowDashValue(S.arrowDash),
+  };
+}
+
+function applyArrowStyleSelection(partial = {}) {
+  const selectedId = selectedAnnotationId();
+  const hasSelectedArrow = selectedAnnotation()?.type === 'arrow';
+  const current = currentArrowStyleSelection();
+  const next = {
+    color: partial.color || current.color || ARROW_DEFAULT_COLOR,
+    thickness: arrowThicknessValue(partial.thickness ?? current.thickness),
+    dash: arrowDashValue(partial.dash ?? current.dash),
+  };
+  S.arrowColor = next.color;
+  S.arrowThickness = next.thickness;
+  S.arrowDash = next.dash;
+  if (hasSelectedArrow && selectedId) {
+    snapshot();
+    const ann = findAnnotationById(selectedId);
+    if (ann?.type === 'arrow') {
+      ann.color = next.color;
+      ann.thickness = next.thickness;
+      ann.dash = next.dash;
+    }
+  }
+  if (!hasSelectedArrow) {
+    refreshInteractionUI();
+    render();
+    return next;
+  }
+  refreshInteractionUI();
+  render();
+  return next;
 }
 
 function noteScaleValue(note) {
@@ -2684,6 +3173,22 @@ function noteAlignValue(note) {
   return note?.align === 'center' || note?.align === 'right' ? note.align : 'left';
 }
 
+function playerLabelPlayerRef(annotation) {
+  return normalizePlayerRef(annotation?.playerRef);
+}
+
+function findPlayerForAnchoredLabel(annotation, players = S.players) {
+  if (!annotation || annotation.type !== 'playerLabel' || !Array.isArray(players)) return null;
+  const playerId = Number(annotation.playerId);
+  if (Number.isFinite(playerId)) {
+    const byId = players.find(player => Number(player?.id) === playerId) || null;
+    if (byId) return byId;
+  }
+  const ref = playerLabelPlayerRef(annotation);
+  if (!ref) return null;
+  return players.find(player => playerMatchesRef(player, ref)) || null;
+}
+
 function normalizeAnnotation(annotation) {
   if (!annotation || typeof annotation !== 'object' || !annotation.type) return null;
   const base = {
@@ -2705,6 +3210,22 @@ function normalizeAnnotation(annotation) {
       height: noteHeightValue(annotation),
     };
   }
+  if (annotation.type === 'playerLabel') {
+    const playerId = Number(annotation.playerId);
+    const offsetX = Number(annotation.offsetX);
+    const offsetY = Number(annotation.offsetY);
+    if (!Number.isFinite(playerId) || !Number.isFinite(offsetX) || !Number.isFinite(offsetY)) return null;
+    return {
+      ...base,
+      playerId,
+      playerRef: playerLabelPlayerRef(annotation),
+      offsetX,
+      offsetY,
+      text: String(annotation.text ?? PLAYER_LABEL_DEFAULT).slice(0, 160),
+      align: noteAlignValue(annotation),
+      color: annotation.color || annotationColor('playerLabel'),
+    };
+  }
   if (annotation.type === 'arrow') {
     const start = annotation.start || {};
     const end = annotation.end || {};
@@ -2714,6 +3235,9 @@ function normalizeAnnotation(annotation) {
       ...base,
       start: { x: sx, y: sy },
       end: { x: ex, y: ey },
+      color: annotation.color || annotationColor('arrow'),
+      thickness: arrowThicknessValue(annotation.thickness),
+      dash: arrowDashValue(annotation.dash),
     };
   }
   if (annotation.type === 'zone') {
@@ -2724,6 +3248,27 @@ function normalizeAnnotation(annotation) {
       x,
       y,
       r: Math.max(1.5, r),
+      color: annotation.color || annotationColor('zone'),
+      thickness: arrowThicknessValue(annotation.thickness),
+      dash: arrowDashValue(annotation.dash),
+    };
+  }
+  if (annotation.type === 'circle') {
+    const x = Number(annotation.x);
+    const y = Number(annotation.y);
+    const r = Number(annotation.r);
+    if (![x, y, r].every(Number.isFinite)) return null;
+    return {
+      ...base,
+      type: 'ellipse',
+      x: x - Math.max(1.5, r),
+      y: y - Math.max(1.5, r),
+      w: Math.max(3, Math.abs(r) * 2),
+      h: Math.max(3, Math.abs(r) * 2),
+      rotation: normalizeShapeRotation(annotation.rotation),
+      color: annotation.color || annotationColor('zone'),
+      thickness: arrowThicknessValue(annotation.thickness),
+      dash: arrowDashValue(annotation.dash),
     };
   }
   if (annotation.type === 'box') {
@@ -2738,6 +3283,28 @@ function normalizeAnnotation(annotation) {
       y,
       w: Math.max(1.5, Math.abs(w)),
       h: Math.max(1.5, Math.abs(h)),
+      rotation: normalizeShapeRotation(annotation.rotation),
+      color: annotation.color || annotationColor('box'),
+      thickness: arrowThicknessValue(annotation.thickness),
+      dash: arrowDashValue(annotation.dash),
+    };
+  }
+  if (annotation.type === 'ellipse') {
+    const x = Number(annotation.x);
+    const y = Number(annotation.y);
+    const w = Number(annotation.w);
+    const h = Number(annotation.h);
+    if (![x, y, w, h].every(Number.isFinite)) return null;
+    return {
+      ...base,
+      x,
+      y,
+      w: Math.max(1.5, Math.abs(w)),
+      h: Math.max(1.5, Math.abs(h)),
+      rotation: normalizeShapeRotation(annotation.rotation),
+      color: annotation.color || annotationColor('ellipse'),
+      thickness: arrowThicknessValue(annotation.thickness),
+      dash: arrowDashValue(annotation.dash),
     };
   }
   return null;
@@ -3240,7 +3807,7 @@ function presetGroupsForView(play) {
 function updatePresetOptionsUI() {
   const btn = document.getElementById('presetOppositionToggle');
   if (!btn) return;
-  btn.textContent = presetShowOpposition ? 'Opposition: On' : 'Opposition: Off';
+  btn.textContent = presetShowOpposition ? tr('opposition.on', {}, 'Opposition: On') : tr('opposition.off', {}, 'Opposition: Off');
   btn.classList.toggle('sp-btn-accent', presetShowOpposition);
 }
 
@@ -3248,7 +3815,7 @@ function togglePresetOpposition() {
   presetShowOpposition = !presetShowOpposition;
   updatePresetOptionsUI();
   if (currentPresetId) {
-    loadPlay(currentPresetId);
+    loadPlay(currentPresetId, { snapshotBefore: false });
     return;
   }
   render();
@@ -3327,9 +3894,23 @@ function buildPlayList() {
 
     label.onclick = () => {
       const isOpen = !list.hidden;
+      if (!isOpen && !document.body.classList.contains('is-phone')) {
+        c.querySelectorAll('.play-category-section').forEach(otherSection => {
+          if (otherSection === section) return;
+          const otherLabel = otherSection.querySelector('.play-category-toggle');
+          const otherList = otherSection.querySelector('.play-category-list');
+          const otherChevron = otherSection.querySelector('.play-cat-chevron');
+          if (otherList) otherList.hidden = true;
+          if (otherLabel) otherLabel.setAttribute('aria-expanded', 'false');
+          if (otherChevron) otherChevron.style.transform = '';
+          otherSection.classList.remove('is-open');
+        });
+      }
       list.hidden = isOpen;
       label.setAttribute('aria-expanded', String(!isOpen));
-      label.querySelector('.play-cat-chevron').style.transform = isOpen ? '' : 'rotate(90deg)';
+      const chevron = label.querySelector('.play-cat-chevron');
+      if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
+      section.classList.toggle('is-open', !isOpen);
     };
 
     section.appendChild(list);
@@ -3337,11 +3918,16 @@ function buildPlayList() {
   });
 }
 
-function loadPlay(id) {
+function loadPlay(id, { snapshotBefore = true } = {}) {
   const play = PLAYS.find(p => p.id === id);
   if (!play) return;
   closeRadialMenu();
-  if (applyBoardData(presetToProject(play))) {
+  const presetProject = presetToProject(play);
+  presetProject.metadata = {
+    ...(presetProject.metadata || {}),
+    presetId: play.id,
+  };
+  if (applyBoardData(presetProject, { snapshotBefore })) {
     currentPresetId = play.id;
     updatePresetOptionsUI();
     const defaultGroup = S.groups.find(group => group.id === play.defaultGroupId) || null;
@@ -3384,7 +3970,7 @@ function setAutosaveStatus(state, label = '') {
   autosaveState = state;
   const el = getAutosaveStatusElements().status;
   if (!el) return;
-  const text = label || (state === 'saving'
+  const text = label || tr(`autosave.${state}`, {}, state === 'saving'
     ? 'Saving...'
     : state === 'unsaved'
       ? 'Unsaved'
@@ -3603,6 +4189,7 @@ function serializePlay() {
       name: currentPlayTitle(),
       createdAt: stamp,
       modifiedAt: stamp,
+      attackDirection: currentAttackDirection(),
     },
     phases: GamePlan.phases.map((phase, index) => serializePhase(phase, index)),
     currentPhase: GamePlan.currentPhase,
@@ -3636,6 +4223,10 @@ function deserializePlay(obj) {
     GamePlan.name = typeof play.meta?.name === 'string' && play.meta.name.trim()
       ? play.meta.name.trim()
       : 'Untitled Play';
+    S.playMetadata = normalizeProjectMetadata(
+      { name: GamePlan.name, meta: play.meta || {}, attackDirection: play.attackDirection },
+      { ...(S.playMetadata || {}), title: GamePlan.name, attackDirection: play.meta?.attackDirection || play.attackDirection }
+    );
     GamePlan.currentPhase = clamp(Number.isFinite(play.currentPhase) ? Number(play.currentPhase) : 0, 0, phases.length - 1);
     GamePlan.phases = phases;
     const activePhase = GamePlan.phases[GamePlan.currentPhase] || GamePlan.phases[0];
@@ -4196,6 +4787,7 @@ function sanitizeNormalizedProjectTextFields(project) {
     project.metadata.purpose = sanitizeImportedText(project.metadata.purpose, 600, '');
     project.metadata.decisionCue = sanitizeImportedText(project.metadata.decisionCue, 600, '');
     project.metadata.source = sanitizeImportedText(project.metadata.source, 80, 'animator');
+    project.metadata.attackDirection = normalizeAttackDirection(project.metadata.attackDirection);
     project.metadata.coachingPoints = Array.isArray(project.metadata.coachingPoints)
       ? project.metadata.coachingPoints.map(item => sanitizeImportedText(item, 240, '')).filter(Boolean).slice(0, 3)
       : [];
@@ -4210,16 +4802,16 @@ function sanitizeNormalizedProjectTextFields(project) {
       label: sanitizeImportedText(phase.label, 120, `Phase ${phaseIndex + 1}`),
       notes: sanitizeImportedText(phase.notes, 1000, ''),
       annotations: Array.isArray(phase.annotations)
-        ? phase.annotations.map((annotation) => annotation?.type === 'note'
-          ? { ...annotation, text: sanitizeImportedText(annotation.text, 240, ANNOTATION_NOTE_DEFAULT) }
+        ? phase.annotations.map((annotation) => isEditableTextAnnotationType(annotation?.type)
+          ? { ...annotation, text: sanitizeImportedText(annotation.text, 240, annotation?.type === 'playerLabel' ? PLAYER_LABEL_DEFAULT : ANNOTATION_NOTE_DEFAULT) }
           : annotation)
         : [],
       steps: Array.isArray(phase.steps)
         ? phase.steps.map((step) => ({
           ...step,
           annotations: Array.isArray(step.annotations)
-            ? step.annotations.map((annotation) => annotation?.type === 'note'
-              ? { ...annotation, text: sanitizeImportedText(annotation.text, 240, ANNOTATION_NOTE_DEFAULT) }
+            ? step.annotations.map((annotation) => isEditableTextAnnotationType(annotation?.type)
+              ? { ...annotation, text: sanitizeImportedText(annotation.text, 240, annotation?.type === 'playerLabel' ? PLAYER_LABEL_DEFAULT : ANNOTATION_NOTE_DEFAULT) }
               : annotation)
             : [],
         }))
@@ -4441,6 +5033,9 @@ function restoreWholeGamePlanHistoryEntry(entry) {
   S.projectMeta = entry.projectMeta || null;
   S.playMetadata = entry.playMetadata ? cloneData(entry.playMetadata) : null;
   S.projectPlayback = entry.projectPlayback ? normalizePlaybackSettings(entry.projectPlayback) : null;
+  currentPresetId = entry.projectMeta?.source === 'preset' && typeof entry.projectMeta?.presetId === 'string'
+    ? entry.projectMeta.presetId
+    : null;
   S.animSpd = S.projectPlayback?.currentSpeed || 1;
   spdIdx = Math.max(0, SPEEDS.indexOf(S.animSpd));
 
@@ -4479,6 +5074,23 @@ function redo() {
   scheduleAutosave();
 }
 window.redo = redo;
+
+function syncHistoryControls() {
+  const editingLocked = !!S.animating;
+  const undoDisabled = editingLocked || !(S.history && S.history.length);
+  const redoDisabled = editingLocked || !(S.future && S.future.length);
+  const bindings = [
+    { id: 'topbarUndoBtn', disabled: undoDisabled, title: undoDisabled ? tr('dock.undo.none') : tr('dock.undo.ready') },
+    { id: 'topbarRedoBtn', disabled: redoDisabled, title: redoDisabled ? tr('dock.redo.none') : tr('dock.redo.ready') },
+  ];
+  bindings.forEach(({ id, disabled, title }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.disabled = disabled;
+    el.title = title;
+    el.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+  });
+}
 
 //  FIELD RENDERING
 function drawField() {
@@ -4755,7 +5367,7 @@ function drawField() {
     ensureStaticFieldSnapshotBuffer();
     staticFieldCtx.setTransform(1, 0, 0, 1, 0, 0);
     staticFieldCtx.clearRect(0, 0, staticFieldCanvas.width, staticFieldCanvas.height);
-    staticFieldCtx.drawImage(cv, 0, 0);
+    staticFieldCtx.drawImage(ctx.canvas, 0, 0);
     staticFieldCtx.setTransform(renderDpr, 0, 0, renderDpr, 0, 0);
     staticFieldCacheKey = cacheKey;
   }
@@ -5534,6 +6146,107 @@ function noteMetrics(note) {
 }
 window.__noteBox = noteMetrics;
 
+function playerLabelMetrics(annotation, players = S.players) {
+  const player = findPlayerForAnchoredLabel(annotation, players);
+  const source = String(annotation?.text ?? PLAYER_LABEL_DEFAULT).replace(/\r\n?/g, '\n');
+  const rawLines = source.split('\n');
+  const minFontSize = Math.max(12, sc * 0.21);
+  const maxFontSize = Math.max(22, sc * 0.5);
+  let fontSize = clamp(sc * 0.34, minFontSize, maxFontSize);
+  const maxWidthPx = Math.max(72, PLAYER_LABEL_MAX_WIDTH * sc);
+  const minWidthPx = Math.max(40, PLAYER_LABEL_MIN_WIDTH * sc);
+  const measure = (value, size) => {
+    ctx.save();
+    ctx.font = `700 ${size}px ${NOTE_FONT}`;
+    const width = ctx.measureText(value).width;
+    ctx.restore();
+    return width;
+  };
+  const wrapText = (lines, size) => {
+    const wrapped = [];
+    lines.forEach((line) => {
+      if (!line.length) {
+        wrapped.push('');
+        return;
+      }
+      let remaining = line;
+      while (remaining.length) {
+        let fitIndex = 0;
+        let lastWhitespaceFit = -1;
+        for (let idx = 1; idx <= remaining.length; idx++) {
+          const segment = remaining.slice(0, idx);
+          if (measure(segment, size) <= maxWidthPx + 0.01) {
+            fitIndex = idx;
+            if (/\s/.test(remaining[idx - 1])) lastWhitespaceFit = idx;
+          } else {
+            break;
+          }
+        }
+        if (!fitIndex) {
+          wrapped.push(remaining[0]);
+          remaining = remaining.slice(1);
+          continue;
+        }
+        const breakIndex = fitIndex < remaining.length && lastWhitespaceFit > 0
+          ? lastWhitespaceFit
+          : fitIndex;
+        wrapped.push(remaining.slice(0, breakIndex));
+        remaining = remaining.slice(breakIndex);
+      }
+    });
+    return wrapped.length ? wrapped : [PLAYER_LABEL_DEFAULT];
+  };
+  let lines = wrapText(rawLines, fontSize);
+  let lineHeight = Math.max(fontSize * 1.04, fontSize + 0.2);
+  while (fontSize > minFontSize) {
+    const lineWidths = lines.map(line => measure(line || '', fontSize));
+    const width = Math.min(maxWidthPx, Math.max(minWidthPx, ...lineWidths, 0) + (PLAYER_LABEL_PADDING_X * sc * 2));
+    const height = Math.min(PLAYER_LABEL_MAX_HEIGHT * sc, Math.max(PLAYER_LABEL_MIN_HEIGHT * sc, (lines.length * lineHeight) + (PLAYER_LABEL_PADDING_Y * sc * 2)));
+    if (width <= maxWidthPx + 0.01 && height <= PLAYER_LABEL_MAX_HEIGHT * sc + 0.01) break;
+    fontSize = Math.max(minFontSize, fontSize - 0.3);
+    lines = wrapText(rawLines, fontSize);
+    lineHeight = Math.max(fontSize * 1.04, fontSize + 0.2);
+  }
+  const lineWidths = lines.map(line => measure(line || '', fontSize));
+  const width = Math.min(maxWidthPx, Math.max(minWidthPx, ...lineWidths, 0) + (PLAYER_LABEL_PADDING_X * sc * 2));
+  const height = Math.min(PLAYER_LABEL_MAX_HEIGHT * sc, Math.max(PLAYER_LABEL_MIN_HEIGHT * sc, (lines.length * lineHeight) + (PLAYER_LABEL_PADDING_Y * sc * 2)));
+  return {
+    player,
+    x: player ? player.x + Number(annotation.offsetX || 0) : 0,
+    y: player ? player.y + Number(annotation.offsetY || 0) : 0,
+    width,
+    height,
+    widthField: width / Math.max(sc, 0.001),
+    heightField: height / Math.max(sc, 0.001),
+    paddingX: Math.max(3, PLAYER_LABEL_PADDING_X * sc),
+    paddingY: Math.max(2, PLAYER_LABEL_PADDING_Y * sc),
+    fontSize,
+    lineHeight,
+    align: noteAlignValue(annotation),
+    lines,
+    lineWidths,
+    cornerRadius: Math.max(7, Math.min(13, height * 0.34)),
+    opacity: clamp(Number(annotation.opacity) || 1, 0.2, 1),
+  };
+}
+
+function playerLabelBounds(annotation, players = S.players) {
+  const box = playerLabelMetrics(annotation, players);
+  if (!box.player) return null;
+  const halfW = box.widthField / 2;
+  const halfH = box.heightField / 2;
+  return {
+    left: box.x - halfW,
+    right: box.x + halfW,
+    top: box.y - halfH,
+    bottom: box.y + halfH,
+    width: halfW * 2,
+    height: halfH * 2,
+    centerX: box.x,
+    centerY: box.y,
+  };
+}
+
 function noteAnnotationBounds(note) {
   const box = noteMetrics(note);
   const halfW = box.widthField / 2;
@@ -5584,6 +6297,122 @@ function noteHandleHitRadiusField(note) {
   return Math.min(baseRadius, cappedRadius);
 }
 
+function clearPendingNoteSelectionClear({ resetTap = false } = {}) {
+  if (noteSelectionClearTimer) {
+    clearTimeout(noteSelectionClearTimer);
+    noteSelectionClearTimer = null;
+  }
+  if (resetTap) lastNoteSelectionTap = { id: null, at: 0 };
+}
+
+function isInlineNoteEditing(noteId = null) {
+  return !!noteInlineEditorState && (!noteId || noteInlineEditorState.id === noteId);
+}
+
+function hideNoteInlineEditor() {
+  const editor = document.getElementById('noteInlineEditor');
+  if (!editor) return;
+  editor.hidden = true;
+  editor.style.left = '';
+  editor.style.top = '';
+  editor.style.width = '';
+  editor.style.height = '';
+}
+
+function endNoteInlineEdit({ keepSelection = true } = {}) {
+  const wasEditing = !!noteInlineEditorState;
+  noteInlineEditorState = null;
+  hideNoteInlineEditor();
+  clearPendingNoteSelectionClear({ resetTap: true });
+  if (!keepSelection && wasEditing) clearSelectedObject();
+}
+
+function syncNoteInlineEditor() {
+  const editor = document.getElementById('noteInlineEditor');
+  const wrap = document.getElementById('canvasWrap');
+  if (!editor || !wrap) return;
+  const annotation = noteInlineEditorState ? findAnnotationById(noteInlineEditorState.id) : null;
+  if (!annotation || !isEditableTextAnnotationType(annotation.type) || selectedAnnotationId() !== annotation.id) {
+    if (noteInlineEditorState) noteInlineEditorState = null;
+    hideNoteInlineEditor();
+    return;
+  }
+
+  const box = annotation.type === 'note' ? noteMetrics(annotation) : playerLabelMetrics(annotation);
+  if (annotation.type === 'playerLabel' && !box.player) {
+    noteInlineEditorState = null;
+    hideNoteInlineEditor();
+    return;
+  }
+  const center = toC(box.x, box.y);
+  const left = center.x - (box.width / 2);
+  const top = center.y - (box.height / 2);
+  const opacity = clamp(Number(annotation.opacity) || 1, 0.2, 1);
+  const value = String(annotation.text ?? '');
+  if (editor.value !== value) editor.value = value;
+
+  editor.hidden = false;
+  editor.style.left = `${left}px`;
+  editor.style.top = `${top}px`;
+  editor.style.width = `${box.width}px`;
+  editor.style.height = `${box.height}px`;
+  editor.style.padding = `${box.paddingY}px ${box.paddingX}px`;
+  editor.style.fontSize = `${box.fontSize}px`;
+  editor.style.lineHeight = `${box.lineHeight}px`;
+  editor.style.textAlign = noteAlignValue(annotation);
+  editor.style.opacity = `${opacity}`;
+}
+
+function beginNoteInlineEdit(noteId, { selectAll = false } = {}) {
+  const note = findAnnotationById(noteId);
+  const editor = document.getElementById('noteInlineEditor');
+  if (!note || !isEditableTextAnnotationType(note.type) || !editor) return false;
+  clearPendingNoteSelectionClear({ resetTap: true });
+  if (!isInlineNoteEditing(noteId)) snapshot();
+  noteInlineEditorState = { id: noteId };
+  selectAnnotationById(noteId);
+  closeFloatingToolbarFlyout();
+  refreshInteractionUI();
+  render();
+  requestAnimationFrame(() => {
+    syncNoteInlineEditor();
+    editor.focus();
+    if (selectAll) editor.select();
+    else {
+      const end = editor.value.length;
+      editor.setSelectionRange(end, end);
+    }
+  });
+  return true;
+}
+
+function beginSelectedNoteInlineEdit(options = {}) {
+  const note = selectedAnnotation();
+  if (!note || !isEditableTextAnnotationType(note.type)) return false;
+  return beginNoteInlineEdit(note.id, options);
+}
+window.beginSelectedNoteInlineEdit = beginSelectedNoteInlineEdit;
+
+function handleSelectedNoteTapForEditing(noteId) {
+  const note = findAnnotationById(noteId);
+  if (!note || !isEditableTextAnnotationType(note.type)) return false;
+  const now = Date.now();
+  if (lastNoteSelectionTap.id === noteId && (now - lastNoteSelectionTap.at) <= NOTE_INLINE_EDIT_DOUBLE_TAP_MS) {
+    beginNoteInlineEdit(noteId);
+    return true;
+  }
+  clearPendingNoteSelectionClear();
+  lastNoteSelectionTap = { id: noteId, at: now };
+  noteSelectionClearTimer = setTimeout(() => {
+    noteSelectionClearTimer = null;
+    if (!isInlineNoteEditing(noteId) && selectedAnnotationId() === noteId && lastNoteSelectionTap.id === noteId) {
+      clearSelection();
+    }
+    lastNoteSelectionTap = { id: null, at: 0 };
+  }, NOTE_INLINE_EDIT_DOUBLE_TAP_MS + 30);
+  return true;
+}
+
 function setNoteFromBounds(note, left, top, right, bottom) {
   const clampedLeft = Math.min(left, right);
   const clampedRight = Math.max(left, right);
@@ -5610,60 +6439,236 @@ function drawAnnotationSelectionRing(x, y, r) {
 }
 
 function boxAnnotationBounds(box) {
-  const left = Math.min(box.x, box.x + box.w);
-  const right = Math.max(box.x, box.x + box.w);
-  const top = Math.min(box.y, box.y + box.h);
-  const bottom = Math.max(box.y, box.y + box.h);
-  return {
-    left,
-    top,
-    right,
-    bottom,
-    width: Math.max(1.5, right - left),
-    height: Math.max(1.5, bottom - top),
-  };
+  return rotatedShapeAnnotationBounds(box);
 }
 
-function boxAnnotationCorners(box) {
-  const bounds = boxAnnotationBounds(box);
-  return {
-    nw: { x: bounds.left, y: bounds.top },
-    ne: { x: bounds.right, y: bounds.top },
-    sw: { x: bounds.left, y: bounds.bottom },
-    se: { x: bounds.right, y: bounds.bottom },
-  };
+function ellipseAnnotationBounds(ellipse) {
+  return rotatedShapeAnnotationBounds(ellipse);
+}
+
+function setEllipseFromBounds(ellipse, left, top, right, bottom) {
+  setBoxFromBounds(ellipse, left, top, right, bottom);
 }
 
 function setBoxFromBounds(box, left, top, right, bottom) {
   box.x = Math.min(left, right);
   box.y = Math.min(top, bottom);
-  box.w = Math.max(1.5, Math.abs(right - left));
-  box.h = Math.max(1.5, Math.abs(bottom - top));
+  box.w = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, Math.abs(right - left));
+  box.h = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, Math.abs(bottom - top));
 }
 
 function clampZoneAnnotation(zone) {
-  zone.r = Math.max(1.5, zone.r);
-  const maxRadius = Math.max(
-    1.5,
-    Math.min(zone.x - F.XMIN, F.XMAX - zone.x, zone.y - F.YMIN, F.YMAX - zone.y)
+  const bounds = annotationBoardBounds();
+  zone.r = clamp(zone.r, GEOMETRIC_ANNOTATION_MIN_SIZE, GEOMETRIC_ANNOTATION_MAX_RADIUS);
+  zone.x = clamp(
+    zone.x,
+    bounds.left - zone.r + GEOMETRIC_ANNOTATION_MIN_VISIBLE,
+    bounds.right + zone.r - GEOMETRIC_ANNOTATION_MIN_VISIBLE
   );
-  zone.r = Math.min(zone.r, maxRadius);
-  zone.x = clamp(zone.x, F.XMIN + zone.r, F.XMAX - zone.r);
-  zone.y = clamp(zone.y, F.YMIN + zone.r, F.YMAX - zone.r);
+  zone.y = clamp(
+    zone.y,
+    bounds.top - zone.r + GEOMETRIC_ANNOTATION_MIN_VISIBLE,
+    bounds.bottom + zone.r - GEOMETRIC_ANNOTATION_MIN_VISIBLE
+  );
   return zone;
 }
 
 function clampBoxAnnotation(box) {
-  const width = Math.max(1.5, Math.abs(box.w));
-  const height = Math.max(1.5, Math.abs(box.h));
-  const x = clamp(box.x, F.XMIN, F.XMAX - width);
-  const y = clamp(box.y, F.YMIN, F.YMAX - height);
-  box.x = x;
-  box.y = y;
-  box.w = Math.min(width, F.XMAX - x);
-  box.h = Math.min(height, F.YMAX - y);
-  return box;
+  return clampRotatedShapeAnnotation(box);
 }
+
+function clampEllipseAnnotation(ellipse) {
+  return clampRotatedShapeAnnotation(ellipse);
+}
+
+function zoneAnnotationBounds(zone) {
+  return {
+    left: zone.x - zone.r,
+    right: zone.x + zone.r,
+    top: zone.y - zone.r,
+    bottom: zone.y + zone.r,
+    width: zone.r * 2,
+    height: zone.r * 2,
+  };
+}
+
+function annotationFieldBounds(annotation) {
+  if (!annotation) return null;
+  if (annotation.type === 'note') return noteAnnotationBounds(annotation);
+  if (annotation.type === 'playerLabel') return playerLabelBounds(annotation);
+  if (annotation.type === 'zone') return zoneAnnotationBounds(annotation);
+  if (annotation.type === 'box') return boxAnnotationBounds(annotation);
+  if (annotation.type === 'ellipse') return ellipseAnnotationBounds(annotation);
+  if (annotation.type === 'arrow') {
+    const pad = Math.max(2.4, arrowStrokeWidthPx(annotation.thickness) * 0.26);
+    return {
+      left: Math.min(annotation.start.x, annotation.end.x) - pad,
+      right: Math.max(annotation.start.x, annotation.end.x) + pad,
+      top: Math.min(annotation.start.y, annotation.end.y) - pad,
+      bottom: Math.max(annotation.start.y, annotation.end.y) + pad,
+      width: Math.abs(annotation.end.x - annotation.start.x) + (pad * 2),
+      height: Math.abs(annotation.end.y - annotation.start.y) + (pad * 2),
+    };
+  }
+  return null;
+}
+
+function annotationScreenBounds(annotation) {
+  const bounds = annotationFieldBounds(annotation);
+  if (!bounds) return null;
+  const topLeft = toC(bounds.left, bounds.top);
+  const bottomRight = toC(bounds.right, bounds.bottom);
+  return {
+    left: Math.min(topLeft.x, bottomRight.x),
+    right: Math.max(topLeft.x, bottomRight.x),
+    top: Math.min(topLeft.y, bottomRight.y),
+    bottom: Math.max(topLeft.y, bottomRight.y),
+    width: Math.abs(bottomRight.x - topLeft.x),
+    height: Math.abs(bottomRight.y - topLeft.y),
+  };
+}
+
+function annotationToolbarTitle(annotation) {
+  if (!annotation) return '';
+  if (annotation.type === 'note') return 'Note';
+  if (annotation.type === 'playerLabel') return 'Player Label';
+  if (annotation.type === 'arrow') return 'Arrow';
+  if (annotation.type === 'box') return 'Box';
+  return 'Circle';
+}
+
+function floatingToolbarVisibleBounds(wrapRect, hostRect, edgeMargin = 8) {
+  return {
+    left: Math.max(
+      edgeMargin,
+      Math.round(Math.max(0, hostRect.left - wrapRect.left, -wrapRect.left))
+    ),
+    top: Math.max(
+      edgeMargin,
+      Math.round(Math.max(0, hostRect.top - wrapRect.top, -wrapRect.top))
+    ),
+    right: Math.min(
+      wrapRect.width - edgeMargin,
+      Math.round(Math.min(wrapRect.width, hostRect.right - wrapRect.left, window.innerWidth - wrapRect.left))
+    ),
+    bottom: Math.min(
+      wrapRect.height - edgeMargin,
+      Math.round(Math.min(wrapRect.height, hostRect.bottom - wrapRect.top, window.innerHeight - wrapRect.top))
+    ),
+  };
+}
+
+function positionOpenFloatingToolbarFlyout() {
+  if (!floatingToolbarOpenFlyout) return;
+  const toolbar = document.getElementById('floatingSelectionToolbar');
+  const wrap = document.getElementById('canvasWrap');
+  if (!toolbar || toolbar.hidden || !wrap) return;
+  const flyout = toolbar.querySelector(`.floating-selection-toolbar-flyout[data-flyout="${floatingToolbarOpenFlyout}"]`);
+  const trigger = toolbar.querySelector(`[data-flyout-target="${floatingToolbarOpenFlyout}"]`);
+  if (!flyout || !trigger || trigger.hidden || trigger.closest('[hidden]')) {
+    closeFloatingToolbarFlyout();
+    return;
+  }
+
+  const wrapRect = wrap.getBoundingClientRect();
+  const host = document.getElementById('canvasHost');
+  const hostRect = host ? host.getBoundingClientRect() : wrapRect;
+  const visible = floatingToolbarVisibleBounds(wrapRect, hostRect, 8);
+  const toolbarRect = toolbar.getBoundingClientRect();
+  const triggerRect = trigger.getBoundingClientRect();
+  const flyoutWidth = flyout.offsetWidth || 0;
+  const flyoutHeight = flyout.offsetHeight || 0;
+  const gap = 8;
+  const minLeft = visible.left - toolbarRect.left;
+  const maxLeft = Math.max(minLeft, visible.right - toolbarRect.left - flyoutWidth);
+  const desiredLeft = (triggerRect.left + (triggerRect.width / 2)) - toolbarRect.left - (flyoutWidth / 2);
+  const left = clamp(desiredLeft, minLeft, maxLeft);
+  const spaceBelow = visible.bottom - toolbarRect.bottom - gap;
+  const spaceAbove = toolbarRect.top - visible.top - gap;
+  const placeAbove = spaceBelow < flyoutHeight && spaceAbove > spaceBelow;
+  const minTop = visible.top - toolbarRect.top;
+  const maxTop = visible.bottom - toolbarRect.top - flyoutHeight;
+  const desiredTop = placeAbove ? -(flyoutHeight + gap) : (toolbar.offsetHeight + gap);
+  const top = clamp(desiredTop, minTop, Math.max(minTop, maxTop));
+
+  flyout.dataset.placement = placeAbove ? 'top' : 'bottom';
+  flyout.style.left = `${left}px`;
+  flyout.style.top = `${top}px`;
+  flyout.style.bottom = '';
+}
+
+function positionFloatingSelectionToolbar() {
+  const toolbar = document.getElementById('floatingSelectionToolbar');
+  const wrap = document.getElementById('canvasWrap');
+  const annotation = selectedAnnotation();
+  if (!toolbar || !wrap || !annotation) return;
+  const bounds = annotationScreenBounds(annotation);
+  if (!bounds) return;
+
+  const wrapRect = wrap.getBoundingClientRect();
+  const host = document.getElementById('canvasHost');
+  const hostRect = host ? host.getBoundingClientRect() : wrapRect;
+  const edgeMargin = 8;
+  const gap = 14 + (isShapeAnnotationType(annotation.type) ? 34 : 0);
+  const toolbarWidth = toolbar.offsetWidth || 0;
+  const toolbarHeight = toolbar.offsetHeight || 0;
+  const visible = floatingToolbarVisibleBounds(wrapRect, hostRect, edgeMargin);
+  const visibleLeft = visible.left;
+  const visibleTop = visible.top;
+  const visibleRight = visible.right;
+  const visibleBottom = visible.bottom;
+  const minLeft = visibleLeft;
+  const maxLeft = Math.max(minLeft, visibleRight - toolbarWidth);
+  const minTop = visibleTop;
+  const maxTop = Math.max(minTop, visibleBottom - toolbarHeight);
+  const anchorX = clamp(bounds.left + (bounds.width / 2), visibleLeft + 10, visibleRight - 10);
+  const anchorTop = clamp(bounds.top, visibleTop, visibleBottom);
+  const anchorBottom = clamp(bounds.bottom, visibleTop, visibleBottom);
+  const preferredTop = bounds.top - toolbarHeight - gap;
+  const preferredBottom = bounds.bottom + gap;
+  const fitsAbove = preferredTop >= minTop;
+  const fitsBelow = preferredBottom + toolbarHeight <= visibleBottom;
+  const placeBelow = !fitsAbove && fitsBelow;
+  const top = placeBelow
+    ? clamp(preferredBottom, minTop, maxTop)
+    : clamp(preferredTop, minTop, maxTop);
+  const left = clamp(anchorX - (toolbarWidth / 2), minLeft, maxLeft);
+  const caretLeft = clamp(anchorX - left, 18, Math.max(18, toolbarWidth - 18));
+
+  toolbar.dataset.placement = placeBelow ? 'bottom' : 'top';
+  toolbar.style.right = 'auto';
+  toolbar.style.bottom = 'auto';
+  toolbar.style.left = `${left}px`;
+  toolbar.style.top = `${top}px`;
+  toolbar.style.setProperty('--fst-caret-left', `${caretLeft}px`);
+  positionOpenFloatingToolbarFlyout();
+}
+
+function scheduleFloatingSelectionToolbarUpdate() {
+  if (floatingSelectionToolbarRaf) cancelAnimationFrame(floatingSelectionToolbarRaf);
+  floatingSelectionToolbarRaf = requestAnimationFrame(() => {
+    floatingSelectionToolbarRaf = 0;
+    positionFloatingSelectionToolbar();
+  });
+}
+
+function toggleFloatingToolbarFlyout(name, event = null) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  const toolbar = document.getElementById('floatingSelectionToolbar');
+  if (!toolbar || toolbar.hidden) return;
+  const targetBtn = toolbar.querySelector(`[data-flyout-target="${name}"]`);
+  const targetFlyout = toolbar.querySelector(`.floating-selection-toolbar-flyout[data-flyout="${name}"]`);
+  if (!targetBtn || !targetFlyout || targetBtn.hidden || targetBtn.closest('[hidden]')) return;
+  const willOpen = floatingToolbarOpenFlyout !== name;
+  closeFloatingToolbarFlyout();
+  if (!willOpen) return;
+  floatingToolbarOpenFlyout = name;
+  targetBtn.setAttribute('aria-expanded', 'true');
+  targetFlyout.hidden = false;
+  positionOpenFloatingToolbarFlyout();
+}
+window.toggleFloatingToolbarFlyout = toggleFloatingToolbarFlyout;
 
 function clampNoteAnnotation(note) {
   note.width = noteWidthValue(note);
@@ -5715,14 +6720,16 @@ function drawNoteAnnotation(note, selected = false) {
   const textTop = p.y - (height / 2) + box.paddingY;
   const totalTextHeight = box.visibleLines.length * box.lineHeight;
   const textY = textTop + Math.max(0, (box.innerHeight - totalTextHeight) / 2);
-  box.visibleLines.forEach((line, index) => {
-    const textX = box.align === 'center'
-      ? textCenter
-      : box.align === 'right'
-        ? textRight
-        : textLeft;
-    ctx.fillText(line || '', textX, textY + (index * box.lineHeight));
-  });
+  if (!isInlineNoteEditing(note.id)) {
+    box.visibleLines.forEach((line, index) => {
+      const textX = box.align === 'center'
+        ? textCenter
+        : box.align === 'right'
+          ? textRight
+          : textLeft;
+      ctx.fillText(line || '', textX, textY + (index * box.lineHeight));
+    });
+  }
   ctx.restore();
 
   if (selected) {
@@ -5747,34 +6754,284 @@ function noteResizeCursorForHandle(handle) {
   return 'default';
 }
 
+function normalizeShapeRotation(rotation) {
+  const raw = Number(rotation);
+  if (!Number.isFinite(raw)) return 0;
+  let normalized = raw % 360;
+  if (normalized < 0) normalized += 360;
+  return normalized;
+}
+
+function shapeFrameBounds(shape) {
+  const width = Math.max(1.5, Math.abs(Number(shape?.w) || 0));
+  const height = Math.max(1.5, Math.abs(Number(shape?.h) || 0));
+  return {
+    left: Number(shape?.x) || 0,
+    top: Number(shape?.y) || 0,
+    right: (Number(shape?.x) || 0) + width,
+    bottom: (Number(shape?.y) || 0) + height,
+    width,
+    height,
+  };
+}
+
+function shapeAnnotationCenter(shape) {
+  const frame = shapeFrameBounds(shape);
+  return {
+    x: frame.left + (frame.width / 2),
+    y: frame.top + (frame.height / 2),
+  };
+}
+
+function fieldUnitsForPixels(px) {
+  return px / Math.max(sc || 1, 0.0001);
+}
+
+function rotateOffset(x, y, radians) {
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  return {
+    x: (x * cos) - (y * sin),
+    y: (x * sin) + (y * cos),
+  };
+}
+
+function shapeWorldPointFromLocal(shape, localX, localY) {
+  const center = shapeAnnotationCenter(shape);
+  const offset = rotateOffset(localX, localY, normalizeShapeRotation(shape.rotation) * (Math.PI / 180));
+  return {
+    x: center.x + offset.x,
+    y: center.y + offset.y,
+  };
+}
+
+function shapeLocalPointFromWorld(shape, worldPoint, rotationOverride = null) {
+  const center = shapeAnnotationCenter(shape);
+  const radians = (rotationOverride === null ? normalizeShapeRotation(shape.rotation) : normalizeShapeRotation(rotationOverride)) * (Math.PI / 180);
+  return rotateOffset(worldPoint.x - center.x, worldPoint.y - center.y, -radians);
+}
+
+function boxAnnotationCorners(box) {
+  const frame = shapeFrameBounds(box);
+  const halfW = frame.width / 2;
+  const halfH = frame.height / 2;
+  return {
+    nw: shapeWorldPointFromLocal(box, -halfW, -halfH),
+    ne: shapeWorldPointFromLocal(box, halfW, -halfH),
+    sw: shapeWorldPointFromLocal(box, -halfW, halfH),
+    se: shapeWorldPointFromLocal(box, halfW, halfH),
+  };
+}
+
+function ellipseAnnotationCorners(ellipse) {
+  return boxAnnotationCorners(ellipse);
+}
+
+function rotatedShapeAnnotationBounds(shape) {
+  const corners = Object.values(boxAnnotationCorners(shape));
+  const xs = corners.map(point => point.x);
+  const ys = corners.map(point => point.y);
+  return {
+    left: Math.min(...xs),
+    top: Math.min(...ys),
+    right: Math.max(...xs),
+    bottom: Math.max(...ys),
+    width: Math.max(1.5, Math.max(...xs) - Math.min(...xs)),
+    height: Math.max(1.5, Math.max(...ys) - Math.min(...ys)),
+  };
+}
+
+function shapeRotateStemLengthField() {
+  return fieldUnitsForPixels(18);
+}
+
+function shapeRotateHandleFieldPoint(shape) {
+  const frame = shapeFrameBounds(shape);
+  return shapeWorldPointFromLocal(shape, 0, -(frame.height / 2) - shapeRotateStemLengthField());
+}
+
+function shapeRotateStemFieldPoint(shape) {
+  const frame = shapeFrameBounds(shape);
+  return shapeWorldPointFromLocal(shape, 0, -(frame.height / 2));
+}
+
+function shapeHandleHitRadiusField() {
+  return Math.max(1.35, fieldUnitsForPixels(11));
+}
+
+function setShapeFrameFromCenter(shape, center, width, height) {
+  const nextWidth = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, width);
+  const nextHeight = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, height);
+  shape.x = center.x - (nextWidth / 2);
+  shape.y = center.y - (nextHeight / 2);
+  shape.w = nextWidth;
+  shape.h = nextHeight;
+}
+
+function clampRotatedShapeAnnotation(shape) {
+  const boundsLimit = annotationBoardBounds();
+  const frame = shapeFrameBounds(shape);
+  shape.w = clamp(frame.width, GEOMETRIC_ANNOTATION_MIN_SIZE, GEOMETRIC_ANNOTATION_MAX_WIDTH);
+  shape.h = clamp(frame.height, GEOMETRIC_ANNOTATION_MIN_SIZE, GEOMETRIC_ANNOTATION_MAX_HEIGHT);
+  const bounds = rotatedShapeAnnotationBounds(shape);
+  let dx = 0;
+  let dy = 0;
+  if (bounds.left > boundsLimit.right - GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dx = (boundsLimit.right - GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.left;
+  } else if (bounds.right < boundsLimit.left + GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dx = (boundsLimit.left + GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.right;
+  }
+  if (bounds.top > boundsLimit.bottom - GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dy = (boundsLimit.bottom - GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.top;
+  } else if (bounds.bottom < boundsLimit.top + GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dy = (boundsLimit.top + GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.bottom;
+  }
+  shape.x += dx;
+  shape.y += dy;
+  return shape;
+}
+
+function constrainEllipseSize(width, height) {
+  const size = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, Math.max(width, height));
+  return { width: size, height: size };
+}
+
+function clampArrowAnnotation(arrow) {
+  const boundsLimit = annotationBoardBounds();
+  const bounds = annotationFieldBounds(arrow);
+  if (!bounds) return arrow;
+  let dx = 0;
+  let dy = 0;
+  if (bounds.left > boundsLimit.right - GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dx = (boundsLimit.right - GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.left;
+  } else if (bounds.right < boundsLimit.left + GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dx = (boundsLimit.left + GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.right;
+  }
+  if (bounds.top > boundsLimit.bottom - GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dy = (boundsLimit.bottom - GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.top;
+  } else if (bounds.bottom < boundsLimit.top + GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dy = (boundsLimit.top + GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.bottom;
+  }
+  if (dx || dy) {
+    arrow.start.x += dx;
+    arrow.start.y += dy;
+    arrow.end.x += dx;
+    arrow.end.y += dy;
+  }
+  return arrow;
+}
+
+function resizeRotatedShapeAnnotation(shape, base, handle, point, constrainCircle = false) {
+  const rotation = normalizeShapeRotation(base.rotation);
+  const frame = shapeFrameBounds(base);
+  const halfW = frame.width / 2;
+  const halfH = frame.height / 2;
+  const signs = handle === 'nw'
+    ? { x: -1, y: -1 }
+    : handle === 'ne'
+      ? { x: 1, y: -1 }
+      : handle === 'sw'
+        ? { x: -1, y: 1 }
+        : { x: 1, y: 1 };
+  const anchorWorld = shapeWorldPointFromLocal(base, -signs.x * halfW, -signs.y * halfH);
+  const localDelta = rotateOffset(point.x - anchorWorld.x, point.y - anchorWorld.y, -(rotation * (Math.PI / 180)));
+  let width = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, Math.abs(localDelta.x));
+  let height = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, Math.abs(localDelta.y));
+  if (constrainCircle) {
+    const constrained = constrainEllipseSize(width, height);
+    width = constrained.width;
+    height = constrained.height;
+  }
+  const draggedLocal = {
+    x: signs.x * width,
+    y: signs.y * height,
+  };
+  const centerOffset = rotateOffset(draggedLocal.x / 2, draggedLocal.y / 2, rotation * (Math.PI / 180));
+  const center = {
+    x: anchorWorld.x + centerOffset.x,
+    y: anchorWorld.y + centerOffset.y,
+  };
+  setShapeFrameFromCenter(shape, center, width, height);
+  shape.rotation = rotation;
+  return clampRotatedShapeAnnotation(shape);
+}
+
+function shapeResizeCursorForHandle(handle) {
+  if (handle === 'rotate') return 'grab';
+  if (handle === 'nw' || handle === 'se') return 'nwse-resize';
+  if (handle === 'ne' || handle === 'sw') return 'nesw-resize';
+  return 'grab';
+}
+
+function drawShapeRotationHandle(shape, opacity = 1) {
+  const stemStart = toC(shapeRotateStemFieldPoint(shape).x, shapeRotateStemFieldPoint(shape).y);
+  const handleCenterField = shapeRotateHandleFieldPoint(shape);
+  const handleCenter = toC(handleCenterField.x, handleCenterField.y);
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.strokeStyle = 'rgba(251,191,36,0.42)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(stemStart.x, stemStart.y);
+  ctx.lineTo(handleCenter.x, handleCenter.y);
+  ctx.stroke();
+  ctx.fillStyle = '#fbbf24';
+  ctx.strokeStyle = '#0b1420';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(handleCenter.x, handleCenter.y, 6.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawArrowAnnotation(arrow, selected = false, preview = false) {
-  const color = preview ? 'rgba(217,180,108,0.72)' : (arrow.color || annotationColor('arrow'));
-  const opacity = preview ? 1 : (Number(arrow.opacity) || 1);
+  const color = arrow.color || annotationColor('arrow');
+  const opacity = preview ? 0.82 : (Number(arrow.opacity) || 1);
+  const thicknessKey = arrowThicknessValue(arrow.thickness);
+  const strokeWidth = preview ? Math.max(2, arrowStrokeWidthPx(thicknessKey) - 0.3) : arrowStrokeWidthPx(thicknessKey);
+  const shaftDash = arrowDashValue(arrow.dash) === 'dashed'
+    ? [Math.max(8, strokeWidth * 2.8), Math.max(6, strokeWidth * 1.9)]
+    : [];
   const start = toC(arrow.start.x, arrow.start.y);
   const end = toC(arrow.end.x, arrow.end.y);
-  const ang = Math.atan2(end.y - start.y, end.x - start.x);
-  const head = Math.max(9, sc * 1.6);
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const len = Math.hypot(dx, dy);
+  const ang = Math.atan2(dy, dx);
+  const head = Math.max(11, strokeWidth * 3.8, sc * 1.6);
+  const shaftEnd = len > 0.001
+    ? {
+        x: end.x - Math.cos(ang) * Math.min(head * 0.78, Math.max(0, len - 1)),
+        y: end.y - Math.sin(ang) * Math.min(head * 0.78, Math.max(0, len - 1)),
+      }
+    : { ...end };
+  const underlayWidth = strokeWidth + (selected ? 3.2 : 2.2);
 
   ctx.save();
   ctx.globalAlpha = opacity;
   ctx.strokeStyle = 'rgba(7,16,24,0.46)';
-  ctx.lineWidth = 5.2;
+  ctx.lineWidth = underlayWidth;
   ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  if (shaftDash.length) ctx.setLineDash(shaftDash);
   ctx.beginPath();
   ctx.moveTo(start.x, start.y);
-  ctx.lineTo(end.x, end.y);
+  ctx.lineTo(shaftEnd.x, shaftEnd.y);
   ctx.stroke();
+  ctx.setLineDash([]);
   ctx.restore();
 
   if (selected) {
     ctx.save();
     ctx.strokeStyle = 'rgba(251,191,36,0.42)';
-    ctx.lineWidth = 8;
+    ctx.lineWidth = underlayWidth + 2.6;
     ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     ctx.setLineDash([10, 8]);
     ctx.beginPath();
     ctx.moveTo(start.x, start.y);
-    ctx.lineTo(end.x, end.y);
+    ctx.lineTo(shaftEnd.x, shaftEnd.y);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
@@ -5782,12 +7039,15 @@ function drawArrowAnnotation(arrow, selected = false, preview = false) {
 
   ctx.save();
   ctx.strokeStyle = color;
-  ctx.lineWidth = preview ? 2.6 : 3.2;
+  ctx.lineWidth = strokeWidth;
   ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  if (shaftDash.length) ctx.setLineDash(shaftDash);
   ctx.beginPath();
   ctx.moveTo(start.x, start.y);
-  ctx.lineTo(end.x, end.y);
+  ctx.lineTo(shaftEnd.x, shaftEnd.y);
   ctx.stroke();
+  ctx.setLineDash([]);
 
   ctx.fillStyle = color;
   ctx.beginPath();
@@ -5818,15 +7078,19 @@ function drawZoneAnnotation(zone, selected = false, preview = false) {
   const p = toC(zone.x, zone.y);
   const radius = Math.max(zone.r * sc, sc * 1.5);
   const opacity = preview ? 1 : (Number(zone.opacity) || 1);
+  const strokeWidth = preview ? Math.max(1.8, arrowStrokeWidthPx(zone.thickness) - 0.3) : arrowStrokeWidthPx(zone.thickness);
+  const dash = shapeDashPattern(zone.dash, strokeWidth);
   ctx.save();
   ctx.globalAlpha = opacity;
-  ctx.fillStyle = preview ? 'rgba(16,185,129,0.1)' : 'rgba(16,185,129,0.14)';
+  ctx.fillStyle = hexToRgba(zone.color || annotationColor('zone'), preview ? 0.08 : 0.12);
   ctx.strokeStyle = selected ? '#fbbf24' : (zone.color || annotationColor('zone'));
-  ctx.lineWidth = selected ? 2.4 : 2;
+  ctx.lineWidth = selected ? strokeWidth + 0.35 : strokeWidth;
+  ctx.setLineDash(dash);
   ctx.beginPath();
   ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
+  ctx.setLineDash([]);
   ctx.restore();
 
   if (selected) {
@@ -5867,29 +7131,38 @@ function drawZoneAnnotation(zone, selected = false, preview = false) {
 
 function drawBoxAnnotation(box, selected = false, preview = false) {
   const opacity = preview ? 1 : (Number(box.opacity) || 1);
-  const bounds = boxAnnotationBounds(box);
-  const topLeft = toC(bounds.left, bounds.top);
-  const bottomRight = toC(bounds.right, bounds.bottom);
-  const width = bottomRight.x - topLeft.x;
-  const height = bottomRight.y - topLeft.y;
+  const frame = shapeFrameBounds(box);
+  const center = shapeAnnotationCenter(box);
+  const centerPx = toC(center.x, center.y);
+  const width = frame.width * sc;
+  const height = frame.height * sc;
+  const strokeWidth = preview ? Math.max(1.8, arrowStrokeWidthPx(box.thickness) - 0.3) : arrowStrokeWidthPx(box.thickness);
+  const dash = shapeDashPattern(box.dash, strokeWidth);
+  const rotation = normalizeShapeRotation(box.rotation) * (Math.PI / 180);
 
   ctx.save();
   ctx.globalAlpha = opacity;
-  ctx.fillStyle = preview ? 'rgba(217,180,108,0.09)' : 'rgba(217,180,108,0.13)';
+  ctx.translate(centerPx.x, centerPx.y);
+  ctx.rotate(rotation);
+  ctx.fillStyle = hexToRgba(box.color || annotationColor('box'), preview ? 0.09 : 0.13);
   ctx.strokeStyle = selected ? '#fbbf24' : (box.color || annotationColor('box'));
-  ctx.lineWidth = selected ? 2.4 : 2;
-  roundRect(ctx, topLeft.x, topLeft.y, width, height, 14);
+  ctx.lineWidth = selected ? Math.max(2.4, strokeWidth) : strokeWidth;
+  if (dash.length) ctx.setLineDash(dash);
+  roundRect(ctx, -(width / 2), -(height / 2), width, height, 14);
   ctx.fill();
   ctx.stroke();
+  ctx.setLineDash([]);
   ctx.restore();
 
   if (selected) {
     const corners = boxAnnotationCorners(box);
     ctx.save();
+    ctx.translate(centerPx.x, centerPx.y);
+    ctx.rotate(rotation);
     ctx.strokeStyle = 'rgba(251,191,36,0.24)';
     ctx.lineWidth = 1.5;
     ctx.setLineDash([6, 5]);
-    roundRect(ctx, topLeft.x - 4, topLeft.y - 4, width + 8, height + 8, 16);
+    roundRect(ctx, -(width / 2) - 4, -(height / 2) - 4, width + 8, height + 8, 16);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
@@ -5906,16 +7179,120 @@ function drawBoxAnnotation(box, selected = false, preview = false) {
       ctx.stroke();
       ctx.restore();
     });
+    drawShapeRotationHandle(box, opacity);
   }
 }
 
-function renderAnnotations(layer, annotations = S.annotations) {
+function drawEllipseAnnotation(ellipse, selected = false, preview = false) {
+  const opacity = preview ? 1 : (Number(ellipse.opacity) || 1);
+  const frame = shapeFrameBounds(ellipse);
+  const center = shapeAnnotationCenter(ellipse);
+  const centerPx = toC(center.x, center.y);
+  const width = Math.max(1, frame.width * sc);
+  const height = Math.max(1, frame.height * sc);
+  const radiusX = width / 2;
+  const radiusY = height / 2;
+  const strokeWidth = preview ? Math.max(1.8, arrowStrokeWidthPx(ellipse.thickness) - 0.3) : arrowStrokeWidthPx(ellipse.thickness);
+  const dash = shapeDashPattern(ellipse.dash, strokeWidth);
+  const rotation = normalizeShapeRotation(ellipse.rotation) * (Math.PI / 180);
+
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.translate(centerPx.x, centerPx.y);
+  ctx.rotate(rotation);
+  ctx.fillStyle = hexToRgba(ellipse.color || annotationColor('ellipse'), preview ? 0.08 : 0.12);
+  ctx.strokeStyle = selected ? '#fbbf24' : (ellipse.color || annotationColor('ellipse'));
+  ctx.lineWidth = selected ? Math.max(2.4, strokeWidth) : strokeWidth;
+  if (dash.length) ctx.setLineDash(dash);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  if (selected) {
+    const corners = ellipseAnnotationCorners(ellipse);
+    ctx.save();
+    ctx.translate(centerPx.x, centerPx.y);
+    ctx.rotate(rotation);
+    ctx.strokeStyle = 'rgba(251,191,36,0.24)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 5]);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, radiusX + 4, radiusY + 4, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    Object.values(corners).forEach(corner => {
+      const handle = toC(corner.x, corner.y);
+      ctx.save();
+      ctx.fillStyle = '#fbbf24';
+      ctx.strokeStyle = '#0b1420';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(handle.x, handle.y, 6.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    });
+    drawShapeRotationHandle(ellipse, opacity);
+  }
+}
+
+function drawPlayerLabelAnnotation(annotation, selected = false, players = S.players) {
+  const box = playerLabelMetrics(annotation, players);
+  if (!box.player) return;
+  const center = toC(box.x, box.y);
+  const left = center.x - (box.width / 2);
+  const top = center.y - (box.height / 2);
+  ctx.save();
+  ctx.globalAlpha = box.opacity;
+  ctx.fillStyle = 'rgba(7,16,24,0.82)';
+  ctx.strokeStyle = selected ? '#fbbf24' : 'rgba(251,191,36,0.24)';
+  ctx.lineWidth = selected ? 1.7 : 1;
+  roundRect(ctx, left, top, box.width, box.height, box.cornerRadius);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalAlpha = box.opacity;
+  ctx.fillStyle = annotation.color || annotationColor('playerLabel');
+  ctx.font = `700 ${box.fontSize}px ${NOTE_FONT}`;
+  ctx.textBaseline = 'middle';
+  box.lines.forEach((line, index) => {
+    const textWidth = box.lineWidths[index] || 0;
+    let x = left + box.paddingX;
+    if (box.align === 'center') x = center.x - (textWidth / 2);
+    else if (box.align === 'right') x = left + box.width - box.paddingX - textWidth;
+    const y = top + box.paddingY + (box.lineHeight * index) + (box.lineHeight / 2);
+    ctx.fillText(line || '', x, y);
+  });
+  ctx.restore();
+
+  if (selected) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(251,191,36,0.3)';
+    ctx.lineWidth = 1.4;
+    ctx.setLineDash([5, 4]);
+    roundRect(ctx, left - 3, top - 3, box.width + 6, box.height + 6, box.cornerRadius + 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+}
+
+function renderAnnotations(layer, annotations = S.annotations, players = S.players) {
   annotations.forEach(annotation => {
     const selected = annotations === S.annotations && selectedAnnotationId() === annotation.id;
     if (layer === 'zones' && annotation.type === 'zone') drawZoneAnnotation(annotation, selected);
     if (layer === 'zones' && annotation.type === 'box') drawBoxAnnotation(annotation, selected);
+    if (layer === 'zones' && annotation.type === 'ellipse') drawEllipseAnnotation(annotation, selected);
     if (layer === 'lines' && annotation.type === 'arrow') drawArrowAnnotation(annotation, selected);
     if (layer === 'notes' && annotation.type === 'note') drawNoteAnnotation(annotation, selected);
+    if (layer === 'notes' && annotation.type === 'playerLabel') drawPlayerLabelAnnotation(annotation, selected, players);
   });
 }
 
@@ -5929,6 +7306,9 @@ function renderAnnotationDraft() {
   }
   if (S.annotationDraft.type === 'box' && Number.isFinite(S.annotationDraft.w) && Number.isFinite(S.annotationDraft.h)) {
     drawBoxAnnotation(S.annotationDraft, false, true);
+  }
+  if (S.annotationDraft.type === 'ellipse' && Number.isFinite(S.annotationDraft.w) && Number.isFinite(S.annotationDraft.h)) {
+    drawEllipseAnnotation(S.annotationDraft, false, true);
   }
 }
 
@@ -5947,7 +7327,7 @@ function render() {
     const frame = buildSequenceFrame(S.animT);
     const playerLookup = new Map(frame.players.map(pl => [playerKey(pl), pl]));
     const animatedKickBall = resolveAnimatedKickBall(frame, playerLookup);
-    renderAnnotations('zones', frame.annotations);
+    renderAnnotations('zones', frame.annotations, frame.players);
     frame.passes.forEach(pass => {
       const from = playerLookup.get(playerKey({ num: pass.fromNum, team: pass.fromT }));
       if (!from) return;
@@ -5964,7 +7344,7 @@ function render() {
       if (path.pts.length < 2) return;
       drawRunPath(path.pts, path.team === 'A' ? '#60a5fa' : '#f87171', 2.8, 1);
     });
-    renderAnnotations('lines', frame.annotations);
+    renderAnnotations('lines', frame.annotations, frame.players);
     renderPathOriginMarkers(frame.players, frame.paths);
     frame.players.forEach(pl => drawPlayer(pl.x, pl.y, pl.num, pl.team, false, samePlayerRef(playerRef(pl), frame.ballOwner), playerColorPalette(pl)));
     const frameBall = animatedKickBall || frame.ball;
@@ -5972,8 +7352,9 @@ function render() {
     frame.players.forEach(pl => {
       if (samePlayerRef(playerRef(pl), frame.ballOwner)) drawBallCarrierHighlight(pl.x, pl.y);
     });
-    renderAnnotations('notes', frame.annotations);
+    renderAnnotations('notes', frame.annotations, frame.players);
     closeRadialMenu();
+    scheduleFloatingSelectionToolbarUpdate();
     return;
   }
 
@@ -6085,6 +7466,7 @@ function render() {
     ctx.restore();
   });
   renderRadialMenu();
+  scheduleFloatingSelectionToolbarUpdate();
 }
 
 function animPos(pl, t) {
@@ -6134,6 +7516,16 @@ function pointSegDist(p, a, b) {
 function hitAnnotation(fp) {
   for (let i = S.annotations.length - 1; i >= 0; i--) {
     const ann = S.annotations[i];
+    if (ann.type === 'playerLabel') {
+      const bounds = playerLabelBounds(ann);
+      if (!bounds) continue;
+      if (
+        fp.x >= bounds.left - 0.7 && fp.x <= bounds.right + 0.7 &&
+        fp.y >= bounds.top - 0.7 && fp.y <= bounds.bottom + 0.7
+      ) {
+        return { id: ann.id, part: 'move' };
+      }
+    }
     if (ann.type === 'note') {
       const bounds = noteAnnotationBounds(ann);
       const corners = noteAnnotationCorners(ann);
@@ -6153,9 +7545,11 @@ function hitAnnotation(fp) {
       }
     }
     if (ann.type === 'arrow') {
-      if (d2(fp, ann.start) <= 2.8) return { id: ann.id, part: 'start' };
-      if (d2(fp, ann.end) <= 2.8) return { id: ann.id, part: 'end' };
-      if (pointSegDist(fp, ann.start, ann.end) <= 2.4) return { id: ann.id, part: 'move' };
+      const handleRadius = arrowThicknessValue(ann.thickness) === 'thick' ? 3.2 : 2.8;
+      const shaftTolerance = 2.4 + (arrowStrokeWidthPx(ann.thickness) * 0.25);
+      if (d2(fp, ann.start) <= handleRadius) return { id: ann.id, part: 'start' };
+      if (d2(fp, ann.end) <= handleRadius) return { id: ann.id, part: 'end' };
+      if (pointSegDist(fp, ann.start, ann.end) <= shaftTolerance) return { id: ann.id, part: 'move' };
     }
     if (ann.type === 'zone') {
       const handle = { x: ann.x + ann.r, y: ann.y };
@@ -6164,16 +7558,33 @@ function hitAnnotation(fp) {
       if (d2(fp, center) <= ann.r + 1.1) return { id: ann.id, part: 'move' };
     }
     if (ann.type === 'box') {
-      const bounds = boxAnnotationBounds(ann);
       const corners = boxAnnotationCorners(ann);
-      if (d2(fp, corners.nw) <= 2.8) return { id: ann.id, part: 'nw' };
-      if (d2(fp, corners.ne) <= 2.8) return { id: ann.id, part: 'ne' };
-      if (d2(fp, corners.sw) <= 2.8) return { id: ann.id, part: 'sw' };
-      if (d2(fp, corners.se) <= 2.8) return { id: ann.id, part: 'se' };
-      if (
-        fp.x >= bounds.left - 0.8 && fp.x <= bounds.right + 0.8 &&
-        fp.y >= bounds.top - 0.8 && fp.y <= bounds.bottom + 0.8
-      ) {
+      const handleRadius = shapeHandleHitRadiusField();
+      if (selectedAnnotationId() === ann.id && d2(fp, shapeRotateHandleFieldPoint(ann)) <= handleRadius) return { id: ann.id, part: 'rotate' };
+      if (d2(fp, corners.nw) <= handleRadius) return { id: ann.id, part: 'nw' };
+      if (d2(fp, corners.ne) <= handleRadius) return { id: ann.id, part: 'ne' };
+      if (d2(fp, corners.sw) <= handleRadius) return { id: ann.id, part: 'sw' };
+      if (d2(fp, corners.se) <= handleRadius) return { id: ann.id, part: 'se' };
+      const local = shapeLocalPointFromWorld(ann, fp);
+      const frame = shapeFrameBounds(ann);
+      if (Math.abs(local.x) <= (frame.width / 2) + 0.8 && Math.abs(local.y) <= (frame.height / 2) + 0.8) {
+        return { id: ann.id, part: 'move' };
+      }
+    }
+    if (ann.type === 'ellipse') {
+      const corners = ellipseAnnotationCorners(ann);
+      const handleRadius = shapeHandleHitRadiusField();
+      if (selectedAnnotationId() === ann.id && d2(fp, shapeRotateHandleFieldPoint(ann)) <= handleRadius) return { id: ann.id, part: 'rotate' };
+      if (d2(fp, corners.nw) <= handleRadius) return { id: ann.id, part: 'nw' };
+      if (d2(fp, corners.ne) <= handleRadius) return { id: ann.id, part: 'ne' };
+      if (d2(fp, corners.sw) <= handleRadius) return { id: ann.id, part: 'sw' };
+      if (d2(fp, corners.se) <= handleRadius) return { id: ann.id, part: 'se' };
+      const local = shapeLocalPointFromWorld(ann, fp);
+      const frame = shapeFrameBounds(ann);
+      const rx = Math.max(0.75, frame.width / 2);
+      const ry = Math.max(0.75, frame.height / 2);
+      const norm = ((local.x ** 2) / (rx ** 2)) + ((local.y ** 2) / (ry ** 2));
+      if (norm <= 1.15) {
         return { id: ann.id, part: 'move' };
       }
     }
@@ -6302,8 +7713,10 @@ function showPhoneMoveToast() {
 }
 
 function handlePointerDown(e) {
+  clearPendingNoteSelectionClear();
   const fp = getF(e);
   const clampedFieldPoint = clampFieldPoint(fp);
+  const geometricFieldPoint = clampGeometricFieldPoint(fp);
   const canvasPoint = getPx(e);
 
   // Canonical radial-menu dismissal: a radial menu can only be open while
@@ -6434,9 +7847,13 @@ function handlePointerDown(e) {
       const ann = findAnnotationById(annHit.id);
       const isNoteResize = ann?.type === 'note' && annHit.part === 'resize';
       if (!isNoteResize) snapshot();
-      const dragOff = ann && (ann.type === 'note' || ann.type === 'zone' || ann.type === 'box')
-        ? { x: fp.x - ann.x, y: fp.y - ann.y }
-        : { x: 0, y: 0 };
+      let dragOff = { x: 0, y: 0 };
+      if (ann && (ann.type === 'note' || ann.type === 'zone' || ann.type === 'box' || ann.type === 'ellipse')) {
+        dragOff = { x: fp.x - ann.x, y: fp.y - ann.y };
+      } else if (ann?.type === 'playerLabel') {
+        const bounds = playerLabelBounds(ann);
+        if (bounds) dragOff = { x: fp.x - bounds.centerX, y: fp.y - bounds.centerY };
+      }
       const noteResize = isNoteResize
         ? (() => {
             const bounds = noteAnnotationBounds(ann);
@@ -6455,6 +7872,16 @@ function handlePointerDown(e) {
             };
           })()
         : null;
+      const shapeRotate = !isNoteResize && isShapeAnnotationType(ann?.type) && annHit.part === 'rotate'
+        ? (() => {
+            const center = shapeAnnotationCenter(ann);
+            return {
+              center,
+              startPointerAngle: Math.atan2(fp.y - center.y, fp.x - center.x),
+              baseRotation: normalizeShapeRotation(ann.rotation),
+            };
+          })()
+        : null;
       S.dragging = {
         type:'annotation',
         id:annHit.id,
@@ -6463,6 +7890,7 @@ function handlePointerDown(e) {
         dragOff,
         startSnapshot: ann ? cloneData(ann) : null,
         noteResize,
+        shapeRotate,
       };
       beginPointerTap(e.pointerId, { type:'annotation', id:annHit.id, wasSelected }, e);
       closeRadialMenu();
@@ -6583,6 +8011,16 @@ function handlePointerDown(e) {
               };
             })()
           : null;
+        const shapeRotate = !isNoteResize && isShapeAnnotationType(selectedNote?.type) && selectedHit.part === 'rotate'
+          ? (() => {
+              const center = shapeAnnotationCenter(selectedNote);
+              return {
+                center,
+                startPointerAngle: Math.atan2(fp.y - center.y, fp.x - center.x),
+                baseRotation: normalizeShapeRotation(selectedNote.rotation),
+              };
+            })()
+          : null;
         S.dragging = {
           type:'annotation',
           id:selectedNote.id,
@@ -6591,13 +8029,13 @@ function handlePointerDown(e) {
           dragOff:{ x: fp.x - selectedNote.x, y: fp.y - selectedNote.y },
           startSnapshot: cloneData(selectedNote),
           noteResize,
+          shapeRotate,
         };
         beginPointerTap(e.pointerId, { type:'annotation', id:selectedNote.id, wasSelected: true }, e);
         closeRadialMenu();
         try { cv.setPointerCapture(e.pointerId); } catch(_) {}
         refreshInteractionUI();
         render();
-        if (!isNoteResize) focusSelectedNoteInput(true);
         return;
       }
     }
@@ -6615,7 +8053,6 @@ function handlePointerDown(e) {
         setHint('Note selected. Drag it in Move, use the corner handles to resize it, or update the text from Selection.');
         refreshInteractionUI();
         render();
-        focusSelectedNoteInput(true);
         return;
       }
     }
@@ -6635,7 +8072,6 @@ function handlePointerDown(e) {
       setHint('Note placed. Drag it in Move, use the corner handles to resize it, or update the text from Selection.');
       refreshInteractionUI();
       render();
-      focusSelectedNoteInput(true);
     }
   }
 
@@ -6647,13 +8083,15 @@ function handlePointerDown(e) {
     const radialSource = S.radialArrowSourcePlayerId !== null && S.radialArrowSourcePlayerId !== undefined
       ? S.players.find(player => player.id === S.radialArrowSourcePlayerId) || null
       : null;
-    const start = radialSource ? { x: radialSource.x, y: radialSource.y } : { x: fp.x, y: fp.y };
+    const start = radialSource ? { x: radialSource.x, y: radialSource.y } : { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
     S.annotationDraft = normalizeAnnotation({
       id: mkAnnotationId(),
       type: 'arrow',
       start,
-      end: { x: fp.x, y: fp.y },
-      color: annotationColor('arrow'),
+      end: { x: geometricFieldPoint.x, y: geometricFieldPoint.y },
+      color: currentArrowStyleSelection().color,
+      thickness: currentArrowStyleSelection().thickness,
+      dash: currentArrowStyleSelection().dash,
     });
     try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     setHint('Drag out the tactical arrow, then release to place it.');
@@ -6667,16 +8105,21 @@ function handlePointerDown(e) {
       render();
       return;
     }
+    const shapeStyle = currentShapeStyleSelection('zone');
     S.annotationDraft = normalizeAnnotation({
       id: mkAnnotationId(),
-      type: 'zone',
-      x: clampedFieldPoint.x,
-      y: clampedFieldPoint.y,
-      r: 0.1,
-      color: annotationColor('zone'),
+      type: 'ellipse',
+      x: geometricFieldPoint.x,
+      y: geometricFieldPoint.y,
+      w: GEOMETRIC_ANNOTATION_MIN_SIZE,
+      h: GEOMETRIC_ANNOTATION_MIN_SIZE,
+      color: shapeStyle.color,
+      thickness: shapeStyle.thickness,
+      dash: shapeStyle.dash,
     });
+    S.annotationDraft.anchor = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
     try { cv.setPointerCapture(e.pointerId); } catch(_) {}
-    setHint('Drag outward to size the highlight zone.');
+    setHint('Drag outward to size the circle or oval highlight. Hold Shift for a perfect circle.');
     refreshInteractionUI();
   }
 
@@ -6687,18 +8130,46 @@ function handlePointerDown(e) {
       render();
       return;
     }
+    const shapeStyle = currentShapeStyleSelection('box');
     S.annotationDraft = normalizeAnnotation({
       id: mkAnnotationId(),
       type: 'box',
-      x: clampedFieldPoint.x,
-      y: clampedFieldPoint.y,
-      w: 1.5,
-      h: 1.5,
-      color: annotationColor('box'),
+      x: geometricFieldPoint.x,
+      y: geometricFieldPoint.y,
+      w: GEOMETRIC_ANNOTATION_MIN_SIZE,
+      h: GEOMETRIC_ANNOTATION_MIN_SIZE,
+      color: shapeStyle.color,
+      thickness: shapeStyle.thickness,
+      dash: shapeStyle.dash,
     });
-    S.annotationDraft.anchor = { x: clampedFieldPoint.x, y: clampedFieldPoint.y };
+    S.annotationDraft.anchor = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
     try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     setHint('Drag outward to size the box highlight.');
+    refreshInteractionUI();
+  }
+
+  else if (S.tool === 'ellipse') {
+    if (!isInsidePitch(fp)) {
+      setHint('Start the ellipse highlight inside the pitch. Switch to MOVE to edit existing highlights.');
+      refreshInteractionUI();
+      render();
+      return;
+    }
+    const shapeStyle = currentShapeStyleSelection('ellipse');
+    S.annotationDraft = normalizeAnnotation({
+      id: mkAnnotationId(),
+      type: 'ellipse',
+      x: geometricFieldPoint.x,
+      y: geometricFieldPoint.y,
+      w: GEOMETRIC_ANNOTATION_MIN_SIZE,
+      h: GEOMETRIC_ANNOTATION_MIN_SIZE,
+      color: shapeStyle.color,
+      thickness: shapeStyle.thickness,
+      dash: shapeStyle.dash,
+    });
+    S.annotationDraft.anchor = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
+    try { cv.setPointerCapture(e.pointerId); } catch(_) {}
+    setHint('Drag outward to size the ellipse highlight.');
     refreshInteractionUI();
   }
 
@@ -6785,43 +8256,34 @@ function handlePointerDown(e) {
       render();
       return;
     }
-    snapshot();
     let removed = false;
 
-    // 1. Try to erase a path near the click point
-    S.paths = S.paths.filter(path => {
-      if (removed) return true;
-      const close = path.pts.some(pt => d2(fp, pt) < 3.5);
-      if (close) { removed = true; return false; }
-      return true;
-    });
-
-    // 2. Try to erase a pass arc near the click point
-    if (!removed) {
-      const before = S.passes.length;
-      S.passes = S.passes.filter(pass => {
-        const fp2 = S.players.find(p => p.id === pass.from);
-        const tp  = S.players.find(p => p.id === pass.to);
-        if (!fp2 || !tp) return false;
-        const mx = (fp2.x + tp.x) / 2, my = (fp2.y + tp.y) / 2;
-        return d2(fp, { x: mx, y: my }) > 4;
-      });
-      if (S.passes.length < before) removed = true;
-    }
-
-    // 3. Only remove player or ball if nothing else was hit
-    if (!removed) {
-      const pl = hitPlayer(fp);
-      if (pl) {
-        removePlayer(pl.id);
-        finishEraseInteraction(`${pl.team === 'A' ? 'Attack' : 'Defence'} #${pl.num} erased. Back in Move mode.`);
-        return;
-      }
-      if (hitBall(fp)) {
-        S.ball = null;
-        clearSelectedObject();
-        removed = true;
-      }
+    if (eraseRun !== null) {
+      snapshot();
+      S.paths = S.paths.filter(path => path.pid !== eraseRun);
+      S.selectedPathPid = S.selectedPathPid === eraseRun ? null : S.selectedPathPid;
+      removed = true;
+    } else if (erasePass !== -1 || eraseKick !== -1) {
+      const removeIdx = erasePass !== -1 ? erasePass : eraseKick;
+      snapshot();
+      S.passes.splice(removeIdx, 1);
+      if (S.selectedPassIdx === removeIdx) S.selectedPassIdx = null;
+      else if (S.selectedPassIdx !== null && S.selectedPassIdx > removeIdx) S.selectedPassIdx -= 1;
+      removed = true;
+    } else if (eraseAnnotation) {
+      snapshot();
+      removeAnnotation(eraseAnnotation.id);
+      removed = true;
+    } else if (erasePlayer) {
+      snapshot();
+      removePlayer(erasePlayer.id);
+      finishEraseInteraction(`${erasePlayer.team === 'A' ? 'Attack' : 'Defence'} #${erasePlayer.num} erased. Back in Move mode.`);
+      return;
+    } else if (eraseBall) {
+      snapshot();
+      S.ball = null;
+      clearSelectedObject();
+      removed = true;
     }
 
     if (removed) {
@@ -6849,6 +8311,7 @@ function handlePointerMove(e) {
   const latestSample = samples[samples.length - 1] || e;
   const fp = getF(latestSample);
   const fieldPoint = clampFieldPoint(fp);
+  const geometricFieldPoint = clampGeometricFieldPoint(fp);
   updatePointerTapMovement(latestSample);
 
   if (
@@ -7019,51 +8482,73 @@ function handlePointerMove(e) {
             return;
           }
           clampNoteAnnotation(ann);
+        } else if (ann.type === 'playerLabel') {
+          const player = findPlayerForAnchoredLabel(ann);
+          if (player) {
+            ann.playerRef = playerRef(player);
+            ann.offsetX = (fieldPoint.x - (S.dragging.dragOff?.x || 0)) - player.x;
+            ann.offsetY = (fieldPoint.y - (S.dragging.dragOff?.y || 0)) - player.y;
+          }
         } else if (ann.type === 'arrow') {
           if (S.dragging.part === 'start') {
-            ann.start = { x: fp.x, y: fp.y };
+            ann.start = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
           } else if (S.dragging.part === 'end') {
-            ann.end = { x: fp.x, y: fp.y };
+            ann.end = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
           } else {
-            const dx = fp.x - S.dragging.anchor.x;
-            const dy = fp.y - S.dragging.anchor.y;
+            const dx = geometricFieldPoint.x - S.dragging.anchor.x;
+            const dy = geometricFieldPoint.y - S.dragging.anchor.y;
             ann.start = { x: ann.start.x + dx, y: ann.start.y + dy };
             ann.end = { x: ann.end.x + dx, y: ann.end.y + dy };
-            S.dragging.anchor = { x: fp.x, y: fp.y };
+            S.dragging.anchor = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
           }
+          clampArrowAnnotation(ann);
         } else if (ann.type === 'zone') {
           if (S.dragging.part === 'radius') {
-            ann.r = Math.max(1.5, d2(fieldPoint, { x: ann.x, y: ann.y }));
+            ann.r = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, d2(geometricFieldPoint, { x: ann.x, y: ann.y }));
           } else if (S.dragging.part === 'center') {
             const base = S.dragging.startSnapshot || ann;
-            const angle = Math.atan2(fieldPoint.y - base.y, fieldPoint.x - base.x);
-            ann.r = Math.max(1.5, d2(fieldPoint, { x: base.x, y: base.y }));
+            const angle = Math.atan2(geometricFieldPoint.y - base.y, geometricFieldPoint.x - base.x);
+            ann.r = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, d2(geometricFieldPoint, { x: base.x, y: base.y }));
             ann.x = base.x;
             ann.y = base.y;
             S.dragging.lastAngle = angle;
           } else {
-            ann.x = fieldPoint.x - (S.dragging.dragOff?.x || 0);
-            ann.y = fieldPoint.y - (S.dragging.dragOff?.y || 0);
+            ann.x = geometricFieldPoint.x - (S.dragging.dragOff?.x || 0);
+            ann.y = geometricFieldPoint.y - (S.dragging.dragOff?.y || 0);
           }
           clampZoneAnnotation(ann);
         } else if (ann.type === 'box') {
           if (S.dragging.part === 'move') {
-            ann.x = fieldPoint.x - (S.dragging.dragOff?.x || 0);
-            ann.y = fieldPoint.y - (S.dragging.dragOff?.y || 0);
+            ann.x = geometricFieldPoint.x - (S.dragging.dragOff?.x || 0);
+            ann.y = geometricFieldPoint.y - (S.dragging.dragOff?.y || 0);
+          } else if (S.dragging.part === 'rotate') {
+            const rotateState = S.dragging.shapeRotate;
+            if (rotateState) {
+              const currentAngle = Math.atan2(geometricFieldPoint.y - rotateState.center.y, geometricFieldPoint.x - rotateState.center.x);
+              let nextRotation = rotateState.baseRotation + ((currentAngle - rotateState.startPointerAngle) * (180 / Math.PI));
+              if (latestSample.shiftKey) nextRotation = Math.round(nextRotation / 15) * 15;
+              ann.rotation = normalizeShapeRotation(nextRotation);
+            }
           } else {
-            const base = S.dragging.startSnapshot || ann;
-            const baseBounds = boxAnnotationBounds(base);
-            let left = baseBounds.left;
-            let right = baseBounds.right;
-            let top = baseBounds.top;
-            let bottom = baseBounds.bottom;
-            if (S.dragging.part === 'nw' || S.dragging.part === 'sw') left = fieldPoint.x;
-            if (S.dragging.part === 'ne' || S.dragging.part === 'se') right = fieldPoint.x;
-            if (S.dragging.part === 'nw' || S.dragging.part === 'ne') top = fieldPoint.y;
-            if (S.dragging.part === 'sw' || S.dragging.part === 'se') bottom = fieldPoint.y;
-            setBoxFromBounds(ann, left, top, right, bottom);
+            resizeRotatedShapeAnnotation(ann, S.dragging.startSnapshot || ann, S.dragging.part, geometricFieldPoint, false);
           }
           clampBoxAnnotation(ann);
+        } else if (ann.type === 'ellipse') {
+          if (S.dragging.part === 'move') {
+            ann.x = geometricFieldPoint.x - (S.dragging.dragOff?.x || 0);
+            ann.y = geometricFieldPoint.y - (S.dragging.dragOff?.y || 0);
+          } else if (S.dragging.part === 'rotate') {
+            const rotateState = S.dragging.shapeRotate;
+            if (rotateState) {
+              const currentAngle = Math.atan2(geometricFieldPoint.y - rotateState.center.y, geometricFieldPoint.x - rotateState.center.x);
+              let nextRotation = rotateState.baseRotation + ((currentAngle - rotateState.startPointerAngle) * (180 / Math.PI));
+              if (latestSample.shiftKey) nextRotation = Math.round(nextRotation / 15) * 15;
+              ann.rotation = normalizeShapeRotation(nextRotation);
+            }
+          } else {
+            resizeRotatedShapeAnnotation(ann, S.dragging.startSnapshot || ann, S.dragging.part, geometricFieldPoint, !!latestSample.shiftKey);
+          }
+          clampEllipseAnnotation(ann);
         }
       }
     }
@@ -7080,18 +8565,29 @@ function handlePointerMove(e) {
     return;
   }
 
-  if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box')) {
+  if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box' || S.tool === 'ellipse')) {
     if (S.annotationDraft.type === 'arrow') {
-      S.annotationDraft.end = { x: fp.x, y: fp.y };
+      S.annotationDraft.end = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
+      clampArrowAnnotation(S.annotationDraft);
     }
     if (S.annotationDraft.type === 'zone') {
-      S.annotationDraft.r = Math.max(1.5, d2(fieldPoint, { x: S.annotationDraft.x, y: S.annotationDraft.y }));
+      S.annotationDraft.r = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, d2(geometricFieldPoint, { x: S.annotationDraft.x, y: S.annotationDraft.y }));
       clampZoneAnnotation(S.annotationDraft);
     }
     if (S.annotationDraft.type === 'box') {
       const start = S.annotationDraft.anchor || { x: S.annotationDraft.x, y: S.annotationDraft.y };
-      setBoxFromBounds(S.annotationDraft, start.x, start.y, fieldPoint.x, fieldPoint.y);
+      setBoxFromBounds(S.annotationDraft, start.x, start.y, geometricFieldPoint.x, geometricFieldPoint.y);
       clampBoxAnnotation(S.annotationDraft);
+    }
+    if (S.annotationDraft.type === 'ellipse') {
+      const start = S.annotationDraft.anchor || { x: S.annotationDraft.x, y: S.annotationDraft.y };
+      if (latestSample.shiftKey) {
+        const constrained = constrainEllipseBounds(start.x, start.y, geometricFieldPoint.x, geometricFieldPoint.y);
+        setEllipseFromBounds(S.annotationDraft, constrained.left, constrained.top, constrained.right, constrained.bottom);
+      } else {
+        setEllipseFromBounds(S.annotationDraft, start.x, start.y, geometricFieldPoint.x, geometricFieldPoint.y);
+      }
+      clampEllipseAnnotation(S.annotationDraft);
     }
     scheduleRender();
     return;
@@ -7107,6 +8603,10 @@ function handlePointerMove(e) {
   const pl = hitPlayer(fp), bl = hitBall(fp), ann = hitAnnotation(fp);
   if (S.tool === 'move') {
     if (ann?.part === 'resize') cv.style.cursor = noteResizeCursorForHandle(ann.handle);
+    else if (ann?.part === 'rotate') cv.style.cursor = 'grab';
+    else if (ann && isShapeAnnotationType(findAnnotationById(ann.id)?.type) && ['nw', 'ne', 'sw', 'se'].includes(ann.part)) {
+      cv.style.cursor = shapeResizeCursorForHandle(ann.part);
+    }
     else {
       const onPath = pl || bl || ann || hitRunPath(fp) !== null || hitPassLine(fp) !== -1 || hitKickPath(fp) !== -1;
       cv.style.cursor = onPath ? 'grab' : 'default';
@@ -7141,6 +8641,14 @@ function onPointerUp(e) {
     refreshInteractionUI();
     render();
     return;
+  }
+  if (tap && !tap.moved && tap.payload?.type === 'annotation' && tap.payload.wasSelected && selectedAnnotationId() === tap.payload.id) {
+    const tappedAnnotation = findAnnotationById(tap.payload.id);
+    if (isEditableTextAnnotationType(tappedAnnotation?.type) && handleSelectedNoteTapForEditing(tap.payload.id)) {
+      refreshInteractionUI();
+      render();
+      return;
+    }
   }
   if (tap && !tap.moved && S.tool === 'move') {
     if (tap.payload.type === 'player' && tap.payload.wasSelected && isPlayerSelected(tap.payload.id)) {
@@ -7196,7 +8704,7 @@ function onPointerUp(e) {
     scheduleRender();
   }
   if (S.drawing && S.tool === 'run') finishDraw();
-  if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box')) finishAnnotationDraft();
+  if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box' || S.tool === 'ellipse')) finishAnnotationDraft();
 }
 cv.addEventListener('pointerup', onPointerUp);
 cv.addEventListener('pointercancel', onPointerUp);
@@ -7211,6 +8719,19 @@ if (!supportsPointerEvents) {
 document.addEventListener('keydown', (e) => {
   const tag = e.target.tagName;
   if (e.key === 'Escape') {
+    if (noteInlineEditorState) {
+      endNoteInlineEdit();
+      refreshInteractionUI();
+      render();
+      e.preventDefault();
+      e.stopPropagation?.();
+      return;
+    }
+    if (floatingToolbarOpenFlyout) {
+      closeFloatingToolbarFlyout();
+      e.preventDefault();
+      return;
+    }
     if (S.dragging?.type === 'annotation' && S.dragging.part === 'resize') {
       const ann = findAnnotationById(S.dragging.id);
       const restore = S.dragging.startSnapshot;
@@ -7228,7 +8749,9 @@ document.addEventListener('keydown', (e) => {
       }
     }
     if (selectedAnnotationId()) {
-      deleteSelected();
+      clearSelection();
+      refreshInteractionUI();
+      render();
       e.preventDefault();
       return;
     }
@@ -7251,6 +8774,25 @@ document.addEventListener('keydown', (e) => {
       e.preventDefault();
     }
   }
+});
+
+document.addEventListener('pointerdown', (event) => {
+  if (!noteInlineEditorState) return;
+  const editor = document.getElementById('noteInlineEditor');
+  if (editor?.contains(event.target)) return;
+  endNoteInlineEdit();
+  refreshInteractionUI();
+  render();
+}, true);
+
+document.addEventListener('pointerdown', (event) => {
+  if (!floatingToolbarOpenFlyout) return;
+  const toolbar = document.getElementById('floatingSelectionToolbar');
+  if (!toolbar || toolbar.hidden) {
+    closeFloatingToolbarFlyout();
+    return;
+  }
+  if (!toolbar.contains(event.target)) closeFloatingToolbarFlyout();
 });
 
 function finishDraw() {
@@ -7286,6 +8828,7 @@ function finishAnnotationDraft() {
   if (!S.annotationDraft) return;
   if (S.annotationDraft.type === 'zone') clampZoneAnnotation(S.annotationDraft);
   if (S.annotationDraft.type === 'box') clampBoxAnnotation(S.annotationDraft);
+  if (S.annotationDraft.type === 'ellipse') clampEllipseAnnotation(S.annotationDraft);
   const rawDraft = cloneData(S.annotationDraft);
   const draft = normalizeAnnotation(S.annotationDraft);
   S.annotationDraft = null;
@@ -7307,6 +8850,12 @@ function finishAnnotationDraft() {
   }
   if (draft.type === 'box' && (Math.abs(Number(rawDraft.w)) < 1.5 || Math.abs(Number(rawDraft.h)) < 1.5)) {
     setHint('Box cancelled. Drag farther to create a highlight.');
+    refreshInteractionUI();
+    render();
+    return;
+  }
+  if (draft.type === 'ellipse' && (Math.abs(Number(rawDraft.w)) < 1.5 || Math.abs(Number(rawDraft.h)) < 1.5)) {
+    setHint('Ellipse cancelled. Drag farther to create a highlight.');
     refreshInteractionUI();
     render();
     return;
@@ -7412,6 +8961,141 @@ function addPlayerByNum(num, team) {
   render();
 }
 
+function selectPalettePlayer(num, team) {
+  const existing = S.players.find((player) => player.num === num && player.team === team) || null;
+  if (!existing) return false;
+  setTool('move');
+  clearPassKickState();
+  selectPlayer(existing.id);
+  S.ballAssignCandidate = existing.id;
+  setHint(`${team === 'A' ? 'Attack' : 'Defence'} #${num} selected.`);
+  refreshInteractionUI();
+  render();
+  return true;
+}
+
+function syncPlayerNumberPickerButtons() {
+  ['mobileAddAttackPickerBtn', 'mobileAddDefencePickerBtn', 'mobileRailAddAttackPickerBtn', 'mobileRailAddDefencePickerBtn'].forEach((id) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    const isActive = !document.getElementById('playerNumberPopover')?.hidden && playerNumberPickerState.anchorId === id;
+    btn.setAttribute('aria-expanded', isActive ? 'true' : 'false');
+    btn.classList.toggle('active', isActive);
+  });
+}
+
+function closePlayerNumberPicker() {
+  const popover = document.getElementById('playerNumberPopover');
+  if (!popover || popover.hidden) return;
+  popover.hidden = true;
+  popover.setAttribute('aria-hidden', 'true');
+  playerNumberPickerState = { team: null, anchorId: null };
+  syncPlayerNumberPickerButtons();
+}
+
+function positionPlayerNumberPicker() {
+  const popover = document.getElementById('playerNumberPopover');
+  const anchor = playerNumberPickerState.anchorId ? document.getElementById(playerNumberPickerState.anchorId) : null;
+  if (!popover || popover.hidden || !anchor || !anchor.offsetParent) {
+    closePlayerNumberPicker();
+    return;
+  }
+  const rect = anchor.getBoundingClientRect();
+  const popoverWidth = popover.offsetWidth;
+  const popoverHeight = popover.offsetHeight;
+  const margin = 8;
+  let left = rect.left + (rect.width / 2) - (popoverWidth / 2);
+  left = clamp(left, margin, Math.max(margin, window.innerWidth - popoverWidth - margin));
+  let top = rect.top - popoverHeight - 10;
+  let below = false;
+  if (top < margin) {
+    top = rect.bottom + 10;
+    below = true;
+  }
+  top = clamp(top, margin, Math.max(margin, window.innerHeight - popoverHeight - margin));
+  popover.style.left = `${left}px`;
+  popover.style.top = `${top}px`;
+  popover.dataset.placement = below ? 'below' : 'above';
+}
+
+function renderPlayerNumberPicker() {
+  const popover = document.getElementById('playerNumberPopover');
+  const grid = document.getElementById('playerNumberPopoverGrid');
+  const title = document.getElementById('playerNumberPopoverTitle');
+  const meta = document.getElementById('playerNumberPopoverMeta');
+  const team = playerNumberPickerState.team;
+  if (!popover || !grid || !team) return;
+  const used = team === 'A' ? S.atkUsed : S.defUsed;
+  title.textContent = `${team === 'A' ? 'Attack' : 'Defence'} Numbers`;
+  meta.textContent = 'Pick a number to place, or jump back to one already on the board.';
+  grid.innerHTML = '';
+  for (let n = 1; n <= 15; n++) {
+    const existing = S.players.find((player) => player.num === n && player.team === team) || null;
+    const isSelected = !!existing && isPlayerSelected(existing.id);
+    const isUsed = used.has(n);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `player-number-popover-btn ${team === 'A' ? 'atk' : 'def'}${isUsed ? ' is-used' : ''}${isSelected ? ' is-selected' : ''}`;
+    btn.textContent = String(n);
+    btn.setAttribute('role', 'option');
+    btn.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+    btn.dataset.used = isUsed ? 'true' : 'false';
+    btn.title = isUsed
+      ? `Select ${team === 'A' ? 'Attack' : 'Defence'} #${n}`
+      : `Add ${team === 'A' ? 'Attack' : 'Defence'} #${n}`;
+    btn.addEventListener('pointerdown', (event) => {
+      event.stopPropagation();
+    });
+    btn.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const targetTab = team === 'A' ? 'atk' : 'def';
+      if (palTab !== targetTab) setTab(targetTab);
+      if (existing) {
+        setTimeout(() => {
+          closePlayerNumberPicker();
+          setTimeout(() => {
+            selectPalettePlayer(n, team);
+          }, 60);
+        }, 0);
+        return;
+      }
+      if (!claimPhoneDataAction(`add-player:${team}:${n}`)) return;
+      addPlayerByNum(n, team);
+      setTimeout(() => {
+        closePlayerNumberPicker();
+        setTimeout(() => {
+          const added = S.players.find((player) => player.num === n && player.team === team) || null;
+          if (!added) return;
+          selectPlayer(added.id);
+          refreshInteractionUI();
+          render();
+        }, 60);
+      }, 0);
+    };
+    grid.appendChild(btn);
+  }
+  popover.hidden = false;
+  popover.setAttribute('aria-hidden', 'false');
+  syncPlayerNumberPickerButtons();
+  positionPlayerNumberPicker();
+}
+
+function togglePlayerNumberPicker(team, anchorId, event) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  const popover = document.getElementById('playerNumberPopover');
+  if (!popover) return;
+  const isSameAnchor = !popover.hidden && playerNumberPickerState.team === team && playerNumberPickerState.anchorId === anchorId;
+  if (isSameAnchor) {
+    closePlayerNumberPicker();
+    return;
+  }
+  playerNumberPickerState = { team, anchorId };
+  renderPlayerNumberPicker();
+}
+window.togglePlayerNumberPicker = togglePlayerNumberPicker;
+
 function togglePalettePlayer(num, team, event = null) {
   const existing = S.players.find((player) => player.num === num && player.team === team) || null;
   const isMultiSelect = !!(event?.ctrlKey || event?.metaKey);
@@ -7498,7 +9182,15 @@ function removePlayer(id) {
   }
   S.paths   = S.paths.filter(p => p.pid !== id);
   S.passes  = S.passes.filter(p => p.from!==id && p.to!==id);
+  S.annotations = S.annotations.filter((annotation) => {
+    if (annotation?.type !== 'playerLabel') return true;
+    const labelRef = playerLabelPlayerRef(annotation);
+    if (Number(annotation.playerId) === id) return false;
+    if (labelRef && playerMatchesRef(pl, labelRef)) return false;
+    return true;
+  });
   if (isPlayerSelected(id)) clearSelectedObject();
+  else if (selectedAnnotationId() && !findAnnotationById(selectedAnnotationId())) clearSelectedObject();
   if (S.activePasserId === id || S.activeKickerId === id) clearPassKickState();
   if (S.ballAssignCandidate === id) S.ballAssignCandidate = null;
   applyBallOwnershipVisualState();
@@ -7555,16 +9247,11 @@ function translateAnnotationCopy(sourceAnnotation, dx = ANNOTATION_CLIPBOARD_OFF
   } else if (copy.type === 'arrow') {
     copy.start = { ...copy.start };
     copy.end = { ...copy.end };
-    const dxMin = Math.max(F.XMIN - copy.start.x, F.XMIN - copy.end.x);
-    const dxMax = Math.min(F.XMAX - copy.start.x, F.XMAX - copy.end.x);
-    const dyMin = Math.max(F.YMIN - copy.start.y, F.YMIN - copy.end.y);
-    const dyMax = Math.min(F.YMAX - copy.start.y, F.YMAX - copy.end.y);
-    const shiftX = clamp(dx, dxMin, dxMax);
-    const shiftY = clamp(dy, dyMin, dyMax);
-    copy.start.x += shiftX;
-    copy.start.y += shiftY;
-    copy.end.x += shiftX;
-    copy.end.y += shiftY;
+    copy.start.x += dx;
+    copy.start.y += dy;
+    copy.end.x += dx;
+    copy.end.y += dy;
+    clampArrowAnnotation(copy);
   } else if (copy.type === 'zone') {
     copy.x += dx;
     copy.y += dy;
@@ -7573,6 +9260,13 @@ function translateAnnotationCopy(sourceAnnotation, dx = ANNOTATION_CLIPBOARD_OFF
     copy.x += dx;
     copy.y += dy;
     clampBoxAnnotation(copy);
+  } else if (copy.type === 'ellipse') {
+    copy.x += dx;
+    copy.y += dy;
+    clampEllipseAnnotation(copy);
+  } else if (copy.type === 'playerLabel') {
+    copy.offsetX = Number(copy.offsetX || 0) + dx;
+    copy.offsetY = Number(copy.offsetY || 0) + dy;
   }
   return copy;
 }
@@ -7626,21 +9320,23 @@ function nudgeSelectedAnnotation(dx, dy) {
     ann.x += dx;
     ann.y += dy;
     clampBoxAnnotation(ann);
+  } else if (ann.type === 'ellipse') {
+    ann.x += dx;
+    ann.y += dy;
+    clampEllipseAnnotation(ann);
   } else if (ann.type === 'zone') {
     ann.x += dx;
     ann.y += dy;
     clampZoneAnnotation(ann);
   } else if (ann.type === 'arrow') {
-    const dxMin = Math.max(F.XMIN - ann.start.x, F.XMIN - ann.end.x);
-    const dxMax = Math.min(F.XMAX - ann.start.x, F.XMAX - ann.end.x);
-    const dyMin = Math.max(F.YMIN - ann.start.y, F.YMIN - ann.end.y);
-    const dyMax = Math.min(F.YMAX - ann.start.y, F.YMAX - ann.end.y);
-    const shiftX = clamp(dx, dxMin, dxMax);
-    const shiftY = clamp(dy, dyMin, dyMax);
-    ann.start.x += shiftX;
-    ann.start.y += shiftY;
-    ann.end.x += shiftX;
-    ann.end.y += shiftY;
+    ann.start.x += dx;
+    ann.start.y += dy;
+    ann.end.x += dx;
+    ann.end.y += dy;
+    clampArrowAnnotation(ann);
+  } else if (ann.type === 'playerLabel') {
+    ann.offsetX = Number(ann.offsetX || 0) + dx;
+    ann.offsetY = Number(ann.offsetY || 0) + dy;
   } else {
     return false;
   }
@@ -7656,8 +9352,8 @@ function setSelectedAnnotationOpacity(value) {
   const opacity = Number(value);
   if (!Number.isFinite(opacity)) return;
   ann.opacity = clamp(opacity, 0.2, 1);
-  const shapeOpacity = document.getElementById('shapeOpacity');
-  if (shapeOpacity) shapeOpacity.value = String(ann.opacity);
+  const floatingOpacity = document.getElementById('floatingToolbarOpacity');
+  if (floatingOpacity) floatingOpacity.value = String(ann.opacity);
   refreshInteractionUI();
   render();
 }
@@ -8194,7 +9890,6 @@ function focusSequenceDockViewTarget(view) {
   if (view === 'secondary') {
     const candidates = [
       sequenceDockEls.duplicate,
-      sequenceDockEls.redo,
       sequenceDockEls.back,
     ].filter(Boolean);
     const target = candidates.find(btn => !btn.disabled) || sequenceDockEls.back;
@@ -8502,6 +10197,7 @@ function updatePhaseUI() {
   if (!strip) return;
   const currentCanonicalIndex = getCurrentCanonicalMoveIndex();
   const phases = Array.isArray(GamePlan.phases) ? GamePlan.phases : [];
+  const phaseShort = tr('phase.short', {}, 'PHASE');
   strip.innerHTML = '';
   let moveCursor = 0;
   phases.forEach((phase, phaseIndex) => {
@@ -8515,9 +10211,9 @@ function updatePhaseUI() {
     const label = document.createElement('button');
     label.type = 'button';
     label.className = 'tb-phase-label';
-    label.textContent = `Phase ${phaseIndex + 1}`;
-    label.title = `Go to Phase ${phaseIndex + 1}`;
-    label.setAttribute('aria-label', `Go to Phase ${phaseIndex + 1}, starting at Move ${firstIndexInPhase + 1}`);
+    label.textContent = `${phaseShort} ${phaseIndex + 1}`;
+    label.title = `Go to ${phaseShort} ${phaseIndex + 1}`;
+    label.setAttribute('aria-label', `Go to ${phaseShort} ${phaseIndex + 1}, starting at Move ${firstIndexInPhase + 1}`);
     label.onclick = () => handleCanonicalMoveChipSelect(firstIndexInPhase);
     group.appendChild(label);
 
@@ -8549,15 +10245,16 @@ function updatePhaseUI() {
   addBtn.setAttribute('aria-label', 'Add Move');
   addBtn.onclick = () => addCanonicalMove();
   strip.appendChild(addBtn);
+  scheduleSequenceBarScroller({ center: true, behavior: 'auto' });
 }
 
 function getCanonicalPhaseActionShortLabel(kind) {
   switch (kind) {
-    case 'existing-boundary': return 'Remove Break';
-    case 'pending-final': return 'Cancel Phase';
-    case 'final-move': return 'New Phase';
-    case 'split-available': return 'New Phase';
-    default: return 'Phase';
+    case 'existing-boundary': return tr('dock.removeBreak');
+    case 'pending-final': return tr('dock.cancelPhase');
+    case 'final-move': return tr('dock.newPhase');
+    case 'split-available': return tr('dock.newPhase');
+    default: return tr('dock.phase');
   }
 }
 
@@ -8565,31 +10262,31 @@ function getSequenceDockModeLabels(mode) {
   const phaseAction = getCanonicalPhaseActionDetails();
   if (mode === 'collapsed' || mode === 'compact') {
     return {
-      addMove: '+ Move',
-      play: 'Play',
-      playPhase: 'Play Phase',
-      more: 'More',
-      back: 'Back',
-      duplicate: 'Duplicate',
-      preview: 'Preview',
-      undo: 'Undo',
-      redo: 'Redo',
+      addMove: tr('dock.addMove.short'),
+      play: tr('dock.play'),
+      playPhase: tr('dock.playPhase'),
+      more: tr('dock.more'),
+      back: tr('dock.back'),
+      duplicate: tr('dock.duplicate'),
+      preview: tr('dock.preview'),
+      undo: tr('dock.undo'),
+      redo: tr('dock.redo'),
       addPhase: getCanonicalPhaseActionShortLabel(phaseAction.context.kind),
-      deleteMove: 'Delete Move',
+      deleteMove: tr('dock.deleteMove'),
     };
   }
   return {
-    addMove: 'Add Move',
-    play: 'Play from Here',
-    playPhase: 'Play Phase',
-    more: 'More',
-    back: 'Back',
-    duplicate: 'Duplicate Move',
-    preview: 'Preview Move',
-    undo: 'Undo',
-    redo: 'Redo',
+    addMove: tr('dock.addMove'),
+    play: tr('dock.playFromHere'),
+    playPhase: tr('dock.playPhase'),
+    more: tr('dock.more'),
+    back: tr('dock.back'),
+    duplicate: tr('dock.duplicateMove'),
+    preview: tr('dock.previewMove'),
+    undo: tr('dock.undo'),
+    redo: tr('dock.redo'),
     addPhase: phaseAction.label,
-    deleteMove: 'Delete Move',
+    deleteMove: tr('dock.deleteMove'),
   };
 }
 
@@ -8652,12 +10349,22 @@ function updateSequenceDockUI() {
   const futureDisabled = editingLocked || !(S.future && S.future.length);
   // Exactly one universal Pause/Resume control (sequenceDockPlay). The secondary
   // control is Stop-only; Play Phase and Preview never relabel themselves.
-  const playbackControlLabel = showPlaybackControl ? 'Stop' : '';
-  const playbackControlAria = 'Stop playback';
+  const playbackControlLabel = showPlaybackControl ? tr('dock.stop') : '';
+  const playbackControlAria = tr('dock.stop.aria');
 
   sequenceDockEls.dock.dataset.mode = sequenceDockMode;
   sequenceDockEls.dock.dataset.side = sequenceDockSide;
   sequenceDockEls.dock.dataset.view = isFullMode ? 'full' : sequenceDockView;
+  const translatedMoveHeadline = canonicalMove.hasSelection
+    ? (isFullMode
+      ? tr('dock.moveOf', { current: canonicalMove.current, total: canonicalMove.count })
+      : tr('dock.moveCompact', { current: canonicalMove.current, total: canonicalMove.count }))
+    : (isFullMode ? tr('dock.moveEmpty') : tr('dock.moveCompactEmpty'));
+  const translatedPhaseHeadline = currentPhase !== null
+    ? (isFullMode
+      ? tr('dock.phaseOf', { current: currentPhase, total: phaseCount })
+      : tr('dock.phaseCompact', { current: currentPhase, total: phaseCount }))
+    : (isFullMode ? tr('dock.phaseEmpty') : tr('dock.phaseCompactEmpty'));
 
   sequenceDockEls.moveHeadline.textContent = canonicalMove.hasSelection
     ? (isFullMode ? `Move ${canonicalMove.current} of ${canonicalMove.count}` : `M ${canonicalMove.current}/${canonicalMove.count}`)
@@ -8666,12 +10373,21 @@ function updateSequenceDockUI() {
     ? (isFullMode ? `Phase ${currentPhase} of ${phaseCount}` : `P ${currentPhase}/${phaseCount}`)
     : (isFullMode ? 'Phase — of —' : 'P —/—');
 
+  sequenceDockEls.moveHeadline.textContent = translatedMoveHeadline;
+  sequenceDockEls.phaseHeadline.textContent = translatedPhaseHeadline;
+
   // sequenceDockPlay is the ONE universal Pause/Resume control in the dock.
   let playLabel = labels.play;
   let playAria = 'Play from the selected move to the end';
   if (anySessionActive) {
     playLabel = isAnimating ? 'Pause' : 'Resume';
     playAria = isAnimating ? 'Pause playback' : 'Resume playback';
+  }
+  if (anySessionActive) {
+    playLabel = isAnimating ? tr('dock.pause') : tr('dock.resume');
+    playAria = isAnimating ? tr('dock.pause.aria') : tr('dock.resume.aria');
+  } else {
+    playAria = tr('dock.playFromHere.aria');
   }
   sequenceDockEls.play.textContent = playLabel;
   sequenceDockEls.play.setAttribute('aria-label', playAria);
@@ -8689,6 +10405,12 @@ function updateSequenceDockUI() {
   sequenceDockEls.playPhase.setAttribute('aria-label', anySessionActive
     ? 'Play Phase unavailable: stop the current playback first'
     : (playPhasePlayable ? 'Play the current Phase from its first move' : 'Play Phase unavailable: this Phase contains only one Move'));
+  sequenceDockEls.playPhase.title = anySessionActive
+    ? tr('dock.playPhase.title.busy')
+    : (playPhasePlayable ? tr('dock.playPhase.title.ready') : tr('dock.playPhase.title.single'));
+  sequenceDockEls.playPhase.setAttribute('aria-label', anySessionActive
+    ? tr('dock.playPhase.aria.busy')
+    : (playPhasePlayable ? tr('dock.playPhase.aria.ready') : tr('dock.playPhase.aria.single')));
 
   sequenceDockEls.addMove.textContent = labels.addMove;
   sequenceDockEls.addMove.disabled = editingLocked || sequenceDockAddMoveLock;
@@ -8702,6 +10424,12 @@ function updateSequenceDockUI() {
   sequenceDockEls.preview.setAttribute('aria-label', anySessionActive
     ? 'Preview unavailable: stop the current playback first'
     : (previewPlayable ? 'Preview only the selected move' : 'Preview unavailable: no later move'));
+  sequenceDockEls.preview.title = anySessionActive
+    ? tr('dock.preview.title.busy')
+    : (previewPlayable ? tr('dock.preview.title.ready') : tr('dock.preview.title.none'));
+  sequenceDockEls.preview.setAttribute('aria-label', anySessionActive
+    ? tr('dock.preview.aria.busy')
+    : (previewPlayable ? tr('dock.preview.aria.ready') : tr('dock.preview.aria.none')));
   sequenceDockEls.more.textContent = labels.more;
   sequenceDockEls.more.hidden = isFullMode;
   sequenceDockEls.more.disabled = isFullMode;
@@ -8737,12 +10465,9 @@ function updateSequenceDockUI() {
   sequenceDockEls.deleteMove.title = canonicalMove.count <= 1
     ? 'A play must contain at least one Move'
     : 'Delete the selected Move';
-  sequenceDockEls.undo.textContent = labels.undo;
-  sequenceDockEls.undo.disabled = historyDisabled;
-  sequenceDockEls.undo.title = historyDisabled ? 'Nothing to undo' : 'Undo the last change';
-  sequenceDockEls.redo.textContent = labels.redo;
-  sequenceDockEls.redo.disabled = futureDisabled;
-  sequenceDockEls.redo.title = futureDisabled ? 'Nothing to redo' : 'Redo the last undone change';
+  sequenceDockEls.deleteMove.title = canonicalMove.count <= 1
+    ? tr('dock.delete.disabled')
+    : tr('dock.delete.ready');
 }
 
 function initSequenceControlDock() {
@@ -8765,8 +10490,6 @@ function initSequenceControlDock() {
     addPhase: document.getElementById('sequenceDockAddPhase'),
     phaseActionStatus: document.getElementById('sequenceDockPhaseActionStatus'),
     deleteMove: document.getElementById('sequenceDockDelete'),
-    undo: document.getElementById('sequenceDockUndo'),
-    redo: document.getElementById('sequenceDockRedo'),
     back: document.getElementById('sequenceDockBack'),
   };
 
@@ -8779,8 +10502,6 @@ function initSequenceControlDock() {
   sequenceDockEls.playbackControl.addEventListener('click', handleSequenceDockPlaybackControl);
   sequenceDockEls.addPhase.addEventListener('click', handleSequenceDockStartPhase);
   sequenceDockEls.deleteMove.addEventListener('click', confirmDeleteSelectedMoveFromDock);
-  sequenceDockEls.undo.addEventListener('click', undo);
-  sequenceDockEls.redo.addEventListener('click', redo);
   sequenceDockEls.back.addEventListener('click', () => setSequenceDockView('primary', { focusTarget: true }));
   updateSequenceDockUI();
   scheduleSequenceDockPosition();
@@ -8805,6 +10526,7 @@ function updateSequenceUI() {
   const hasNext = activeTransition ? true : hasNextCanonicalMove();
   const canonicalMove = getCanonicalMoveDisplay();
   updatePhaseUI();
+  syncSequenceBarSummary(canonicalMove);
   if (prevBtn) prevBtn.disabled = !hasPrev;
   if (nextBtn) nextBtn.disabled = !hasNext;
   if (seqBarPrev) seqBarPrev.disabled = !hasPrev;
@@ -8831,8 +10553,107 @@ function updateSequenceUI() {
   if (playLabel) playLabel.textContent = S.animating ? 'PAUSE' : (isPaused ? 'RESUME' : 'PLAY');
   if (playBtn) playBtn.disabled = !playable;
   if (tlPlayBtn) tlPlayBtn.disabled = !playable;
+  scheduleSequenceBarScroller({ center: true, behavior: 'smooth' });
   updateSequenceDockUI();
   scheduleSequenceDockPosition();
+}
+
+let seqBarScrollRefreshRaf = 0;
+let seqBarScrollShouldCenter = false;
+let seqBarScrollBehavior = 'smooth';
+let seqBarScrollBindingsReady = false;
+
+function getSequenceBarElements() {
+  return {
+    strip: document.getElementById('phaseChipStrip'),
+    shell: document.getElementById('seqBarStripShell'),
+    scrollPrev: document.getElementById('seqBarScrollPrev'),
+    scrollNext: document.getElementById('seqBarScrollNext'),
+    moveIndicator: document.getElementById('seqBarMoveIndicator'),
+    phaseIndicator: document.getElementById('seqBarPhaseIndicator'),
+  };
+}
+
+function centerSequenceBarOnCurrentChip({ behavior = 'smooth' } = {}) {
+  const { strip } = getSequenceBarElements();
+  if (!strip) return;
+  const activeChip = strip.querySelector('.tb-phase-chip.active');
+  if (!activeChip) return;
+  const maxScroll = Math.max(0, strip.scrollWidth - strip.clientWidth);
+  if (maxScroll <= 0) return;
+  const targetLeft = Math.max(
+    0,
+    Math.min(
+      activeChip.offsetLeft - ((strip.clientWidth - activeChip.offsetWidth) / 2),
+      maxScroll
+    )
+  );
+  strip.scrollTo({ left: targetLeft, behavior });
+}
+
+function refreshSequenceBarScroller() {
+  seqBarScrollRefreshRaf = 0;
+  const { strip, shell, scrollPrev, scrollNext } = getSequenceBarElements();
+  if (!strip || !shell) return;
+  if (seqBarScrollShouldCenter) centerSequenceBarOnCurrentChip({ behavior: seqBarScrollBehavior });
+  seqBarScrollShouldCenter = false;
+  seqBarScrollBehavior = 'smooth';
+
+  const maxScroll = Math.max(0, strip.scrollWidth - strip.clientWidth);
+  const canScrollLeft = strip.scrollLeft > 2;
+  const canScrollRight = strip.scrollLeft < maxScroll - 2;
+  shell.dataset.canScrollLeft = canScrollLeft ? 'true' : 'false';
+  shell.dataset.canScrollRight = canScrollRight ? 'true' : 'false';
+  if (scrollPrev) {
+    scrollPrev.disabled = !canScrollLeft;
+    scrollPrev.setAttribute('aria-disabled', canScrollLeft ? 'false' : 'true');
+  }
+  if (scrollNext) {
+    scrollNext.disabled = !canScrollRight;
+    scrollNext.setAttribute('aria-disabled', canScrollRight ? 'false' : 'true');
+  }
+}
+
+function scheduleSequenceBarScroller({ center = false, behavior = 'smooth' } = {}) {
+  if (center) {
+    seqBarScrollShouldCenter = true;
+    seqBarScrollBehavior = behavior;
+  }
+  if (seqBarScrollRefreshRaf) return;
+  seqBarScrollRefreshRaf = requestAnimationFrame(refreshSequenceBarScroller);
+}
+
+function scrollSequenceBarBy(direction) {
+  const { strip } = getSequenceBarElements();
+  if (!strip) return;
+  const distance = Math.max(strip.clientWidth * 0.62, 180) * direction;
+  strip.scrollBy({ left: distance, behavior: 'smooth' });
+  scheduleSequenceBarScroller();
+}
+
+function syncSequenceBarSummary(canonicalMove = getCanonicalMoveDisplay()) {
+  const { moveIndicator, phaseIndicator } = getSequenceBarElements();
+  if (moveIndicator) {
+    moveIndicator.textContent = canonicalMove.hasSelection
+      ? tr('dock.moveOf', { current: canonicalMove.current, total: canonicalMove.count })
+      : tr('dock.moveEmpty');
+  }
+  if (phaseIndicator) {
+    const phaseTotal = Array.isArray(GamePlan.phases) ? GamePlan.phases.length : 0;
+    const currentPhase = phaseTotal ? GamePlan.currentPhase + 1 : 0;
+    phaseIndicator.textContent = `${tr('phase.short', {}, 'PHASE')} ${currentPhase} / ${Math.max(phaseTotal, 1)}`;
+  }
+}
+
+function initSequenceBarNavigator() {
+  if (seqBarScrollBindingsReady) return;
+  const { strip, scrollPrev, scrollNext } = getSequenceBarElements();
+  if (!strip) return;
+  seqBarScrollBindingsReady = true;
+  strip.addEventListener('scroll', () => scheduleSequenceBarScroller());
+  scrollPrev?.addEventListener('click', () => scrollSequenceBarBy(-1));
+  scrollNext?.addEventListener('click', () => scrollSequenceBarBy(1));
+  window.addEventListener('resize', () => scheduleSequenceBarScroller({ center: true, behavior: 'auto' }));
 }
 
 //  ANIMATION
@@ -9120,11 +10941,14 @@ const MODE_LABELS = {
 
 HINTS.note  = 'NOTE – click the pitch to place a coaching cue card.';
 HINTS.arrow = 'ARROW – drag to draw a coaching annotation arrow. Does not animate players.';
-HINTS.zone  = 'CIRCLE – drag to place a highlight circle.';
+HINTS.zone  = 'CIRCLE – drag to place a circle or oval highlight. Hold Shift for a perfect circle.';
 MODE_LABELS.note  = 'Note';
+MODE_LABELS.playerLabel = 'Player Label';
 MODE_LABELS.arrow = 'Arrow';
 MODE_LABELS.zone  = 'Circle Highlight';
 
+HINTS.ellipse = HINTS.zone;
+MODE_LABELS.ellipse = 'Circle Highlight';
 HINTS.tele = 'TELESTRATOR - draw live ink that fades in 3 seconds.';
 MODE_LABELS.tele = 'Telestrator';
 
@@ -9176,9 +11000,11 @@ function isCompactViewport() {
 
 function syncResponsiveToolbarLabels() {
   const compact = isCompactViewport();
-  document.querySelectorAll('[data-label-desktop]').forEach((btn) => {
-    const desktopLabel = btn.getAttribute('data-label-desktop') || '';
-    const mobileLabel = btn.getAttribute('data-label-mobile') || desktopLabel;
+  document.querySelectorAll('[data-label-desktop], [data-i18n-label-desktop]').forEach((btn) => {
+    const desktopKey = btn.getAttribute('data-i18n-label-desktop') || '';
+    const mobileKey = btn.getAttribute('data-i18n-label-mobile') || desktopKey;
+    const desktopLabel = desktopKey ? tr(desktopKey, {}, btn.getAttribute('data-label-desktop') || '') : (btn.getAttribute('data-label-desktop') || '');
+    const mobileLabel = mobileKey ? tr(mobileKey, {}, btn.getAttribute('data-label-mobile') || desktopLabel) : (btn.getAttribute('data-label-mobile') || desktopLabel);
     btn.innerHTML = compact ? mobileLabel : desktopLabel;
   });
 }
@@ -9194,8 +11020,8 @@ function syncPlayButtons() {
   const tlPlayBtn = document.getElementById('tlPlayBtn');
   const singlePlayActive = S.animating && !S.playAll;
   const playAllLocked = S.playAll;
-  const singlePlayLabel = singlePlayActive ? (compact ? '||' : 'PAUSE') : (compact ? '\u25b6' : 'PLAY');
-  const playAllLabel = S.animating && S.playAll ? (compact ? '||' : '\u23f8 PAUSE') : (compact ? '\u25b6\u25b6' : '\u25b6\u25b6 PLAY ALL');
+  const singlePlayLabel = singlePlayActive ? (compact ? '||' : tr('play.pause', {}, 'PAUSE')) : (compact ? '\u25b6' : tr('play.play', {}, 'PLAY'));
+  const playAllLabel = S.animating && S.playAll ? (compact ? '||' : `\u23f8 ${tr('play.pauseAll', {}, 'PAUSE ALL')}`) : (compact ? '\u25b6\u25b6' : `\u25b6\u25b6 ${tr('play.playAll', {}, 'PLAY ALL')}`);
   if (playBtn) {
     playBtn.textContent = singlePlayLabel;
     playBtn.disabled = !singlePlayable || playAllLocked;
@@ -9205,11 +11031,11 @@ function syncPlayButtons() {
     playAllBtn.disabled = !playAllPlayable;
   }
   if (tlPlayBtn) {
-    tlPlayBtn.textContent = singlePlayActive ? 'Pause' : 'Play';
+    tlPlayBtn.textContent = singlePlayActive ? tr('play.pauseTitle', {}, 'Pause') : tr('play.playTitle', {}, 'Play');
     tlPlayBtn.disabled = !singlePlayable || playAllLocked;
   }
   if (mobPlayBtn) {
-    mobPlayBtn.textContent = S.animating ? '\u23f8 PAUSE' : '\u25b6 PLAY';
+    mobPlayBtn.textContent = S.animating ? `\u23f8 ${tr('play.pause', {}, 'PAUSE')}` : `\u25b6 ${tr('play.play', {}, 'PLAY')}`;
     mobPlayBtn.disabled = !singlePlayable;
   }
   if (mobileTopPlayBtn) {
@@ -9218,7 +11044,7 @@ function syncPlayButtons() {
     // Play Phase or Play from Here, however it was started) is active or
     // paused, this becomes the single Pause/Resume control for it.
     const mobileSessionActive = S.animating || isCanonicalPlaybackPaused();
-    mobileTopPlayBtn.textContent = S.animating ? 'Pause' : (isCanonicalPlaybackPaused() ? 'Resume' : 'Play');
+    mobileTopPlayBtn.textContent = S.animating ? tr('play.pauseTitle', {}, 'Pause') : (isCanonicalPlaybackPaused() ? tr('play.resume', {}, 'Resume') : tr('play.playTitle', {}, 'Play'));
     mobileTopPlayBtn.disabled = mobileSessionActive ? false : !playAllPlayable;
   }
 }
@@ -9256,7 +11082,7 @@ function updateMobileUI() {
 
   syncResponsiveToolbarLabels();
   syncPlayButtons();
-  if (mobilePhaseCounter) mobilePhaseCounter.textContent = `PHASE ${GamePlan.currentPhase + 1} / ${GamePlan.phases.length}`;
+  if (mobilePhaseCounter) mobilePhaseCounter.textContent = `${tr('phase.short', {}, 'PHASE')} ${GamePlan.currentPhase + 1} / ${GamePlan.phases.length}`;
   [0.25, 0.5, 1, 2].forEach(v => {
     const chip = document.getElementById('mspd-' + v);
     if (chip) chip.classList.toggle('active', v === S.animSpd);
@@ -9311,7 +11137,7 @@ function updateMobileUI() {
   if (mobileAddAttackBtn) mobileAddAttackBtn.disabled = S.atkUsed.size >= 15;
   if (mobileAddDefenceBtn) mobileAddDefenceBtn.disabled = S.defUsed.size >= 15;
 
-  ['move', 'run', 'pass', 'kick', 'tele', 'zone', 'box', 'erase', 'note', 'arrow'].forEach(tool => {
+  ['move', 'run', 'pass', 'kick', 'tele', 'zone', 'box', 'ellipse', 'erase', 'note', 'arrow'].forEach(tool => {
     const btn = document.getElementById(`mq-${tool}`);
     if (btn) btn.classList.toggle('active', S.tool === tool);
   });
@@ -9342,7 +11168,7 @@ function updateMobileUI() {
 
   syncResponsiveToolbarLabels();
   syncPlayButtons();
-  if (mobilePhaseCounter) mobilePhaseCounter.textContent = `PHASE ${GamePlan.currentPhase + 1} / ${GamePlan.phases.length}`;
+  if (mobilePhaseCounter) mobilePhaseCounter.textContent = `${tr('phase.short', {}, 'PHASE')} ${GamePlan.currentPhase + 1} / ${GamePlan.phases.length}`;
   [0.25, 0.5, 1, 2].forEach(v => {
     const chip = document.getElementById('mspd-' + v);
     if (chip) chip.classList.toggle('active', v === S.animSpd);
@@ -9398,6 +11224,9 @@ function getSelectedSummary() {
     if (ann.type === 'note') {
       return { title: 'Tactical Note', meta: 'Move it on the board, drag a corner handle to resize it, or update the note text below.' };
     }
+    if (ann.type === 'playerLabel') {
+      return { title: 'Player Label', meta: 'This label stays attached to its player. Drag it to change its offset, or edit the text inline.' };
+    }
     if (ann.type === 'arrow') {
       return { title: 'Free Arrow', meta: 'Drag the line or either endpoint in Move to refine the arrow.' };
     }
@@ -9405,7 +11234,10 @@ function getSelectedSummary() {
       return { title: 'Circle Highlight', meta: 'Drag the circle to move it or drag the outer handle to resize it.' };
     }
     if (ann.type === 'box') {
-      return { title: 'Box Highlight', meta: 'Drag inside the box to move it or drag any corner handle to resize it.' };
+      return { title: 'Box Highlight', meta: 'Drag inside the box to move it, use the round handle above it to rotate, or drag any corner handle to resize it.' };
+    }
+    if (ann.type === 'ellipse') {
+      return { title: 'Circle Highlight', meta: 'Drag inside the shape to move it, use the round handle above it to rotate, or drag any corner handle to resize it. Hold Shift while resizing for a perfect circle.' };
     }
   }
   if (players.length > 1) {
@@ -9509,9 +11341,13 @@ function updatePaletteSummary() {
   const available = document.getElementById('palAvailable');
   const ballStatus = document.getElementById('palBallStatus');
   const palCopy = document.getElementById('palCopy');
+  const attackPlayerCount = document.getElementById('attackPlayerCount');
+  const defencePlayerCount = document.getElementById('defencePlayerCount');
 
   if (atkTabCount) atkTabCount.textContent = `${atkCount} / 15`;
   if (defTabCount) defTabCount.textContent = `${defCount} / 15`;
+  if (attackPlayerCount) attackPlayerCount.textContent = `${atkCount} / 15`;
+  if (defencePlayerCount) defencePlayerCount.textContent = `${defCount} / 15`;
   if (onBoard) onBoard.textContent = `${activeCount} / 15`;
   if (available) available.textContent = String(15 - activeCount);
   if (ballStatus) {
@@ -9568,6 +11404,47 @@ function updateBoardStatus() {
   }
 }
 
+function syncAttackDirectionUI() {
+  const direction = currentAttackDirection();
+  const copy = attackDirectionUiCopy();
+  const desktopLabel = document.getElementById('attackDirectionLabel');
+  const mobileLabel = document.getElementById('mobAttackDirectionLabel');
+  const desktopGroup = document.getElementById('attackDirectionGroup');
+  const mobileGroup = document.getElementById('mobAttackDirectionGroup');
+  const upButtons = [
+    document.getElementById('attackDirectionUpBtn'),
+    document.getElementById('mobAttackDirectionUpBtn'),
+  ];
+  const downButtons = [
+    document.getElementById('attackDirectionDownBtn'),
+    document.getElementById('mobAttackDirectionDownBtn'),
+  ];
+  if (desktopLabel) desktopLabel.textContent = copy.label;
+  if (mobileLabel) mobileLabel.textContent = copy.label;
+  if (desktopGroup) desktopGroup.setAttribute('aria-label', copy.label);
+  if (mobileGroup) mobileGroup.setAttribute('aria-label', copy.label);
+  upButtons.forEach((btn) => {
+    if (!btn) return;
+    const active = direction === ATTACK_DIRECTION_UP;
+    btn.textContent = copy.upShort;
+    btn.title = copy.up;
+    btn.setAttribute('aria-label', copy.up);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    btn.classList.toggle('active', active);
+    btn.classList.toggle('is-active', active);
+  });
+  downButtons.forEach((btn) => {
+    if (!btn) return;
+    const active = direction === ATTACK_DIRECTION_DOWN;
+    btn.textContent = copy.downShort;
+    btn.title = copy.down;
+    btn.setAttribute('aria-label', copy.down);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    btn.classList.toggle('active', active);
+    btn.classList.toggle('is-active', active);
+  });
+}
+
 function toggleGainline() {
   if (!claimPhoneDataAction('more:gainline')) return;
   showGainline = !showGainline;
@@ -9579,6 +11456,27 @@ function toggleGainline() {
   render();
 }
 window.toggleGainline = toggleGainline;
+
+function setAttackDirection(direction, { snapshotBefore = true } = {}) {
+  const next = normalizeAttackDirection(direction);
+  const current = currentAttackDirection();
+  if (next === current) return false;
+  if (snapshotBefore) snapshot();
+  if (!S.playMetadata) S.playMetadata = emptyPlayMetadata(currentPlayTitle());
+  S.playMetadata = normalizeProjectMetadata(
+    { name: currentPlayTitle() },
+    { ...(S.playMetadata || {}), title: currentPlayTitle(), attackDirection: next }
+  );
+  const carrier = S.players.find((player) => player.isBC);
+  updateGainDisplayForY(carrier ? carrier.y : GAINLINE_Y);
+  setHint(next === ATTACK_DIRECTION_UP
+    ? 'Attack direction set to upfield. Positive gain now reads toward the top try line.'
+    : 'Attack direction set to downfield. Positive gain now reads toward the bottom try line.');
+  refreshInteractionUI();
+  render();
+  return true;
+}
+window.setAttackDirection = setAttackDirection;
 
 function toggleGhostPrevious() {
   if (!claimPhoneDataAction('more:ghost-previous')) return;
@@ -9599,9 +11497,11 @@ function updateAnnotationPanel() {
   } else if (S.tool === 'arrow') {
     copy.textContent = 'Drag on the field to draw a free tactical arrow.';
   } else if (S.tool === 'zone') {
-    copy.textContent = 'Drag on the field to size a circle highlight for space, support, or defensive gaps.';
+    copy.textContent = 'Drag on the field to size a circle or oval highlight for space, support, or defensive gaps. Hold Shift for a perfect circle.';
   } else if (S.tool === 'box') {
     copy.textContent = 'Drag on the field to size a box highlight for channels, pressure areas, or field zones.';
+  } else if (S.tool === 'ellipse') {
+    copy.textContent = 'Drag on the field to size a circle or oval highlight for space, support, or defensive gaps. Hold Shift for a perfect circle.';
   } else if (S.tool === 'kick') {
     copy.textContent = 'Secondary tool: click the kicker, then the target.';
   } else if (S.tool === 'erase') {
@@ -9614,7 +11514,7 @@ function updateAnnotationPanel() {
 function updatePlayMetadataPanel() {
   const metadata = buildPlayMetadata();
   const titleValue = document.getElementById('metaTitleValue');
-  if (titleValue) titleValue.textContent = metadata.title || 'Untitled Play';
+  if (titleValue) titleValue.textContent = metadata.title || tr('untitled.play', {}, 'Untitled Play');
 
   const purpose = document.getElementById('metaPurpose');
   const decisionCue = document.getElementById('metaDecisionCue');
@@ -9661,20 +11561,14 @@ function updatePlayMetadataFromInputs() {
 }
 
 function focusSelectedNoteInput(selectAll = false) {
-  const ann = selectedAnnotation();
-  const noteInput = document.getElementById('selNoteInput');
-  if (!ann || ann.type !== 'note' || !noteInput) return;
-  requestAnimationFrame(() => {
-    noteInput.focus();
-    if (selectAll) noteInput.select();
-  });
+  beginSelectedNoteInlineEdit({ selectAll });
 }
 
 function updateSelectedNoteText(value) {
   const ann = selectedAnnotation();
-  if (!ann || ann.type !== 'note') return;
+  if (!ann || !isEditableTextAnnotationType(ann.type)) return;
   ann.text = String(value ?? '').slice(0, 160);
-  clampNoteAnnotation(ann);
+  if (ann.type === 'note') clampNoteAnnotation(ann);
   scheduleAutosave();
   refreshInteractionUI();
   render();
@@ -9682,7 +11576,7 @@ function updateSelectedNoteText(value) {
 
 function setSelectedNoteAlign(align) {
   const ann = selectedAnnotation();
-  if (!ann || ann.type !== 'note') return;
+  if (!ann || !isEditableTextAnnotationType(ann.type)) return;
   ann.align = align === 'center' || align === 'right' ? align : 'left';
   scheduleAutosave();
   refreshInteractionUI();
@@ -9702,6 +11596,8 @@ const TOOL_GUIDE_CONTENT = {
   note:  { icon: '✎', desc: 'Tap on the field to place a coaching cue card.' },
   erase: { icon: '✕', desc: 'Tap any player, ball, path, or annotation to remove it.' },
 };
+
+TOOL_GUIDE_CONTENT.ellipse = { icon: '()', desc: 'Drag on the field to draw a circle or oval highlight area. Hold Shift for a perfect circle.' };
 
 function updateSmartPanel() {
   const guide = TOOL_GUIDE_CONTENT[S.tool] || TOOL_GUIDE_CONTENT.run || TOOL_GUIDE_CONTENT.move;
@@ -9734,7 +11630,7 @@ function updateSmartPanel() {
   if (kickStep1) kickStep1.classList.toggle('active', isKick && !activeWorkflowPlayerId());
   if (kickStep2) kickStep2.classList.toggle('active', isKick && !!activeWorkflowPlayerId());
 
-  const isAnnotationTool = S.tool === 'note' || S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box';
+  const isAnnotationTool = S.tool === 'note' || S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box' || S.tool === 'ellipse';
   const defaultState = document.getElementById('spDefaultState');
   const hasSelection = !!S.selectedPlayerId || !!S.selectedGroupId || isBallSelected() || !!selectedAnnotationId();
   const showDefault = !hasSelection && !isKick;
@@ -9852,20 +11748,41 @@ window.closeCoachingDrawer = closeCoachingDrawer;
 function toggleAccordion(id) {
   const section = document.getElementById(id);
   if (!section) return;
+  const setOpen = (target, open) => {
+    target.classList.toggle('sp-acc-open', open);
+    const targetTrigger = target.querySelector(':scope > .sp-acc-trigger');
+    if (targetTrigger) targetTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+  };
   const isOpen = section.classList.contains('sp-acc-open');
-  section.classList.toggle('sp-acc-open', !isOpen);
-  const trigger = section.querySelector('.sp-acc-trigger');
-  if (trigger) trigger.setAttribute('aria-expanded', !isOpen ? 'true' : 'false');
-  try { localStorage.setItem('sp-acc-' + id, isOpen ? '0' : '1'); } catch(e) {}
+  const shouldOpen = !isOpen;
+  const desktopAccordion = !document.body.classList.contains('is-phone');
+  const group = section.getAttribute('data-accordion-group');
+  if (desktopAccordion && shouldOpen && group) {
+    const groupSections = document.querySelectorAll('.sp-acc-section[data-accordion-group="' + group + '"]');
+    groupSections.forEach(function(target) {
+      if (target !== section) setOpen(target, false);
+    });
+  }
+  setOpen(section, shouldOpen);
   scheduleSequenceDockPosition();
 }
 window.toggleAccordion = toggleAccordion;
 
 function setAnnotationColor(color) {
   const ann = selectedAnnotation();
+  if (ann?.type === 'arrow' || (!ann && S.tool === 'arrow')) {
+    applyArrowStyleSelection({ color });
+    return;
+  }
+  if (isShapeAnnotationType(ann?.type) || (!ann && isShapeAnnotationType(S.tool))) {
+    applyShapeStyleSelection({ color });
+    return;
+  }
   if (ann) {
+    const annId = selectedAnnotationId();
     snapshot();
-    ann.color = color;
+    const target = annId ? findAnnotationById(annId) : selectedAnnotation();
+    if (target) target.color = color;
     refreshInteractionUI();
     render();
     return;
@@ -9877,20 +11794,59 @@ function setAnnotationColor(color) {
 }
 window.setAnnotationColor = setAnnotationColor;
 
+function setArrowThickness(thickness) {
+  if (S.tool !== 'arrow' && selectedAnnotation()?.type !== 'arrow') return;
+  applyArrowStyleSelection({ thickness });
+}
+window.setArrowThickness = setArrowThickness;
+
+function setArrowDash(dash) {
+  if (S.tool !== 'arrow' && selectedAnnotation()?.type !== 'arrow') return;
+  applyArrowStyleSelection({ dash });
+}
+window.setArrowDash = setArrowDash;
+
+function setShapeThickness(thickness) {
+  if (!isShapeAnnotationType(S.tool) && !isShapeAnnotationType(selectedAnnotation()?.type)) return;
+  applyShapeStyleSelection({ thickness });
+}
+window.setShapeThickness = setShapeThickness;
+
+function setShapeDash(dash) {
+  if (!isShapeAnnotationType(S.tool) && !isShapeAnnotationType(selectedAnnotation()?.type)) return;
+  applyShapeStyleSelection({ dash });
+}
+window.setShapeDash = setShapeDash;
+
 function refreshInteractionUI() {
   persistCurrentStep();
   updateSelInfo();
   rebuildPalette();
   updatePaletteSummary();
   updateBoardStatus();
+  syncAttackDirectionUI();
   updatePlayMetadataPanel();
   updateSequenceUI();
   updateMobileUI();
   updateSmartPanel();
+  syncHistoryControls();
   scheduleSequenceDockPosition();
+  syncNoteInlineEditor();
+}
+
+function scrollCompactToolbarToolIntoView(tool = S.tool) {
+  const toolbar = document.getElementById('compactToolbar');
+  const btn = toolbar?.querySelector(`.tool-btn[data-tool="${tool}"]`);
+  if (!toolbar || !btn) return;
+  requestAnimationFrame(() => {
+    const targetLeft = Math.max(0, btn.offsetLeft - Math.max(24, (toolbar.clientWidth - btn.offsetWidth) / 2));
+    const maxScroll = Math.max(0, toolbar.scrollWidth - toolbar.clientWidth);
+    toolbar.scrollLeft = clamp(targetLeft, 0, maxScroll);
+  });
 }
 
 function setTool(t) {
+  if (t === 'ellipse') t = 'zone';
   // Any call to setTool() - rail click or radial dispatch alike - starts by
   // treating a prior radial one-shot Arrow as abandoned. activateRadialAction()
   // re-arms it immediately after calling setTool('arrow') below, so the flag
@@ -9912,7 +11868,7 @@ function setTool(t) {
   if (switchingAwayFromRun) cancelArmedRun();
   S.tool = t;
   if (t !== 'run')           S.drawing = null;
-  if (t !== 'arrow' && t !== 'zone' && t !== 'box') S.annotationDraft = null;
+  if (t !== 'arrow' && t !== 'zone' && t !== 'box' && t !== 'ellipse') S.annotationDraft = null;
   if (t !== 'tele') teleDrawing = null;
   if (t !== 'pass' && t !== 'kick') clearPassKickState();
   if (t !== 'run') clearArmedRunState();
@@ -9922,6 +11878,7 @@ function setTool(t) {
   S.selectedPassIdx = null;
   document.querySelectorAll('[data-tool]').forEach(b => b.classList.remove('active'));
   document.querySelectorAll(`[data-tool="${t}"]`).forEach(b => b.classList.add('active'));
+  scrollCompactToolbarToolIntoView(t);
   cv.style.cursor = t === 'move' ? 'default' : 'crosshair';
   if (t === 'run' && S.selectedPlayerId !== null && !selectedGroup()) {
     const selectedPlayer = S.players.find(player => player.id === S.selectedPlayerId) || null;
@@ -9958,6 +11915,45 @@ function setTool(t) {
   render();
 }
 function setHint(txt) { document.getElementById('hint').textContent = txt; }
+
+
+window.addEventListener('animator-languagechange', () => {
+  HINTS.move = hintText('move');
+  HINTS.run = hintText('run');
+  HINTS.pass = hintText('pass');
+  HINTS.kick = hintText('kick');
+  HINTS.erase = hintText('erase');
+  HINTS.box = hintText('box');
+  HINTS.note = hintText('note');
+  HINTS.arrow = hintText('arrow');
+  HINTS.zone = hintText('zone');
+  HINTS.ellipse = hintText('zone');
+  HINTS.tele = hintText('tele');
+
+  MODE_LABELS.move = modeLabel('move');
+  MODE_LABELS.run = modeLabel('run');
+  MODE_LABELS.pass = modeLabel('pass');
+  MODE_LABELS.kick = modeLabel('kick');
+  MODE_LABELS.erase = modeLabel('erase');
+  MODE_LABELS.box = modeLabel('box');
+  MODE_LABELS.note = modeLabel('note');
+  MODE_LABELS.arrow = modeLabel('arrow');
+  MODE_LABELS.zone = modeLabel('zone');
+  MODE_LABELS.ellipse = modeLabel('ellipse');
+  MODE_LABELS.tele = modeLabel('tele');
+
+  updateAnnotationPanel();
+  updatePresetOptionsUI();
+  updatePlayMetadataPanel();
+  refreshSavedPlayList();
+  updateSelInfo();
+  refreshInteractionUI();
+  updateSequenceUI();
+  if (!document.getElementById('playerNumberPopover')?.hidden) renderPlayerNumberPicker();
+  if (_tourActive) _tourShowStep(_tourCurrentStep);
+  render();
+});
+
 
 function toggleMobileMoreDrawer() {
   const drawer = document.getElementById('mobileMoreDrawer');
@@ -10197,6 +12193,7 @@ function updateMobileUI() {
 
 function clearPaths()  { snapshot(); S.paths=[]; S.passes=[]; S.drawing=null; setHint('Paths cleared. Choose the next action.'); refreshInteractionUI(); render(); }
 function clearSelection() {
+  endNoteInlineEdit();
   clearSelectedObject();
   S.selectedPassIdx = null;
   S.selectedPathPid = null;
@@ -10208,7 +12205,7 @@ function clearSelection() {
   clearArmedRunState();
   S.drawing = null;
   S.annotationDraft = null;
-  setHint('Selection cleared. Choose the next action.');
+  setHint(tr('selection.clear', {}, 'Clear Selection'));
   updatePresetOptionsUI();
   updateAnnotationPanel();
   refreshInteractionUI();
@@ -10302,14 +12299,69 @@ function updateSelInfo() {
   const meta = document.getElementById('selMeta');
   const clearBtn = document.getElementById('selClearBtn');
   const deleteBtn = document.getElementById('selDeleteBtn');
+  const gainlinePanel = document.getElementById('gainlinePanel');
+  const actionRow = box?.querySelector('.sp-sel-actions') || null;
   const giveBallBtn = document.getElementById('selGiveBallBtn');
   const groupActions = document.getElementById('spGroupActions');
   const groupModeBtn = document.getElementById('selGroupModeBtn');
   const regroupBtn = document.getElementById('selRegroupBtn');
+  const arrowToolCards = [
+    document.getElementById('spArrowToolCard'),
+    document.getElementById('mobileArrowToolCard'),
+  ].filter(Boolean);
+  const arrowToolCopies = [
+    document.getElementById('spArrowToolCopy'),
+    document.getElementById('mobileArrowToolCopy'),
+  ].filter(Boolean);
+  const arrowColorPickers = [
+    document.getElementById('spArrowColorPicker'),
+    document.getElementById('mobileArrowColorPicker'),
+  ].filter(Boolean);
+  const arrowStyleControls = [
+    document.getElementById('spArrowStyleControls'),
+    document.getElementById('mobileArrowStyleControls'),
+  ].filter(Boolean);
+  const shapeToolCards = [
+    document.getElementById('spShapeToolCard'),
+    document.getElementById('mobileShapeToolCard'),
+  ].filter(Boolean);
+  const shapeToolCopies = [
+    document.getElementById('spShapeToolCopy'),
+    document.getElementById('mobileShapeToolCopy'),
+  ].filter(Boolean);
+  const shapeColorPickers = [
+    document.getElementById('spShapeColorPicker'),
+    document.getElementById('mobileShapeColorPicker'),
+  ].filter(Boolean);
+  const shapeStyleControls = [
+    document.getElementById('spShapeStyleControls'),
+    document.getElementById('mobileShapeStyleControls'),
+  ].filter(Boolean);
   const editWrap = document.getElementById('selEditWrap');
   const editLabel = document.getElementById('selEditLabel');
   const noteInput = document.getElementById('selNoteInput');
-  const noteAlignWrap = document.getElementById('selNoteAlignWrap');
+  const floatingToolbar = document.getElementById('floatingSelectionToolbar');
+  const floatingToolbarTitle = document.getElementById('floatingSelectionToolbarTitle');
+  const floatingToolbarColorItem = document.getElementById('floatingToolbarColorItem');
+  const floatingToolbarColorValue = document.getElementById('floatingToolbarColorValue');
+  const floatingToolbarColorSwatch = document.getElementById('floatingToolbarColorSwatch');
+  const floatingToolbarLineItem = document.getElementById('floatingToolbarLineItem');
+  const floatingToolbarLineBtn = document.getElementById('floatingToolbarLineBtn');
+  const floatingToolbarLineValue = document.getElementById('floatingToolbarLineValue');
+  const floatingToolbarLinePreview = document.getElementById('floatingToolbarLinePreview');
+  const floatingToolbarWeightItem = document.getElementById('floatingToolbarWeightItem');
+  const floatingToolbarWeightBtn = document.getElementById('floatingToolbarWeightBtn');
+  const floatingToolbarWeightValue = document.getElementById('floatingToolbarWeightValue');
+  const floatingToolbarWeightPreview = document.getElementById('floatingToolbarWeightPreview');
+  const floatingToolbarAlignItem = document.getElementById('floatingToolbarAlignItem');
+  const floatingToolbarAlignBtn = document.getElementById('floatingToolbarAlignBtn');
+  const floatingToolbarAlignValue = document.getElementById('floatingToolbarAlignValue');
+  const floatingToolbarOpacityItem = document.getElementById('floatingToolbarOpacityItem');
+  const floatingToolbarOpacityBtn = document.getElementById('floatingToolbarOpacityBtn');
+  const floatingToolbarOpacityLabel = document.getElementById('floatingToolbarOpacityLabel');
+  const floatingToolbarOpacityValue = document.getElementById('floatingToolbarOpacityValue');
+  const floatingToolbarOpacity = document.getElementById('floatingToolbarOpacity');
+  const floatingToolbarEditNoteBtn = document.getElementById('floatingToolbarEditNoteBtn');
   const summary = getSelectedSummary();
   const ann = selectedAnnotation();
   const group = selectedGroup();
@@ -10317,57 +12369,77 @@ function updateSelInfo() {
     ? S.players.find(player => player.id === S.selectedPlayerId) || null
     : null;
   const playerGroup = !group && selectedPlayer ? groupForPlayer(selectedPlayer) : null;
+  const arrowStyle = currentArrowStyleSelection();
+  const activeShapeType = isShapeAnnotationType(ann?.type) ? ann.type : (isShapeAnnotationType(S.tool) ? S.tool : null);
+  const shapeStyle = currentShapeStyleSelection(activeShapeType);
+  const arrowStyleVisible = S.tool === 'arrow' || ann?.type === 'arrow';
+  const shapeStyleVisible = !!activeShapeType;
+  const annotationToolbarVisible = !!ann && S.selectedPassIdx === null && S.selectedPathPid === null;
+  const showSelectionCard = summary.title !== '-' && !ann;
   document.getElementById('selName').textContent = summary.title;
   if (meta) meta.textContent = summary.meta;
-  box.classList.toggle('visible', summary.title !== '-');
+  box.classList.toggle('visible', showSelectionCard);
   box.classList.toggle('annotation-selected', !!ann && S.selectedPassIdx === null && S.selectedPathPid === null);
   if (editWrap) editWrap.classList.toggle('visible', ann?.type === 'note');
-  if (editLabel) editLabel.textContent = ann?.type === 'note' ? 'Note Text' : 'Details';
-  if (noteAlignWrap) noteAlignWrap.hidden = ann?.type !== 'note';
+  if (editLabel) editLabel.textContent = ann?.type === 'note' ? tr('note.text', {}, 'Note Text') : tr('details', {}, 'Details');
   if (noteInput) {
     if (noteInput !== document.activeElement) {
       noteInput.value = ann?.type === 'note' ? String(ann.text ?? '') : '';
     }
     noteInput.disabled = ann?.type !== 'note';
-    noteInput.placeholder = ann?.type === 'note' ? 'Refine the coaching cue' : 'Update note text';
+    noteInput.placeholder = ann?.type === 'note' ? tr('note.refineCue', {}, 'Refine the coaching cue') : tr('note.placeholder', {}, 'Update note text');
   }
-  ['left', 'center', 'right'].forEach((align) => {
-    const btn = document.getElementById(`selNoteAlign${align[0].toUpperCase()}${align.slice(1)}`);
-    if (!btn) return;
-    btn.disabled = ann?.type !== 'note';
-    btn.classList.toggle('active', ann?.type === 'note' && noteAlignValue(ann) === align);
-  });
   const giveBallTarget = manualBallAssignmentTarget();
   if (giveBallBtn) {
     giveBallBtn.hidden = !giveBallTarget;
     giveBallBtn.disabled = !giveBallTarget;
     giveBallBtn.onclick = giveBallToSelectedPlayer;
     if (giveBallTarget) {
-      giveBallBtn.textContent = `Give Ball to ${giveBallTarget.team === 'A' ? 'A' : 'D'} #${giveBallTarget.num}`;
+      giveBallBtn.textContent = tr('giveBall.to', {
+        team: giveBallTarget.team === 'A' ? 'A' : 'D',
+        num: giveBallTarget.num,
+      }, `Give Ball to ${giveBallTarget.team === 'A' ? 'A' : 'D'} #${giveBallTarget.num}`);
     }
   }
   const colorPicker = document.getElementById('spColorPicker');
   if (colorPicker) {
-    colorPicker.hidden = !ann && !group && !selectedPlayer;
-    if (ann || group || selectedPlayer) {
+    const selectionColorVisible = !ann && (!!group || !!selectedPlayer);
+    colorPicker.hidden = !selectionColorVisible;
+    if (selectionColorVisible) {
       const currentColor = ann
         ? (ann.color || annotationColor(ann.type))
         : group
           ? (group.color || PRESET_GROUP_ATTACK)
           : (selectedPlayer?.colorOverride || playerColorPalette(selectedPlayer).fill);
-      colorPicker.querySelectorAll('.sp-color-swatch').forEach(sw => {
-        sw.classList.toggle('active', sw.dataset.color === currentColor);
-      });
+      syncColorSwatches(colorPicker, currentColor);
     }
   }
-  const shapeActions = document.getElementById('spShapeActions');
-  const shapeOpacity = document.getElementById('shapeOpacity');
-  if (shapeActions) {
-    shapeActions.hidden = !ann;
-    if (ann && shapeOpacity) {
-      shapeOpacity.value = String(Number(ann.opacity) || 1);
-    }
-  }
+  arrowToolCards.forEach(card => { card.hidden = !arrowStyleVisible; });
+  arrowToolCopies.forEach(copy => {
+    copy.textContent = ann?.type === 'arrow'
+      ? tr('style.selectedLive', { item: tr('mode.arrow', {}, 'Arrow').toLowerCase() }, 'Selected arrow updates live as you change style.')
+      : tr('style.chooseDefault', {}, 'Choose the default style before drawing.');
+  });
+  arrowStyleControls.forEach(controlSet => {
+    controlSet.hidden = !arrowStyleVisible;
+    syncArrowStyleButtons(controlSet, arrowStyle);
+  });
+  arrowColorPickers.forEach(picker => {
+    if (arrowStyleVisible) syncColorSwatches(picker, arrowStyle.color);
+  });
+  shapeToolCards.forEach(card => { card.hidden = !shapeStyleVisible; });
+  shapeToolCopies.forEach(copy => {
+    copy.textContent = isShapeAnnotationType(ann?.type)
+      ? tr('style.selectedLive', { item: tr('shape.style', {}, 'Shape Style').toLowerCase() }, 'Selected shape updates live as you change style.')
+      : tr('style.chooseDefault', {}, 'Choose the default style before drawing.');
+  });
+  shapeStyleControls.forEach(controlSet => {
+    controlSet.hidden = !shapeStyleVisible;
+    syncShapeStyleButtons(controlSet, shapeStyle);
+  });
+  shapeColorPickers.forEach(picker => {
+    if (shapeStyleVisible) syncColorSwatches(picker, shapeStyle.color);
+  });
   const hasAnySelection = !!S.selectedPlayerId || !!group || isBallSelected() || !!ann || S.selectedPassIdx !== null || S.selectedPathPid !== null;
   if (groupActions) {
     const canUnlock = !!group && group.active;
@@ -10376,44 +12448,117 @@ function updateSelInfo() {
     if (groupModeBtn) {
       groupModeBtn.hidden = !canUnlock;
       groupModeBtn.onclick = editSelectedPackIndividuals;
+      groupModeBtn.textContent = tr('editIndividuals', {}, 'Edit Individuals');
     }
     if (regroupBtn) {
       regroupBtn.hidden = !canRegroup;
       regroupBtn.onclick = regroupSelectedPack;
-      if (canRegroup) regroupBtn.textContent = `Regroup ${playerGroup.label}`;
+      if (canRegroup) {
+        regroupBtn.textContent = tr('regroup.packNamed', { label: playerGroup.label }, `Regroup ${playerGroup.label}`);
+      } else {
+        regroupBtn.textContent = tr('regroupPack', {}, 'Regroup Pack');
+      }
     }
   }
   if (deleteBtn) {
     deleteBtn.onclick = deleteSelected;
-    if (S.selectedPathPid !== null) deleteBtn.textContent = 'Remove Run Path';
+    if (S.selectedPathPid !== null) deleteBtn.textContent = tr('remove.runPath', {}, 'Remove Run Path');
     else if (S.selectedPassIdx !== null) {
       const pass = S.passes[S.selectedPassIdx];
-      deleteBtn.textContent = pass?.style === 'pass' ? 'Remove Pass' : 'Remove Kick';
+      deleteBtn.textContent = pass?.style === 'pass'
+        ? tr('remove.pass', {}, 'Remove Pass')
+        : tr('remove.kick', {}, 'Remove Kick');
     }
-    else if (isBallSelected()) deleteBtn.textContent = 'Remove Ball';
-    else if (ann) deleteBtn.textContent = `Remove ${MODE_LABELS[ann.type] || 'Item'}`;
+    else if (isBallSelected()) deleteBtn.textContent = tr('remove.ball', {}, 'Remove Ball');
+    else if (ann) deleteBtn.textContent = tr('remove.item', { item: MODE_LABELS[ann.type] || 'Item' }, `Remove ${MODE_LABELS[ann.type] || 'Item'}`);
     else if (S.selectedPlayerId !== null) {
       const pl = S.players.find(p => p.id === S.selectedPlayerId);
-      deleteBtn.textContent = pl ? 'Remove from Field' : 'Remove Player';
+      deleteBtn.textContent = pl
+        ? tr('remove.fromField', {}, 'Remove from Field')
+        : tr('remove.player', {}, 'Remove Player');
     } else {
-      deleteBtn.textContent = 'Remove Player';
+      deleteBtn.textContent = tr('remove.player', {}, 'Remove Player');
     }
     deleteBtn.disabled = !hasAnySelection || !!group;
   }
   if (clearBtn) {
     clearBtn.onclick = clearSelection;
-    clearBtn.textContent = hasAnySelection ? 'Clear Selection' : 'No Selection';
+    clearBtn.textContent = hasAnySelection ? tr('selection.clear', {}, 'Clear Selection') : tr('selection.none', {}, 'No Selection');
     clearBtn.disabled = !hasAnySelection;
   }
-  const carrier = S.players.find(p => p.isBC);
-  if (carrier) updateGainDisplayForY(carrier.y);
+  if (actionRow) actionRow.hidden = !!ann;
+  if (gainlinePanel) {
+    gainlinePanel.hidden = !selectedPlayer;
+  }
+  const gainTarget = selectedPlayer || S.players.find(p => p.isBC) || null;
+  if (gainTarget) updateGainDisplayForY(gainTarget.y);
   else updateGainDisplayForY(GAINLINE_Y);
 
-  // Floating delete bar — show when annotation selected (Canva-style, works on touch)
-  const floatBar = document.getElementById('floatDeleteBar');
-  if (floatBar) {
-    const annSelected = !!selectedAnnotationId();
-    floatBar.hidden = !annSelected;
+  if (floatingToolbar) {
+    floatingToolbar.hidden = !annotationToolbarVisible;
+    if (annotationToolbarVisible) {
+      floatingToolbar.dataset.kind = ann.type;
+      if (floatingToolbarTitle) floatingToolbarTitle.textContent = annotationToolbarTitle(ann);
+      if (floatingToolbarColorItem) {
+        floatingToolbarColorItem.hidden = false;
+        syncColorSwatches(floatingToolbarColorItem, ann.color || annotationColor(ann.type));
+      }
+      if (floatingToolbarColorSwatch) floatingToolbarColorSwatch.style.background = ann.color || annotationColor(ann.type);
+      if (floatingToolbarColorValue) floatingToolbarColorValue.textContent = annotationColorLabel(ann.color || annotationColor(ann.type));
+
+      const showLine = ann.type === 'arrow' || isShapeAnnotationType(ann.type);
+      if (floatingToolbarLineItem) floatingToolbarLineItem.hidden = !showLine;
+      if (floatingToolbarLineBtn) floatingToolbarLineBtn.hidden = !showLine;
+      if (showLine) {
+        const lineValue = ann.type === 'arrow' ? arrowStyle.dash : currentShapeStyleSelection(ann.type).dash;
+        if (floatingToolbarLinePreview) floatingToolbarLinePreview.dataset.line = lineValue;
+        if (floatingToolbarLineValue) floatingToolbarLineValue.textContent = styleLineLabel(lineValue);
+      }
+
+      const showWeight = ann.type === 'arrow' || isShapeAnnotationType(ann.type);
+      if (floatingToolbarWeightItem) floatingToolbarWeightItem.hidden = !showWeight;
+      if (floatingToolbarWeightBtn) floatingToolbarWeightBtn.hidden = !showWeight;
+      if (showWeight) {
+        const weightValue = ann.type === 'arrow' ? arrowStyle.thickness : currentShapeStyleSelection(ann.type).thickness;
+        if (floatingToolbarWeightPreview) floatingToolbarWeightPreview.dataset.weight = weightValue;
+        if (floatingToolbarWeightValue) floatingToolbarWeightValue.textContent = styleWeightLabel(weightValue);
+      }
+
+      const showAlign = ann.type === 'note' || ann.type === 'playerLabel';
+      if (floatingToolbarEditNoteBtn) floatingToolbarEditNoteBtn.hidden = !showAlign;
+      if (floatingToolbarAlignItem) floatingToolbarAlignItem.hidden = !showAlign;
+      if (floatingToolbarAlignBtn) floatingToolbarAlignBtn.hidden = !showAlign;
+      if (showAlign) {
+        const alignValue = noteAlignValue(ann);
+        syncNoteAlignButtons(floatingToolbar, alignValue);
+        if (floatingToolbarAlignValue) floatingToolbarAlignValue.textContent = noteAlignLabel(alignValue);
+      }
+
+      const showOpacity = ann.type === 'note' || ann.type === 'playerLabel' || isShapeAnnotationType(ann.type);
+      if (floatingToolbarOpacityItem) floatingToolbarOpacityItem.hidden = !showOpacity;
+      if (floatingToolbarOpacityBtn) floatingToolbarOpacityBtn.hidden = !showOpacity;
+      if (showOpacity) {
+        const opacityValue = clamp(Number(ann.opacity) || 1, 0.2, 1);
+        if (floatingToolbarOpacity) floatingToolbarOpacity.value = String(opacityValue);
+        if (floatingToolbarOpacityLabel) floatingToolbarOpacityLabel.textContent = ann.type === 'note' || ann.type === 'playerLabel' ? 'Transparency' : 'Fill';
+        if (floatingToolbarOpacityValue) floatingToolbarOpacityValue.textContent = `${Math.round(opacityValue * 100)}%`;
+      }
+
+      if (ann.type === 'arrow') syncArrowStyleButtons(floatingToolbar, arrowStyle);
+      else if (isShapeAnnotationType(ann.type)) syncShapeStyleButtons(floatingToolbar, currentShapeStyleSelection(ann.type));
+
+      if (floatingToolbarOpenFlyout) {
+        const activeTrigger = floatingToolbar.querySelector(`[data-flyout-target="${floatingToolbarOpenFlyout}"]`);
+        if (!activeTrigger || activeTrigger.hidden || activeTrigger.closest('[hidden]')) {
+          closeFloatingToolbarFlyout();
+        }
+      }
+      scheduleFloatingSelectionToolbarUpdate();
+    } else {
+      floatingToolbar.dataset.kind = '';
+      if (floatingToolbarEditNoteBtn) floatingToolbarEditNoteBtn.hidden = true;
+      closeFloatingToolbarFlyout();
+    }
   }
 }
 
@@ -10433,32 +12578,9 @@ function setTab(tab) {
 
 function rebuildPalette() {
   const grid = document.getElementById('palGrid');
-  const attackRow = document.getElementById('attackPlayerRow');
-  const defenceRow = document.getElementById('defencePlayerRow');
   if (grid) grid.innerHTML = '';
-  if (attackRow) attackRow.innerHTML = '';
-  if (defenceRow) defenceRow.innerHTML = '';
-
-  [
-    { key: 'atk', team: 'A', used: S.atkUsed, target: attackRow },
-    { key: 'def', team: 'D', used: S.defUsed, target: defenceRow },
-  ].forEach(({ key, team, used, target }) => {
-    if (!target) return;
-    for (let n = 1; n <= 15; n++) {
-      const existing = S.players.find((player) => player.num === n && player.team === team) || null;
-      const isSelected = !!existing && isPlayerSelected(existing.id);
-      const btn = document.createElement('button');
-      btn.className = `player-token ${key}${used.has(n) ? ' on' : ''}${isSelected ? ' active' : ''}`;
-      btn.textContent = n;
-      btn.title = used.has(n)
-        ? `${isSelected ? 'Deselect' : 'Select'} ${team==='A'?'Attack':'Defence'} #${n}`
-        : `Add ${team==='A'?'Attack':'Defence'} #${n}`;
-      btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
-      btn.onclick = (event) => togglePalettePlayer(n, team, event);
-      target.appendChild(btn);
-    }
-  });
   updatePaletteSummary();
+  if (!document.getElementById('playerNumberPopover')?.hidden) renderPlayerNumberPicker();
 }
 
 function makeBoardData(nameOverride) {
@@ -10560,23 +12682,29 @@ function refreshSavedPlayList() {
   const saved = getSavedPlays();
   wrap.innerHTML = '';
   if (!saved.length) {
-    wrap.innerHTML = '<div class="saved-play-empty">No local saves yet. Save the current board to keep building from it later.</div>';
+    wrap.innerHTML = `<div class="saved-play-empty">${tr('saved.empty', {}, 'No local saves yet. Save the current board to keep building from it later.')}</div>`;
     return;
   }
   saved.forEach(item => {
     const card = document.createElement('div');
     card.className = 'saved-play-card';
-    const savedDate = item.savedAt ? new Date(item.savedAt).toLocaleString() : 'Saved locally';
+    const savedDate = item.savedAt ? new Date(item.savedAt).toLocaleString() : tr('saved.local', {}, 'Saved locally');
     card.innerHTML = `<div class="saved-play-main">
       <div>
         <div class="saved-play-name">${item.name}</div>
-        <div class="saved-play-meta">${savedDate}<br>${item.steps?.length || 1} step${(item.steps?.length || 1) === 1 ? '' : 's'} · ${item.players?.length || 0} players · ${(item.paths||[]).length} paths · ${(item.passes||[]).length} passes</div>
+        <div class="saved-play-meta">${savedDate}<br>${tr('saved.meta', {
+          steps: item.steps?.length || 1,
+          stepsLabel: (item.steps?.length || 1) === 1 ? tr('saved.step', {}, 'step') : tr('saved.steps', {}, 'steps'),
+          players: item.players?.length || 0,
+          paths: (item.paths || []).length,
+          passes: (item.passes || []).length,
+        }, `${item.steps?.length || 1} step${(item.steps?.length || 1) === 1 ? '' : 's'} · ${item.players?.length || 0} players · ${(item.paths||[]).length} paths · ${(item.passes||[]).length} passes`)}</div>
       </div>
     </div>
     <div class="saved-play-actions">
-      <button class="saved-play-btn" data-action="load">Load</button>
-      <button class="saved-play-btn" data-action="export">Export</button>
-      <button class="saved-play-btn danger" data-action="delete">Delete</button>
+      <button class="saved-play-btn" data-action="load">${tr('saved.load', {}, 'Load')}</button>
+      <button class="saved-play-btn" data-action="export">${tr('saved.export', {}, 'Export')}</button>
+      <button class="saved-play-btn danger" data-action="delete">${tr('saved.delete', {}, 'Delete')}</button>
     </div>`;
     card.querySelector('[data-action="load"]').onclick = () => {
       if (applyBoardData(item)) {
@@ -10614,67 +12742,216 @@ function exportPlayData(play) {
   replaceRecoveryDraftWithCurrentBoard();
 }
 
-async function exportPDF() {
+function currentBoardLanguage() {
+  return window.AnimatorBoardI18n?.getLanguage?.() || document.documentElement.lang || 'en';
+}
+
+function buildPdfExportProject() {
   updatePlayMetadataFromInputs();
-  if (!window.jspdf?.jsPDF || typeof window.qrcode !== 'function') {
+  return validateExportProject(normalizeProjectRecord(makeBoardData()));
+}
+
+async function capturePdfStepSnapshot(step, options = {}) {
+  const width = Math.max(1200, Number(options.width) || 2200);
+  const height = Math.max(700, Number(options.height) || 1320);
+  const dpr = Math.max(1, Number(options.dpr) || 2);
+  const rotateLandscape = options.rotateLandscape !== false;
+  const offscreen = document.createElement('canvas');
+  const offscreenCtx = offscreen.getContext('2d');
+  const savedStep = liveBoardToStepState();
+  const savedState = {
+    nextId: S.nextId,
+    selected: S.selected,
+    selectedPlayerId: S.selectedPlayerId,
+    selectedPlayerIds: Array.isArray(S.selectedPlayerIds) ? [...S.selectedPlayerIds] : [],
+    selectedGroupId: S.selectedGroupId,
+    selectedObjectType: S.selectedObjectType,
+    selectedAnnotationIdValue: S.selectedAnnotationIdValue,
+    selectedPassIdx: S.selectedPassIdx,
+    selectedPathPid: S.selectedPathPid,
+    dragging: S.dragging ? cloneData(S.dragging) : null,
+    dragPlayerId: S.dragPlayerId,
+    dragOff: S.dragOff ? { ...S.dragOff } : { x: 0, y: 0 },
+    drawing: S.drawing ? cloneData(S.drawing) : null,
+    passFrom: S.passFrom,
+    activePasserId: S.activePasserId,
+    activeKickerId: S.activeKickerId,
+    activeRunSourceId: S.activeRunSourceId,
+    annotationDraft: S.annotationDraft ? cloneData(S.annotationDraft) : null,
+    ballAssignCandidate: S.ballAssignCandidate,
+    pointerTap: S.pointerTap ? cloneData(S.pointerTap) : null,
+    highlightedPlayerIds: Array.isArray(S.highlightedPlayerIds) ? [...S.highlightedPlayerIds] : [],
+    currentStepBaseline: S.currentStepBaseline ? cloneStepState(S.currentStepBaseline) : null,
+    radialMenu,
+    cvW,
+    cvH,
+    sc,
+    sx,
+    sy,
+    ox,
+    oy,
+    renderDpr,
+    isPhoneViewport,
+    isMobilePortraitBoard,
+    isPhoneLandscapeBoard,
+    viewportState: viewportState ? cloneData(viewportState) : null,
+    staticFieldCanvas,
+    staticFieldCtx,
+    staticFieldCacheKey,
+  };
+
+  try {
+    renderDpr = dpr;
+    const metrics = computeDesktopCanvasMetrics(width, height);
+    cvW = metrics.cvW;
+    cvH = metrics.cvH;
+    sc = metrics.sc;
+    sx = metrics.sx;
+    sy = metrics.sy;
+    ox = metrics.ox;
+    oy = metrics.oy;
+    isPhoneViewport = false;
+    isMobilePortraitBoard = false;
+    isPhoneLandscapeBoard = false;
+    viewportState = {
+      mode: 'pdf-export',
+      cssWidth: cvW,
+      cssHeight: cvH,
+      availW: cvW,
+      availH: cvH,
+      fieldCssW: FVW * sx,
+      fieldCssH: FVH * sy,
+      fieldTop: oy,
+      fieldBottom: oy + (FVH * sy),
+      dpr: renderDpr,
+    };
+    syncCanvasResolution(offscreen, offscreenCtx, cvW, cvH);
+    staticFieldCanvas = null;
+    staticFieldCtx = null;
+    staticFieldCacheKey = '';
+    setLiveBoardFromStep(step);
+    clearSelectedObject();
+    S.selected = null;
+    S.selectedPassIdx = null;
+    S.selectedPathPid = null;
+    S.dragging = null;
+    S.dragPlayerId = null;
+    S.drawing = null;
+    S.passFrom = null;
+    S.activePasserId = null;
+    S.activeKickerId = null;
+    S.activeRunSourceId = null;
+    S.annotationDraft = null;
+    S.ballAssignCandidate = null;
+    S.pointerTap = null;
+    S.highlightedPlayerIds = [];
+    radialMenu = null;
+    invalidateStaticFieldCache();
+    withRenderContext(offscreenCtx, () => render());
+    const pitchStart = toC(0, F.YMIN);
+    const pitchEnd = toC(F.W, F.YMAX);
+    const cropLeft = Math.max(0, Math.floor(Math.min(pitchStart.x, pitchEnd.x) * renderDpr));
+    const cropTop = Math.max(0, Math.floor(Math.min(pitchStart.y, pitchEnd.y) * renderDpr));
+    const cropRight = Math.min(offscreen.width, Math.ceil(Math.max(pitchStart.x, pitchEnd.x) * renderDpr));
+    const cropBottom = Math.min(offscreen.height, Math.ceil(Math.max(pitchStart.y, pitchEnd.y) * renderDpr));
+    const cropWidth = Math.max(1, cropRight - cropLeft);
+    const cropHeight = Math.max(1, cropBottom - cropTop);
+    const cropped = document.createElement('canvas');
+    cropped.width = cropWidth;
+    cropped.height = cropHeight;
+    const croppedCtx = cropped.getContext('2d');
+    croppedCtx.drawImage(offscreen, cropLeft, cropTop, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+
+    let finalCanvas = cropped;
+    if (rotateLandscape && cropHeight > cropWidth) {
+      const rotated = document.createElement('canvas');
+      rotated.width = cropHeight;
+      rotated.height = cropWidth;
+      const rotatedCtx = rotated.getContext('2d');
+      rotatedCtx.translate(rotated.width / 2, rotated.height / 2);
+      rotatedCtx.rotate(Math.PI / 2);
+      rotatedCtx.drawImage(cropped, -cropWidth / 2, -cropHeight / 2);
+      finalCanvas = rotated;
+    }
+
+    return {
+      dataUrl: finalCanvas.toDataURL('image/png'),
+      width: finalCanvas.width,
+      height: finalCanvas.height,
+      crop: {
+        width: cropWidth,
+        height: cropHeight,
+      },
+    };
+  } finally {
+    renderDpr = savedState.renderDpr;
+    cvW = savedState.cvW;
+    cvH = savedState.cvH;
+    sc = savedState.sc;
+    sx = savedState.sx;
+    sy = savedState.sy;
+    ox = savedState.ox;
+    oy = savedState.oy;
+    isPhoneViewport = savedState.isPhoneViewport;
+    isMobilePortraitBoard = savedState.isMobilePortraitBoard;
+    isPhoneLandscapeBoard = savedState.isPhoneLandscapeBoard;
+    viewportState = savedState.viewportState;
+    staticFieldCanvas = savedState.staticFieldCanvas;
+    staticFieldCtx = savedState.staticFieldCtx;
+    staticFieldCacheKey = savedState.staticFieldCacheKey;
+    setLiveBoardFromStep(savedStep, { keepSelection: false });
+    S.nextId = savedState.nextId;
+    S.selected = savedState.selected;
+    S.selectedPlayerId = savedState.selectedPlayerId;
+    S.selectedPlayerIds = savedState.selectedPlayerIds;
+    S.selectedGroupId = savedState.selectedGroupId;
+    S.selectedObjectType = savedState.selectedObjectType;
+    S.selectedAnnotationIdValue = savedState.selectedAnnotationIdValue;
+    S.selectedPassIdx = savedState.selectedPassIdx;
+    S.selectedPathPid = savedState.selectedPathPid;
+    S.dragging = savedState.dragging;
+    S.dragPlayerId = savedState.dragPlayerId;
+    S.dragOff = savedState.dragOff;
+    S.drawing = savedState.drawing;
+    S.passFrom = savedState.passFrom;
+    S.activePasserId = savedState.activePasserId;
+    S.activeKickerId = savedState.activeKickerId;
+    S.activeRunSourceId = savedState.activeRunSourceId;
+    S.annotationDraft = savedState.annotationDraft;
+    S.ballAssignCandidate = savedState.ballAssignCandidate;
+    S.pointerTap = savedState.pointerTap;
+    S.highlightedPlayerIds = savedState.highlightedPlayerIds;
+    S.currentStepBaseline = savedState.currentStepBaseline;
+    radialMenu = savedState.radialMenu;
+    syncLegacySelectionState();
+    syncCanvasResolution(cv, ctx, cvW, cvH);
+    invalidateStaticFieldCache();
+    render();
+  }
+}
+
+async function exportPDF() {
+  if (!window.jspdf?.jsPDF || !window.AnimatorBoardPdf?.exportReport) {
     setHint('PDF export is unavailable right now. Reload the board and try again.');
     refreshInteractionUI();
     return;
   }
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  const W = 297, H = 210;
-  const playName = document.getElementById('playName').value || 'Play';
-  const noteFields = [
-    ['PHASE PURPOSE', document.getElementById('metaPurpose')?.value?.trim() || ''],
-    ['DECISION CUE', document.getElementById('metaDecisionCue')?.value?.trim() || ''],
-    ['COACHING POINTS', readMetaList(['metaCoachingPoint1', 'metaCoachingPoint2', 'metaCoachingPoint3'], 3).join('\n')],
-    ['COMMON MISTAKES', readMetaList(['metaCommonMistake1', 'metaCommonMistake2', 'metaCommonMistake3'], 3).join('\n')],
-  ];
-
-  doc.setFillColor(10, 19, 16);
-  doc.rect(0, 0, W, H, 'F');
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(22);
-  doc.text('RDA TACTICAL BOARD', 14, 14);
-  doc.setFontSize(14);
-  doc.setTextColor(251, 191, 36);
-  doc.text(playName, 14, 22);
-
-  const imgData = cv.toDataURL('image/png');
-  doc.addImage(imgData, 'PNG', 14, 28, 110, 155);
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(10);
-  let noteY = 32;
-  noteFields.forEach(([label, val]) => {
-    if (!val) return;
-    doc.setTextColor(251, 191, 36);
-    doc.setFontSize(8);
-    doc.text(label, 135, noteY);
-    noteY += 5;
-    doc.setTextColor(220, 220, 220);
-    doc.setFontSize(9);
-    const lines = doc.splitTextToSize(val, 75);
-    doc.text(lines, 135, noteY);
-    noteY += lines.length * 5 + 4;
-  });
-
-  const qr = qrcode(0, 'M');
-  qr.addData(window.location.href);
-  qr.make();
-  const qrImg = qr.createDataURL(4);
-  doc.addImage(qrImg, 'PNG', 255, 160, 30, 30);
-  doc.setTextColor(150, 150, 150);
-  doc.setFontSize(7);
-  doc.text('Scan to open live board', 256, 194);
-
-  doc.save(`${playName || 'play'}.pdf`);
-  setHint(`Exported "${playName}" as PDF.`);
-  refreshInteractionUI();
-  replaceRecoveryDraftWithCurrentBoard();
+  try {
+    const project = buildPdfExportProject();
+    const result = await window.AnimatorBoardPdf.exportReport({
+      project,
+      language: currentBoardLanguage(),
+      captureStepImage: capturePdfStepSnapshot,
+      fileName: currentPlayTitle(),
+    });
+    setHint(`Exported "${result?.fileName || currentPlayTitle()}" as PDF.`);
+    refreshInteractionUI();
+    replaceRecoveryDraftWithCurrentBoard();
+  } catch (error) {
+    console.error('PDF export failed', error);
+    setHint('PDF export failed. Please try again.');
+    refreshInteractionUI();
+  }
 }
 window.exportPDF = exportPDF;
 
@@ -10754,6 +13031,10 @@ document.addEventListener('keydown', e => {
   if (k === 'arrowright') { e.preventDefault(); goToPhase(GamePlan.currentPhase + 1); return; }
   if (k==='escape')     {
     e.preventDefault();
+    if (!document.getElementById('playerNumberPopover')?.hidden) {
+      closePlayerNumberPicker();
+      return;
+    }
     if (document.getElementById('mobileMoreDrawer')?.classList.contains('open')) {
       setMobileMoreDrawerOpen(false);
       return;
@@ -10859,6 +13140,14 @@ maybeOfferRecoveryDraftOnStartup();
 window.serializePlay = serializePlay;
 window.deserializePlay = deserializePlay;
 window.migratePlay = migratePlay;
+window.__animatorDebug = {
+  getState: () => S,
+  toCanvasPoint: (...args) => toC(...args),
+  playerLabelBounds: (...args) => playerLabelBounds(...args),
+  getRadialMenu: () => radialMenu,
+  makeBoardData: (...args) => makeBoardData(...args),
+  applyBoardData: (...args) => applyBoardData(...args),
+};
 
 document.addEventListener('pointerdown', e => {
   if (!radialMenu) return;
@@ -10869,9 +13158,25 @@ document.addEventListener('pointerdown', e => {
     render();
   }
 });
+document.addEventListener('pointerdown', (e) => {
+  const popover = document.getElementById('playerNumberPopover');
+  if (!popover || popover.hidden) return;
+  const activeAnchor = playerNumberPickerState.anchorId ? document.getElementById(playerNumberPickerState.anchorId) : null;
+  if (popover.contains(e.target) || activeAnchor?.contains(e.target)) return;
+  closePlayerNumberPicker();
+}, { capture: true });
+window.addEventListener('resize', () => {
+  if (document.getElementById('playerNumberPopover')?.hidden) return;
+  positionPlayerNumberPicker();
+});
+document.addEventListener('scroll', () => {
+  if (document.getElementById('playerNumberPopover')?.hidden) return;
+  positionPlayerNumberPicker();
+}, true);
 document.getElementById('mobileMoreDrawer')?.addEventListener('click', (e) => {
   const actionBtn = e.target.closest('.mob-more-btn');
   if (!actionBtn || actionBtn.disabled) return;
+  if (actionBtn.dataset.tool === 'arrow' || actionBtn.dataset.tool === 'zone') return;
   setTimeout(() => setMobileMoreDrawerOpen(false), 0);
 });
 
@@ -10943,8 +13248,9 @@ function bindSinglePhoneButton(id, handler) {
 
 bindSinglePhoneButton('mobileRailAddAttackBtn', () => addNextAvailablePlayer('A'));
 bindSinglePhoneButton('mobileRailAddDefenceBtn', () => addNextAvailablePlayer('D'));
+bindSinglePhoneButton('mobileRailAddAttackPickerBtn', () => togglePlayerNumberPicker('A', 'mobileRailAddAttackPickerBtn'));
+bindSinglePhoneButton('mobileRailAddDefencePickerBtn', () => togglePlayerNumberPicker('D', 'mobileRailAddDefencePickerBtn'));
 bindSinglePhoneButton('mobileStepBtn', () => addStep());
-bindSinglePhoneButton('mobileRailUndoBtn', () => undo());
 bindSinglePhoneButton('mobMoreBtn', () => toggleMobileMoreDrawer());
 // The top header chevrons step one canonical Move at a time (matching the
 // "MOVE X/Y" half of the header label), sharing the same transport-interrupt
@@ -10996,6 +13302,23 @@ document.getElementById('selNoteInput').addEventListener('keydown', e => {
     e.target.blur();
   }
 });
+document.getElementById('noteInlineEditor').addEventListener('input', e => {
+  updateSelectedNoteText(e.target.value);
+  const ann = selectedAnnotation();
+  if (isEditableTextAnnotationType(ann?.type) && e.target.value !== ann.text) {
+    e.target.value = ann.text;
+  }
+  syncNoteInlineEditor();
+});
+document.getElementById('noteInlineEditor').addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation?.();
+    endNoteInlineEdit();
+    refreshInteractionUI();
+    render();
+  }
+});
 document.getElementById('importPlayInput').addEventListener('change', e => {
   importPlayFromFile(e.target.files?.[0]);
   e.target.value = '';
@@ -11010,6 +13333,7 @@ let _boardBootstrapped = false;
 function _initBoard() {
   if (_boardBootstrapped) return;
   _boardBootstrapped = true;
+  initSequenceBarNavigator();
   initSequenceControlDock();
   bindViewportObservers();
   resize();
@@ -11035,18 +13359,23 @@ if (document.readyState === 'loading') {
 }
 
 (function initAccordions() {
-  ['accPurpose', 'accDecision', 'accCoaching', 'accMistakes'].forEach(function(id) {
-    try {
-      if (localStorage.getItem('sp-acc-' + id) === '1') {
-        var section = document.getElementById(id);
-        if (section) {
-          section.classList.add('sp-acc-open');
-          var trigger = section.querySelector('.sp-acc-trigger');
-          if (trigger) trigger.setAttribute('aria-expanded', 'true');
-        }
-      }
-    } catch(e) {}
+  const isPhone = document.body.classList.contains('is-phone');
+  ['accPresets', 'accCoachNotes', 'accPurpose', 'accDecision', 'accCoaching', 'accMistakes'].forEach(function(id) {
+    var section = document.getElementById(id);
+    if (!section) return;
+    section.classList.remove('sp-acc-open');
+    var trigger = section.querySelector(':scope > .sp-acc-trigger');
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
   });
+  if (isPhone) {
+    ['accPresets', 'accCoachNotes'].forEach(function(id) {
+      var section = document.getElementById(id);
+      if (!section) return;
+      section.classList.add('sp-acc-open');
+      var trigger = section.querySelector(':scope > .sp-acc-trigger');
+      if (trigger) trigger.setAttribute('aria-expanded', 'true');
+    });
+  }
 })();
 
 document.addEventListener('pointerdown', e => {
