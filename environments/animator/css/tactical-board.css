@@ -1718,6 +1718,55 @@ body:not(.is-phone) #canvasWrap {
 .floating-toolbar-weight-preview[data-weight="thick"] span {
   height: 3px;
 }
+.floating-toolbar-fill-preview {
+  position: relative;
+  display: inline-block;
+  width: 20px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.24);
+  background: rgba(255,255,255,0.03);
+  box-shadow: inset 0 0 0 1px rgba(7,16,24,0.22);
+  overflow: hidden;
+}
+.floating-toolbar-fill-preview::before,
+.floating-toolbar-fill-preview::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.floating-toolbar-fill-preview[data-fill="solid"]::before {
+  background: currentColor;
+  opacity: 0.34;
+}
+.floating-toolbar-fill-preview[data-fill="hatch"]::before {
+  background:
+    repeating-linear-gradient(135deg,
+      transparent 0 4px,
+      currentColor 4px 6px,
+      transparent 6px 10px);
+  opacity: 0.72;
+}
+.floating-toolbar-fill-preview[data-fill="grid"]::before {
+  background:
+    repeating-linear-gradient(135deg,
+      transparent 0 4px,
+      currentColor 4px 6px,
+      transparent 6px 10px),
+    repeating-linear-gradient(45deg,
+      transparent 0 4px,
+      currentColor 4px 6px,
+      transparent 6px 10px);
+  opacity: 0.68;
+}
+.floating-toolbar-fill-preview[data-fill="none"]::after {
+  inset: auto 2px 2px 2px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.8);
+  transform: rotate(-24deg) translateY(-3px);
+  transform-origin: center;
+}
 .floating-selection-toolbar-flyout {
   position: absolute;
   left: 0;
@@ -1763,6 +1812,15 @@ body:not(.is-phone) #canvasWrap {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+.sp-shape-fill-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.sp-shape-fill-buttons .sp-btn,
+.sp-shape-fill-buttons .sp-note-align-btn {
+  flex: 1 1 calc(50% - 4px);
 }
 .floating-selection-toolbar-align-list {
   flex-direction: row;

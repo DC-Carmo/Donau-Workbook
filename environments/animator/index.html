@@ -258,6 +258,15 @@
                 <button class="sp-btn sp-note-align-btn" data-shape-thickness="thick" type="button" onclick="setShapeThickness('thick')">Thick</button>
               </div>
             </div>
+            <div class="sp-field-group">
+              <span class="sp-field-label">Fill</span>
+              <div class="sp-note-align-buttons sp-shape-fill-buttons" role="group" aria-label="Shape fill">
+                <button class="sp-btn sp-note-align-btn" data-shape-fill="none" type="button" onclick="setShapeFill('none')">None</button>
+                <button class="sp-btn sp-note-align-btn" data-shape-fill="solid" type="button" onclick="setShapeFill('solid')">Solid</button>
+                <button class="sp-btn sp-note-align-btn" data-shape-fill="hatch" type="button" onclick="setShapeFill('hatch')">Hatch</button>
+                <button class="sp-btn sp-note-align-btn" data-shape-fill="grid" type="button" onclick="setShapeFill('grid')">Grid</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -496,6 +505,36 @@
               </div>
             </div>
 
+            <div class="floating-selection-toolbar-item" id="floatingToolbarFillItem" hidden>
+              <button id="floatingToolbarFillBtn" class="floating-selection-toolbar-trigger" type="button" data-flyout-target="fill" aria-expanded="false" aria-controls="floatingToolbarFillFlyout" onclick="toggleFloatingToolbarFlyout('fill', event)">
+                <span class="floating-toolbar-trigger-kicker">Fill</span>
+                <span class="floating-toolbar-trigger-main">
+                  <span id="floatingToolbarFillPreview" class="floating-toolbar-fill-preview" data-shape-fill-preview data-fill="none" aria-hidden="true"></span>
+                  <span id="floatingToolbarFillValue" class="floating-toolbar-trigger-value">None</span>
+                </span>
+              </button>
+              <div id="floatingToolbarFillFlyout" class="floating-selection-toolbar-flyout" data-flyout="fill" hidden>
+                <div class="floating-selection-toolbar-choice-list" role="group" aria-label="Floating shape fill">
+                  <button class="sp-btn sp-note-align-btn floating-selection-toolbar-choice" data-shape-fill="none" type="button" onclick="setFloatingToolbarShapeFill('none')">
+                    <span class="floating-toolbar-fill-preview" data-shape-fill-preview data-fill="none" aria-hidden="true"></span>
+                    <span>None</span>
+                  </button>
+                  <button class="sp-btn sp-note-align-btn floating-selection-toolbar-choice" data-shape-fill="solid" type="button" onclick="setFloatingToolbarShapeFill('solid')">
+                    <span class="floating-toolbar-fill-preview" data-shape-fill-preview data-fill="solid" aria-hidden="true"></span>
+                    <span>Solid</span>
+                  </button>
+                  <button class="sp-btn sp-note-align-btn floating-selection-toolbar-choice" data-shape-fill="hatch" type="button" onclick="setFloatingToolbarShapeFill('hatch')">
+                    <span class="floating-toolbar-fill-preview" data-shape-fill-preview data-fill="hatch" aria-hidden="true"></span>
+                    <span>Hatch</span>
+                  </button>
+                  <button class="sp-btn sp-note-align-btn floating-selection-toolbar-choice" data-shape-fill="grid" type="button" onclick="setFloatingToolbarShapeFill('grid')">
+                    <span class="floating-toolbar-fill-preview" data-shape-fill-preview data-fill="grid" aria-hidden="true"></span>
+                    <span>Grid</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div class="floating-selection-toolbar-item" id="floatingToolbarAlignItem" hidden>
               <button id="floatingToolbarAlignBtn" class="floating-selection-toolbar-trigger" type="button" data-flyout-target="align" aria-expanded="false" aria-controls="floatingToolbarAlignFlyout" onclick="toggleFloatingToolbarFlyout('align', event)">
                 <span class="floating-toolbar-trigger-kicker">Align</span>
@@ -514,7 +553,7 @@
 
             <div class="floating-selection-toolbar-item" id="floatingToolbarOpacityItem" hidden>
               <button id="floatingToolbarOpacityBtn" class="floating-selection-toolbar-trigger" type="button" data-flyout-target="opacity" aria-expanded="false" aria-controls="floatingToolbarOpacityFlyout" onclick="toggleFloatingToolbarFlyout('opacity', event)">
-                <span id="floatingToolbarOpacityLabel" class="floating-toolbar-trigger-kicker">Fill</span>
+                <span id="floatingToolbarOpacityLabel" class="floating-toolbar-trigger-kicker">Opacity</span>
                 <span class="floating-toolbar-trigger-main">
                   <span id="floatingToolbarOpacityValue" class="floating-toolbar-trigger-value">100%</span>
                 </span>
@@ -696,6 +735,15 @@
                 <button class="sp-btn sp-note-align-btn" data-shape-thickness="thin" type="button" onclick="setShapeThickness('thin')">Thin</button>
                 <button class="sp-btn sp-note-align-btn" data-shape-thickness="normal" type="button" onclick="setShapeThickness('normal')">Normal</button>
                 <button class="sp-btn sp-note-align-btn" data-shape-thickness="thick" type="button" onclick="setShapeThickness('thick')">Thick</button>
+              </div>
+            </div>
+            <div class="sp-field-group">
+              <span class="sp-field-label">Fill</span>
+              <div class="sp-note-align-buttons sp-shape-fill-buttons" role="group" aria-label="Mobile shape fill">
+                <button class="sp-btn sp-note-align-btn" data-shape-fill="none" type="button" onclick="setShapeFill('none')">None</button>
+                <button class="sp-btn sp-note-align-btn" data-shape-fill="solid" type="button" onclick="setShapeFill('solid')">Solid</button>
+                <button class="sp-btn sp-note-align-btn" data-shape-fill="hatch" type="button" onclick="setShapeFill('hatch')">Hatch</button>
+                <button class="sp-btn sp-note-align-btn" data-shape-fill="grid" type="button" onclick="setShapeFill('grid')">Grid</button>
               </div>
             </div>
           </div>
