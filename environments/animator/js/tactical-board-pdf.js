@@ -707,41 +707,172 @@ window.AnimatorBoardPdf = (() => {
     doc.text(`${tr(language, 'page')} ${pageNumber} / ${pageCount}`, pageWidth - 14, pageHeight - 7.6, { align: 'right' });
   }
 
-  function renderNotesToPdf(doc, notes, language, startY, pageWidth, pageHeight, createContinuationPage, titleText) {
-    const maxWidth = pageWidth - 32;
-    const bottomLimit = pageHeight - 20;
-    let y = startY;
-    const safeNotes = Array.isArray(notes) ? notes : [];
-    if (!safeNotes.length) {
-      doc.setFont('helvetica', 'italic');
-      doc.setFontSize(10.5);
-      doc.setTextColor(104, 112, 119);
-      doc.text(tr(language, 'noNotes'), 16, y);
-      return y + 10;
-    }
-    safeNotes.forEach((note) => {
-      const labelLines = doc.splitTextToSize(String(note.label || ''), maxWidth);
-      const valueLines = doc.splitTextToSize(String(note.value || ''), maxWidth);
-      const blockHeight = (labelLines.length * 4.3) + (valueLines.length * 5) + 8;
-      if (y + blockHeight > bottomLimit) {
-        createContinuationPage(titleText);
-        y = 32;
-      }
-      doc.setDrawColor(228, 221, 196);
-      doc.setLineWidth(0.25);
-      doc.line(16, y - 2.5, pageWidth - 16, y - 2.5);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8.8);
-      doc.setTextColor(227, 178, 60);
-      doc.text(labelLines, 16, y + 2);
-      y += (labelLines.length * 4.3) + 2.6;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10.3);
-      doc.setTextColor(18, 24, 21);
-      doc.text(valueLines, 16, y);
-      y += (valueLines.length * 5) + 5.5;
+  function movePageNoteStyle() {
+    return {
+      columns: 2,
+      columnGap: 8,
+      labelFontSize: 7.8,
+      labelLineHeight: 3.4,
+      labelGap: 2,
+      textFontSize: 8.7,
+      textLineHeight: 4.15,
+      blockPaddingTop: 3,
+      blockGap: 4.5,
+      topRuleOffset: 1.8,
+      ruleInset: 0,
+    };
+  }
+
+  function measureNoteBlock(doc, note, columnWidth, style) {
+    const safeLabel = String(note?.label || '');
+    const safeValue = String(note?.value || '');
+    const labelLines = doc.splitTextToSize(safeLabel, columnWidth);
+    const valueLines = doc.splitTextToSize(safeValue, columnWidth);
+    const labelHeight = Math.max(1, labelLines.length) * style.labelLineHeight;
+    const valueHeight = Math.max(1, valueLines.length) * style.textLineHeight;
+    return {
+      note,
+      labelLines,
+      valueLines,
+      height: style.blockPaddingTop + labelHeight + style.labelGap + valueHeight + style.blockGap,
+    };
+  }
+
+  function buildNotesColumns(doc, notes, totalWidth, maxColumnHeight, style) {
+    const columnCount = Math.max(1, Math.min(style.columns, Array.isArray(notes) ? notes.length || 1 : 1));
+    const gap = columnCount > 1 ? style.columnGap : 0;
+    const columnWidth = (totalWidth - (gap * (columnCount - 1))) / columnCount;
+    const blocks = (Array.isArray(notes) ? notes : []).map((note) => measureNoteBlock(doc, note, columnWidth, style));
+    const pages = [];
+
+    const createPage = () => ({
+      columns: Array.from({ length: columnCount }, (_, index) => ({
+        index,
+        blocks: [],
+        height: 0,
+      })),
     });
-    return y;
+
+    let page = createPage();
+    blocks.forEach((block) => {
+      let placed = false;
+      while (!placed) {
+        const sortedColumns = [...page.columns].sort((a, b) => a.height - b.height);
+        const target = sortedColumns.find((column) => column.height + block.height <= maxColumnHeight);
+        if (target) {
+          target.blocks.push(block);
+          target.height += block.height;
+          placed = true;
+          continue;
+        }
+        const hasContent = page.columns.some((column) => column.blocks.length);
+        if (!hasContent) {
+          page.columns[0].blocks.push(block);
+          page.columns[0].height += block.height;
+          placed = true;
+        } else {
+          pages.push(page);
+          page = createPage();
+        }
+      }
+    });
+
+    pages.push(page);
+    return {
+      pages,
+      columnWidth,
+      columnGap: gap,
+      usedHeight: Math.max(0, ...page.columns.map((column) => column.height)),
+    };
+  }
+
+  function renderNotesColumnsToPdf(doc, pageLayout, x, startY, totalWidth, style) {
+    pageLayout.columns.forEach((column, index) => {
+      const columnX = x + index * (pageLayout.columnWidth + pageLayout.columnGap);
+      let y = startY;
+      column.blocks.forEach((block) => {
+        doc.setDrawColor(228, 221, 196);
+        doc.setLineWidth(0.25);
+        doc.line(
+          columnX + style.ruleInset,
+          y - style.topRuleOffset,
+          columnX + pageLayout.columnWidth - style.ruleInset,
+          y - style.topRuleOffset
+        );
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(style.labelFontSize);
+        doc.setTextColor(227, 178, 60);
+        doc.text(block.labelLines, columnX, y + style.labelLineHeight);
+        y += style.blockPaddingTop + (Math.max(1, block.labelLines.length) * style.labelLineHeight) + style.labelGap;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(style.textFontSize);
+        doc.setTextColor(18, 24, 21);
+        doc.text(block.valueLines, columnX, y);
+        y += (Math.max(1, block.valueLines.length) * style.textLineHeight) + style.blockGap;
+      });
+    });
+  }
+
+  function selectMovePageLayout(doc, page, pageWidth, pageHeight) {
+    const style = movePageNoteStyle();
+    const imageY = 32;
+    const imageMaxWidth = pageWidth - 32;
+    const notesHeadingGap = 10;
+    const notesStartGap = 7;
+    const bottomLimit = pageHeight - 22;
+    const imageHeights = [138, 132, 126, 120, 114, 108, 102, 96];
+    const noteWidth = pageWidth - 32;
+    let fallback = null;
+
+    for (const imageHeight of imageHeights) {
+      const notesStartY = imageY + imageHeight + notesHeadingGap + notesStartGap;
+      const availableNotesHeight = Math.max(24, bottomLimit - notesStartY);
+      const layout = buildNotesColumns(doc, page.notes, noteWidth, availableNotesHeight, style);
+      const candidate = {
+        style,
+        imageY,
+        imageMaxWidth,
+        imageHeight,
+        notesHeadingY: imageY + imageHeight + notesHeadingGap,
+        notesStartY,
+        noteWidth,
+        notePages: layout.pages,
+        noteColumnWidth: layout.columnWidth,
+        noteColumnGap: layout.columnGap,
+        bottomLimit,
+      };
+      if (!fallback) fallback = candidate;
+      if (layout.pages.length === 1) return candidate;
+    }
+
+    return fallback;
+  }
+
+  function renderMoveNotesContinuationPage(doc, page, report, pageWidth, pageHeight, notePage, style) {
+    doc.addPage('a4', 'portrait');
+    doc.setFillColor(245, 240, 223);
+    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(31, 107, 67);
+    doc.text('RDA', 16, 15);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(17);
+    doc.setTextColor(6, 17, 13);
+    doc.text(page.title, 16, 25);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.2);
+    doc.setTextColor(104, 112, 119);
+    doc.text(tr(report.language, 'coachingNotes'), pageWidth - 16, 15, { align: 'right' });
+
+    renderNotesColumnsToPdf(doc, {
+      columns: notePage.columns,
+      columnWidth: (pageWidth - 32 - (style.columnGap * (notePage.columns.length - 1))) / notePage.columns.length,
+      columnGap: notePage.columns.length > 1 ? style.columnGap : 0,
+    }, 16, 36, pageWidth - 32, style);
   }
 
   function renderCoverPage(doc, report, pageWidth, pageHeight) {
@@ -835,7 +966,9 @@ window.AnimatorBoardPdf = (() => {
     doc.setTextColor(104, 112, 119);
     doc.text(buildGeneratedLine(report.language, report.dateLabel), pageWidth - 16, 15, { align: 'right' });
 
-    const imageCard = drawImageCard(doc, page.image, 16, 32, pageWidth - 32, 170, {
+    const layout = selectMovePageLayout(doc, page, pageWidth, pageHeight);
+
+    const imageCard = drawImageCard(doc, page.image, 16, layout.imageY, layout.imageMaxWidth, layout.imageHeight, {
       padding: 2.4,
       radius: 6,
       borderColor: [220, 215, 195],
@@ -843,39 +976,28 @@ window.AnimatorBoardPdf = (() => {
       align: 'center',
     });
 
-    const notesHeadingY = 32 + imageCard.height + 11;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(31, 107, 67);
-    doc.text(tr(report.language, 'coachingNotes'), 16, notesHeadingY);
+    doc.text(tr(report.language, 'coachingNotes'), 16, layout.notesHeadingY);
 
-    const createContinuationPage = (titleText) => {
-      doc.addPage('a4', 'portrait');
-      doc.setFillColor(245, 240, 223);
-      doc.rect(0, 0, pageWidth, pageHeight, 'F');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.setTextColor(31, 107, 67);
-      doc.text('RDA', 16, 15);
-      doc.setFontSize(17);
-      doc.setTextColor(6, 17, 13);
-      doc.text(titleText, 16, 25);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8.2);
+    if (!layout.notePages[0]?.columns.some((column) => column.blocks.length)) {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(10.5);
       doc.setTextColor(104, 112, 119);
-      doc.text(tr(report.language, 'coachingNotes'), pageWidth - 16, 15, { align: 'right' });
-    };
+      doc.text(tr(report.language, 'noNotes'), 16, layout.notesStartY);
+      return;
+    }
 
-    renderNotesToPdf(
-      doc,
-      page.notes,
-      report.language,
-      notesHeadingY + 10,
-      pageWidth,
-      pageHeight,
-      createContinuationPage,
-      page.title
-    );
+    renderNotesColumnsToPdf(doc, {
+      columns: layout.notePages[0].columns,
+      columnWidth: layout.noteColumnWidth,
+      columnGap: layout.noteColumnGap,
+    }, 16, layout.notesStartY, layout.noteWidth, layout.style);
+
+    for (let i = 1; i < layout.notePages.length; i += 1) {
+      renderMoveNotesContinuationPage(doc, page, report, pageWidth, pageHeight, layout.notePages[i], layout.style);
+    }
   }
 
   async function buildReport(project, language, captureStepImage) {
