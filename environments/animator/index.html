@@ -293,7 +293,16 @@
           </div>
         </div>
 
-        <div id="gainDisplay" class="sp-gain-display">On gainline</div>
+        <div class="sp-gainline-panel">
+          <div id="gainDisplay" class="sp-gain-display">On gainline</div>
+          <div class="sp-attack-direction" aria-label="Attack direction">
+            <span id="attackDirectionLabel" class="sp-attack-direction-label">Attack</span>
+            <div id="attackDirectionGroup" class="sp-attack-direction-toggle" role="group" aria-label="Attack">
+              <button id="attackDirectionUpBtn" class="sp-attack-direction-btn" type="button" onclick="setAttackDirection('up')">↑</button>
+              <button id="attackDirectionDownBtn" class="sp-attack-direction-btn" type="button" onclick="setAttackDirection('down')">↓</button>
+            </div>
+          </div>
+        </div>
 
         <!-- PLAYS section -->
         <div class="section-block sp-acc-section coach-panel-section" id="accPresets" data-accordion-group="coach-panel">
@@ -602,6 +611,13 @@
         <div class="mob-toggle-row" aria-label="Gainline toggle">
           <span class="mob-stepper-label">GAINLINE</span>
           <button class="mob-toggle-btn" id="mobGainlineBtn" type="button" onclick="toggleGainline()">OFF</button>
+        </div>
+        <div class="mob-toggle-row mob-attack-direction-row" aria-label="Attack direction">
+          <span class="mob-stepper-label" id="mobAttackDirectionLabel">ATTACK</span>
+          <div id="mobAttackDirectionGroup" class="mob-attack-direction-toggle" role="group" aria-label="Attack">
+            <button class="mob-toggle-btn mob-attack-direction-btn" id="mobAttackDirectionUpBtn" type="button" onclick="setAttackDirection('up')">↑</button>
+            <button class="mob-toggle-btn mob-attack-direction-btn" id="mobAttackDirectionDownBtn" type="button" onclick="setAttackDirection('down')">↓</button>
+          </div>
         </div>
         <button class="mob-more-btn" id="mobileMoreEraseBtn" type="button" data-tool="erase" onclick="setTool('erase')">ERASE</button>
         <button class="mob-more-btn" id="mobileMoreArrowBtn" type="button" data-tool="arrow" onclick="setTool('arrow')">ARROW</button>

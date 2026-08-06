@@ -27,6 +27,8 @@ const PENDING_GROUP_DRAG_PX = 8;
 const SNAP_RADIUS = 4; // field units (~4m)
 let GAINLINE_Y = 50;      // default: halfway
 let showGainline = false;
+const ATTACK_DIRECTION_UP = 'up';
+const ATTACK_DIRECTION_DOWN = 'down';
 let radialMenu = null; // { playerId, x, y } in canvas px
 let teleStrokes = []; // [{ pts:[{x,y}], born: timestamp, color }]
 let teleDrawing = null; // current stroke being drawn
@@ -104,6 +106,57 @@ function syncCanvasResolution(canvas, context, width, height) {
   context.imageSmoothingEnabled = true;
   if ('imageSmoothingQuality' in context) context.imageSmoothingQuality = 'high';
   context.setTransform(renderDpr, 0, 0, renderDpr, 0, 0);
+}
+
+function normalizeAttackDirection(value) {
+  return value === ATTACK_DIRECTION_DOWN ? ATTACK_DIRECTION_DOWN : ATTACK_DIRECTION_UP;
+}
+
+function attackDirectionSign(direction = currentAttackDirection()) {
+  return normalizeAttackDirection(direction) === ATTACK_DIRECTION_DOWN ? -1 : 1;
+}
+
+function currentAttackDirection() {
+  return normalizeAttackDirection(S.playMetadata?.attackDirection);
+}
+
+function attackDirectionUiCopy() {
+  const lang = window.AnimatorBoardI18n?.getLanguage?.() || document.documentElement.lang || 'en';
+  const base = String(lang || 'en').toLowerCase();
+  if (base.startsWith('pt')) {
+    return {
+      label: 'Ataque',
+      up: 'Para cima',
+      down: 'Para baixo',
+      upShort: '↑',
+      downShort: '↓',
+    };
+  }
+  if (base.startsWith('es')) {
+    return {
+      label: 'Ataque',
+      up: 'Hacia arriba',
+      down: 'Hacia abajo',
+      upShort: '↑',
+      downShort: '↓',
+    };
+  }
+  if (base.startsWith('fr')) {
+    return {
+      label: 'Attaque',
+      up: 'Vers le haut',
+      down: 'Vers le bas',
+      upShort: '↑',
+      downShort: '↓',
+    };
+  }
+  return {
+    label: 'Attack',
+    up: 'Attacking Up',
+    down: 'Attacking Down',
+    upShort: '↑',
+    downShort: '↓',
+  };
 }
 
 function computeDesktopCanvasMetrics(width, height) {
@@ -189,7 +242,7 @@ function clampFieldPoint(point) {
 function updateGainDisplayForY(y) {
   const el = document.getElementById('gainDisplay');
   if (!el) return;
-  const dist = Math.round((GAINLINE_Y - y) * 1);
+  const dist = Math.round((GAINLINE_Y - y) * attackDirectionSign());
   const sign = dist > 0 ? '+' : '';
   el.textContent = dist === 0 ? tr('gainline.status', {}, 'On gainline') : `${sign}${dist}m`;
   el.style.color = dist > 0 ? '#4ade80' : dist < 0 ? '#f87171' : '#fbbf24';
@@ -2528,6 +2581,7 @@ function emptyPlayMetadata(title = '') {
     coachingPoints: [],
     decisionCue: '',
     commonMistakes: [],
+    attackDirection: ATTACK_DIRECTION_UP,
   };
 }
 
@@ -2547,6 +2601,7 @@ function normalizeProjectMetadata(project = {}, metadata = {}) {
     coachingPoints: normalizeTextList(metadata.coachingPoints, 3),
     decisionCue: String(metadata.decisionCue || '').trim(),
     commonMistakes: normalizeTextList(metadata.commonMistakes, 3),
+    attackDirection: normalizeAttackDirection(metadata.attackDirection || project.attackDirection || project.meta?.attackDirection),
     createdAt: metadata.createdAt || project.createdAt || project.savedAt || stamp,
     updatedAt: metadata.updatedAt || project.updatedAt || project.savedAt || stamp,
     source: metadata.source || project.source || 'animator',
@@ -4105,6 +4160,7 @@ function serializePlay() {
       name: currentPlayTitle(),
       createdAt: stamp,
       modifiedAt: stamp,
+      attackDirection: currentAttackDirection(),
     },
     phases: GamePlan.phases.map((phase, index) => serializePhase(phase, index)),
     currentPhase: GamePlan.currentPhase,
@@ -4138,6 +4194,10 @@ function deserializePlay(obj) {
     GamePlan.name = typeof play.meta?.name === 'string' && play.meta.name.trim()
       ? play.meta.name.trim()
       : 'Untitled Play';
+    S.playMetadata = normalizeProjectMetadata(
+      { name: GamePlan.name, meta: play.meta || {}, attackDirection: play.attackDirection },
+      { ...(S.playMetadata || {}), title: GamePlan.name, attackDirection: play.meta?.attackDirection || play.attackDirection }
+    );
     GamePlan.currentPhase = clamp(Number.isFinite(play.currentPhase) ? Number(play.currentPhase) : 0, 0, phases.length - 1);
     GamePlan.phases = phases;
     const activePhase = GamePlan.phases[GamePlan.currentPhase] || GamePlan.phases[0];
@@ -4698,6 +4758,7 @@ function sanitizeNormalizedProjectTextFields(project) {
     project.metadata.purpose = sanitizeImportedText(project.metadata.purpose, 600, '');
     project.metadata.decisionCue = sanitizeImportedText(project.metadata.decisionCue, 600, '');
     project.metadata.source = sanitizeImportedText(project.metadata.source, 80, 'animator');
+    project.metadata.attackDirection = normalizeAttackDirection(project.metadata.attackDirection);
     project.metadata.coachingPoints = Array.isArray(project.metadata.coachingPoints)
       ? project.metadata.coachingPoints.map(item => sanitizeImportedText(item, 240, '')).filter(Boolean).slice(0, 3)
       : [];
@@ -11284,6 +11345,47 @@ function updateBoardStatus() {
   }
 }
 
+function syncAttackDirectionUI() {
+  const direction = currentAttackDirection();
+  const copy = attackDirectionUiCopy();
+  const desktopLabel = document.getElementById('attackDirectionLabel');
+  const mobileLabel = document.getElementById('mobAttackDirectionLabel');
+  const desktopGroup = document.getElementById('attackDirectionGroup');
+  const mobileGroup = document.getElementById('mobAttackDirectionGroup');
+  const upButtons = [
+    document.getElementById('attackDirectionUpBtn'),
+    document.getElementById('mobAttackDirectionUpBtn'),
+  ];
+  const downButtons = [
+    document.getElementById('attackDirectionDownBtn'),
+    document.getElementById('mobAttackDirectionDownBtn'),
+  ];
+  if (desktopLabel) desktopLabel.textContent = copy.label;
+  if (mobileLabel) mobileLabel.textContent = copy.label;
+  if (desktopGroup) desktopGroup.setAttribute('aria-label', copy.label);
+  if (mobileGroup) mobileGroup.setAttribute('aria-label', copy.label);
+  upButtons.forEach((btn) => {
+    if (!btn) return;
+    const active = direction === ATTACK_DIRECTION_UP;
+    btn.textContent = copy.upShort;
+    btn.title = copy.up;
+    btn.setAttribute('aria-label', copy.up);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    btn.classList.toggle('active', active);
+    btn.classList.toggle('is-active', active);
+  });
+  downButtons.forEach((btn) => {
+    if (!btn) return;
+    const active = direction === ATTACK_DIRECTION_DOWN;
+    btn.textContent = copy.downShort;
+    btn.title = copy.down;
+    btn.setAttribute('aria-label', copy.down);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    btn.classList.toggle('active', active);
+    btn.classList.toggle('is-active', active);
+  });
+}
+
 function toggleGainline() {
   if (!claimPhoneDataAction('more:gainline')) return;
   showGainline = !showGainline;
@@ -11295,6 +11397,27 @@ function toggleGainline() {
   render();
 }
 window.toggleGainline = toggleGainline;
+
+function setAttackDirection(direction, { snapshotBefore = true } = {}) {
+  const next = normalizeAttackDirection(direction);
+  const current = currentAttackDirection();
+  if (next === current) return false;
+  if (snapshotBefore) snapshot();
+  if (!S.playMetadata) S.playMetadata = emptyPlayMetadata(currentPlayTitle());
+  S.playMetadata = normalizeProjectMetadata(
+    { name: currentPlayTitle() },
+    { ...(S.playMetadata || {}), title: currentPlayTitle(), attackDirection: next }
+  );
+  const carrier = S.players.find((player) => player.isBC);
+  updateGainDisplayForY(carrier ? carrier.y : GAINLINE_Y);
+  setHint(next === ATTACK_DIRECTION_UP
+    ? 'Attack direction set to upfield. Positive gain now reads toward the top try line.'
+    : 'Attack direction set to downfield. Positive gain now reads toward the bottom try line.');
+  refreshInteractionUI();
+  render();
+  return true;
+}
+window.setAttackDirection = setAttackDirection;
 
 function toggleGhostPrevious() {
   if (!claimPhoneDataAction('more:ghost-previous')) return;
@@ -11642,6 +11765,7 @@ function refreshInteractionUI() {
   rebuildPalette();
   updatePaletteSummary();
   updateBoardStatus();
+  syncAttackDirectionUI();
   updatePlayMetadataPanel();
   updateSequenceUI();
   updateMobileUI();
@@ -12923,6 +13047,8 @@ window.__animatorDebug = {
   toCanvasPoint: (...args) => toC(...args),
   playerLabelBounds: (...args) => playerLabelBounds(...args),
   getRadialMenu: () => radialMenu,
+  makeBoardData: (...args) => makeBoardData(...args),
+  applyBoardData: (...args) => applyBoardData(...args),
 };
 
 document.addEventListener('pointerdown', e => {
