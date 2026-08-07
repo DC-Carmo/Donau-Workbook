@@ -6222,10 +6222,10 @@ function samplePassPlan(plan, t, byKey) {
   if (!seg) seg = plan.segments[plan.segments.length - 1];
   if (seg.kind === 'carry') {
     const c = byKey.get(seg.owner);
-    return c ? { pos: attachedBallPositionForPlayer(c), owner: seg.owner, activePass: null } : { pos: null, owner: null, activePass: null };
+    return c ? { pos: attachedBallPositionForPlayer(c), owner: seg.owner, activePass: null, activeFrom: null, activeTo: null } : { pos: null, owner: null, activePass: null, activeFrom: null, activeTo: null };
   }
   const lf = seg.t1 > seg.t0 ? (f - seg.t0) / (seg.t1 - seg.t0) : 1;
-  return { pos: seg.traj.sampleByDistance(lf), owner: null, activePass: seg.passIndex };
+  return { pos: seg.traj.sampleByDistance(lf), owner: null, activePass: seg.passIndex, activeFrom: seg.from, activeTo: seg.to };
 }
 
 function prepareTrajectory(fromPos, toPos, runPts) {
@@ -6333,7 +6333,13 @@ function samplePlaybackLeg(leg, t) {
     byKey.set(key, pos);
   }
   const b = leg.ball.sample(f, byKey);
-  return { players, ball: b.pos, ballOwner: playerKeyToRef(b.owner), annotations: leg.annotations, paths: leg.paths, passes: leg.passes, localT: f };
+  let framePasses = leg.passes;
+  if (leg.ball.kind === 'passchain') {
+    framePasses = (b.activeFrom && b.activeTo)
+      ? leg.passes.filter(p => `${p.fromT}:${p.fromNum}` === b.activeFrom && `${p.toT}:${p.toNum}` === b.activeTo)
+      : [];
+  }
+  return { players, ball: b.pos, ballOwner: playerKeyToRef(b.owner), annotations: leg.annotations, paths: leg.paths, passes: framePasses, localT: f };
 }
 
 const PLAYBACK_SHADOW = false;
