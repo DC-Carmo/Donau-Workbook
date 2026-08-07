@@ -6249,7 +6249,7 @@ function samplePlaybackLeg(leg, t) {
   return { players, ball: b.pos, ballOwner: playerKeyToRef(b.owner), annotations: leg.annotations, paths: leg.paths, passes: leg.passes, localT: f };
 }
 
-const PLAYBACK_SHADOW = true;
+const PLAYBACK_SHADOW = false;
 let _shadowLegKey = null;
 function runPlaybackShadowCheck(fromStep, toStep, fromIdx, toIdx) {
   const key = `${fromIdx}:${toIdx}`;
