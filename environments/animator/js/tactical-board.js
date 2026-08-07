@@ -6132,6 +6132,93 @@ function deriveBallMotion(fromStep, toStep, motionStep) {
   return hasBall ? { kind: 'loose', warnings } : { kind: 'none', warnings };
 }
 
+function prepareTrajectory(fromPos, toPos, runPts) {
+  const from = { x: fromPos.x, y: fromPos.y };
+  const to = { x: toPos.x, y: toPos.y };
+  const hasRun = Array.isArray(runPts) && runPts.length >= 2;
+  let pts;
+  if (hasRun) {
+    pts = runPts.map(p => ({ x: p.x, y: p.y }));
+    pts[0] = { ...from };
+    pts[pts.length - 1] = { ...to };
+  } else {
+    pts = [{ ...from }, { ...to }];
+  }
+  const lut = buildArcLengthSampler(pts);
+  const sampleByDistance = (f) => {
+    const ff = Math.min(Math.max(f, 0), 1);
+    if (ff <= 0) return { ...from };
+    if (ff >= 1) return { ...to };
+    return lut.sampleByDistance(ff);
+  };
+  return { from, to, distance: lut.length, kind: hasRun ? lut.kind : 'linear', sampleByDistance };
+}
+
+function resolveBallEndpoint(step) {
+  const b = normalizeBallPosition(step?.ball);
+  if (b) return b;
+  const o = normalizePlayerRef(step?.ballOwner);
+  if (!o) return null;
+  const pl = buildStepLookup(step?.players || []).get(playerKey(o));
+  return pl ? { x: pl.x, y: pl.y } : null;
+}
+
+function prepareBallMotion(motion, fromStep, toStep) {
+  if (motion.kind === 'carry' || motion.kind === 'pickup') {
+    return { kind: motion.kind, owner: motion.owner, sample: (t, byKey) => {
+      const c = byKey.get(motion.owner);
+      return c ? { pos: { x: c.x + BALL_CARRY_OFFSET.x, y: c.y + BALL_CARRY_OFFSET.y }, owner: motion.owner } : { pos: null, owner: null };
+    } };
+  }
+  if (motion.kind === 'pass' || motion.kind === 'kick') {
+    const a = resolveBallEndpoint(fromStep) || { x: 34, y: 50 };
+    const b = motion.kind === 'pass' ? (resolveBallEndpoint(toStep) || a) : { x: motion.pass?.targetX ?? a.x, y: motion.pass?.targetY ?? a.y };
+    const traj = prepareTrajectory(a, b, null);
+    return { kind: motion.kind, sample: (t) => ({ pos: traj.sampleByDistance(t), owner: t <= 0 ? motion.from : (t >= 1 ? (motion.to || null) : null) }) };
+  }
+  if (motion.kind === 'loose') {
+    const a = resolveBallEndpoint(fromStep);
+    const b = resolveBallEndpoint(toStep) || a;
+    return { kind: 'loose', sample: (t) => ({ pos: a && b ? _cmrLerp(a, b, t) : (a || b || null), owner: null }) };
+  }
+  return { kind: 'none', sample: () => ({ pos: null, owner: null }) };
+}
+
+function preparePlaybackLeg(fromStep, toStep) {
+  const motionStep = toStep;
+  const fromLookup = buildStepLookup(fromStep.players);
+  const toLookup = buildStepLookup(toStep.players);
+  const keys = new Set([...fromLookup.keys(), ...toLookup.keys()]);
+  const players = new Map();
+  const debug = { warnings: [], trajectories: {} };
+  for (const key of keys) {
+    const a = fromLookup.get(key) || toLookup.get(key);
+    const b = toLookup.get(key) || fromLookup.get(key);
+    const runPath = phasePathForPlayer(motionStep, b);
+    const runPts = runPath && Array.isArray(runPath.pts) && runPath.pts.length >= 2 ? runPath.pts : null;
+    const traj = prepareTrajectory({ x: a.x, y: a.y }, { x: b.x, y: b.y }, runPts);
+    players.set(key, { identity: playerRef(b), staticProps: { num: b.num, team: b.team, id: b.id }, trajectory: traj });
+    debug.trajectories[key] = { to: traj.to, distance: Math.round(traj.distance * 10) / 10, kind: traj.kind };
+  }
+  const motion = deriveBallMotion(fromStep, toStep, motionStep);
+  if (motion.warnings && motion.warnings.length) debug.warnings.push(...motion.warnings);
+  const ball = prepareBallMotion(motion, fromStep, toStep);
+  return { players, ball, annotations: toStep.annotations, paths: toStep.paths, passes: toStep.passes, debug };
+}
+
+function samplePlaybackLeg(leg, t) {
+  const f = Math.min(Math.max(t, 0), 1);
+  const players = [];
+  const byKey = new Map();
+  for (const [key, pr] of leg.players) {
+    const pos = pr.trajectory.sampleByDistance(f);
+    players.push({ ...pr.staticProps, x: pos.x, y: pos.y });
+    byKey.set(key, pos);
+  }
+  const b = leg.ball.sample(f, byKey);
+  return { players, ball: b.pos, ballOwner: b.owner, annotations: leg.annotations, paths: leg.paths, passes: leg.passes, localT: f };
+}
+
 function distPointToSegmentPx(p, a, b) {
   const dx = b.x - a.x, dy = b.y - a.y;
   const lenSq = dx * dx + dy * dy;
