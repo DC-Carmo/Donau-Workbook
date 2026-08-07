@@ -6183,6 +6183,18 @@ function normalizePassSequence(motionStep) {
   };
 }
 
+function passArcPoints(a, b) {
+  const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const cp = { x: mid.x + dy * 0.28, y: mid.y - dx * 0.28 };
+  const pts = [];
+  for (let s = 0; s <= 14; s++) {
+    const u = s / 14;
+    pts.push({ x: (1 - u) * (1 - u) * a.x + 2 * (1 - u) * u * cp.x + u * u * b.x, y: (1 - u) * (1 - u) * a.y + 2 * (1 - u) * u * cp.y + u * u * b.y });
+  }
+  return pts;
+}
+
 function compilePassPlan(normalized, sampleAt, legSeconds) {
   if (!normalized || !Array.isArray(normalized.passes) || !normalized.passes.length) return null;
   const owners = [normalized.startOwner, ...normalized.passes.map(p => p.to)];
@@ -6203,7 +6215,7 @@ function compilePassPlan(normalized, sampleAt, legSeconds) {
       catchT = clamp(releaseT + (flight / PLAYBACK_BALL_UNITS_PER_SECOND) / dur, releaseT + 0.02, 1);
     }
     const b = attachedBallPositionForPlayer(sampleAt(owners[i + 1], catchT));
-    segments.push({ kind: 'pass', from: normalized.passes[i].from, to: normalized.passes[i].to, passIndex: i, t0: releaseT, t1: catchT, traj: prepareTrajectory(releasePos, b, null) });
+    segments.push({ kind: 'pass', from: normalized.passes[i].from, to: normalized.passes[i].to, passIndex: i, t0: releaseT, t1: catchT, traj: prepareTrajectory(releasePos, b, passArcPoints(releasePos, b)) });
     t = catchT;
     const end = (i < N - 1) ? clamp(t + CATCHGAP, t, 1) : 1;
     segments.push({ kind: 'carry', owner: normalized.passes[i].to, t0: t, t1: end });
