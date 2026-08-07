@@ -6183,6 +6183,34 @@ function normalizePassSequence(motionStep) {
   };
 }
 
+function compilePassPlan(normalized, posOf) {
+  if (!normalized || !Array.isArray(normalized.passes) || !normalized.passes.length) return null;
+  const owners = [normalized.startOwner, ...normalized.passes.map(p => p.to)];
+  const pts = owners.map(posOf);
+  if (pts.some(p => !p || !Number.isFinite(p.x) || !Number.isFinite(p.y))) return null;
+  const N = normalized.passes.length;
+  const LEAD = 0.08, CATCH = 0.06, FINAL = 0.10;
+  const budget = Math.max(0.02, 1 - LEAD - (N - 1) * CATCH - FINAL);
+  const dists = normalized.passes.map((p, i) => Math.max(0.001, d2(pts[i], pts[i + 1])));
+  const total = dists.reduce((a, b) => a + b, 0);
+  const passDur = dists.map(d => budget * d / total);
+  const segments = [];
+  let t = 0;
+  segments.push({ kind: 'carry', owner: normalized.startOwner, t0: 0, t1: LEAD });
+  t = LEAD;
+  for (let i = 0; i < N; i++) {
+    const a = attachedBallPositionForPlayer(pts[i]);
+    const b = attachedBallPositionForPlayer(pts[i + 1]);
+    segments.push({ kind: 'pass', from: normalized.passes[i].from, to: normalized.passes[i].to, passIndex: i, t0: t, t1: t + passDur[i], traj: prepareTrajectory(a, b, null) });
+    t += passDur[i];
+    const cd = (i < N - 1) ? CATCH : FINAL;
+    segments.push({ kind: 'carry', owner: normalized.passes[i].to, t0: t, t1: t + cd });
+    t += cd;
+  }
+  segments[segments.length - 1].t1 = 1;
+  return { initialOwner: normalized.startOwner, finalOwner: normalized.finalOwner, segments };
+}
+
 function prepareTrajectory(fromPos, toPos, runPts) {
   const from = { x: fromPos.x, y: fromPos.y };
   const to = { x: toPos.x, y: toPos.y };
