@@ -6153,6 +6153,36 @@ function deriveBallMotion(fromStep, toStep, motionStep) {
   return hasBall ? { kind: 'loose', warnings } : { kind: 'none', warnings };
 }
 
+function normalizePassSequence(motionStep) {
+  const raw = Array.isArray(motionStep && motionStep.passes)
+    ? motionStep.passes.filter(p => p && p.style === 'pass'
+        && p.fromT && Number.isFinite(p.fromNum) && p.toT && Number.isFinite(p.toNum))
+    : [];
+  if (!raw.length) return null;
+  const chain = raw.map(p => ({ from: `${p.fromT}:${p.fromNum}`, to: `${p.toT}:${p.toNum}`, raw: p }));
+  const deduped = [];
+  for (const c of chain) {
+    const last = deduped[deduped.length - 1];
+    if (last && last.from === c.from && last.to === c.to) continue;
+    deduped.push(c);
+  }
+  const seq = [deduped[0]];
+  const warnings = [];
+  for (let i = 1; i < deduped.length; i++) {
+    if (deduped[i].from === seq[seq.length - 1].to) seq.push(deduped[i]);
+    else warnings.push('disconnected pass ignored: ' + deduped[i].from + '->' + deduped[i].to);
+  }
+  seq.forEach((s, i) => (s.passIndex = i));
+  const startOwner = seq[0].from;
+  const finalOwner = seq[seq.length - 1].to;
+  const stepOwner = motionStep.ballOwner ? `${motionStep.ballOwner.team}:${motionStep.ballOwner.num}` : null;
+  const legacyOwnerWasPreAdvanced = stepOwner === finalOwner && stepOwner !== startOwner;
+  return {
+    passes: seq.map(s => ({ from: s.from, to: s.to, passIndex: s.passIndex })),
+    startOwner, finalOwner, legacyOwnerWasPreAdvanced, warnings
+  };
+}
+
 function prepareTrajectory(fromPos, toPos, runPts) {
   const from = { x: fromPos.x, y: fromPos.y };
   const to = { x: toPos.x, y: toPos.y };
