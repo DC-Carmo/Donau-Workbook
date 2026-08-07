@@ -1963,14 +1963,34 @@ function ensureSteps() {
   S.currentStep = clamp(S.currentStep, 0, S.steps.length - 1);
 }
 
+function reconcileRunBoundaries(steps) {
+  if (!Array.isArray(steps)) return;
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    if (!step || !Array.isArray(step.paths)) continue;
+    const cur = buildStepLookup(step.players);
+    const nxt = (i + 1 < steps.length && steps[i + 1]) ? buildStepLookup(steps[i + 1].players) : null;
+    step.paths.forEach(path => {
+      if (!Array.isArray(path.pts) || path.pts.length < 2) return;
+      const key = playerKey({ team: path.team, num: path.num });
+      const c = cur.get(key);
+      if (c) path.pts[0] = { x: c.x, y: c.y };
+      const n = nxt ? nxt.get(key) : null;
+      if (n) path.pts[path.pts.length - 1] = { x: n.x, y: n.y };
+    });
+  }
+}
+
 function persistCurrentStep() {
   ensureSteps();
   S.steps[S.currentStep] = liveBoardToStepState();
+  reconcileRunBoundaries(S.steps);
 }
 
 function commitLiveBoardToCurrentStep() {
   ensureSteps();
   S.steps[S.currentStep] = liveBoardToStepState();
+  reconcileRunBoundaries(S.steps);
 }
 
 function serializePhase(phase = S(), index = GamePlan.currentPhase) {
