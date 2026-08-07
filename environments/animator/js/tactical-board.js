@@ -1059,7 +1059,7 @@ const PLAYBACK_MOVE_UNITS_PER_SECOND = 6;
 const PLAYBACK_BALL_UNITS_PER_SECOND = 8;
 const PLAYBACK_MIN_MOVE_DURATION = 2.4;
 const PLAYBACK_MAX_MOVE_DURATION = 8;
-const PLAYBACK_STATIC_MOVE_DURATION = 2.8;
+const PLAYBACK_STATIC_MOVE_DURATION = 0.05;
 
 function claimPhoneDataAction(actionKey) {
   if (!isPhoneViewport) return true;
@@ -9882,7 +9882,7 @@ function playbackDurationSeconds() {
   const toRef = getCanonicalMoveRef(toIdx);
   const from = canonicalPlaybackStepAt(fromRef) || emptyStepState();
   const to = canonicalPlaybackStepAt(toRef) || from;
-  return computePlaybackSegmentDurationSeconds(from, to, to);
+  return computePlaybackSegmentDurationSeconds(from, to, from);
 }
 
 function currentStepStartProgress() {
