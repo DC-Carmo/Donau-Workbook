@@ -6107,6 +6107,31 @@ function buildArcLengthSampler(rawPoints, samplesPerSeg = 16) {
   return { sampleByDistance, length: total, kind: 'spline', points };
 }
 
+function deriveBallMotion(fromStep, toStep, motionStep) {
+  const warnings = [];
+  const passes = Array.isArray(motionStep?.passes) ? motionStep.passes : [];
+  const kick = passes.find(p => p && p.style === 'kick');
+  if (kick) return { kind: 'kick', from: playerKey({ num: kick.fromNum, team: kick.fromT }), pass: kick, warnings };
+  const pass = passes.find(p => p && p.style === 'pass');
+  if (pass) return { kind: 'pass', from: playerKey({ num: pass.fromNum, team: pass.fromT }), to: playerKey({ num: pass.toNum, team: pass.toT }), pass, warnings };
+  const fromOwner = fromStep?.ballAttached ? normalizePlayerRef(fromStep.ballOwner) : null;
+  const toOwner = toStep?.ballAttached ? normalizePlayerRef(toStep.ballOwner) : null;
+  const fromKey = fromOwner ? playerKey(fromOwner) : null;
+  const toKey = toOwner ? playerKey(toOwner) : null;
+  if (fromKey && toKey) {
+    if (fromKey === toKey) return { kind: 'carry', owner: fromKey, warnings };
+    warnings.push(`Ambiguous ball transition: owner changed without pass/kick (${fromKey} -> ${toKey}); carrying source owner.`);
+    return { kind: 'carry', owner: fromKey, ambiguous: true, warnings };
+  }
+  if (fromKey && !toKey) {
+    warnings.push(`Destination ownership missing; carrying source owner ${fromKey} for compatibility.`);
+    return { kind: 'carry', owner: fromKey, warnings };
+  }
+  if (!fromKey && toKey) return { kind: 'pickup', owner: toKey, warnings };
+  const hasBall = normalizeBallPosition(fromStep?.ball) || normalizeBallPosition(toStep?.ball) || fromStep?.ballOwner || toStep?.ballOwner;
+  return hasBall ? { kind: 'loose', warnings } : { kind: 'none', warnings };
+}
+
 function distPointToSegmentPx(p, a, b) {
   const dx = b.x - a.x, dy = b.y - a.y;
   const lenSq = dx * dx + dy * dy;
