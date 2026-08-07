@@ -1825,6 +1825,7 @@ function normalizePhaseState(phase = {}, index = 0) {
   const steps = Array.isArray(phase.steps) && phase.steps.length
     ? phase.steps.map(step => normalizeStepState(step, fallbackStep.players))
     : [fallbackStep];
+  reconcileRunBoundaries(steps);
   const currentStep = clamp(Number.isFinite(phase.currentStep) ? Number(phase.currentStep) : 0, 0, steps.length - 1);
   const liveStep = steps[currentStep] || steps[0] || fallbackStep;
   const players = cloneData(liveStep.players);
