@@ -6219,6 +6219,38 @@ function samplePlaybackLeg(leg, t) {
   return { players, ball: b.pos, ballOwner: b.owner, annotations: leg.annotations, paths: leg.paths, passes: leg.passes, localT: f };
 }
 
+const PLAYBACK_SHADOW = true;
+let _shadowLegKey = null;
+function runPlaybackShadowCheck(fromStep, toStep, fromIdx, toIdx) {
+  const key = `${fromIdx}:${toIdx}`;
+  if (key === _shadowLegKey) return;
+  _shadowLegKey = key;
+  try {
+    const leg = preparePlaybackLeg(fromStep, toStep);
+    const issues = [];
+    const end = samplePlaybackLeg(leg, 1);
+    const toLookup = buildStepLookup(toStep.players);
+    for (const p of end.players) {
+      const tp = toLookup.get(`${p.team}:${p.num}`);
+      if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) issues.push(`NaN ${p.team}:${p.num}`);
+      else if (tp && Math.hypot(p.x - tp.x, p.y - tp.y) > 1e-6) issues.push(`endpoint drift ${p.team}:${p.num}`);
+    }
+    if (leg.ball.kind === 'carry' || leg.ball.kind === 'pickup') {
+      const mid = samplePlaybackLeg(leg, 0.5);
+      const carrier = mid.players.find(p => `${p.team}:${p.num}` === leg.ball.owner);
+      if (!carrier) issues.push(`carry owner ${leg.ball.owner} absent`);
+      else if (!mid.ball) issues.push('carry ball null mid-leg');
+    }
+    if (leg.debug.warnings.length || issues.length) {
+      console.warn(`[leg-shadow ${key}] ball=${leg.ball.kind}`, { warnings: leg.debug.warnings, issues, trajectories: leg.debug.trajectories });
+    } else {
+      console.log(`[leg-shadow ${key}] OK ball=${leg.ball.kind}`);
+    }
+  } catch (e) {
+    console.warn(`[leg-shadow ${key}] compiler threw:`, e && e.message);
+  }
+}
+
 function distPointToSegmentPx(p, a, b) {
   const dx = b.x - a.x, dy = b.y - a.y;
   const lenSq = dx * dx + dy * dy;
@@ -10008,6 +10040,7 @@ function buildSequenceFrame(progress) {
   to = canonicalPlaybackStepAt(toRef) || from;
   motionStep = to;
   let segmentIndex = fromIdx;
+  if (PLAYBACK_SHADOW) runPlaybackShadowCheck(from, to, fromIdx, toIdx);
 
   const fromLookup = buildStepLookup(from.players);
   const toLookup = buildStepLookup(to.players);
