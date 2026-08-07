@@ -6183,34 +6183,33 @@ function normalizePassSequence(motionStep) {
   };
 }
 
-function compilePassPlan(normalized, sampleAt) {
+function compilePassPlan(normalized, sampleAt, legSeconds) {
   if (!normalized || !Array.isArray(normalized.passes) || !normalized.passes.length) return null;
   const owners = [normalized.startOwner, ...normalized.passes.map(p => p.to)];
-  const startPos = owners.map(k => sampleAt(k, 0));
-  const endPos = owners.map(k => sampleAt(k, 1));
-  if (startPos.some(p => !p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) ||
-      endPos.some(p => !p || !Number.isFinite(p.x) || !Number.isFinite(p.y))) return null;
+  if (owners.some(k => { const a = sampleAt(k, 0), b = sampleAt(k, 1); return !a || !b || !Number.isFinite(a.x) || !Number.isFinite(b.x); })) return null;
   const N = normalized.passes.length;
-  const LEAD = 0.08, CATCH = 0.06, FINAL = 0.10;
-  const budget = Math.max(0.02, 1 - LEAD - (N - 1) * CATCH - FINAL);
-  const dists = normalized.passes.map((p, i) => Math.max(0.001, d2(startPos[i], endPos[i + 1])));
-  const total = dists.reduce((a, b) => a + b, 0);
-  const passDur = dists.map(d => budget * d / total);
+  const LEAD = 0.06, CATCHGAP = 0.05;
+  const dur = Math.max(0.3, legSeconds || PLAYBACK_MIN_MOVE_DURATION);
   const segments = [];
-  let t = 0;
+  let t = LEAD;
   segments.push({ kind: 'carry', owner: normalized.startOwner, t0: 0, t1: LEAD });
-  t = LEAD;
   for (let i = 0; i < N; i++) {
-    const t0 = t, t1 = t + passDur[i];
-    const a = attachedBallPositionForPlayer(sampleAt(owners[i], t0));
-    const b = attachedBallPositionForPlayer(sampleAt(owners[i + 1], t1));
-    segments.push({ kind: 'pass', from: normalized.passes[i].from, to: normalized.passes[i].to, passIndex: i, t0, t1, traj: prepareTrajectory(a, b, null) });
-    t = t1;
-    const cd = (i < N - 1) ? CATCH : FINAL;
-    segments.push({ kind: 'carry', owner: normalized.passes[i].to, t0: t, t1: t + cd });
-    t += cd;
+    const releaseT = t;
+    const releasePos = attachedBallPositionForPlayer(sampleAt(owners[i], releaseT));
+    let catchT = clamp(releaseT + 0.1, releaseT + 0.02, 1);
+    for (let it = 0; it < 5; it++) {
+      const cp = attachedBallPositionForPlayer(sampleAt(owners[i + 1], catchT));
+      const flight = d2(releasePos, cp);
+      catchT = clamp(releaseT + (flight / PLAYBACK_BALL_UNITS_PER_SECOND) / dur, releaseT + 0.02, 1);
+    }
+    const b = attachedBallPositionForPlayer(sampleAt(owners[i + 1], catchT));
+    segments.push({ kind: 'pass', from: normalized.passes[i].from, to: normalized.passes[i].to, passIndex: i, t0: releaseT, t1: catchT, traj: prepareTrajectory(releasePos, b, null) });
+    t = catchT;
+    const end = (i < N - 1) ? clamp(t + CATCHGAP, t, 1) : 1;
+    segments.push({ kind: 'carry', owner: normalized.passes[i].to, t0: t, t1: end });
+    t = end;
   }
-  segments[segments.length - 1].t1 = 1;
+  if (segments[segments.length - 1].t1 < 1) segments[segments.length - 1].t1 = 1;
   return { initialOwner: normalized.startOwner, finalOwner: normalized.finalOwner, segments };
 }
 
@@ -6262,7 +6261,7 @@ function resolveBallEndpoint(step) {
   return pl ? { x: pl.x, y: pl.y } : null;
 }
 
-function prepareBallMotion(motion, fromStep, toStep, sampleAt) {
+function prepareBallMotion(motion, fromStep, toStep, sampleAt, legSeconds) {
   if (motion.kind === 'carry' || motion.kind === 'pickup') {
     return { kind: motion.kind, owner: motion.owner, sample: (t, byKey) => {
       const c = byKey.get(motion.owner);
@@ -6272,7 +6271,7 @@ function prepareBallMotion(motion, fromStep, toStep, sampleAt) {
   if (motion.kind === 'pass') {
     const normalized = normalizePassSequence(fromStep);
     if (normalized && typeof sampleAt === 'function') {
-      const plan = compilePassPlan(normalized, sampleAt);
+      const plan = compilePassPlan(normalized, sampleAt, legSeconds);
       if (plan) return { kind: 'passchain', plan, sample: (t, byKey) => samplePassPlan(plan, t, byKey) };
     }
     const a = resolveBallEndpoint(fromStep) || { x: 34, y: 50 };
@@ -6313,7 +6312,8 @@ function preparePlaybackLeg(fromStep, toStep) {
   const motion = deriveBallMotion(fromStep, toStep, motionStep);
   if (motion.warnings && motion.warnings.length) debug.warnings.push(...motion.warnings);
   const sampleAt = (key, f) => { const pr = players.get(key); return pr && pr.trajectory ? pr.trajectory.sampleByDistance(f) : null; };
-  const ball = prepareBallMotion(motion, fromStep, toStep, sampleAt);
+  const legSeconds = computePlaybackSegmentDurationSeconds(fromStep, toStep, motionStep);
+  const ball = prepareBallMotion(motion, fromStep, toStep, sampleAt, legSeconds);
   return { players, ball, annotations: motionStep.annotations, paths: motionStep.paths, passes: motionStep.passes, debug };
 }
 
