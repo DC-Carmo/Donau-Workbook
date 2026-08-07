@@ -6185,7 +6185,7 @@ function prepareBallMotion(motion, fromStep, toStep) {
 }
 
 function preparePlaybackLeg(fromStep, toStep) {
-  const motionStep = toStep;
+  const motionStep = fromStep;
   const fromLookup = buildStepLookup(fromStep.players);
   const toLookup = buildStepLookup(toStep.players);
   const keys = new Set([...fromLookup.keys(), ...toLookup.keys()]);
@@ -6203,7 +6203,7 @@ function preparePlaybackLeg(fromStep, toStep) {
   const motion = deriveBallMotion(fromStep, toStep, motionStep);
   if (motion.warnings && motion.warnings.length) debug.warnings.push(...motion.warnings);
   const ball = prepareBallMotion(motion, fromStep, toStep);
-  return { players, ball, annotations: toStep.annotations, paths: toStep.paths, passes: toStep.passes, debug };
+  return { players, ball, annotations: motionStep.annotations, paths: motionStep.paths, passes: motionStep.passes, debug };
 }
 
 function playerKeyToRef(key) {
