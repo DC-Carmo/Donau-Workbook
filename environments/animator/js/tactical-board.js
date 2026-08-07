@@ -6183,15 +6183,17 @@ function normalizePassSequence(motionStep) {
   };
 }
 
-function compilePassPlan(normalized, posOf) {
+function compilePassPlan(normalized, sampleAt) {
   if (!normalized || !Array.isArray(normalized.passes) || !normalized.passes.length) return null;
   const owners = [normalized.startOwner, ...normalized.passes.map(p => p.to)];
-  const pts = owners.map(posOf);
-  if (pts.some(p => !p || !Number.isFinite(p.x) || !Number.isFinite(p.y))) return null;
+  const startPos = owners.map(k => sampleAt(k, 0));
+  const endPos = owners.map(k => sampleAt(k, 1));
+  if (startPos.some(p => !p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) ||
+      endPos.some(p => !p || !Number.isFinite(p.x) || !Number.isFinite(p.y))) return null;
   const N = normalized.passes.length;
   const LEAD = 0.08, CATCH = 0.06, FINAL = 0.10;
   const budget = Math.max(0.02, 1 - LEAD - (N - 1) * CATCH - FINAL);
-  const dists = normalized.passes.map((p, i) => Math.max(0.001, d2(pts[i], pts[i + 1])));
+  const dists = normalized.passes.map((p, i) => Math.max(0.001, d2(startPos[i], endPos[i + 1])));
   const total = dists.reduce((a, b) => a + b, 0);
   const passDur = dists.map(d => budget * d / total);
   const segments = [];
@@ -6199,10 +6201,11 @@ function compilePassPlan(normalized, posOf) {
   segments.push({ kind: 'carry', owner: normalized.startOwner, t0: 0, t1: LEAD });
   t = LEAD;
   for (let i = 0; i < N; i++) {
-    const a = attachedBallPositionForPlayer(pts[i]);
-    const b = attachedBallPositionForPlayer(pts[i + 1]);
-    segments.push({ kind: 'pass', from: normalized.passes[i].from, to: normalized.passes[i].to, passIndex: i, t0: t, t1: t + passDur[i], traj: prepareTrajectory(a, b, null) });
-    t += passDur[i];
+    const t0 = t, t1 = t + passDur[i];
+    const a = attachedBallPositionForPlayer(sampleAt(owners[i], t0));
+    const b = attachedBallPositionForPlayer(sampleAt(owners[i + 1], t1));
+    segments.push({ kind: 'pass', from: normalized.passes[i].from, to: normalized.passes[i].to, passIndex: i, t0, t1, traj: prepareTrajectory(a, b, null) });
+    t = t1;
     const cd = (i < N - 1) ? CATCH : FINAL;
     segments.push({ kind: 'carry', owner: normalized.passes[i].to, t0: t, t1: t + cd });
     t += cd;
@@ -6259,7 +6262,7 @@ function resolveBallEndpoint(step) {
   return pl ? { x: pl.x, y: pl.y } : null;
 }
 
-function prepareBallMotion(motion, fromStep, toStep) {
+function prepareBallMotion(motion, fromStep, toStep, sampleAt) {
   if (motion.kind === 'carry' || motion.kind === 'pickup') {
     return { kind: motion.kind, owner: motion.owner, sample: (t, byKey) => {
       const c = byKey.get(motion.owner);
@@ -6268,9 +6271,8 @@ function prepareBallMotion(motion, fromStep, toStep) {
   }
   if (motion.kind === 'pass') {
     const normalized = normalizePassSequence(fromStep);
-    if (normalized) {
-      const lookup = buildStepLookup(fromStep.players);
-      const plan = compilePassPlan(normalized, (key) => { const pl = lookup.get(key); return pl ? { x: pl.x, y: pl.y } : null; });
+    if (normalized && typeof sampleAt === 'function') {
+      const plan = compilePassPlan(normalized, sampleAt);
       if (plan) return { kind: 'passchain', plan, sample: (t, byKey) => samplePassPlan(plan, t, byKey) };
     }
     const a = resolveBallEndpoint(fromStep) || { x: 34, y: 50 };
@@ -6310,7 +6312,8 @@ function preparePlaybackLeg(fromStep, toStep) {
   }
   const motion = deriveBallMotion(fromStep, toStep, motionStep);
   if (motion.warnings && motion.warnings.length) debug.warnings.push(...motion.warnings);
-  const ball = prepareBallMotion(motion, fromStep, toStep);
+  const sampleAt = (key, f) => { const pr = players.get(key); return pr && pr.trajectory ? pr.trajectory.sampleByDistance(f) : null; };
+  const ball = prepareBallMotion(motion, fromStep, toStep, sampleAt);
   return { players, ball, annotations: motionStep.annotations, paths: motionStep.paths, passes: motionStep.passes, debug };
 }
 
