@@ -10051,59 +10051,9 @@ function buildSequenceFrame(progress) {
   let segmentIndex = fromIdx;
   if (PLAYBACK_SHADOW) runPlaybackShadowCheck(from, to, fromIdx, toIdx);
 
-  const fromLookup = buildStepLookup(from.players);
-  const toLookup = buildStepLookup(to.players);
-  const allKeys = new Set([...fromLookup.keys(), ...toLookup.keys()]);
-  const players = Array.from(allKeys).map(key => {
-    const a = fromLookup.get(key) || toLookup.get(key);
-    const b = toLookup.get(key) || fromLookup.get(key);
-    const toPath = b ? phasePathForPlayer(motionStep, b) : null;
-    if (toPath && Array.isArray(toPath.pts) && toPath.pts.length >= 2) {
-      const rebasedPts = [{ x: a.x, y: a.y }, ...toPath.pts.slice(1)];
-      const alongPath = catmullRom(rebasedPts, localT);
-      return {
-        ...(cloneData(a) || cloneData(b) || {}),
-        x: alongPath.x,
-        y: alongPath.y,
-      };
-    }
-    return {
-      ...(cloneData(b) || cloneData(a) || {}),
-      x: lerp(a.x, b.x, localT),
-      y: lerp(a.y, b.y, localT),
-    };
-  });
-  const fromBall = resolveStepBall(from);
-  const toBall = resolveStepBall(to);
-  let ball = null;
-  if (fromBall && toBall) {
-    ball = { x: lerp(fromBall.x, toBall.x, localT), y: lerp(fromBall.y, toBall.y, localT) };
-  } else if (toBall) {
-    ball = { ...toBall };
-  } else if (fromBall) {
-    ball = { ...fromBall };
-  }
-  const carriedFromOwner = from.ballAttached ? normalizePlayerRef(from.ballOwner) : null;
-  const carriedToOwner = to.ballAttached ? normalizePlayerRef(to.ballOwner) : null;
-  const carriedOwner = samePlayerRef(carriedFromOwner, carriedToOwner)
-    ? carriedToOwner
-    : (carriedToOwner && !carriedFromOwner ? carriedToOwner : null);
-  if (carriedOwner && !(motionStep?.passes?.length)) {
-    const animatedOwner = players.find(player => samePlayerRef(playerRef(player), carriedOwner)) || null;
-    if (animatedOwner) {
-      ball = attachedBallPositionForPlayer(animatedOwner);
-    }
-  }
-  return {
-    players,
-    ball,
-    ballOwner: normalizePlayerRef(localT < 0.5 ? from.ballOwner : to.ballOwner),
-    annotations: cloneData(motionStep.annotations),
-    paths: cloneData(motionStep.paths),
-    passes: cloneData(motionStep.passes),
-    segmentIndex,
-    localT,
-  };
+  const leg = preparePlaybackLeg(from, to);
+  const sampled = samplePlaybackLeg(leg, localT);
+  return { ...sampled, segmentIndex: fromIdx };
 }
 
 function resolveAnimatedKickBall(frame, playerLookup) {
