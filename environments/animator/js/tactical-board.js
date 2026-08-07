@@ -6203,7 +6203,17 @@ function preparePlaybackLeg(fromStep, toStep) {
   const motion = deriveBallMotion(fromStep, toStep, motionStep);
   if (motion.warnings && motion.warnings.length) debug.warnings.push(...motion.warnings);
   const ball = prepareBallMotion(motion, fromStep, toStep);
-  return { players, ball, annotations: motionStep.annotations, paths: motionStep.paths, passes: motionStep.passes, debug };
+  const displayPaths = (motionStep.paths || []).map(path => {
+    const dpKey = playerKey({ team: path.team, num: path.num });
+    const dpFrom = fromLookup.get(dpKey);
+    const dpTo = toLookup.get(dpKey);
+    if (!Array.isArray(path.pts) || path.pts.length < 2 || !dpFrom || !dpTo) return path;
+    const pts = path.pts.map(p => ({ x: p.x, y: p.y }));
+    pts[0] = { x: dpFrom.x, y: dpFrom.y };
+    pts[pts.length - 1] = { x: dpTo.x, y: dpTo.y };
+    return { ...path, pts };
+  });
+  return { players, ball, annotations: motionStep.annotations, paths: displayPaths, passes: motionStep.passes, debug };
 }
 
 function playerKeyToRef(key) {
