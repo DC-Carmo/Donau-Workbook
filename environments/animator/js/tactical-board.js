@@ -6197,13 +6197,22 @@ function preparePlaybackLeg(fromStep, toStep) {
     const runPath = phasePathForPlayer(motionStep, b);
     const runPts = runPath && Array.isArray(runPath.pts) && runPath.pts.length >= 2 ? runPath.pts : null;
     const traj = prepareTrajectory({ x: a.x, y: a.y }, { x: b.x, y: b.y }, runPts);
-    players.set(key, { identity: playerRef(b), staticProps: { num: b.num, team: b.team, id: b.id }, trajectory: traj });
+    players.set(key, { identity: playerRef(b), staticProps: { ...b }, trajectory: traj });
     debug.trajectories[key] = { to: traj.to, distance: Math.round(traj.distance * 10) / 10, kind: traj.kind };
   }
   const motion = deriveBallMotion(fromStep, toStep, motionStep);
   if (motion.warnings && motion.warnings.length) debug.warnings.push(...motion.warnings);
   const ball = prepareBallMotion(motion, fromStep, toStep);
   return { players, ball, annotations: toStep.annotations, paths: toStep.paths, passes: toStep.passes, debug };
+}
+
+function playerKeyToRef(key) {
+  if (!key || typeof key !== 'string') return null;
+  const idx = key.indexOf(':');
+  if (idx < 0) return null;
+  const team = key.slice(0, idx);
+  const num = Number(key.slice(idx + 1));
+  return Number.isFinite(num) ? { team, num } : null;
 }
 
 function samplePlaybackLeg(leg, t) {
@@ -6216,7 +6225,7 @@ function samplePlaybackLeg(leg, t) {
     byKey.set(key, pos);
   }
   const b = leg.ball.sample(f, byKey);
-  return { players, ball: b.pos, ballOwner: b.owner, annotations: leg.annotations, paths: leg.paths, passes: leg.passes, localT: f };
+  return { players, ball: b.pos, ballOwner: playerKeyToRef(b.owner), annotations: leg.annotations, paths: leg.paths, passes: leg.passes, localT: f };
 }
 
 const PLAYBACK_SHADOW = true;
