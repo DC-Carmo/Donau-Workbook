@@ -6211,6 +6211,23 @@ function compilePassPlan(normalized, posOf) {
   return { initialOwner: normalized.startOwner, finalOwner: normalized.finalOwner, segments };
 }
 
+function samplePassPlan(plan, t, byKey) {
+  const f = Math.min(Math.max(t, 0), 1);
+  let seg = null;
+  for (let i = 0; i < plan.segments.length; i++) {
+    const s = plan.segments[i];
+    const last = i === plan.segments.length - 1;
+    if (f >= s.t0 && (f < s.t1 || (last && f <= s.t1))) { seg = s; break; }
+  }
+  if (!seg) seg = plan.segments[plan.segments.length - 1];
+  if (seg.kind === 'carry') {
+    const c = byKey.get(seg.owner);
+    return c ? { pos: attachedBallPositionForPlayer(c), owner: seg.owner, activePass: null } : { pos: null, owner: null, activePass: null };
+  }
+  const lf = seg.t1 > seg.t0 ? (f - seg.t0) / (seg.t1 - seg.t0) : 1;
+  return { pos: seg.traj.sampleByDistance(lf), owner: null, activePass: seg.passIndex };
+}
+
 function prepareTrajectory(fromPos, toPos, runPts) {
   const from = { x: fromPos.x, y: fromPos.y };
   const to = { x: toPos.x, y: toPos.y };
@@ -6249,11 +6266,23 @@ function prepareBallMotion(motion, fromStep, toStep) {
       return c ? { pos: { x: c.x + BALL_CARRY_OFFSET.x, y: c.y + BALL_CARRY_OFFSET.y }, owner: motion.owner } : { pos: null, owner: null };
     } };
   }
-  if (motion.kind === 'pass' || motion.kind === 'kick') {
+  if (motion.kind === 'pass') {
+    const normalized = normalizePassSequence(fromStep);
+    if (normalized) {
+      const lookup = buildStepLookup(fromStep.players);
+      const plan = compilePassPlan(normalized, (key) => { const pl = lookup.get(key); return pl ? { x: pl.x, y: pl.y } : null; });
+      if (plan) return { kind: 'passchain', plan, sample: (t, byKey) => samplePassPlan(plan, t, byKey) };
+    }
     const a = resolveBallEndpoint(fromStep) || { x: 34, y: 50 };
-    const b = motion.kind === 'pass' ? (resolveBallEndpoint(toStep) || a) : { x: motion.pass?.targetX ?? a.x, y: motion.pass?.targetY ?? a.y };
+    const b = resolveBallEndpoint(toStep) || a;
     const traj = prepareTrajectory(a, b, null);
-    return { kind: motion.kind, sample: (t) => ({ pos: traj.sampleByDistance(t), owner: t <= 0 ? motion.from : (t >= 1 ? (motion.to || null) : null) }) };
+    return { kind: 'pass', sample: (t) => ({ pos: traj.sampleByDistance(t), owner: t <= 0 ? motion.from : (t >= 1 ? (motion.to || null) : null) }) };
+  }
+  if (motion.kind === 'kick') {
+    const a = resolveBallEndpoint(fromStep) || { x: 34, y: 50 };
+    const b = { x: motion.pass?.targetX ?? a.x, y: motion.pass?.targetY ?? a.y };
+    const traj = prepareTrajectory(a, b, null);
+    return { kind: 'kick', sample: (t) => ({ pos: traj.sampleByDistance(t), owner: t <= 0 ? motion.from : null }) };
   }
   if (motion.kind === 'loose') {
     const a = resolveBallEndpoint(fromStep);
@@ -9946,7 +9975,23 @@ function computePlaybackSegmentDurationSeconds(fromStep, toStep, motionStep = to
   const fromBall = resolveStepBall(from);
   const toBall = resolveStepBall(to);
   const ballDistance = fromBall && toBall ? d2(fromBall, toBall) : 0;
-  const passOrKickDistance = Array.isArray(motion.passes) && motion.passes.length ? ballDistance : 0;
+  let passOrKickDistance = 0;
+  if (Array.isArray(motion.passes) && motion.passes.length) {
+    const normalizedChain = normalizePassSequence(motion);
+    if (normalizedChain) {
+      const chainLookup = buildStepLookup(motion.players);
+      const chainOwners = [normalizedChain.startOwner, ...normalizedChain.passes.map(p => p.to)];
+      let dsum = 0;
+      for (let ci = 0; ci < chainOwners.length - 1; ci++) {
+        const ca = chainLookup.get(chainOwners[ci]);
+        const cb = chainLookup.get(chainOwners[ci + 1]);
+        if (ca && cb) dsum += d2({ x: ca.x, y: ca.y }, { x: cb.x, y: cb.y });
+      }
+      passOrKickDistance = dsum > 0 ? dsum : ballDistance;
+    } else {
+      passOrKickDistance = ballDistance;
+    }
+  }
   const dominantDistance = Math.max(maxPlayerDistance, passOrKickDistance);
   if (dominantDistance <= 0.05) return PLAYBACK_STATIC_MOVE_DURATION;
   const playerDuration = maxPlayerDistance > 0 ? (maxPlayerDistance / PLAYBACK_MOVE_UNITS_PER_SECOND) : 0;
