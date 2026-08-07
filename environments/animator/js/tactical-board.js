@@ -6065,11 +6065,28 @@ function centripetalCatmullRom(points, t) {
   return _cmrLerp(B1, B2, (tp - t1) / (t2 - t1));
 }
 
-function buildArcLengthSampler(points, samplesPerSeg = 24) {
-  if (!Array.isArray(points) || points.length === 0) return { sampleByDistance: () => ({ x: 0, y: 0 }), length: 0 };
+function sanitizeTrajectoryPoints(points, eps = 1e-4) {
+  if (!Array.isArray(points)) return [];
+  const out = [];
+  for (const p of points) {
+    if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+    const last = out[out.length - 1];
+    if (last && Math.hypot(p.x - last.x, p.y - last.y) <= eps) continue;
+    out.push({ x: p.x, y: p.y });
+  }
+  return out;
+}
+
+function buildArcLengthSampler(rawPoints, samplesPerSeg = 16) {
+  const points = sanitizeTrajectoryPoints(rawPoints);
+  if (points.length === 0) return { sampleByDistance: () => ({ x: 0, y: 0 }), length: 0, kind: 'empty', points };
   const first = { x: points[0].x, y: points[0].y };
   const last = { x: points[points.length - 1].x, y: points[points.length - 1].y };
-  if (points.length === 1) return { sampleByDistance: () => ({ ...first }), length: 0 };
+  if (points.length === 1) return { sampleByDistance: () => ({ ...first }), length: 0, kind: 'constant', points };
+  if (points.length === 2) {
+    const L = Math.hypot(last.x - first.x, last.y - first.y);
+    return { sampleByDistance: (f) => { const ff = Math.min(Math.max(f, 0), 1); if (ff <= 0) return { ...first }; if (ff >= 1) return { ...last }; return _cmrLerp(first, last, ff); }, length: L, kind: 'linear', points };
+  }
   const N = Math.max(1, (points.length - 1) * samplesPerSeg);
   const samples = [], dists = [0];
   let prev = centripetalCatmullRom(points, 0); samples.push(prev); let acc = 0;
@@ -6087,7 +6104,7 @@ function buildArcLengthSampler(points, samplesPerSeg = 24) {
     const s = d1 > d0 ? (target - d0) / (d1 - d0) : 0;
     return _cmrLerp(samples[i0], samples[i1], s);
   }
-  return { sampleByDistance, length: total };
+  return { sampleByDistance, length: total, kind: 'spline', points };
 }
 
 function distPointToSegmentPx(p, a, b) {
