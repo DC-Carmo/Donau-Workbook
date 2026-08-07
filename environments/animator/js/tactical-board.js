@@ -6036,6 +6036,60 @@ function catmullRom(pts, t) {
   };
 }
 
+function _cmrLerp(a, b, s) { return { x: a.x + (b.x - a.x) * s, y: a.y + (b.y - a.y) * s }; }
+
+function centripetalCatmullRom(points, t) {
+  const alpha = 0.5;
+  if (!Array.isArray(points) || points.length === 0) return { x: 0, y: 0 };
+  if (points.length === 1) return { x: points[0].x, y: points[0].y };
+  if (points.length === 2) return { x: points[0].x + (points[1].x - points[0].x) * t, y: points[0].y + (points[1].y - points[0].y) * t };
+  const n = points.length - 1;
+  const tt = Math.min(Math.max(t, 0), 1);
+  const seg = Math.min(Math.floor(tt * n), n - 1);
+  const localU = tt * n - seg;
+  const P = (i) => {
+    if (i < 0) return { x: 2 * points[0].x - points[1].x, y: 2 * points[0].y - points[1].y };
+    if (i > n) return { x: 2 * points[n].x - points[n - 1].x, y: 2 * points[n].y - points[n - 1].y };
+    return points[i];
+  };
+  const p0 = P(seg - 1), p1 = P(seg), p2 = P(seg + 1), p3 = P(seg + 2);
+  const knot = (ti, pa, pb) => ti + Math.pow(Math.hypot(pb.x - pa.x, pb.y - pa.y), alpha);
+  const t0 = 0, t1 = knot(t0, p0, p1), t2 = knot(t1, p1, p2), t3 = knot(t2, p2, p3);
+  if (t1 === t0 || t2 === t1 || t3 === t2) return _cmrLerp(p1, p2, localU);
+  const tp = t1 + (t2 - t1) * localU;
+  const A1 = _cmrLerp(p0, p1, (tp - t0) / (t1 - t0));
+  const A2 = _cmrLerp(p1, p2, (tp - t1) / (t2 - t1));
+  const A3 = _cmrLerp(p2, p3, (tp - t2) / (t3 - t2));
+  const B1 = _cmrLerp(A1, A2, (tp - t0) / (t2 - t0));
+  const B2 = _cmrLerp(A2, A3, (tp - t1) / (t3 - t1));
+  return _cmrLerp(B1, B2, (tp - t1) / (t2 - t1));
+}
+
+function buildArcLengthSampler(points, samplesPerSeg = 24) {
+  if (!Array.isArray(points) || points.length === 0) return { sampleByDistance: () => ({ x: 0, y: 0 }), length: 0 };
+  const first = { x: points[0].x, y: points[0].y };
+  const last = { x: points[points.length - 1].x, y: points[points.length - 1].y };
+  if (points.length === 1) return { sampleByDistance: () => ({ ...first }), length: 0 };
+  const N = Math.max(1, (points.length - 1) * samplesPerSeg);
+  const samples = [], dists = [0];
+  let prev = centripetalCatmullRom(points, 0); samples.push(prev); let acc = 0;
+  for (let i = 1; i <= N; i++) { const p = centripetalCatmullRom(points, i / N); acc += Math.hypot(p.x - prev.x, p.y - prev.y); samples.push(p); dists.push(acc); prev = p; }
+  const total = acc;
+  function sampleByDistance(f) {
+    const ff = Math.min(Math.max(f, 0), 1);
+    if (ff <= 0) return { ...first };
+    if (ff >= 1) return { ...last };
+    if (total === 0) return { ...first };
+    const target = ff * total;
+    let lo = 0, hi = dists.length - 1;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (dists[mid] < target) lo = mid + 1; else hi = mid; }
+    const i1 = lo, i0 = Math.max(0, i1 - 1), d0 = dists[i0], d1 = dists[i1];
+    const s = d1 > d0 ? (target - d0) / (d1 - d0) : 0;
+    return _cmrLerp(samples[i0], samples[i1], s);
+  }
+  return { sampleByDistance, length: total };
+}
+
 function distPointToSegmentPx(p, a, b) {
   const dx = b.x - a.x, dy = b.y - a.y;
   const lenSq = dx * dx + dy * dy;
