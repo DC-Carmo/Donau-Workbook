@@ -414,6 +414,7 @@ function renderRadialMenu() {
   menu.classList.add('visible');
 
   const actions = [
+    { label: 'Run', icon: '&#8594;', tool: 'run', ariaLabel: 'Draw run path' },
     { label: 'Arrow', icon: '&#8599;', tool: 'arrow', ariaLabel: 'Draw tactical arrow' },
     { label: 'Pass', icon: '~', tool: 'pass' },
     { label: 'Kick', icon: '&uarr;', tool: 'kick' },
