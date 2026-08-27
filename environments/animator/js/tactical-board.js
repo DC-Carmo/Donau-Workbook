@@ -10512,6 +10512,8 @@ function positionSequenceControlDock() {
   const previousVisibilityAfterMode = dock.style.visibility;
   dock.hidden = false;
   dock.style.visibility = 'hidden';
+  dock.style.height = '';
+  dock.style.overflowY = '';
   const activeDockRect = dock.getBoundingClientRect();
   const activeDockWidth = activeDockRect.width;
   const activeDockHeight = activeDockRect.height;
@@ -10523,14 +10525,26 @@ function positionSequenceControlDock() {
     : pitchRect.left - activeDockWidth - SEQUENCE_DOCK_GAP;
 
   const topLimit = Math.max(viewportTop + 10, topbar.getBoundingClientRect().bottom + 10);
-  const bottomLimit = Math.min(viewportTop + viewportHeight - activeDockHeight - 10, bottomPanel.getBoundingClientRect().top - activeDockHeight - 10);
-  if (bottomLimit < topLimit) {
+  const hardBottom = Math.min(viewportTop + viewportHeight - 10, bottomPanel.getBoundingClientRect().top - 10);
+  const availableDockH = hardBottom - topLimit;
+  if (availableDockH < 120) {
     setSequenceDockVisibility(false);
     return;
   }
-
-  const idealTop = pitchRect.top + ((pitchRect.height - activeDockHeight) / 2);
-  const dockTop = clamp(idealTop, topLimit, bottomLimit);
+  let dockTop;
+  if (activeDockHeight > availableDockH) {
+    // Short screen (laptop): not enough vertical room for the full-height dock,
+    // so fit it to the available band and scroll internally instead of hiding.
+    dock.style.height = `${Math.round(availableDockH)}px`;
+    dock.style.overflowY = 'auto';
+    dockTop = topLimit;
+  } else {
+    dock.style.height = '';
+    dock.style.overflowY = '';
+    const bottomLimit = hardBottom - activeDockHeight;
+    const idealTop = pitchRect.top + ((pitchRect.height - activeDockHeight) / 2);
+    dockTop = clamp(idealTop, topLimit, bottomLimit);
+  }
   setSequenceDockVisibility(true);
   dock.dataset.mode = sequenceDockMode;
   dock.dataset.side = sequenceDockSide;
