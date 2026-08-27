@@ -1635,9 +1635,8 @@ window.dismissFirstUseTutorial = dismissFirstUseTutorial;
 window.startTour = startTour;
 
 const R = () => {
-  const base = Math.max(19, Math.min(30, sc * 2.22));
   if (isPhoneViewport) return Math.max(20, Math.min(27, sc * 2.38));
-  return base;
+  return Math.max(13, Math.min(30, sc * 2.22));
 };
 
 function nowIso() {
