@@ -3240,9 +3240,9 @@ html, body {
   border: 0.5px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.05);
   color: #fff;
-  font-family: 'Barlow', sans-serif;
-  font-size: var(--desktop-pill-font);
-  font-weight: 600;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
   letter-spacing: var(--desktop-pill-letter);
   text-transform: uppercase;
   white-space: nowrap;
@@ -3736,7 +3736,7 @@ html, body {
 
   .board-pill {
     padding: 6px 10px;
-    font-size: 10px;
+    font-size: 0.68rem;
   }
 
   .play-btn {
