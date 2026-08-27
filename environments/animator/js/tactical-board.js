@@ -787,7 +787,20 @@ function resize() {
     sc = Math.max(0.01, Math.min(baseFromWidth, baseFromHeight));
     sx = sc * FIELD_X_STRETCH;
     sy = sc;
-    ox = (cvW - FVW * sx) / 2;
+    // Laptop/desktop horizontal placement: on wide-but-short screens the near-square
+    // pitch is height-limited and, when centered, splits the surplus width into two
+    // symmetric dead margins that are each too narrow for the sequence dock (so it hides).
+    // When that happens, shift the pitch toward the tools panel and reserve a band on the
+    // right so the dock is always visible. Big desktops (enough right space when centered)
+    // are left exactly as before.
+    const _pitchW = FVW * sx;
+    const _centeredOx = (cvW - _pitchW) / 2;
+    const _dockBand = 320 + SEQUENCE_DOCK_GAP + 16; // dock width + gap + breathing
+    if (_centeredOx < _dockBand && (cvW - _pitchW) >= _dockBand + 2 * padX) {
+      ox = clamp((cvW - _pitchW) - _dockBand, padX, Math.max(padX, cvW * 0.11));
+    } else {
+      ox = _centeredOx;
+    }
     oy = (cvH - FVH * sy) / 2;
     phoneVerticalOverflowPx = 0;
     phoneVerticalPanPx = 0;
