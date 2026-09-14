@@ -557,7 +557,7 @@ a {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 82% 75%, rgba(176, 22, 36, 0.26), transparent 38%),
+    radial-gradient(circle at 82% 75%, rgba(237, 41, 57, 0.26), transparent 38%),
     linear-gradient(
       to right,
       rgba(5, 10, 16, 0.96) 0%,
@@ -577,8 +577,8 @@ a {
 .austria-youth-intro .quote,
 .austria-youth-intro .statement,
 .austria-youth-intro .ov-pull {
-  border-left: 3px solid #b01624;
-  box-shadow: -8px 0 24px rgba(176, 22, 36, 0.18);
+  border-left: 3px solid #ED2939;
+  box-shadow: -8px 0 24px rgba(237, 41, 57, 0.18);
 }
 
 .platform-action {
