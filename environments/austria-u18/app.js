@@ -1014,8 +1014,8 @@
   }
 
   const LINEOUT_SYSTEM_PATHS = {
-    tempo: "../../assets/donau/images/TEMPO_Lineout_System_Austria_Youth.html",
-    spark: "../../assets/donau/images/Spark-lineout_manual.html",
+    tempo: "../../assets/donau/images/TEMPO_Lineout_Austria_U18.html",
+    spark: "../../assets/donau/images/Spark_Lineout_Austria_U18.html",
   };
 
   const LINEOUT_SYSTEM_TITLES = {
