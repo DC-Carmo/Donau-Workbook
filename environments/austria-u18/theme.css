@@ -2945,3 +2945,16 @@ body.austria-u18-theme.overlay-active {
   .austria-u18-theme .nt-cover-main { justify-content: center; }
   .austria-u18-theme .nt-cover-side { align-content: center; }
 }
+
+/* Cover hero: the huddle photo was almost invisible (opacity .18, brightness .45),
+   so the hero read as an empty dark box. Make it present as a premium banner. */
+.austria-u18-theme .austria-youth-intro::before {
+  opacity: 0.5;
+  filter: grayscale(1) brightness(0.66) contrast(1.18);
+}
+
+/* Desktop: topbar renders ~86px but the 2px progress bar is pinned at top:66px,
+   so the red line cuts across the logo. Drop it to the topbar's bottom. */
+@media (min-height: 821px) {
+  .austria-u18-theme .progress { top: 86px; }
+}
