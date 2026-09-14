@@ -2054,6 +2054,23 @@ h2.section {
   text-transform: uppercase;
 }
 
+/* Short, wide viewports (laptops): the desktop layout locks each .slide to
+   position:absolute/inset:0/overflow:hidden, so tall slides get clipped with no
+   way to scroll. Unlock viewport scroll for short screens WITHOUT applying the
+   phone single-column reflow (that stays gated to max-width:900). */
+@media (min-width: 901px) and (max-height: 820px) {
+  html { height: auto; overflow: visible; }
+  body { height: auto; min-height: 100vh; overflow: visible; }
+  .slide {
+    position: relative;
+    inset: auto;
+    min-height: 100vh;
+    height: auto;
+    overflow: visible;
+  }
+  .slide.active { display: flex; }
+}
+
 @media (max-width: 900px) {
   /* Base rule has html,body { height:100vh; overflow:hidden } for the desktop canvas layout.
      On mobile we fully unlock the viewport scroll:
