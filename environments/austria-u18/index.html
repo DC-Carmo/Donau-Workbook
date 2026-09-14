@@ -8,6 +8,18 @@
       redirectUrl: "../../index.html#environments"
     });
   </script>
+  <style>
+    /* Anti-FOUC: hold the page until webfonts are ready to avoid a raw unstyled flash */
+    html.rda-loading body { opacity: 0; }
+    body { transition: opacity .28s ease; }
+  </style>
+  <script>
+    document.documentElement.classList.add('rda-loading');
+    var rdaReveal = function () { document.documentElement.classList.remove('rda-loading'); };
+    if (document.fonts && document.fonts.ready) { document.fonts.ready.then(rdaReveal); }
+    window.addEventListener('load', rdaReveal);
+    setTimeout(rdaReveal, 1800); /* safety: never stay hidden */
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Austria Youth Rugby | Coach Mato</title>
