@@ -2929,3 +2929,19 @@ body.austria-u18-theme.overlay-active {
   .austria-u18-theme .workspace-map-inner { padding-top: 8px; padding-bottom: 10px; }
   .austria-u18-theme .workspace-map-item { padding-top: 6px; padding-bottom: 6px; }
 }
+
+/* Laptop / short viewports: the 2px progress bar is position:fixed, so once the
+   page scrolls it floats detached over the content. Let it scroll away with the
+   page instead (no stray hovering line). Austria U18 only. */
+@media (max-height: 820px) {
+  .austria-u18-theme .progress { position: absolute; top: 0; }
+}
+
+/* Desktop / tall viewports: fill the height so the cover doesn't cluster at the
+   top with a large empty area below. Center the two columns vertically and match
+   their height. Short/laptop screens (max-height:820) are unaffected. */
+@media (min-height: 821px) {
+  .austria-u18-theme .nt-cover-shell { align-content: center; align-items: stretch; }
+  .austria-u18-theme .nt-cover-main { justify-content: center; }
+  .austria-u18-theme .nt-cover-side { align-content: center; }
+}
