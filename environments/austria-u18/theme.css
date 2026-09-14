@@ -2902,3 +2902,14 @@ body.austria-u18-theme.overlay-active {
        absolutely-positioned decorative elements within the slide bounds */
   }
 }
+
+/* Laptop / short viewports: tighten the top chrome (topbar + section map) so the
+   header doesn't dominate and content is reachable. Scoped to Austria U18 only;
+   desktop (tall) and phone (own layout) are unaffected. */
+@media (max-height: 820px) {
+  .austria-u18-theme .topbar { min-height: 52px; padding-top: 6px; padding-bottom: 8px; }
+  .austria-u18-theme .topbar-logo { padding: 6px 14px 6px 12px; }
+  .austria-u18-theme .topbar-logo img.nt-topbar-logo { height: 30px; }
+  .austria-u18-theme .workspace-map-inner { padding-top: 8px; padding-bottom: 10px; }
+  .austria-u18-theme .workspace-map-item { padding-top: 6px; padding-bottom: 6px; }
+}
