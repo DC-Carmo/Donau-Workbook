@@ -1,12 +1,15 @@
 (function () {
+  const gatingStyle = document.createElement("style");
+  gatingStyle.textContent = `
+    html.donau-gating body { visibility: hidden; }
+    html.donau-gating .donau-access-modal { visibility: visible; }
+  `;
+  document.head.appendChild(gatingStyle);
+
   const DONAU_ACCESS_CODE = "DONAU2026";
   const STORAGE_KEY = "donau_access";
   const STYLE_ID = "rda-donau-access-styles";
   let modalState = null;
-
-  function isDevUnlockEnabled() {
-    return window.RDADevelopmentAccess?.isEnabled?.() === true;
-  }
 
   function ensureStyles() {
     if (document.getElementById(STYLE_ID)) {
@@ -33,7 +36,7 @@
       .donau-access-modal .request-modal-overlay {
         position: absolute;
         inset: 0;
-        background: rgba(3, 8, 6, 0.78);
+        background: #04100b;
       }
 
       .donau-access-modal .request-modal-dialog {
@@ -152,10 +155,6 @@
   }
 
   function hasAccess() {
-    if (isDevUnlockEnabled()) {
-      return true;
-    }
-
     if (!storageAvailable()) {
       return false;
     }
@@ -286,12 +285,11 @@
   }
 
   function protectPage(options) {
-    if (hasAccess()) {
-      return true;
-    }
-
-    const redirectUrl = options?.redirectUrl || "../../index.html";
-    window.location.replace(redirectUrl);
+    if (hasAccess()) { document.documentElement.classList.remove('donau-gating'); return true; }
+    document.documentElement.classList.add('donau-gating');
+    var show = function () { requestAccess({ targetUrl: window.location.href }); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show);
+    else show();
     return false;
   }
 
