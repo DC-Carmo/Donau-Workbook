@@ -1,15 +1,15 @@
 .austria-u18-theme {
-  --green: #c32236;
-  --green-dim: rgba(195, 34, 54, 0.16);
+  --green: #ED2939;
+  --green-dim: rgba(237, 41, 57, 0.16);
   --navy: #111418;
   --dark: #050607;
   --panel: #0e1115;
   --card: #15191f;
-  --border: rgba(195, 34, 54, 0.28);
+  --border: rgba(237, 41, 57, 0.28);
   --text: #f2f0ed;
   --muted: rgba(184, 181, 176, 0.72);
   --accent: #8f969f;
-  --red: #c32236;
+  --red: #ED2939;
   --text-light: rgba(242, 240, 237, 0.78);
   --gold: #b79a61;
   --shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
@@ -17,8 +17,8 @@
 
 body.austria-u18-theme {
   background:
-    radial-gradient(circle at 14% 12%, rgba(195, 34, 54, 0.22), transparent 25%),
-    radial-gradient(circle at 50% 0%, rgba(195, 34, 54, 0.08), transparent 30%),
+    radial-gradient(circle at 14% 12%, rgba(237, 41, 57, 0.22), transparent 25%),
+    radial-gradient(circle at 50% 0%, rgba(237, 41, 57, 0.08), transparent 30%),
     radial-gradient(circle at 84% 14%, rgba(143, 150, 159, 0.08), transparent 22%),
     linear-gradient(150deg, #040506 0%, #0d1014 48%, #15191f 100%);
 }
@@ -46,7 +46,7 @@ body.austria-u18-theme::before {
 .austria-u18-theme .send-btn,
 .austria-u18-theme .zone-btn.active,
 .austria-u18-theme .zone-tab.active {
-  background: linear-gradient(90deg, #7e1421, #b11f30);
+  background: linear-gradient(90deg, #C8102E, #ED2939);
 }
 
 .austria-u18-theme .topbar,
@@ -70,7 +70,7 @@ body.austria-u18-theme::before {
 .austria-u18-theme .chat-area,
 .austria-u18-theme .ai-panel,
 .austria-u18-theme .suggest {
-  border-color: rgba(177, 31, 48, 0.18);
+  border-color: rgba(237, 41, 57, 0.18);
 }
 
 .austria-u18-theme .slide {
@@ -80,14 +80,14 @@ body.austria-u18-theme::before {
 
 .austria-u18-theme .slide::before {
   background:
-    linear-gradient(140deg, rgba(195, 34, 54, 0.14), transparent 30%, transparent 70%, rgba(143, 150, 159, 0.05));
+    linear-gradient(140deg, rgba(237, 41, 57, 0.14), transparent 30%, transparent 70%, rgba(143, 150, 159, 0.05));
 }
 
 .austria-u18-theme .topbar {
   background:
-    linear-gradient(90deg, rgba(195, 34, 54, 0.08), transparent 16%),
+    linear-gradient(90deg, rgba(237, 41, 57, 0.08), transparent 16%),
     linear-gradient(180deg, rgba(16, 19, 24, 0.98), rgba(10, 12, 16, 0.98));
-  border-bottom-color: rgba(195, 34, 54, 0.16);
+  border-bottom-color: rgba(237, 41, 57, 0.16);
 }
 
 .austria-u18-theme .topbar-logo {
@@ -97,8 +97,8 @@ body.austria-u18-theme::before {
   gap: 14px;
   padding: 10px 18px 10px 14px;
   border-radius: 20px;
-  border: 1px solid rgba(195, 34, 54, 0.18);
-  background: linear-gradient(180deg, rgba(195, 34, 54, 0.1), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(237, 41, 57, 0.18);
+  background: linear-gradient(180deg, rgba(237, 41, 57, 0.1), rgba(255, 255, 255, 0.02));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
@@ -110,7 +110,7 @@ body.austria-u18-theme::before {
   bottom: 12px;
   width: 3px;
   border-radius: 999px;
-  background: linear-gradient(180deg, rgba(195, 34, 54, 0.4), rgba(195, 34, 54, 1));
+  background: linear-gradient(180deg, rgba(237, 41, 57, 0.4), rgba(237, 41, 57, 1));
 }
 
 .austria-u18-theme .topbar-logo img.nt-topbar-logo {
@@ -375,8 +375,8 @@ body.austria-u18-theme::before {
 
 .nt-tag,
 .nt-chip {
-  border-color: rgba(177, 31, 48, 0.32);
-  background: rgba(177, 31, 48, 0.08);
+  border-color: rgba(237, 41, 57, 0.32);
+  background: rgba(237, 41, 57, 0.08);
 }
 
 .nt-cover-shell {
@@ -404,10 +404,10 @@ body.austria-u18-theme::before {
   overflow: visible;
   border-radius: 30px;
   padding: 34px;
-  border: 1px solid rgba(195, 34, 54, 0.2);
+  border: 1px solid rgba(237, 41, 57, 0.2);
   background:
-    radial-gradient(circle at top left, rgba(195, 34, 54, 0.22), transparent 28%),
-    radial-gradient(circle at 65% 42%, rgba(195, 34, 54, 0.12), transparent 24%),
+    radial-gradient(circle at top left, rgba(237, 41, 57, 0.22), transparent 28%),
+    radial-gradient(circle at 65% 42%, rgba(237, 41, 57, 0.12), transparent 24%),
     linear-gradient(180deg, rgba(17, 20, 24, 0.98), rgba(10, 12, 16, 0.98));
   display: flex;
   flex-direction: column;
@@ -419,7 +419,7 @@ body.austria-u18-theme::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(195, 34, 54, 0.1), transparent 40%);
+  background: linear-gradient(90deg, rgba(237, 41, 57, 0.1), transparent 40%);
   pointer-events: none;
 }
 
@@ -512,7 +512,7 @@ body.austria-u18-theme::before {
 .nt-side-panel {
   position: relative;
   border-radius: 24px;
-  border: 1px solid rgba(195, 34, 54, 0.18);
+  border: 1px solid rgba(237, 41, 57, 0.18);
   background: linear-gradient(180deg, rgba(19, 22, 27, 0.96), rgba(11, 13, 17, 0.98));
   padding: 24px;
   display: flex;
@@ -526,7 +526,7 @@ body.austria-u18-theme::before {
   inset: 0 0 auto 0;
   height: 3px;
   border-radius: 24px 24px 0 0;
-  background: linear-gradient(90deg, rgba(195, 34, 54, 0.95), rgba(183, 154, 97, 0.42));
+  background: linear-gradient(90deg, rgba(237, 41, 57, 0.95), rgba(183, 154, 97, 0.42));
 }
 
 .nt-side-panel-compact {
@@ -611,7 +611,7 @@ body.austria-u18-theme::before {
 .nt-zone-foot {
   margin-top: auto;
   padding-top: 16px;
-  border-top: 1px solid rgba(177, 31, 48, 0.16);
+  border-top: 1px solid rgba(237, 41, 57, 0.16);
 }
 
 .nt-map-placeholder {
@@ -632,10 +632,10 @@ body.austria-u18-theme::before {
   display: grid;
   gap: 12px;
   padding: 12px;
-  border: 1px solid rgba(177, 31, 48, 0.22);
+  border: 1px solid rgba(237, 41, 57, 0.22);
   border-radius: 18px;
   background:
-    linear-gradient(180deg, rgba(177, 31, 48, 0.12), rgba(255, 255, 255, 0.03)),
+    linear-gradient(180deg, rgba(237, 41, 57, 0.12), rgba(255, 255, 255, 0.03)),
     rgba(12, 15, 19, 0.96);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   cursor: pointer;
@@ -646,14 +646,14 @@ body.austria-u18-theme::before {
 .austria-u18-theme .field-map-preview:hover,
 .austria-u18-theme .field-map-preview:focus-visible {
   transform: translateY(-1px);
-  border-color: rgba(177, 31, 48, 0.42);
+  border-color: rgba(237, 41, 57, 0.42);
   box-shadow:
     0 14px 28px rgba(0, 0, 0, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .austria-u18-theme .field-map-preview:focus-visible {
-  outline: 2px solid rgba(177, 31, 48, 0.5);
+  outline: 2px solid rgba(237, 41, 57, 0.5);
   outline-offset: 2px;
 }
 
@@ -661,7 +661,7 @@ body.austria-u18-theme::before {
   display: block;
   border-radius: 14px;
   overflow: hidden;
-  border: 1px solid rgba(177, 31, 48, 0.24);
+  border: 1px solid rgba(237, 41, 57, 0.24);
   background: rgba(7, 9, 12, 0.92);
 }
 
@@ -705,7 +705,7 @@ body.austria-u18-theme::before {
 }
 
 .nt-map-lane-core {
-  background: rgba(177, 31, 48, 0.12);
+  background: rgba(237, 41, 57, 0.12);
 }
 
 .nt-map-lane-pressure {
@@ -754,8 +754,8 @@ body.austria-u18-theme::before {
   font-size: 0.72rem;
   letter-spacing: 1px;
   color: var(--text);
-  background: rgba(177, 31, 48, 0.14);
-  border: 1px solid rgba(177, 31, 48, 0.24);
+  background: rgba(237, 41, 57, 0.14);
+  border: 1px solid rgba(237, 41, 57, 0.24);
 }
 
 .nt-units-shell {
@@ -792,7 +792,7 @@ body.austria-u18-theme::before {
   align-items: center;
   gap: 14px;
   padding: 12px 14px;
-  border: 1px solid rgba(177, 31, 48, 0.14);
+  border: 1px solid rgba(237, 41, 57, 0.14);
   border-radius: 16px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
 }
@@ -854,7 +854,7 @@ body.austria-u18-theme::before {
 }
 
 .nt-unit-lane + .nt-unit-lane {
-  border-top: 1px solid rgba(177, 31, 48, 0.12);
+  border-top: 1px solid rgba(237, 41, 57, 0.12);
   margin-top: 12px;
 }
 
@@ -895,18 +895,18 @@ body.austria-u18-theme::before {
 }
 
 .module-card-red {
-  border-color: rgba(177, 31, 48, 0.22);
+  border-color: rgba(237, 41, 57, 0.22);
 }
 
 .module-icon-red,
 .module-overview-icon-red {
   color: var(--red);
-  border-color: rgba(177, 31, 48, 0.34);
-  background: rgba(177, 31, 48, 0.12);
+  border-color: rgba(237, 41, 57, 0.34);
+  background: rgba(237, 41, 57, 0.12);
 }
 
 .module-progress-fill-red {
-  background: linear-gradient(90deg, rgba(177, 31, 48, 0.72), rgba(177, 31, 48, 1));
+  background: linear-gradient(90deg, rgba(237, 41, 57, 0.72), rgba(237, 41, 57, 1));
 }
 
 .austria-u18-theme .module-icon-gold,
@@ -938,7 +938,7 @@ body.austria-u18-theme::before {
 .austria-u18-theme .overlay-body,
 .austria-u18-theme .overlay-topbar {
   background: linear-gradient(180deg, rgba(15, 18, 22, 0.98), rgba(9, 11, 14, 0.98));
-  border-color: rgba(177, 31, 48, 0.16);
+  border-color: rgba(237, 41, 57, 0.16);
 }
 
 .austria-u18-theme .overlay {
@@ -1007,7 +1007,7 @@ body.austria-u18-theme.overlay-active {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 84% 76%, rgba(176, 22, 36, 0.12), transparent 32%),
+    radial-gradient(circle at 84% 76%, rgba(237, 41, 57, 0.12), transparent 32%),
     radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.08), transparent 45%),
     linear-gradient(90deg, rgba(9, 11, 14, 0.16), rgba(9, 11, 14, 0));
   pointer-events: none;
@@ -1043,10 +1043,10 @@ body.austria-u18-theme.overlay-active {
 .austria-identity-card {
   position: relative;
   border-radius: 18px;
-  border: 1px solid rgba(176, 22, 36, 0.16);
+  border: 1px solid rgba(237, 41, 57, 0.16);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
   padding: 18px 18px 16px;
-  box-shadow: inset 0 3px 0 rgba(176, 22, 36, 0.95);
+  box-shadow: inset 0 3px 0 rgba(237, 41, 57, 0.95);
 }
 
 .austria-identity-num {
@@ -1098,7 +1098,7 @@ body.austria-u18-theme.overlay-active {
 .manifesto-section {
   position: relative;
   padding: 128px clamp(24px, 5vw, 72px);
-  border-bottom: 1px solid rgba(177, 31, 48, 0.08);
+  border-bottom: 1px solid rgba(237, 41, 57, 0.08);
 }
 
 .manifesto-hero {
@@ -1343,7 +1343,7 @@ body.austria-u18-theme.overlay-active {
   font-family: "Anton", sans-serif;
   font-size: clamp(6rem, 11vw, 8rem);
   line-height: 1;
-  color: rgba(195, 34, 54, 0.1);
+  color: rgba(237, 41, 57, 0.1);
   pointer-events: none;
 }
 
@@ -1526,7 +1526,7 @@ body.austria-u18-theme.overlay-active {
 .austria-u18-theme .module-status-row:hover,
 .austria-u18-theme .module-sidebar-item:hover,
 .austria-u18-theme .module-card:hover {
-  border-color: rgba(177, 31, 48, 0.34);
+  border-color: rgba(237, 41, 57, 0.34);
 }
 
 /* Play diagrams for set piece calls */
@@ -1538,7 +1538,7 @@ body.austria-u18-theme.overlay-active {
 }
 
 .austria-u18-theme .play-diagram-card {
-  border: 1px solid rgba(177, 31, 48, 0.3);
+  border: 1px solid rgba(237, 41, 57, 0.3);
   border-radius: 12px;
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(8px);
@@ -1551,8 +1551,8 @@ body.austria-u18-theme.overlay-active {
 }
 
 .austria-u18-theme .play-list-item.active .play-diagram-card {
-  border-color: rgba(177, 31, 48, 0.5);
-  box-shadow: 0 0 20px rgba(177, 31, 48, 0.1);
+  border-color: rgba(237, 41, 57, 0.5);
+  box-shadow: 0 0 20px rgba(237, 41, 57, 0.1);
   background: rgba(0, 0, 0, 0.5);
 }
 
@@ -1586,7 +1586,7 @@ body.austria-u18-theme.overlay-active {
 
 /* Reduce s4 page-wide red wash */
 .austria-u18-theme #s4::before {
-  background: linear-gradient(140deg, rgba(195, 34, 54, 0.05), transparent 22%, transparent 78%, rgba(143, 150, 159, 0.03));
+  background: linear-gradient(140deg, rgba(237, 41, 57, 0.05), transparent 22%, transparent 78%, rgba(143, 150, 159, 0.03));
 }
 
 /* Layout: flex row matching Attack System */
@@ -1603,7 +1603,7 @@ body.austria-u18-theme.overlay-active {
   min-width: 0;
   overflow-y: auto;
   padding: 18px 20px;
-  border-right: 1px solid rgba(177, 31, 48, 0.11);
+  border-right: 1px solid rgba(237, 41, 57, 0.11);
 }
 
 /* Right column — 58%, flex fill */
@@ -1629,7 +1629,7 @@ body.austria-u18-theme.overlay-active {
 /* Tab bar — mirrors zone-btns */
 .austria-u18-theme .def-right .zone-btns {
   padding: 0 20px 12px;
-  border-bottom: 1px solid rgba(177, 31, 48, 0.11);
+  border-bottom: 1px solid rgba(237, 41, 57, 0.11);
   flex-shrink: 0;
   background: transparent;
 }
@@ -1637,7 +1637,7 @@ body.austria-u18-theme.overlay-active {
 /* Tab buttons — identical rhythm to zone-btn, red accent */
 .austria-u18-theme #s4 .zone-tab {
   padding: 7px 16px;
-  border: 1px solid rgba(177, 31, 48, 0.2);
+  border: 1px solid rgba(237, 41, 57, 0.2);
   background: transparent;
   color: var(--muted);
   font-family: "Barlow Condensed", sans-serif;
@@ -1651,14 +1651,14 @@ body.austria-u18-theme.overlay-active {
 }
 
 .austria-u18-theme #s4 .zone-tab:hover {
-  border-color: rgba(177, 31, 48, 0.38);
-  background: rgba(177, 31, 48, 0.05);
+  border-color: rgba(237, 41, 57, 0.38);
+  background: rgba(237, 41, 57, 0.05);
   color: var(--text);
 }
 
 .austria-u18-theme #s4 .zone-tab.active {
-  background: rgba(177, 31, 48, 0.14);
-  border-color: rgba(177, 31, 48, 0.48);
+  background: rgba(237, 41, 57, 0.14);
+  border-color: rgba(237, 41, 57, 0.48);
   color: var(--text);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
@@ -1672,7 +1672,7 @@ body.austria-u18-theme.overlay-active {
 
 /* Scrum defence zone blocks — constrained width, don't fill full right column */
 .austria-u18-theme .def-block {
-  border: 1px solid rgba(177, 31, 48, 0.15);
+  border: 1px solid rgba(237, 41, 57, 0.15);
   border-radius: 10px;
   padding: 14px 16px;
   background: rgba(255, 255, 255, 0.02);
@@ -1691,7 +1691,7 @@ body.austria-u18-theme.overlay-active {
 }
 
 .austria-u18-theme .def-block:has(h4.r) {
-  border-left: 3px solid rgba(177, 31, 48, 0.58);
+  border-left: 3px solid rgba(237, 41, 57, 0.58);
 }
 
 .austria-u18-theme .def-block h4 {
@@ -1725,8 +1725,8 @@ body.austria-u18-theme.overlay-active {
 /* Mindset block — compact top card, height matched to right header rhythm */
 .austria-u18-theme .attitude-block {
   background: rgba(10, 12, 16, 0.65);
-  border: 1px solid rgba(177, 31, 48, 0.18);
-  border-left: 3px solid rgba(177, 31, 48, 0.62);
+  border: 1px solid rgba(237, 41, 57, 0.18);
+  border-left: 3px solid rgba(237, 41, 57, 0.62);
   border-radius: 12px;
   padding: 12px 14px;
   margin-bottom: 12px;
@@ -1746,7 +1746,7 @@ body.austria-u18-theme.overlay-active {
 
 .austria-u18-theme .attitude-block ul li::before {
   content: "›";
-  color: rgba(177, 31, 48, 0.52);
+  color: rgba(237, 41, 57, 0.52);
   font-size: 0.9rem;
   top: 0;
 }
@@ -1755,7 +1755,7 @@ body.austria-u18-theme.overlay-active {
 .austria-u18-theme .def-left > .nt-side-label {
   padding-top: 12px;
   margin-top: 2px;
-  border-top: 1px solid rgba(177, 31, 48, 0.1);
+  border-top: 1px solid rgba(237, 41, 57, 0.1);
   margin-bottom: 8px;
 }
 
@@ -1768,7 +1768,7 @@ body.austria-u18-theme.overlay-active {
 
 .austria-u18-theme .role-card {
   background: rgba(10, 12, 16, 0.65);
-  border: 1px solid rgba(177, 31, 48, 0.14);
+  border: 1px solid rgba(237, 41, 57, 0.14);
   border-radius: 10px;
   padding: 11px 14px;
 }
@@ -1829,7 +1829,7 @@ body.austria-u18-theme.overlay-active {
 .austria-u18-theme #s3 .zone-btn {
   padding: 10px 28px;
   border-radius: 999px;
-  border-color: rgba(177, 31, 48, 0.22);
+  border-color: rgba(237, 41, 57, 0.22);
   color: rgba(242, 240, 237, 0.82);
   font-size: 0.92rem;
   letter-spacing: 0.12em;
@@ -2127,7 +2127,7 @@ body.austria-u18-theme.overlay-active {
   min-height: 44px;
   padding: 10px 28px;
   border-radius: 999px;
-  border-color: rgba(177, 31, 48, 0.22);
+  border-color: rgba(237, 41, 57, 0.22);
   color: rgba(242, 240, 237, 0.82);
   font-size: 0.92rem;
   letter-spacing: 0.12em;
@@ -2424,7 +2424,7 @@ body.austria-u18-theme.overlay-active {
 
 .sp-tab-overview-block {
   border-radius: 14px;
-  border: 1px solid rgba(177, 31, 48, 0.16);
+  border: 1px solid rgba(237, 41, 57, 0.16);
   background: rgba(255, 255, 255, 0.025);
   padding: 16px;
 }
@@ -2457,7 +2457,7 @@ body.austria-u18-theme.overlay-active {
 .lo-system-card {
   position: relative;
   border-radius: 18px;
-  border: 1px solid rgba(177, 31, 48, 0.2);
+  border: 1px solid rgba(237, 41, 57, 0.2);
   background: linear-gradient(180deg, rgba(21, 25, 31, 0.96), rgba(11, 13, 17, 0.98));
   padding: 22px;
   display: flex;
@@ -2468,7 +2468,7 @@ body.austria-u18-theme.overlay-active {
 }
 
 .lo-system-primary {
-  border-color: rgba(177, 31, 48, 0.34);
+  border-color: rgba(237, 41, 57, 0.34);
 }
 
 .lo-system-primary::before,
@@ -2481,16 +2481,16 @@ body.austria-u18-theme.overlay-active {
 
 .lo-system-primary::before {
   height: 3px;
-  background: linear-gradient(90deg, #b11f30, #b79a61);
+  background: linear-gradient(90deg, #ED2939, #b79a61);
 }
 
 .lo-system-secondary::before {
   height: 2px;
-  background: rgba(177, 31, 48, 0.4);
+  background: rgba(237, 41, 57, 0.4);
 }
 
 .lo-system-card:hover {
-  border-color: rgba(177, 31, 48, 0.48);
+  border-color: rgba(237, 41, 57, 0.48);
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
 }
 
@@ -2516,8 +2516,8 @@ body.austria-u18-theme.overlay-active {
 }
 
 .lo-system-badge-primary {
-  background: rgba(177, 31, 48, 0.16);
-  border: 1px solid rgba(177, 31, 48, 0.36);
+  background: rgba(237, 41, 57, 0.16);
+  border: 1px solid rgba(237, 41, 57, 0.36);
   color: var(--red);
 }
 
@@ -2544,7 +2544,7 @@ body.austria-u18-theme.overlay-active {
 }
 
 .lo-system-primary .lo-system-name {
-  text-shadow: 0 0 24px rgba(177, 31, 48, 0.3);
+  text-shadow: 0 0 24px rgba(237, 41, 57, 0.3);
 }
 
 .lo-system-subtitle {
@@ -2597,32 +2597,32 @@ body.austria-u18-theme.overlay-active {
 }
 
 .lo-system-btn-primary {
-  background: linear-gradient(90deg, #7e1421, #b11f30);
-  border: 1px solid rgba(177, 31, 48, 0.5);
+  background: linear-gradient(90deg, #C8102E, #ED2939);
+  border: 1px solid rgba(237, 41, 57, 0.5);
   color: #fff;
 }
 
 .lo-system-btn-primary:hover {
   background: linear-gradient(90deg, #9b1829, #c42234);
-  box-shadow: 0 8px 20px rgba(177, 31, 48, 0.28);
+  box-shadow: 0 8px 20px rgba(237, 41, 57, 0.28);
 }
 
 .lo-system-btn-secondary {
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(177, 31, 48, 0.24);
+  border: 1px solid rgba(237, 41, 57, 0.24);
   color: var(--text);
 }
 
 .lo-system-btn-secondary:hover {
-  background: rgba(177, 31, 48, 0.08);
-  border-color: rgba(177, 31, 48, 0.4);
+  background: rgba(237, 41, 57, 0.08);
+  border-color: rgba(237, 41, 57, 0.4);
 }
 
 /* ── Set Piece — Maul overview ── */
 
 .sp-maul-overview {
   border-radius: 16px;
-  border: 1px solid rgba(177, 31, 48, 0.18);
+  border: 1px solid rgba(237, 41, 57, 0.18);
   background: rgba(255, 255, 255, 0.025);
   padding: 24px;
   display: flex;
@@ -2648,8 +2648,8 @@ body.austria-u18-theme.overlay-active {
 }
 
 .sp-maul-link {
-  background: rgba(177, 31, 48, 0.08);
-  border: 1px solid rgba(177, 31, 48, 0.28);
+  background: rgba(237, 41, 57, 0.08);
+  border: 1px solid rgba(237, 41, 57, 0.28);
   border-radius: 8px;
   padding: 9px 16px;
   font-family: "Barlow Condensed", sans-serif;
@@ -2662,8 +2662,8 @@ body.austria-u18-theme.overlay-active {
 }
 
 .sp-maul-link:hover {
-  background: rgba(177, 31, 48, 0.14);
-  border-color: rgba(177, 31, 48, 0.44);
+  background: rgba(237, 41, 57, 0.14);
+  border-color: rgba(237, 41, 57, 0.44);
 }
 
 /* ── Lineout System Full-screen Overlay ── */
@@ -2692,7 +2692,7 @@ body.austria-u18-theme.overlay-active {
   justify-content: space-between;
   padding: 12px 20px;
   background: linear-gradient(180deg, rgba(10, 12, 16, 0.98), rgba(8, 10, 14, 0.96));
-  border-bottom: 1px solid rgba(177, 31, 48, 0.18);
+  border-bottom: 1px solid rgba(237, 41, 57, 0.18);
 }
 
 .lso-title {
@@ -2708,7 +2708,7 @@ body.austria-u18-theme.overlay-active {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  border: 1px solid rgba(177, 31, 48, 0.24);
+  border: 1px solid rgba(237, 41, 57, 0.24);
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
   font-size: 1.2rem;
@@ -2720,8 +2720,8 @@ body.austria-u18-theme.overlay-active {
 }
 
 .lso-close:hover {
-  background: rgba(177, 31, 48, 0.12);
-  border-color: rgba(177, 31, 48, 0.4);
+  background: rgba(237, 41, 57, 0.12);
+  border-color: rgba(237, 41, 57, 0.4);
 }
 
 .lso-frame {
@@ -2734,15 +2734,15 @@ body.austria-u18-theme.overlay-active {
 @media (max-width: 768px) {
   .austria-u18-theme .mobile-app-header {
     background:
-      linear-gradient(90deg, rgba(195, 34, 54, 0.1), transparent 18%),
+      linear-gradient(90deg, rgba(237, 41, 57, 0.1), transparent 18%),
       linear-gradient(180deg, rgba(16, 19, 24, 0.985), rgba(10, 12, 16, 0.985));
-    border-bottom-color: rgba(177, 31, 48, 0.18);
+    border-bottom-color: rgba(237, 41, 57, 0.18);
   }
 
   .austria-u18-theme .mobile-app-portal-btn,
   .austria-u18-theme .mobile-app-menu-btn,
   .austria-u18-theme .mobile-drawer-close {
-    border-color: rgba(177, 31, 48, 0.18);
+    border-color: rgba(237, 41, 57, 0.18);
     background: rgba(255, 255, 255, 0.03);
   }
 
@@ -2764,12 +2764,12 @@ body.austria-u18-theme.overlay-active {
 
   .austria-u18-theme .mobile-module-drawer-sheet {
     background:
-      radial-gradient(circle at 18% 10%, rgba(195, 34, 54, 0.14), transparent 24%),
+      radial-gradient(circle at 18% 10%, rgba(237, 41, 57, 0.14), transparent 24%),
       linear-gradient(180deg, rgba(15, 18, 22, 0.995), rgba(9, 11, 14, 0.995));
   }
 
   .austria-u18-theme .mobile-drawer-item {
-    border-color: rgba(177, 31, 48, 0.14);
+    border-color: rgba(237, 41, 57, 0.14);
     background: rgba(255, 255, 255, 0.03);
   }
 
@@ -2778,18 +2778,18 @@ body.austria-u18-theme.overlay-active {
   }
 
   .austria-u18-theme .mobile-drawer-item.active {
-    border-color: rgba(177, 31, 48, 0.48);
-    background: rgba(177, 31, 48, 0.12);
+    border-color: rgba(237, 41, 57, 0.48);
+    background: rgba(237, 41, 57, 0.12);
     box-shadow: 0 14px 28px rgba(0, 0, 0, 0.2);
   }
 
   .austria-u18-theme .mobile-bottom-nav {
-    border-color: rgba(177, 31, 48, 0.18);
+    border-color: rgba(237, 41, 57, 0.18);
     background: rgba(8, 10, 14, 0.95);
   }
 
   .austria-u18-theme .mobile-bottom-nav-btn.active {
-    background: rgba(177, 31, 48, 0.14);
+    background: rgba(237, 41, 57, 0.14);
     color: var(--text);
   }
 }
@@ -2821,7 +2821,7 @@ body.austria-u18-theme.overlay-active {
   max-height: 82vh;
   padding: 24px;
   background: rgba(15, 18, 23, 0.88);
-  border: 1px solid rgba(177, 31, 48, 0.24);
+  border: 1px solid rgba(237, 41, 57, 0.24);
   border-radius: 12px;
   box-shadow:
     0 20px 64px rgba(0, 0, 0, 0.6),
@@ -2842,7 +2842,7 @@ body.austria-u18-theme.overlay-active {
   height: auto;
   object-fit: contain;
   border-radius: 8px;
-  border: 1px solid rgba(177, 31, 48, 0.18);
+  border: 1px solid rgba(237, 41, 57, 0.18);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
 }
 
@@ -2853,8 +2853,8 @@ body.austria-u18-theme.overlay-active {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(177, 31, 48, 0.88);
-  border: 1px solid rgba(177, 31, 48, 0.5);
+  background: rgba(237, 41, 57, 0.88);
+  border: 1px solid rgba(237, 41, 57, 0.5);
   color: #fff;
   font-size: 1.4rem;
   font-weight: 300;
@@ -2868,8 +2868,8 @@ body.austria-u18-theme.overlay-active {
 }
 
 .diagram-lightbox-close:hover {
-  background: rgba(177, 31, 48, 1);
-  box-shadow: 0 4px 12px rgba(177, 31, 48, 0.4);
+  background: rgba(237, 41, 57, 1);
+  box-shadow: 0 4px 12px rgba(237, 41, 57, 0.4);
 }
 
 @media (max-width: 768px) {
@@ -2901,4 +2901,60 @@ body.austria-u18-theme.overlay-active {
     /* overflow intentionally not set — cascade keeps overflow-x:hidden which clips
        absolutely-positioned decorative elements within the slide bounds */
   }
+}
+
+/* Laptop / short viewports: tighten the top chrome (topbar + section map) so the
+   header doesn't dominate and content is reachable. Scoped to Austria U18 only;
+   desktop (tall) and phone (own layout) are unaffected. */
+@media (max-height: 820px) {
+  .austria-u18-theme .topbar { min-height: 52px; padding-top: 6px; padding-bottom: 8px; }
+  .austria-u18-theme .topbar-logo { padding: 6px 14px 6px 12px; }
+  .austria-u18-theme .topbar-logo img.nt-topbar-logo { height: 30px; }
+  .austria-u18-theme .workspace-map-inner { padding-top: 8px; padding-bottom: 10px; }
+  .austria-u18-theme .workspace-map-item { padding-top: 6px; padding-bottom: 6px; }
+}
+
+/* Cover: keep the two-column hero from becoming cramped on small screens */
+@media (max-width: 900px) {
+  .austria-u18-theme .nt-cover-shell { grid-template-columns: 1fr; }
+}
+
+/* Laptop / short viewports: tighten the top chrome (topbar + section map) so the
+   header doesn't dominate and content is reachable. Austria U18 only; desktop and
+   phone layouts unaffected. */
+@media (max-height: 820px) {
+  .austria-u18-theme .topbar { min-height: 52px; padding-top: 6px; padding-bottom: 8px; }
+  .austria-u18-theme .topbar-logo { padding: 6px 14px 6px 12px; }
+  .austria-u18-theme .topbar-logo img.nt-topbar-logo { height: 30px; }
+  .austria-u18-theme .workspace-map-inner { padding-top: 8px; padding-bottom: 10px; }
+  .austria-u18-theme .workspace-map-item { padding-top: 6px; padding-bottom: 6px; }
+}
+
+/* Laptop / short viewports: the 2px progress bar is position:fixed, so once the
+   page scrolls it floats detached over the content. Let it scroll away with the
+   page instead (no stray hovering line). Austria U18 only. */
+@media (max-height: 820px) {
+  .austria-u18-theme .progress { position: absolute; top: 0; }
+}
+
+/* Desktop / tall viewports: fill the height so the cover doesn't cluster at the
+   top with a large empty area below. Center the two columns vertically and match
+   their height. Short/laptop screens (max-height:820) are unaffected. */
+@media (min-height: 821px) {
+  .austria-u18-theme .nt-cover-shell { align-content: center; align-items: stretch; }
+  .austria-u18-theme .nt-cover-main { justify-content: center; }
+  .austria-u18-theme .nt-cover-side { align-content: center; }
+}
+
+/* Cover hero: the huddle photo was almost invisible (opacity .18, brightness .45),
+   so the hero read as an empty dark box. Make it present as a premium banner. */
+.austria-u18-theme .austria-youth-intro::before {
+  opacity: 0.5;
+  filter: grayscale(1) brightness(0.66) contrast(1.18);
+}
+
+/* Desktop: topbar renders ~86px but the 2px progress bar is pinned at top:66px,
+   so the red line cuts across the logo. Drop it to the topbar's bottom. */
+@media (min-height: 821px) {
+  .austria-u18-theme .progress { top: 86px; }
 }

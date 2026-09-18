@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TEMPO Lineout System — Austria Youth</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --r:#CE1126;--rd:rgba(206,17,38,.12);
+  --bk:#080808;--dk:#0f0f12;--md:#191921;
+  --bd:#252530;--tx:#e8e8ea;--mt:#5a5a68;--wh:#fff;
+  --gd:#c9a227;--bl:#1545a8;--gr:#0f7040;--gb:#1fd670;
+  --fg:#081a0e;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100vh;overflow:hidden;background:var(--bk);color:var(--tx);font-family:'Barlow',sans-serif;font-weight:300;}
+#app{display:flex;flex-direction:column;height:100vh;}
+
+/* ── TOPBAR ── */
+#topbar{display:flex;align-items:center;background:var(--dk);border-bottom:2px solid var(--r);height:60px;flex-shrink:0;overflow:hidden;}
+#brand{display:flex;align-items:center;gap:10px;padding:0 16px;border-right:1px solid var(--bd);height:100%;flex-shrink:0;min-width:200px;}
+#brand img{height:44px;width:auto;filter:drop-shadow(0 0 8px rgba(206,17,38,.35));}
+#brand-t{line-height:1.25;}
+.bt{font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--wh);}
+.bp{font-family:'Barlow Condensed',sans-serif;font-size:.56rem;letter-spacing:.2em;text-transform:uppercase;color:var(--r);}
+#tnav{display:flex;align-items:stretch;flex:1;height:100%;overflow-x:auto;}
+#tnav::-webkit-scrollbar{height:0;}
+.nb{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:0 14px;background:none;border:none;border-bottom:3px solid transparent;color:var(--mt);font-family:'Barlow Condensed',sans-serif;font-size:.64rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;white-space:nowrap;flex-shrink:0;height:100%;transition:all .15s;}
+.nb .nn{font-family:'Bebas Neue',sans-serif;font-size:.8rem;color:var(--r);opacity:.5;line-height:1;}
+.nb:hover{color:var(--wh);background:var(--rd);}
+.nb.on{color:var(--wh);border-bottom-color:var(--r);background:rgba(206,17,38,.08);}
+#creds{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding:0 16px;border-left:1px solid var(--bd);height:100%;flex-shrink:0;gap:3px;}
+.cr{font-family:'Barlow Condensed',sans-serif;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--mt);line-height:1;}
+.cr b{color:var(--wh);font-weight:700;}
+
+/* ── PANELS ── */
+main{flex:1;overflow:hidden;position:relative;}
+.panel{display:none;height:calc(100vh - 60px);overflow-y:auto;overflow-x:hidden;}
+.panel.on{display:block;}
+
+/* ── COVER ── */
+#cover-inner{min-height:100%;display:flex;flex-direction:column;justify-content:center;padding:56px 60px;position:relative;overflow:hidden;background:var(--bk);}
+.cbg{position:absolute;inset:0;background:linear-gradient(135deg,rgba(206,17,38,.09) 0%,transparent 55%),repeating-linear-gradient(-45deg,transparent,transparent 38px,rgba(206,17,38,.02) 38px,rgba(206,17,38,.02) 39px);pointer-events:none;}
+.crule{position:absolute;top:0;left:0;width:5px;height:100%;background:var(--r);}
+.cnum{position:absolute;right:-6px;bottom:10px;font-family:'Bebas Neue',sans-serif;font-size:clamp(7rem,16vw,13rem);line-height:.85;color:rgba(206,17,38,.045);pointer-events:none;user-select:none;}
+.ci{position:relative;z-index:2;}
+.ctag{font-family:'Barlow Condensed',sans-serif;font-size:.62rem;letter-spacing:.38em;color:var(--r);text-transform:uppercase;margin-bottom:14px;}
+.ctit{font-family:'Barlow Condensed',sans-serif;font-size:clamp(2.6rem,5.5vw,4.8rem);font-weight:900;line-height:.9;text-transform:uppercase;color:var(--wh);}
+.ctit em{color:var(--r);font-style:normal;}
+.csub{margin-top:16px;font-size:.84rem;color:var(--mt);max-width:440px;line-height:1.6;}
+.cmeta{margin-top:28px;display:flex;gap:26px;flex-wrap:wrap;}
+.cmi span{display:block;font-family:'Barlow Condensed',sans-serif;font-size:.54rem;letter-spacing:.25em;color:var(--mt);text-transform:uppercase;}
+.cmi b{font-family:'Barlow Condensed',sans-serif;font-size:.88rem;font-weight:700;color:var(--wh);}
+
+/* ── SECTIONS ── */
+.sec{padding:46px 54px;min-height:calc(100vh - 60px);}
+.sec.alt{background:var(--dk);}
+.sh{display:flex;align-items:flex-start;gap:12px;margin-bottom:28px;padding-bottom:14px;border-bottom:1px solid var(--bd);}
+.sn{font-family:'Bebas Neue',sans-serif;font-size:3.2rem;line-height:.9;color:var(--r);opacity:.26;flex-shrink:0;margin-top:-2px;}
+.stit{font-family:'Barlow Condensed',sans-serif;font-size:clamp(1.4rem,2.5vw,2.1rem);font-weight:900;text-transform:uppercase;color:var(--wh);line-height:1;}
+.ssub{font-size:.65rem;letter-spacing:.2em;color:var(--r);text-transform:uppercase;margin-top:4px;font-family:'Barlow Condensed',sans-serif;font-weight:600;}
+p{font-size:.86rem;color:#a0a0b0;margin-bottom:.9rem;max-width:640px;line-height:1.6;}
+
+/* cards */
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:2px;margin:18px 0;}
+.card{background:var(--md);border:1px solid var(--bd);padding:20px 16px;position:relative;overflow:hidden;transition:background .15s;}
+.card:hover{background:#1e1e28;}
+.card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--r);}
+.ci2{position:absolute;right:-3px;top:-3px;font-family:'Bebas Neue',sans-serif;font-size:4.5rem;line-height:1;color:var(--r);opacity:.055;pointer-events:none;}
+.ch{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.cbadge{width:32px;height:32px;border-radius:50%;background:var(--r);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1rem;color:var(--wh);flex-shrink:0;}
+.cname{font-family:'Barlow Condensed',sans-serif;font-size:1rem;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--wh);}
+.cdesc{font-size:.78rem;color:#808090;line-height:1.5;margin-bottom:10px;}
+.ctag2{display:inline-block;padding:2px 7px;border:1px solid var(--r);color:var(--r);font-family:'Barlow Condensed',sans-serif;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;font-weight:700;}
+
+/* pill strip */
+.pstrip{display:flex;gap:2px;overflow-x:auto;margin-bottom:18px;}
+.pstrip::-webkit-scrollbar{height:0;}
+.pill{padding:8px 13px;background:var(--md);border:1px solid var(--bd);color:var(--mt);font-family:'Barlow Condensed',sans-serif;font-size:.66rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;flex-shrink:0;transition:all .15s;border-bottom:3px solid transparent;}
+.pill.on{background:rgba(206,17,38,.1);border-color:var(--r);border-bottom-color:var(--r);color:var(--wh);}
+
+/* table */
+.ft{width:100%;max-width:700px;border-collapse:collapse;margin:16px 0;font-size:.78rem;}
+.ft th{background:var(--r);color:var(--wh);font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:9px 13px;text-align:left;font-size:.65rem;}
+.ft td{padding:11px 13px;border-bottom:1px solid var(--bd);vertical-align:top;color:#9898b0;background:var(--md);}
+.ft tr:hover td{background:#1e1e28;}
+.ft td:first-child{font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--wh);font-size:.82rem;white-space:nowrap;}
+.tag{display:inline-block;padding:1px 6px;border:1px solid var(--r);color:var(--r);font-family:'Barlow Condensed',sans-serif;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;font-weight:700;border-radius:2px;margin:1px;}
+
+/* callout */
+.co{background:var(--rd);border-left:4px solid var(--r);padding:12px 16px;margin:14px 0;max-width:660px;}
+.co p{font-size:.8rem;color:var(--tx);margin:0;max-width:none;}
+.co b{color:var(--r);}
+
+/* legend */
+.leg{display:flex;gap:14px;margin-bottom:16px;flex-wrap:wrap;}
+.ld{display:flex;align-items:center;gap:5px;font-size:.72rem;color:var(--mt);}
+.ldot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+
+/* role cards */
+.rcards{display:flex;gap:2px;flex-wrap:wrap;margin:18px 0;}
+.rcard{flex:1 1 150px;background:var(--md);border:1px solid var(--bd);padding:18px 14px;min-width:130px;}
+.rname{font-family:'Barlow Condensed',sans-serif;font-size:.9rem;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--wh);}
+.rsub{font-size:.62rem;letter-spacing:.12em;font-family:'Barlow Condensed',sans-serif;font-weight:600;text-transform:uppercase;margin:4px 0 8px;}
+.rdesc{font-size:.75rem;color:#808090;line-height:1.5;margin:0;}
+
+/* mottos */
+.mottos{display:flex;gap:2px;margin-top:14px;flex-wrap:wrap;}
+.motto{flex:1 1 280px;background:var(--md);border:1px solid var(--bd);padding:12px 16px;}
+.motto span{font-family:'Barlow Condensed',sans-serif;font-size:.76rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;}
+
+/* sub-tabs */
+.subtab-content{background:var(--md);border:1px solid var(--bd);padding:18px;border-radius:2px;}
+
+/* field */
+.field-wrap{width:100%;max-width:600px;}
+.field-wrap svg{width:100%;display:block;border-radius:6px;}
+
+/* TEMPO code */
+.tcode-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:800px;}
+.tbox{background:var(--md);border:1px solid var(--bd);padding:20px 18px;border-radius:2px;}
+.tbox-head{font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--mt);margin-bottom:14px;}
+.trow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--bd);}
+.trow:last-child{border-bottom:none;}
+.tdesc{font-size:.79rem;color:#8888a0;}
+.tcode{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.68rem;letter-spacing:.12em;padding:2px 8px;border:1px solid var(--r);color:var(--r);white-space:nowrap;}
+.tletters{display:flex;gap:4px;margin-top:14px;justify-content:center;}
+.tl{width:42px;height:42px;background:var(--dk);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--wh);}
+.tcancel{text-align:center;font-size:.6rem;color:var(--mt);margin-top:5px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.15em;text-transform:uppercase;}
+
+/* position code */
+.pcode-banner{background:var(--md);border:1px solid var(--bd);padding:18px 20px;max-width:800px;margin-top:18px;}
+.pcode-strip{display:flex;align-items:stretch;border:1px solid var(--bd);overflow:hidden;border-radius:2px;margin:14px 0;}
+.pcode-cell{flex:1;text-align:center;padding:10px 4px;border-right:1px solid var(--bd);}
+.pcode-cell:last-child{border-right:none;}
+.pcode-letter{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;line-height:1;}
+.pcode-sub{font-size:.54rem;color:var(--mt);margin-top:3px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;}
+.shorthand{display:flex;gap:20px;background:var(--bk);border:1px solid var(--bd);padding:10px 14px;flex-wrap:wrap;}
+.sh-sz{font-family:'Barlow Condensed',sans-serif;font-size:.72rem;color:var(--mt);}
+.sh-code{font-family:'Barlow Condensed',sans-serif;font-size:.72rem;color:#1fd670;letter-spacing:.1em;}
+
+/* defence */
+.def-shapes{display:flex;flex-direction:column;gap:10px;max-width:680px;}
+.def-shape-box{background:var(--md);border:1px solid var(--bd);padding:16px;}
+.def-shape-head{display:flex;gap:8px;align-items:center;margin-bottom:10px;}
+.def-shape-title{font-family:'Barlow Condensed',sans-serif;font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--wh);}
+.def-badge{font-family:'Barlow Condensed',sans-serif;font-size:.58rem;font-weight:700;padding:2px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:.1em;}
+.def-note{font-size:.73rem;color:#555568;margin-top:8px;line-height:1.5;}
+.def-calls{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:680px;margin-top:14px;}
+.def-call{background:var(--md);border:1px solid var(--bd);padding:12px 14px;}
+.def-call-title{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px;}
+.def-call-desc{font-size:.73rem;color:#555568;line-height:1.5;}
+.def-btns{display:flex;gap:4px;margin-top:7px;flex-wrap:wrap;}
+.dbtn{padding:2px 7px;border:1px solid;font-family:'Barlow Condensed',sans-serif;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;}
+
+/* shape grid */
+.shape-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.shape-box{background:var(--dk);border:1px solid var(--bd);padding:12px;}
+.shape-label{font-family:'Barlow Condensed',sans-serif;font-size:.78rem;color:#c9a227;font-weight:700;letter-spacing:.1em;margin-bottom:8px;}
+
+/* alert */
+.alert{display:flex;align-items:flex-start;gap:9px;background:var(--md);border:1px solid var(--bd);border-left:4px solid #c9a227;padding:10px 14px;max-width:660px;margin-bottom:18px;}
+.alert p{margin:0;font-size:.8rem;color:var(--tx);}
+
+/* ── MOBILE MENU BUTTON ── */
+#mob-menu-btn{
+  display:flex;
+  align-items:center;justify-content:center;
+  width:44px;height:44px;margin-right:8px;
+  background:none;border:1px solid var(--bd);border-radius:4px;
+  cursor:pointer;flex-shrink:0;
+}
+#mob-menu-btn span{
+  display:block;width:18px;height:2px;background:var(--wh);
+  position:relative;transition:all .2s;
+}
+#mob-menu-btn span::before,#mob-menu-btn span::after{
+  content:'';display:block;width:18px;height:2px;background:var(--wh);
+  position:absolute;left:0;transition:all .2s;
+}
+#mob-menu-btn span::before{top:-5px;}
+#mob-menu-btn span::after{top:5px;}
+#mob-menu-btn.open span{background:transparent;}
+#mob-menu-btn.open span::before{transform:rotate(45deg);top:0;}
+#mob-menu-btn.open span::after{transform:rotate(-45deg);top:0;}
+
+/* ── MOBILE OVERLAY ── */
+#mob-overlay{
+  position:fixed;inset:0;top:60px;
+  background:var(--dk);
+  z-index:999;
+  overflow-y:auto;
+  transform:translateX(-100%);
+  transition:transform .28s ease;
+  border-top:2px solid var(--r);
+}
+#mob-overlay.open{transform:translateX(0);}
+#mob-overlay .mob-section-btn{
+  display:flex;align-items:center;gap:16px;
+  width:100%;padding:18px 24px;
+  background:none;border:none;border-bottom:1px solid var(--bd);
+  cursor:pointer;text-align:left;
+  transition:background .15s;
+  -webkit-tap-highlight-color:transparent;
+}
+#mob-overlay .mob-section-btn:active{background:var(--rd);}
+#mob-overlay .mob-section-btn.on{background:rgba(206,17,38,.12);border-left:4px solid var(--r);}
+#mob-overlay .mob-section-btn .mbn{
+  font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--r);
+  opacity:.5;line-height:1;width:36px;flex-shrink:0;text-align:center;
+}
+#mob-overlay .mob-section-btn.on .mbn{opacity:1;}
+#mob-overlay .mob-section-btn .mbt{
+  font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--mt);
+}
+#mob-overlay .mob-section-btn.on .mbt{color:var(--wh);}
+#mob-overlay .mob-credits{
+  padding:20px 24px;border-top:1px solid var(--bd);
+  font-family:'Barlow Condensed',sans-serif;font-size:.72rem;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--mt);
+  line-height:1.8;margin-top:auto;
+}
+#mob-overlay .mob-credits b{color:var(--wh);}
+@media(max-width:700px){
+  .tcode-grid{grid-template-columns:1fr;}
+  .shape-grid{grid-template-columns:1fr;}
+  .def-calls{grid-template-columns:1fr;}
+  .sec{padding:20px 16px;}
+  #cover-inner{padding:32px 20px;}
+  .cmeta{flex-wrap:wrap;gap:14px;}
+  #brand{min-width:auto;padding:0 12px;}
+  #brand img{height:36px;}
+  #creds{display:none;}
+  #tnav{display:none;}
+  #mob-menu-btn{display:flex;}
+  .rcards{flex-direction:column;}
+  .maul-attrs,.mottos{flex-direction:column;}
+  .pgrid{grid-template-columns:1fr 1fr;}
+  .pcode-strip{flex-wrap:wrap;}
+  .pcode-cell{min-width:40px;}
+  .shorthand{flex-direction:column;gap:8px;}
+}
+@media(min-width:701px){
+  #mob-menu-btn{display:none;}
+  #mob-overlay{display:none !important;}
+}
+</style>
+<style>
+/* ═══════════════════════════════════════════════════════
+   Austria Youth Platform Integration
+   Scoped via .tempo-system-embedded on #app
+   ═══════════════════════════════════════════════════════ */
+
+/* — override CSS variables to match Austria Youth palette — */
+:root {
+  --r: #c32236;
+  --rd: rgba(195, 34, 54, 0.11);
+  --bk: #050607;
+  --dk: #0e1115;
+  --md: #15191f;
+  --bd: rgba(195, 34, 54, 0.18);
+  --tx: #f2f0ed;
+  --mt: rgba(184, 181, 176, 0.68);
+  --wh: #f2f0ed;
+  --gd: #b79a61;
+}
+
+html, body {
+  background: linear-gradient(150deg, #040506 0%, #0d1014 48%, #15191f 100%);
+}
+
+/* ── topbar ── */
+.tempo-system-embedded #topbar {
+  background:
+    linear-gradient(90deg, rgba(195, 34, 54, 0.08), transparent 16%),
+    linear-gradient(180deg, rgba(16, 19, 24, 0.98), rgba(10, 12, 16, 0.98));
+  border-bottom: 1px solid rgba(195, 34, 54, 0.2);
+  height: 52px;
+}
+
+.tempo-system-embedded #brand {
+  border-right-color: rgba(195, 34, 54, 0.14);
+  min-width: 160px;
+  padding: 0 14px;
+}
+
+.tempo-system-embedded .bt {
+  font-size: 0.74rem;
+  letter-spacing: 1.4px;
+  color: var(--tx);
+}
+
+.tempo-system-embedded .bp {
+  font-size: 0.58rem;
+  letter-spacing: 1.8px;
+  color: var(--r);
+}
+
+.tempo-system-embedded #creds {
+  border-left-color: rgba(195, 34, 54, 0.14);
+  padding: 0 14px;
+}
+
+.tempo-system-embedded .cr {
+  font-size: 0.6rem;
+  letter-spacing: 1.2px;
+  color: rgba(184, 181, 176, 0.48);
+}
+
+.tempo-system-embedded .cr b {
+  color: var(--tx);
+}
+
+/* ── nav tabs ── */
+.tempo-system-embedded .nb {
+  padding: 0 12px;
+  font-size: 0.68rem;
+  letter-spacing: 1.6px;
+  color: rgba(184, 181, 176, 0.52);
+  border-bottom: 2px solid transparent;
+  transition: all 160ms ease;
+}
+
+.tempo-system-embedded .nb .nn {
+  font-size: 0.62rem;
+  color: rgba(195, 34, 54, 0.55);
+}
+
+.tempo-system-embedded .nb:hover {
+  color: var(--tx);
+  background: rgba(195, 34, 54, 0.055);
+  border-bottom-color: rgba(195, 34, 54, 0.28);
+}
+
+.tempo-system-embedded .nb.on {
+  color: var(--tx);
+  background: rgba(195, 34, 54, 0.1);
+  border-bottom-color: var(--r);
+}
+
+.tempo-system-embedded .nb.on .nn {
+  color: var(--r);
+  opacity: 0.9;
+}
+
+/* ── panel height sync with new topbar height ── */
+.tempo-system-embedded .panel {
+  height: calc(100vh - 52px);
+}
+
+/* ── cover ── */
+.tempo-system-embedded #cover-inner {
+  background:
+    radial-gradient(circle at top left, rgba(195, 34, 54, 0.12), transparent 32%),
+    linear-gradient(150deg, #040506 0%, #0d1014 48%, #15191f 100%);
+}
+
+.tempo-system-embedded .cbg {
+  background:
+    radial-gradient(circle at 14% 10%, rgba(195, 34, 54, 0.12), transparent 28%),
+    repeating-linear-gradient(-45deg, transparent, transparent 38px, rgba(195, 34, 54, 0.018) 38px, rgba(195, 34, 54, 0.018) 39px);
+}
+
+.tempo-system-embedded .crule {
+  width: 4px;
+  background: linear-gradient(180deg, #c32236 0%, rgba(183, 154, 97, 0.5) 100%);
+}
+
+.tempo-system-embedded .ctag {
+  color: var(--r);
+  letter-spacing: 4px;
+}
+
+/* ── section headers ── */
+.tempo-system-embedded .sh {
+  border-bottom-color: rgba(195, 34, 54, 0.16);
+  margin-bottom: 22px;
+  padding-bottom: 12px;
+}
+
+.tempo-system-embedded .sn {
+  opacity: 0.18;
+}
+
+.tempo-system-embedded .ssub {
+  color: var(--r);
+  opacity: 0.88;
+}
+
+/* ── sections ── */
+.tempo-system-embedded .sec {
+  padding: 34px 46px;
+}
+
+.tempo-system-embedded .sec.alt {
+  background: rgba(9, 11, 14, 0.75);
+}
+
+/* ── cards ── */
+.tempo-system-embedded .card {
+  border-radius: 10px;
+  border-color: rgba(195, 34, 54, 0.16);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.034), rgba(255, 255, 255, 0.018));
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.tempo-system-embedded .card:hover {
+  background: linear-gradient(180deg, rgba(195, 34, 54, 0.06), rgba(255, 255, 255, 0.02));
+  border-color: rgba(195, 34, 54, 0.32);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+}
+
+.tempo-system-embedded .card::before {
+  border-radius: 10px 0 0 10px;
+  background: linear-gradient(180deg, rgba(195, 34, 54, 0.9), rgba(183, 154, 97, 0.42));
+}
+
+/* ── pill strip ── */
+.tempo-system-embedded .pill {
+  border-radius: 8px;
+  border-color: rgba(195, 34, 54, 0.18);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(184, 181, 176, 0.58);
+  border-bottom-width: 2px;
+  transition: all 160ms ease;
+}
+
+.tempo-system-embedded .pill:hover {
+  background: rgba(195, 34, 54, 0.06);
+  border-color: rgba(195, 34, 54, 0.32);
+  color: var(--tx);
+}
+
+.tempo-system-embedded .pill.on {
+  background: rgba(195, 34, 54, 0.12);
+  border-color: rgba(195, 34, 54, 0.48);
+  color: var(--tx);
+}
+
+/* ── subtab content ── */
+.tempo-system-embedded .subtab-content {
+  border-radius: 12px;
+  border-color: rgba(195, 34, 54, 0.16);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0.014));
+}
+
+/* ── tables ── */
+.tempo-system-embedded .ft th {
+  background: linear-gradient(90deg, #7e1421, #b11f30);
+  letter-spacing: 1.4px;
+}
+
+.tempo-system-embedded .ft td {
+  background: rgba(255, 255, 255, 0.022);
+  border-bottom-color: rgba(195, 34, 54, 0.12);
+}
+
+.tempo-system-embedded .ft tr:hover td {
+  background: rgba(195, 34, 54, 0.06);
+}
+
+.tempo-system-embedded .ft td:first-child {
+  color: var(--tx);
+}
+
+/* ── callout ── */
+.tempo-system-embedded .co {
+  border-radius: 10px;
+  border-left-color: var(--r);
+  background: rgba(195, 34, 54, 0.07);
+}
+
+/* ── alert ── */
+.tempo-system-embedded .alert {
+  border-radius: 10px;
+  border-color: rgba(183, 154, 97, 0.2);
+  border-left-color: #b79a61;
+  background: rgba(183, 154, 97, 0.06);
+}
+
+/* ── tempo code grid ── */
+.tempo-system-embedded .tbox {
+  border-radius: 10px;
+  border-color: rgba(195, 34, 54, 0.16);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.034), rgba(255, 255, 255, 0.018));
+}
+
+.tempo-system-embedded .tbox-head {
+  color: rgba(184, 181, 176, 0.58);
+  letter-spacing: 2px;
+}
+
+.tempo-system-embedded .trow {
+  border-bottom-color: rgba(195, 34, 54, 0.12);
+}
+
+.tempo-system-embedded .tl {
+  border-radius: 6px;
+  border-color: rgba(195, 34, 54, 0.2);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* ── position code ── */
+.tempo-system-embedded .pcode-banner {
+  border-radius: 10px;
+  border-color: rgba(195, 34, 54, 0.16);
+  background: rgba(255, 255, 255, 0.022);
+}
+
+.tempo-system-embedded .pcode-strip {
+  border-radius: 8px;
+  border-color: rgba(195, 34, 54, 0.16);
+  overflow: hidden;
+}
+
+.tempo-system-embedded .pcode-cell {
+  border-right-color: rgba(195, 34, 54, 0.14);
+}
+
+/* ── role cards ── */
+.tempo-system-embedded .rcard {
+  border-radius: 10px;
+  border-color: rgba(195, 34, 54, 0.16);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.034), rgba(255, 255, 255, 0.018));
+}
+
+.tempo-system-embedded .rname {
+  color: var(--r);
+  letter-spacing: 1.4px;
+}
+
+.tempo-system-embedded .rsub {
+  color: rgba(184, 181, 176, 0.52);
+}
+
+.tempo-system-embedded .rdesc {
+  color: rgba(184, 181, 176, 0.7);
+}
+
+/* ── mottos ── */
+.tempo-system-embedded .motto {
+  border-radius: 10px;
+  border-color: rgba(195, 34, 54, 0.16);
+  background: rgba(255, 255, 255, 0.022);
+}
+
+/* ── shape boxes ── */
+.tempo-system-embedded .shape-box {
+  border-radius: 8px;
+  border-color: rgba(195, 34, 54, 0.14);
+  background: rgba(255, 255, 255, 0.022);
+}
+
+.tempo-system-embedded .shape-label {
+  color: var(--gd);
+}
+
+/* ── defence ── */
+.tempo-system-embedded .def-shape-box {
+  border-radius: 10px;
+  border-color: rgba(195, 34, 54, 0.16);
+  background: rgba(255, 255, 255, 0.022);
+}
+
+.tempo-system-embedded .def-call {
+  border-radius: 8px;
+  border-color: rgba(195, 34, 54, 0.14);
+  background: rgba(255, 255, 255, 0.022);
+}
+
+.tempo-system-embedded .def-call-title {
+  color: var(--tx);
+  letter-spacing: 1.2px;
+}
+
+.tempo-system-embedded .def-call-desc,
+.tempo-system-embedded .def-note {
+  color: rgba(184, 181, 176, 0.62);
+}
+
+.tempo-system-embedded .dbtn {
+  border-radius: 4px;
+}
+
+/* ── legend ── */
+.tempo-system-embedded .ld {
+  color: rgba(184, 181, 176, 0.62);
+}
+
+/* ── tags ── */
+.tempo-system-embedded .tag,
+.tempo-system-embedded .ctag2 {
+  border-radius: 4px;
+}
+
+/* ── p text ── */
+.tempo-system-embedded p,
+.tempo-system-embedded .cdesc,
+.tempo-system-embedded .tdesc {
+  color: rgba(184, 181, 176, 0.7);
+}
+
+/* ── mobile overlay ── */
+.tempo-system-embedded #mob-overlay {
+  background:
+    radial-gradient(circle at 18% 10%, rgba(195, 34, 54, 0.1), transparent 22%),
+    linear-gradient(180deg, rgba(14, 17, 21, 0.998), rgba(8, 10, 14, 0.998));
+  border-top-color: rgba(195, 34, 54, 0.28);
+}
+
+.tempo-system-embedded #mob-overlay .mob-section-btn {
+  border-bottom-color: rgba(195, 34, 54, 0.12);
+}
+
+.tempo-system-embedded #mob-overlay .mob-section-btn:active {
+  background: rgba(195, 34, 54, 0.08);
+}
+
+.tempo-system-embedded #mob-overlay .mob-section-btn.on {
+  background: rgba(195, 34, 54, 0.1);
+  border-left: 3px solid var(--r);
+}
+
+.tempo-system-embedded #mob-overlay .mob-credits {
+  color: rgba(184, 181, 176, 0.48);
+}
+
+.tempo-system-embedded #mob-overlay .mob-credits b {
+  color: var(--tx);
+}
+
+/* ── mobile menu button ── */
+.tempo-system-embedded #mob-menu-btn {
+  border-radius: 8px;
+  border-color: rgba(195, 34, 54, 0.22);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* ── brand anchor — link reset + interaction ── */
+.tempo-system-embedded a#brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+  min-height: 44px;
+}
+
+.tempo-system-embedded a#brand:hover {
+  background: rgba(195, 34, 54, 0.06);
+  border-right-color: rgba(195, 34, 54, 0.3);
+}
+
+.tempo-system-embedded a#brand:focus-visible {
+  outline: 2px solid rgba(195, 34, 54, 0.5);
+  outline-offset: -2px;
+}
+
+/* ── brand logo ── */
+.tempo-system-embedded .brand-logo {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.22));
+  transition: opacity 160ms ease;
+}
+
+.tempo-system-embedded a#brand:hover .brand-logo {
+  opacity: 0.88;
+}
+
+/* ── brand text overflow guard ── */
+.tempo-system-embedded .bt,
+.tempo-system-embedded .bp {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── mobile brand ── */
+@media (max-width: 700px) {
+  .tempo-system-embedded a#brand {
+    min-width: auto;
+    padding: 0 10px;
+    gap: 8px;
+  }
+
+  .tempo-system-embedded .brand-logo {
+    height: 32px;
+  }
+
+  .tempo-system-embedded .bt {
+    font-size: 0.65rem;
+    letter-spacing: 1px;
+  }
+
+  .tempo-system-embedded .bp {
+    font-size: 0.52rem;
+    letter-spacing: 1.4px;
+  }
+}
+
+@media (max-width: 400px) {
+  .tempo-system-embedded a#brand {
+    padding: 0 8px;
+    gap: 6px;
+  }
+
+  .tempo-system-embedded .brand-logo {
+    height: 28px;
+  }
+
+  .tempo-system-embedded #brand-t {
+    max-width: 100px;
+  }
+}
+</style>
+</head>
+<body>
+<div id="app" class="tempo-system-embedded">
+
+<header id="topbar">
+  <a id="brand" href="../../../environments/austria-u18/index.html" target="_top" aria-label="Back to Austria Youth">
+    <img src="../../../environments/austria-u18/assets/oesterreich-logo.png" alt="Austria Youth Rugby" class="brand-logo">
+    <div id="brand-t">
+      <div class="bt">Austria National Team</div>
+      <div class="bp">Youth · TEMPO System</div>
+    </div>
+  </a>
+  <nav id="tnav">
+    <button class="nb on" onclick="go('cover',this)"><span class="nn">00</span>Cover</button>
+    <button class="nb" onclick="go('principles',this)"><span class="nn">01</span>Principles</button>
+    <button class="nb" onclick="go('tempo',this)"><span class="nn">02</span>TEMPO Code</button>
+    <button class="nb" onclick="go('formations',this)"><span class="nn">03</span>Formations</button>
+    <button class="nb" onclick="go('playbook',this)"><span class="nn">04</span>Playbook</button>
+    <button class="nb" onclick="go('maul',this)"><span class="nn">05</span>Maul Attack</button>
+    <button class="nb" onclick="go('defence',this)"><span class="nn">06</span>Defence</button>
+    <button class="nb" onclick="go('throwing',this)"><span class="nn">07</span>Throwing</button>
+  </nav>
+  <div id="creds">
+    <div class="cr">Head Coach <b>Diego Mato</b></div>
+    <div class="cr">Forwards Coach <b>Christopher Böck</b></div>
+  </div>
+  <button id="mob-menu-btn" onclick="toggleMobileMenu()" aria-label="Menu">
+    <span></span>
+  </button>
+</header>
+
+<!-- MOBILE OVERLAY NAV -->
+<div id="mob-overlay">
+  <button class="mob-section-btn on" onclick="goMobile('cover')"><span class="mbn">00</span><span class="mbt">Cover</span></button>
+  <button class="mob-section-btn" onclick="goMobile('principles')"><span class="mbn">01</span><span class="mbt">Principles</span></button>
+  <button class="mob-section-btn" onclick="goMobile('tempo')"><span class="mbn">02</span><span class="mbt">TEMPO Code</span></button>
+  <button class="mob-section-btn" onclick="goMobile('formations')"><span class="mbn">03</span><span class="mbt">Formations</span></button>
+  <button class="mob-section-btn" onclick="goMobile('playbook')"><span class="mbn">04</span><span class="mbt">Playbook</span></button>
+  <button class="mob-section-btn" onclick="goMobile('maul')"><span class="mbn">05</span><span class="mbt">Maul Attack</span></button>
+  <button class="mob-section-btn" onclick="goMobile('defence')"><span class="mbn">06</span><span class="mbt">Defence</span></button>
+  <button class="mob-section-btn" onclick="goMobile('throwing')"><span class="mbn">07</span><span class="mbt">Throwing</span></button>
+  <div class="mob-credits">Head Coach <b>Diego Mato</b><br>Forwards Coach <b>Christopher Böck</b></div>
+</div>
+
+<main>
+
+<!-- 00 COVER -->
+<div id="cover" class="panel on">
+  <div id="cover-inner">
+    <div class="cbg"></div>
+    <div class="crule"></div>
+    <div class="cnum">TEMPO</div>
+    <div class="ci">
+      <div class="ctag">Austria National Team · Youth · Lineout System</div>
+      <h1 class="ctit">The <em>TEMPO</em><br>Lineout<br>System</h1>
+      <p class="csub">A complete lineout framework for Austria Youth. Positions coded by TEMPO. Process-driven. Consistent. Built to win the source every time.</p>
+      <div class="cmeta">
+        <div class="cmi"><span>Head Coach</span><b>Diego Mato</b></div>
+        <div class="cmi"><span>Forwards Coach</span><b>Christopher Böck</b></div>
+        <div class="cmi"><span>System</span><b>TEMPO</b></div>
+        <div class="cmi"><span>Lineouts</span><b>5 · 6 · 7 MAN</b></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 01 PRINCIPLES -->
+<div id="principles" class="panel">
+<div class="sec alt">
+  <div class="sh"><div class="sn">01</div><div><div class="stit">Lineout Principles</div><div class="ssub">The Framework · P·M·T·J·L·F</div></div></div>
+  <div class="alert"><span>⚡</span><p>The lineout ends when the backs have the ball. <strong>Finish all aspects with purpose and intent.</strong></p></div>
+  <div class="pstrip" id="pstrip">
+    <div class="pill on" onclick="switchPill('pstrip','p0',this)">Process</div>
+    <div class="pill" onclick="switchPill('pstrip','p1',this)">Movement</div>
+    <div class="pill" onclick="switchPill('pstrip','p2',this)">Throw</div>
+    <div class="pill" onclick="switchPill('pstrip','p3',this)">Jump</div>
+    <div class="pill" onclick="switchPill('pstrip','p4',this)">Lift</div>
+    <div class="pill" onclick="switchPill('pstrip','p5',this)">Finish</div>
+  </div>
+  <div id="p0" class="subtab-content" style="max-width:640px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><div style="width:36px;height:36px;border-radius:50%;background:var(--r);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--wh);">P</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:900;text-transform:uppercase;color:var(--wh);">Process</div></div>
+    <p style="color:var(--tx);font-size:.88rem;">Pre Call early. Know your role. Vary the Picture. Tails in Early to tell the Hooker. Check if easier.</p>
+    <div class="ctag2">FIRST PRIORITY</div>
+  </div>
+  <div id="p1" class="subtab-content" style="max-width:640px;display:none;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><div style="width:36px;height:36px;border-radius:50%;background:#1545a8;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--wh);">M</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:900;text-transform:uppercase;color:var(--wh);">Movement</div></div>
+    <p style="color:var(--tx);font-size:.88rem;">Win the Race / Win the Space. Be detailed, sell your Dummy. WOTB — Win Off The Ball.</p>
+    <div class="ctag2" style="border-color:#1545a8;color:#1545a8;">WIN THE RACE</div>
+  </div>
+  <div id="p2" class="subtab-content" style="max-width:640px;display:none;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><div style="width:36px;height:36px;border-radius:50%;background:#c9a227;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:#080808;">T</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:900;text-transform:uppercase;color:var(--wh);">Throw</div></div>
+    <p style="color:var(--tx);font-size:.88rem;">Effective throw and hit the target — always ETU. Check call or ZERO option (throw to 1-prop).</p>
+    <div class="ctag2">EXECUTION / BE SMARTER</div>
+  </div>
+  <div id="p3" class="subtab-content" style="max-width:640px;display:none;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><div style="width:36px;height:36px;border-radius:50%;background:#0f7040;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--wh);">J</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:900;text-transform:uppercase;color:var(--wh);">Jump</div></div>
+    <p style="color:var(--tx);font-size:.88rem;">Full extension in the air. Elbows tucked. Commit to the ball. Drive everything upward.</p>
+    <div class="ctag2" style="border-color:#0f7040;color:#0f7040;">FULL EXTENSION</div>
+  </div>
+  <div id="p4" class="subtab-content" style="max-width:640px;display:none;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><div style="width:36px;height:36px;border-radius:50%;background:#6b5cff;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--wh);">L</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:900;text-transform:uppercase;color:var(--wh);">Lift</div></div>
+    <p style="color:var(--tx);font-size:.88rem;">Meet the jumper off the floor. Stay close until the end. Full extension throughout. Chest to chest.</p>
+    <div class="ctag2" style="border-color:#6b5cff;color:#6b5cff;">STAY CLOSE · CHEST-CHEST</div>
+  </div>
+  <div id="p5" class="subtab-content" style="max-width:640px;display:none;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><div style="width:36px;height:36px;border-radius:50%;background:var(--r);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--wh);">F</div><div style="font-family:'Barlow Condensed',sans-serif;font-size:1.3rem;font-weight:900;text-transform:uppercase;color:var(--wh);">Finish</div></div>
+    <p style="color:var(--tx);font-size:.88rem;">Drive, Sky or Bounce. Finish all aspects with purpose and intent. Ends when the backs have the ball.</p>
+    <div class="ctag2">INTENT / GET BIG</div>
+  </div>
+  <div class="pgrid" style="margin-top:20px;">
+    <div class="card"><div class="ci2">P</div><div class="ch"><div class="cbadge">P</div><div class="cname">Process</div></div><div class="cdesc">Pre Call early. Know your role. Vary the Picture. Tails in Early.</div><div class="ctag2">FIRST PRIORITY</div></div>
+    <div class="card"><div class="ci2" style="color:#1545a8">M</div><div class="ch"><div class="cbadge" style="background:#1545a8">M</div><div class="cname">Movement</div></div><div class="cdesc">Win the Race / Win the Space. Be detailed, sell your Dummy.</div><div class="ctag2" style="border-color:#1545a8;color:#1545a8">WIN THE RACE</div></div>
+    <div class="card"><div class="ci2" style="color:#c9a227">T</div><div class="ch"><div class="cbadge" style="background:#c9a227;color:#080808">T</div><div class="cname">Throw</div></div><div class="cdesc">Effective throw and hit the target — always ETU.</div><div class="ctag2">EXECUTION</div></div>
+    <div class="card"><div class="ci2" style="color:#0f7040">J</div><div class="ch"><div class="cbadge" style="background:#0f7040">J</div><div class="cname">Jump</div></div><div class="cdesc">Full extension in the air. Elbows tucked. Commit to the ball.</div><div class="ctag2" style="border-color:#0f7040;color:#0f7040">FULL EXTENSION</div></div>
+    <div class="card"><div class="ci2" style="color:#6b5cff">L</div><div class="ch"><div class="cbadge" style="background:#6b5cff">L</div><div class="cname">Lift</div></div><div class="cdesc">Meet the jumper off the floor. Stay close. Full extension.</div><div class="ctag2" style="border-color:#6b5cff;color:#6b5cff">CHEST-CHEST</div></div>
+    <div class="card"><div class="ci2">F</div><div class="ch"><div class="cbadge">F</div><div class="cname">Finish</div></div><div class="cdesc">Drive, Sky or Bounce. Ends when backs have the ball.</div><div class="ctag2">INTENT / GET BIG</div></div>
+  </div>
+</div>
+</div>
+
+<!-- 02 TEMPO CODE -->
+<div id="tempo" class="panel">
+<div class="sec">
+  <div class="sh"><div class="sn">02</div><div><div class="stit">The TEMPO Code</div><div class="ssub">Position Identification · Calls System</div></div></div>
+  <div class="tcode-grid">
+    <div class="tbox">
+      <div class="tbox-head">Movement LO Starters</div>
+      <div class="trow"><span class="tdesc">Last man in (on LO caller)</span><span class="tcode">TRIP WIRE</span></div>
+      <div class="trow"><span class="tdesc">On a Jumper's call</span><span class="tcode">ON CALL</span></div>
+      <div class="trow"><span class="tdesc">Immediate movement on call</span><span class="tcode">CHECK CALL</span></div>
+      <div class="trow"><span class="tdesc">Recall / Restart (ref issue)</span><span class="tcode">SET</span></div>
+      <div class="tletters"><div class="tl">T</div><div class="tl">E</div><div class="tl">M</div><div class="tl">P</div><div class="tl">O</div></div>
+      <div class="tcancel">"CHECK X" = CANCEL</div>
+    </div>
+    <div class="tbox">
+      <div class="tbox-head">Calls to 9 from Jumper (Pre-Called)</div>
+      <div class="trow"><span class="tdesc">Off the top — direct to 9</span><span class="tcode">SKY</span></div>
+      <div class="trow"><span class="tdesc">Down and pop to feet</span><span class="tcode">BOUNCE</span></div>
+      <div class="trow"><span class="tdesc">Drive / maul from lineout</span><span class="tcode">PRE CALL / CLUB</span></div>
+      <div class="trow"><span class="tdesc">9 as a Forward</span><span class="tcode">PLUS 1</span></div>
+      <div class="co" style="margin-top:14px;"><p>⚡ All jumper calls are <b>pre-agreed</b> before the lineout is set.</p></div>
+    </div>
+  </div>
+  <div class="pcode-banner">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div class="tbox-head" style="margin-bottom:0;">Lineout Position Codes</div>
+      <div style="background:#0f7040;color:var(--wh);font-family:'Barlow Condensed',sans-serif;font-size:.6rem;font-weight:700;padding:3px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:.1em;">TEMPO</div>
+    </div>
+    <p style="font-size:.8rem;color:#707080;margin-bottom:12px;max-width:560px;">Positions coded using TEMPO. <strong style="color:var(--tx);">First and last</strong> positions are never assigned a letter. Letters always fill the <strong style="color:var(--tx);">middle positions only.</strong></p>
+    <div class="pcode-strip">
+      <div class="pcode-cell"><div class="pcode-letter" style="color:#5a5a68;font-family:'Bebas Neue',sans-serif;">—</div><div class="pcode-sub">First<br>no letter</div></div>
+      <div class="pcode-cell"><div class="pcode-letter" style="color:#1fd670;font-family:'Bebas Neue',sans-serif;">T</div><div class="pcode-sub">Pos 2</div></div>
+      <div class="pcode-cell"><div class="pcode-letter" style="color:#1fd670;font-family:'Bebas Neue',sans-serif;">E</div><div class="pcode-sub">Pos 3</div></div>
+      <div class="pcode-cell"><div class="pcode-letter" style="color:#1fd670;font-family:'Bebas Neue',sans-serif;">M</div><div class="pcode-sub">Pos 4</div></div>
+      <div class="pcode-cell"><div class="pcode-letter" style="color:#1fd670;font-family:'Bebas Neue',sans-serif;">P</div><div class="pcode-sub">Pos 5</div></div>
+      <div class="pcode-cell"><div class="pcode-letter" style="color:#1fd670;font-family:'Bebas Neue',sans-serif;">O</div><div class="pcode-sub">Pos 6</div></div>
+      <div class="pcode-cell"><div class="pcode-letter" style="color:#5a5a68;font-family:'Bebas Neue',sans-serif;">—</div><div class="pcode-sub">Last<br>no letter</div></div>
+    </div>
+    <div class="shorthand">
+      <div><span class="sh-sz">5-man: </span><span class="sh-code">_ T E M _</span></div>
+      <div><span class="sh-sz">6-man: </span><span class="sh-code">_ T E M P _</span></div>
+      <div><span class="sh-sz">7-man: </span><span class="sh-code">_ T E M P O _</span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 03 FORMATIONS -->
+<div id="formations" class="panel">
+<div class="sec alt">
+  <div class="sh"><div class="sn">03</div><div><div class="stit">Formations</div><div class="ssub">7-Man · 6-Man · 5-Man Shapes</div></div></div>
+  <div class="pstrip" id="fstrip">
+    <div class="pill on" onclick="switchPill('fstrip','f7t',this)">7-Man TEMPO</div>
+    <div class="pill" onclick="switchPill('fstrip','f7s',this)">7-Man Shapes</div>
+    <div class="pill" onclick="switchPill('fstrip','f6t',this)">6-Man TEMPO</div>
+    <div class="pill" onclick="switchPill('fstrip','f6s',this)">6-Man Shapes</div>
+    <div class="pill" onclick="switchPill('fstrip','f5t',this)">5-Man TEMPO</div>
+    <div class="pill" onclick="switchPill('fstrip','f5s',this)">5-Man Shapes</div>
+  </div>
+  <div id="f7t" class="subtab-content"><div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--wh);font-size:.92rem;text-transform:uppercase;">TEMPO — Attacking Side</div><div style="background:#0f7040;color:var(--wh);font-family:'Barlow Condensed',sans-serif;font-size:.58rem;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:uppercase;">7 MAN</div></div><div class="field-wrap" style="max-width:580px;"><svg id="svg7t" viewBox="0 0 580 160"></svg></div><div class="leg" style="margin-top:8px;"><div class="ld"><div class="ldot" style="background:#c9a227;"></div>Hooker (2) &amp; Scrum-half (9)</div><div class="ld"><div class="ldot" style="background:#1fd670;"></div>Jumper (M position)</div><div class="ld"><div class="ldot" style="background:#1545a8;"></div>Lifters &amp; Support</div></div></div>
+  <div id="f7s" class="subtab-content" style="display:none;"><div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--wh);font-size:.92rem;text-transform:uppercase;margin-bottom:12px;">7-Man Example Shapes</div><div class="shape-grid"><div class="shape-box"><div class="shape-label">1-5-1</div><svg id="svg7s1" viewBox="0 0 460 120"></svg></div><div class="shape-box"><div class="shape-label">2-3-2</div><svg id="svg7s2" viewBox="0 0 460 120"></svg></div><div class="shape-box"><div class="shape-label">3-1-3</div><svg id="svg7s3" viewBox="0 0 460 120"></svg></div><div class="shape-box"><div class="shape-label">2-2-3</div><svg id="svg7s4" viewBox="0 0 460 120"></svg></div></div></div>
+  <div id="f6t" class="subtab-content" style="display:none;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--wh);font-size:.92rem;text-transform:uppercase;">TEMPO — Attacking Side</div><div style="background:#0f7040;color:var(--wh);font-family:'Barlow Condensed',sans-serif;font-size:.58rem;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:uppercase;">6 MAN</div></div><div class="field-wrap" style="max-width:520px;"><svg id="svg6t" viewBox="0 0 520 160"></svg></div></div>
+  <div id="f6s" class="subtab-content" style="display:none;"><div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--wh);font-size:.92rem;text-transform:uppercase;margin-bottom:12px;">6-Man Example Shapes</div><div class="shape-grid"><div class="shape-box"><div class="shape-label">1-4-1</div><svg id="svg6s1" viewBox="0 0 420 120"></svg></div><div class="shape-box"><div class="shape-label">2-2-2</div><svg id="svg6s2" viewBox="0 0 420 120"></svg></div><div class="shape-box"><div class="shape-label">2-3-1</div><svg id="svg6s3" viewBox="0 0 420 120"></svg></div><div class="shape-box"><div class="shape-label">3-2-1</div><svg id="svg6s4" viewBox="0 0 420 120"></svg></div></div></div>
+  <div id="f5t" class="subtab-content" style="display:none;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--wh);font-size:.92rem;text-transform:uppercase;">TEMPO — Attacking Side</div><div style="background:#0f7040;color:var(--wh);font-family:'Barlow Condensed',sans-serif;font-size:.58rem;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:uppercase;">5 MAN</div></div><div class="field-wrap" style="max-width:480px;"><svg id="svg5t" viewBox="0 0 480 160"></svg></div></div>
+  <div id="f5s" class="subtab-content" style="display:none;"><div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--wh);font-size:.92rem;text-transform:uppercase;margin-bottom:12px;">5-Man Example Shapes</div><div class="shape-grid"><div class="shape-box"><div class="shape-label">1-3-1</div><svg id="svg5s1" viewBox="0 0 380 110"></svg></div><div class="shape-box"><div class="shape-label">2-1-2</div><svg id="svg5s2" viewBox="0 0 380 110"></svg></div><div class="shape-box"><div class="shape-label">2-3</div><svg id="svg5s3" viewBox="0 0 380 110"></svg></div><div class="shape-box"><div class="shape-label">3-2</div><svg id="svg5s4" viewBox="0 0 380 110"></svg></div></div></div>
+</div>
+</div>
+
+<!-- 04 PLAYBOOK -->
+<div id="playbook" class="panel">
+<div class="sec">
+  <div class="sh"><div class="sn">04</div><div><div class="stit">LO Playbook</div><div class="ssub">Formations · Options · Calls</div></div></div>
+  <table class="ft">
+    <thead><tr><th>Formation</th><th>Options From…</th><th>Calls</th></tr></thead>
+    <tbody>
+      <tr><td>5 Man</td><td>Off Top (Quick Shortened LO.)</td><td><strong style="color:var(--wh)">TEMPO</strong></td></tr>
+      <tr><td>5 + 1</td><td>Forward into 9 Slot. Can Drive Or Become Playmaker.</td><td><strong style="color:var(--wh)">TEMPO</strong><br><span style="color:var(--r)">Drive – Austrian Club Name</span></td></tr>
+      <tr><td>6 Man</td><td>Off Top options, Creating More Options in LO.</td><td><strong style="color:var(--wh)">TEMPO</strong></td></tr>
+      <tr><td>6 + 1</td><td>Driving Lineout Option, Fake Drive</td><td><strong style="color:var(--wh)">TEMPO</strong><br><span style="color:var(--r)">Drive – Austrian Club Name</span></td></tr>
+      <tr><td>Full</td><td>Driving Lineout Option, Off Top, Down &amp; Pop</td><td><strong style="color:var(--wh)">TEMPO</strong></td></tr>
+    </tbody>
+  </table>
+  <div style="background:var(--md);border:1px solid var(--bd);border-left:4px solid var(--r);padding:18px 20px;max-width:700px;margin-top:20px;">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.84rem;text-transform:uppercase;letter-spacing:.08em;color:var(--wh);margin-bottom:12px;">Lineout Triggers in Both Attack &amp; Defence</div>
+    <div style="font-size:.8rem;color:#8888a0;line-height:1.9;">
+      <div>– <strong style="color:var(--tx);">Pre Set Locations</strong> (How can we avoid these?)</div>
+      <div>– <strong style="color:var(--tx);">Body Shape</strong> (Read the player's attributes)</div>
+      <div>– Are they switched on? Can we <strong style="color:var(--tx);">tempo and get in and out</strong>?</div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;">
+      <div style="background:var(--rd);border:1px solid var(--r);padding:7px 13px;font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--wh);font-size:.82rem;">4 = Forward (eg E 4)</div>
+      <div style="background:var(--rd);border:1px solid var(--r);padding:7px 13px;font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--wh);font-size:.82rem;">3 = Back (eg E 3)</div>
+    </div>
+    <div style="margin-top:9px;font-size:.7rem;color:var(--mt);font-family:'Barlow Condensed',sans-serif;font-weight:600;text-transform:uppercase;letter-spacing:.1em;">This is just a simple 1-2 step.</div>
+  </div>
+</div>
+</div>
+
+<!-- 05 MAUL ATTACK -->
+<div id="maul" class="panel">
+<div class="sec alt">
+  <div class="sh"><div class="sn">05</div><div><div class="stit">LO Maul Attack</div><div class="ssub">Roles &amp; Responsibilities</div></div></div>
+  <div class="rcards">
+    <div class="rcard" style="border-top:4px solid #f59e0b"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><span>🎯</span><div class="rname">Target</div></div><div class="rsub" style="color:#f59e0b">The Jumper</div><p class="rdesc">Triple extension on landing. Low and spread feet. Establish the anchor of the maul.</p></div>
+    <div class="rcard" style="border-top:4px solid #1545a8"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><span>↑</span><div class="rname">Pointers</div></div><div class="rsub" style="color:#1545a8">The Lifters</div><p class="rdesc">Slightly turn on the way down. Stay engaged, protect and attack forward — Point / Spear.</p></div>
+    <div class="rcard" style="border-top:4px solid #0f7040"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><span>🏉</span><div class="rname">Ballers</div></div><div class="rsub" style="color:#0f7040">+1 or first receiver</div><p class="rdesc">Gets the ball — set the height right to receive cleanly and distribute.</p></div>
+    <div class="rcard" style="border-top:4px solid #f97316"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><span>🔩</span><div class="rname">Screws</div></div><div class="rsub" style="color:#f97316">Shoulders to Bums</div><p class="rdesc">Protect the Baller. Shoulder on to bums or into gaps to create distance from opposition.</p></div>
+    <div class="rcard" style="border-top:4px solid var(--r)"><div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;"><span>⚙️</span><div class="rname">Backers</div></div><div class="rsub" style="color:var(--r)">Fill space first</div><p class="rdesc">Effect change. Anticipate changes of direction, bodies and breakaway.</p></div>
+  </div>
+  <div style="background:var(--md);border:1px solid var(--bd);border-left:4px solid #c9a227;padding:14px 18px;max-width:760px;margin-bottom:12px;">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.7rem;text-transform:uppercase;letter-spacing:.12em;color:#c9a227;margin-bottom:7px;">★ Important Updates / Small Details — Big Impact</div>
+    <p style="margin:0;font-size:.8rem;color:var(--tx);line-height:1.7;">Attacking Maul — Screws closer to the touchline head <strong>inside</strong>, further from the touchline head <strong>out</strong>.<br>* Hooker becomes a Screw when throwing to the front of the LO instead of a Backer, for speed and safety.</p>
+  </div>
+  <div class="mottos" style="max-width:760px;">
+    <div class="motto" style="border-left:3px solid #0f7040;"><span style="color:#0f7040;">Patience to Build Pressure · Find the Leak · "BE WATER"</span></div>
+    <div class="motto" style="border-left:3px solid #1545a8;"><span style="color:#1545a8;">Expect the Unexpected · Effect Change &amp; Change the Effect</span></div>
+  </div>
+</div>
+</div>
+
+<!-- 06 DEFENCE -->
+<div id="defence" class="panel">
+<div class="sec">
+  <div class="sh"><div class="sn">06</div><div><div class="stit">Lineout Defence</div><div class="ssub">5-Man &amp; 7-Man Opposition</div></div></div>
+  <div class="leg">
+    <div class="ld"><div class="ldot" style="background:#1545a8"></div><span style="color:#1545a8">Blue</span> — Lifters and Look for driving positions</div>
+    <div class="ld"><div class="ldot" style="background:#0f7040"></div><span style="color:#0f7040">Green</span> — Strong / compete / Jump</div>
+    <div class="ld"><div class="ldot" style="background:var(--r)"></div><span style="color:var(--r)">Red</span> — Lifter / DSpace / Hinge</div>
+  </div>
+  <div class="def-shapes">
+    <div class="def-shape-box">
+      <div class="def-shape-head"><div class="def-shape-title">Standard Defensive Shape</div><div class="def-badge" style="background:#0f7040;color:var(--wh);">7-MAN</div></div>
+      <svg id="svgDef1" viewBox="0 0 580 140" style="width:100%;display:block;border-radius:4px;max-width:600px;"></svg>
+      <div class="def-note">If we set early, be prepared that they may choose to attack the dead space between the pods. Standard shape but could change sporadically and delayed.</div>
+    </div>
+    <div class="def-shape-box">
+      <div class="def-shape-head"><div class="def-shape-title">Dynamic Hinge Option</div><div class="def-badge" style="background:var(--r);color:var(--wh);">7-MAN · COMPLEX</div></div>
+      <svg id="svgDef2" viewBox="0 0 580 140" style="width:100%;display:block;border-radius:4px;max-width:600px;"></svg>
+      <div class="def-note">Hinge defence on E to target 2–4 space. More dynamic but complex — requires Hinge Player and jumper to be explosive. Pre-call and awareness required.</div>
+    </div>
+  </div>
+  <div class="def-calls">
+    <div class="def-call" style="border-left:4px solid #0f7040;">
+      <div class="def-call-title" style="color:#0f7040;">🏉 Competition in the Air — Pre Called</div>
+      <div class="def-btns"><span class="dbtn" style="border-color:#0f7040;color:#0f7040;">MIRROR</span><span class="dbtn" style="border-color:#0f7040;color:#0f7040;">PRESSURE 1 PLAYER</span><span class="dbtn" style="border-color:#0f7040;color:#0f7040;">1 AREA</span></div>
+      <div class="def-call-desc" style="margin-top:8px;">Decision made before the lineout is set. All players must know the call.</div>
+    </div>
+    <div class="def-call" style="border-left:4px solid #c9a227;">
+      <div class="def-call-title" style="color:#c9a227;">💪 Competition on the Ground — Maul</div>
+      <div class="def-call-desc">No challenge to the ball. Put bodies in against the maul — disrupt, drive and slow ball at source.</div>
+    </div>
+    <div class="def-call" style="border-left:4px solid var(--r);">
+      <div class="def-call-title" style="color:var(--r);">9 — 5M Channel</div>
+      <div class="def-call-desc">9 in the 5m channel to allow extra forward into the LO. Use when you see a PLUS! or Strike play at the hinge.</div>
+    </div>
+    <div class="def-call" style="border-left:4px solid #1545a8;">
+      <div class="def-call-title" style="color:#1545a8;">One Goal — All In</div>
+      <div class="def-call-desc">Defence LO has one clear objective. Everyone committed. Attack the floor or in air.</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- 07 THROWING -->
+<div id="throwing" class="panel">
+<div class="sec alt">
+  <div class="sh"><div class="sn">07</div><div><div class="stit">Throwing Checklist</div><div class="ssub">4 Key Areas · Same Set Up Every Time</div></div></div>
+
+  <div class="alert" style="border-left-color:var(--r);margin-bottom:22px;">
+    <span style="color:var(--r);font-size:1.1rem;">⚡</span>
+    <p><strong style="color:var(--r);">ENSURE YOU HAVE THE SAME SET UP…… EVERY TIME!!!</strong> Consistency in your throwing mechanics is non-negotiable. Own your process.</p>
+  </div>
+
+  <!-- Sub-tab strip -->
+  <div class="pstrip" id="tstrip">
+    <div class="pill on" onclick="switchPill('tstrip','th0',this)">Overview</div>
+    <div class="pill" onclick="switchPill('tstrip','th1',this)">Feet</div>
+    <div class="pill" onclick="switchPill('tstrip','th2',this)">Core</div>
+    <div class="pill" onclick="switchPill('tstrip','th3',this)">Grip</div>
+    <div class="pill" onclick="switchPill('tstrip','th4',this)">Chest &amp; Arms</div>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div id="th0" class="subtab-content" style="max-width:700px;">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:.72rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--mt);margin-bottom:16px;">4 Key Areas</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:2px;margin-bottom:20px;">
+      <div style="background:var(--dk);border:1px solid var(--bd);border-top:4px solid var(--r);padding:18px 14px;text-align:center;cursor:pointer;" onclick="switchPillById('tstrip','th1',1)">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--r);line-height:1;margin-bottom:4px;">F</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.9rem;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--wh);">Feet</div>
+        <div style="font-size:.7rem;color:var(--mt);margin-top:5px;line-height:1.4;">Stance · Ground Contact · Power</div>
+      </div>
+      <div style="background:var(--dk);border:1px solid var(--bd);border-top:4px solid #f97316;padding:18px 14px;text-align:center;cursor:pointer;" onclick="switchPillById('tstrip','th2',2)">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:2rem;color:#f97316;line-height:1;margin-bottom:4px;">C</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.9rem;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--wh);">Core</div>
+        <div style="font-size:.7rem;color:var(--mt);margin-top:5px;line-height:1.4;">Stability · Glutes · Power Generation</div>
+      </div>
+      <div style="background:var(--dk);border:1px solid var(--bd);border-top:4px solid #c9a227;padding:18px 14px;text-align:center;cursor:pointer;" onclick="switchPillById('tstrip','th3',3)">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:2rem;color:#c9a227;line-height:1;margin-bottom:4px;">G</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.9rem;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--wh);">Grip</div>
+        <div style="font-size:.7rem;color:var(--mt);margin-top:5px;line-height:1.4;">Seam · Fingers · Flight &amp; Spin</div>
+      </div>
+      <div style="background:var(--dk);border:1px solid var(--bd);border-top:4px solid #1545a8;padding:18px 14px;text-align:center;cursor:pointer;" onclick="switchPillById('tstrip','th4',4)">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:2rem;color:#1545a8;line-height:1;margin-bottom:4px;">CA</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:.9rem;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--wh);">Chest &amp; Arms</div>
+        <div style="font-size:.7rem;color:var(--mt);margin-top:5px;line-height:1.4;">Proud Chest · Finish Strong</div>
+      </div>
+    </div>
+    <div class="co"><p>Click any area above or use the tabs to explore each technical component in detail.</p></div>
+  </div>
+
+  <!-- FEET -->
+  <div id="th1" class="subtab-content" style="max-width:680px;display:none;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+      <div style="width:40px;height:40px;border-radius:50%;background:var(--r);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--wh);flex-shrink:0;">F</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;font-weight:900;text-transform:uppercase;color:var(--wh);letter-spacing:.04em;">Feet</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px;margin-bottom:16px;">
+      <div style="background:var(--dk);border:1px solid var(--bd);border-left:3px solid var(--r);padding:14px 18px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.82rem;text-transform:uppercase;letter-spacing:.1em;color:var(--wh);margin-bottom:4px;">Stance Width</div>
+        <p style="margin:0;font-size:.8rem;line-height:1.6;">Just outside shoulder width apart. If split stance, in line with the body in a stable position.</p>
+      </div>
+      <div style="background:var(--dk);border:1px solid var(--bd);border-left:3px solid var(--r);padding:14px 18px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.82rem;text-transform:uppercase;letter-spacing:.1em;color:var(--wh);margin-bottom:4px;">Ground Contact <span style="color:var(--r);">— Critical</span></div>
+        <p style="margin:0;font-size:.8rem;line-height:1.6;">Ensure contact with the ground is maintained throughout the throw — <strong style="color:var(--tx);">especially when releasing the ball</strong>. Loss of ground contact kills accuracy and power.</p>
+      </div>
+      <div style="background:var(--dk);border:1px solid var(--bd);border-left:3px solid var(--r);padding:14px 18px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.82rem;text-transform:uppercase;letter-spacing:.1em;color:var(--wh);margin-bottom:4px;">Power Generation</div>
+        <p style="margin:0;font-size:.8rem;line-height:1.6;">To increase power, "Rock Back" and come up on to toes if needed. Load the back leg, drive through the throw.</p>
+      </div>
+    </div>
+    <div style="background:rgba(206,17,38,.07);border:1px solid var(--bd);padding:12px 16px;max-width:560px;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--r);margin-bottom:6px;">Key Cue</div>
+      <p style="margin:0;font-size:.82rem;color:var(--tx);">Feel the ground. Stay connected from start to finish.</p>
+    </div>
+  </div>
+
+  <!-- CORE -->
+  <div id="th2" class="subtab-content" style="max-width:680px;display:none;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+      <div style="width:40px;height:40px;border-radius:50%;background:#f97316;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--wh);flex-shrink:0;">C</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;font-weight:900;text-transform:uppercase;color:var(--wh);letter-spacing:.04em;">Core</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px;margin-bottom:16px;">
+      <div style="background:var(--dk);border:1px solid var(--bd);border-left:3px solid #f97316;padding:14px 18px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.82rem;text-transform:uppercase;letter-spacing:.1em;color:var(--wh);margin-bottom:4px;">Engage Large Muscle Groups</div>
+        <p style="margin:0;font-size:.8rem;line-height:1.6;">Engage large muscle groups to ensure stability and generate power. The throw starts from the floor, through the core.</p>
+      </div>
+      <div style="background:var(--dk);border:1px solid var(--bd);border-left:3px solid #f97316;padding:14px 18px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.82rem;text-transform:uppercase;letter-spacing:.1em;color:var(--wh);margin-bottom:4px;">Core &amp; Glutes — Switched On</div>
+        <p style="margin:0;font-size:.8rem;line-height:1.6;">Core and glutes must be <strong style="color:var(--tx);">"Switched On"</strong> throughout the entire duration of the throw. Not just at the start — every single phase.</p>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;max-width:400px;">
+      <div style="background:var(--dk);border:1px solid var(--bd);padding:12px 14px;text-align:center;">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:#f97316;line-height:1;">STABILITY</div>
+        <div style="font-size:.72rem;color:var(--mt);margin-top:3px;">Core braced throughout</div>
+      </div>
+      <div style="background:var(--dk);border:1px solid var(--bd);padding:12px 14px;text-align:center;">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:#f97316;line-height:1;">POWER</div>
+        <div style="font-size:.72rem;color:var(--mt);margin-top:3px;">Glutes drive the throw</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GRIP -->
+  <div id="th3" class="subtab-content" style="max-width:680px;display:none;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+      <div style="width:40px;height:40px;border-radius:50%;background:#c9a227;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--bk);flex-shrink:0;">G</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;font-weight:900;text-transform:uppercase;color:var(--wh);letter-spacing:.04em;">Grip</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px;margin-bottom:16px;">
+      <div style="background:var(--dk);border:1px solid var(--bd);border-left:3px solid #c9a227;padding:14px 18px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.82rem;text-transform:uppercase;letter-spacing:.1em;color:var(--wh);margin-bottom:4px;">Dominant Hand</div>
+        <p style="margin:0;font-size:.8rem;line-height:1.6;">Place fingers of dominant hand along the seam of the ball. This is your control hand — precision starts here.</p>
+      </div>
+      <div style="background:var(--dk);border:1px solid var(--bd);border-left:3px solid #c9a227;padding:14px 18px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.82rem;text-transform:uppercase;letter-spacing:.1em;color:var(--wh);margin-bottom:4px;">Non-Dominant Hand</div>
+        <p style="margin:0;font-size:.8rem;line-height:1.6;">Ensure non-dominant hand has a firm grip of ball, fingers spread. This is your guide hand — it controls the trajectory.</p>
+      </div>
+      <div style="background:var(--dk);border:1px solid var(--bd);border-left:3px solid #c9a227;padding:14px 18px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.82rem;text-transform:uppercase;letter-spacing:.1em;color:var(--wh);margin-bottom:6px;">Create Flight &amp; Spin</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div style="background:var(--md);border:1px solid var(--bd);padding:8px 12px;flex:1;min-width:180px;">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#c9a227;margin-bottom:3px;">"Roll"</div>
+            <p style="margin:0;font-size:.76rem;line-height:1.5;">Roll the ball with fingers of dominant hand to create spiral spin.</p>
+          </div>
+          <div style="background:var(--md);border:1px solid var(--bd);padding:8px 12px;flex:1;min-width:180px;">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#c9a227;margin-bottom:3px;">"Flick"</div>
+            <p style="margin:0;font-size:.76rem;line-height:1.5;">Flick the ball with thumb of non-dominant hand to direct flight.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHEST & ARMS -->
+  <div id="th4" class="subtab-content" style="max-width:680px;display:none;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+      <div style="width:40px;height:40px;border-radius:50%;background:#1545a8;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:.85rem;color:var(--wh);flex-shrink:0;">C&A</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:1.4rem;font-weight:900;text-transform:uppercase;color:var(--wh);letter-spacing:.04em;">Chest &amp; Arms</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px;margin-bottom:16px;">
+      <div style="background:var(--dk);border:1px solid var(--bd);border-left:3px solid #1545a8;padding:14px 18px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.82rem;text-transform:uppercase;letter-spacing:.1em;color:var(--wh);margin-bottom:4px;">"Proud Chest"</div>
+        <p style="margin:0;font-size:.8rem;line-height:1.6;">Maintain a proud, open chest throughout the entire throw. Collapsing the chest kills power and accuracy.</p>
+      </div>
+      <div style="background:var(--dk);border:1px solid var(--bd);border-left:3px solid #1545a8;padding:14px 18px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.82rem;text-transform:uppercase;letter-spacing:.1em;color:var(--wh);margin-bottom:4px;">Load Position</div>
+        <p style="margin:0;font-size:.8rem;line-height:1.6;">Bring the ball behind head, with arms in a comfortable position, <strong style="color:var(--tx);">elbows tight</strong>. This is your power position — load it properly.</p>
+      </div>
+      <div style="background:var(--dk);border:1px solid var(--bd);border-left:3px solid #1545a8;padding:14px 18px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.82rem;text-transform:uppercase;letter-spacing:.1em;color:var(--wh);margin-bottom:4px;">"Finish Strong"</div>
+        <p style="margin:0;font-size:.8rem;line-height:1.6;">Chest up, arms pointing at the target on release. You throw where your arms finish — point at the jumper's hands.</p>
+      </div>
+    </div>
+    <div style="background:rgba(21,69,168,.12);border:1px solid #1545a8;padding:12px 16px;max-width:560px;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#1545a8;margin-bottom:6px;">Key Cue</div>
+      <p style="margin:0;font-size:.82rem;color:var(--tx);">Proud chest in. Load up. Finish strong — arms at the target.</p>
+    </div>
+  </div>
+
+  <!-- Full checklist grid always visible -->
+  <div style="margin-top:28px;">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:.72rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--mt);margin-bottom:12px;">Full Checklist — Pre-Throw Routine</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:2px;">
+      <div style="background:var(--md);border:1px solid var(--bd);padding:14px 18px;position:relative;overflow:hidden;">
+        <div style="position:absolute;right:-2px;top:-2px;font-family:'Bebas Neue',sans-serif;font-size:4rem;color:var(--r);opacity:.055;line-height:1;">1</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.78rem;text-transform:uppercase;letter-spacing:.1em;color:var(--r);margin-bottom:4px;">Step 1 — Feet</div>
+        <p style="margin:0;font-size:.77rem;line-height:1.5;color:#909099;">Set your width. Check your balance. Feel the ground. Decide split or parallel.</p>
+      </div>
+      <div style="background:var(--md);border:1px solid var(--bd);padding:14px 18px;position:relative;overflow:hidden;">
+        <div style="position:absolute;right:-2px;top:-2px;font-family:'Bebas Neue',sans-serif;font-size:4rem;color:#f97316;opacity:.055;line-height:1;">2</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.78rem;text-transform:uppercase;letter-spacing:.1em;color:#f97316;margin-bottom:4px;">Step 2 — Core</div>
+        <p style="margin:0;font-size:.77rem;line-height:1.5;color:#909099;">Switch on core and glutes. Brace. Create a stable platform from the ground up.</p>
+      </div>
+      <div style="background:var(--md);border:1px solid var(--bd);padding:14px 18px;position:relative;overflow:hidden;">
+        <div style="position:absolute;right:-2px;top:-2px;font-family:'Bebas Neue',sans-serif;font-size:4rem;color:#c9a227;opacity:.055;line-height:1;">3</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.78rem;text-transform:uppercase;letter-spacing:.1em;color:#c9a227;margin-bottom:4px;">Step 3 — Grip</div>
+        <p style="margin:0;font-size:.77rem;line-height:1.5;color:#909099;">Dominant hand on seam. Non-dominant firm with fingers spread. Set your release point.</p>
+      </div>
+      <div style="background:var(--md);border:1px solid var(--bd);padding:14px 18px;position:relative;overflow:hidden;">
+        <div style="position:absolute;right:-2px;top:-2px;font-family:'Bebas Neue',sans-serif;font-size:4rem;color:#1545a8;opacity:.055;line-height:1;">4</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:.78rem;text-transform:uppercase;letter-spacing:.1em;color:#1545a8;margin-bottom:4px;">Step 4 — Chest &amp; Arms</div>
+        <p style="margin:0;font-size:.77rem;line-height:1.5;color:#909099;">Proud chest. Load behind head. Elbows tight. Finish strong — arms at the target.</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:16px;background:var(--md);border:1px solid var(--bd);padding:14px 20px;max-width:680px;border-top:3px solid var(--r);">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--r);margin-bottom:5px;">The Golden Rule</div>
+    <p style="margin:0;font-size:.84rem;color:var(--tx);">Use the checklist. <strong>Same set up every time.</strong> Consistency beats talent. Process beats pressure.</p>
+  </div>
+</div>
+</div>
+
+</main>
+</div>
+
+<script>
+// ── PANEL SWITCHING
+function showPanel(id) {
+  var panels = document.querySelectorAll('.panel');
+  for (var i = 0; i < panels.length; i++) {
+    panels[i].classList.remove('on');
+    panels[i].style.display = 'none';
+  }
+  var t = document.getElementById(id);
+  if (t) { t.classList.add('on'); t.style.display = ''; }
+  var m = document.querySelector('main');
+  if (m) m.scrollTop = 0;
+}
+
+function updateDesktopNav(id) {
+  var btns = document.querySelectorAll('.nb');
+  for (var i = 0; i < btns.length; i++) {
+    btns[i].classList.remove('on');
+    if (btns[i].getAttribute('onclick') === "go('" + id + "',this)") {
+      btns[i].classList.add('on');
+    }
+  }
+}
+
+function updateMobileNav(id) {
+  var btns = document.querySelectorAll('.mob-section-btn');
+  for (var i = 0; i < btns.length; i++) {
+    btns[i].classList.remove('on');
+    if (btns[i].getAttribute('onclick') === "goMobile('" + id + "')") {
+      btns[i].classList.add('on');
+    }
+  }
+}
+
+function go(id, btn) {
+  showPanel(id);
+  var btns = document.querySelectorAll('.nb');
+  for (var i = 0; i < btns.length; i++) btns[i].classList.remove('on');
+  if (btn) btn.classList.add('on');
+  updateMobileNav(id);
+}
+
+function goMobile(id) {
+  showPanel(id);
+  updateDesktopNav(id);
+  updateMobileNav(id);
+  var overlay = document.getElementById('mob-overlay');
+  var menuBtn = document.getElementById('mob-menu-btn');
+  if (overlay) overlay.classList.remove('open');
+  if (menuBtn) menuBtn.classList.remove('open');
+}
+
+function toggleMobileMenu() {
+  var btn = document.getElementById('mob-menu-btn');
+  var overlay = document.getElementById('mob-overlay');
+  if (btn) btn.classList.toggle('open');
+  if (overlay) overlay.classList.toggle('open');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  var panels = document.querySelectorAll('.panel');
+  for (var i = 0; i < panels.length; i++) {
+    if (!panels[i].classList.contains('on')) panels[i].style.display = 'none';
+  }
+});
+
+// ── PILL TABS
+function switchPill(stripId, targetId, btn) {
+  var strip = document.getElementById(stripId);
+  var pills = strip.querySelectorAll('.pill');
+  for (var i = 0; i < pills.length; i++) pills[i].classList.remove('on');
+  btn.classList.add('on');
+  var parent = strip.parentElement;
+  var tabs = parent.querySelectorAll('.subtab-content');
+  for (var i = 0; i < tabs.length; i++) tabs[i].style.display = 'none';
+  document.getElementById(targetId).style.display = 'block';
+}
+
+function switchPillById(stripId, targetId, btnIndex) {
+  var strip = document.getElementById(stripId);
+  var pills = strip.querySelectorAll('.pill');
+  for (var i = 0; i < pills.length; i++) pills[i].classList.remove('on');
+  if (pills[btnIndex]) pills[btnIndex].classList.add('on');
+  var parent = strip.parentElement;
+  var tabs = parent.querySelectorAll('.subtab-content');
+  for (var i = 0; i < tabs.length; i++) tabs[i].style.display = 'none';
+  document.getElementById(targetId).style.display = 'block';
+}
+
+// ── SVG FIELD RENDERER
+var BC = 'Barlow Condensed,sans-serif';
+var COLORS = {gold:'#c9a227',blue:'#1545a8',green:'#0f7040',gb:'#1fd670',red:'#CE1126',wh:'#fff',bk:'#080808',fg:'#081a0e',mt:'#5a5a68'};
+
+function makeField(svgId, cfg) {
+  var el = document.getElementById(svgId);
+  if (!el) return;
+  var vb = el.getAttribute('viewBox').split(' ');
+  var W = parseFloat(vb[2]), H = parseFloat(vb[3]);
+  var R = Math.min(17, H * 0.115);
+  var lineY = H * 0.52;
+  var hookerX = R + 8;
+  var startX = hookerX + 42;
+  var endX = W - 10 - R;
+  var n = cfg.lo.length;
+  var sp = n > 1 ? (endX - startX) / (n - 1) : 0;
+  var px = [];
+  for (var i = 0; i < n; i++) px.push(startX + i * sp);
+  var jIdx = cfg.lo.indexOf(cfg.jumper);
+  var nineX = jIdx >= 0 ? px[jIdx] : W / 2;
+  var nineY = lineY - R * 2.3;
+
+  var h = '';
+  h += '<rect width="' + W + '" height="' + H + '" fill="' + COLORS.fg + '" rx="4"/>';
+  h += '<line x1="' + startX + '" y1="' + (H*.1) + '" x2="' + startX + '" y2="' + (H*.9) + '" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>';
+  h += '<line x1="' + endX + '" y1="' + (H*.1) + '" x2="' + endX + '" y2="' + (H*.9) + '" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>';
+  var midX = (startX + endX) / 2;
+  h += '<line x1="' + midX + '" y1="' + (H*.1) + '" x2="' + midX + '" y2="' + (H*.9) + '" stroke="rgba(255,255,255,0.03)" stroke-width="1" stroke-dasharray="3,3"/>';
+  h += '<line x1="' + (hookerX + R) + '" y1="' + lineY + '" x2="' + (px[n-1] + R) + '" y2="' + lineY + '" stroke="rgba(255,255,255,0.12)" stroke-width="1.5"/>';
+
+  if (cfg.pods) {
+    for (var p = 0; p < cfg.pods.length; p++) {
+      var pod = cfg.pods[p];
+      var idxs = [];
+      for (var k = 0; k < pod.length; k++) {
+        var idx = cfg.lo.indexOf(pod[k]);
+        if (idx >= 0) idxs.push(idx);
+      }
+      if (!idxs.length) continue;
+      var mnX = px[idxs[0]], mxX = px[idxs[0]];
+      for (var k = 1; k < idxs.length; k++) {
+        if (px[idxs[k]] < mnX) mnX = px[idxs[k]];
+        if (px[idxs[k]] > mxX) mxX = px[idxs[k]];
+      }
+      var pad = R + 6, bH2 = (R + 6) * 2, bY = lineY - R - 6;
+      h += '<rect x="' + (mnX - pad) + '" y="' + bY + '" width="' + (mxX - mnX + pad * 2) + '" height="' + bH2 + '" rx="' + (bH2 / 2) + '" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.5"/>';
+    }
+  }
+
+  h += '<circle cx="' + hookerX + '" cy="' + lineY + '" r="' + R + '" fill="' + COLORS.gold + '"/>';
+  h += '<text x="' + hookerX + '" y="' + lineY + '" text-anchor="middle" dominant-baseline="central" fill="' + COLORS.bk + '" font-size="' + Math.round(R*.65) + '" font-family="' + BC + '" font-weight="800">' + cfg.hooker + '</text>';
+
+  if (jIdx >= 0 && !cfg.defRoles) {
+    var r9 = R - 3;
+    h += '<circle cx="' + nineX + '" cy="' + nineY + '" r="' + r9 + '" fill="' + COLORS.gold + '"/>';
+    h += '<text x="' + nineX + '" y="' + nineY + '" text-anchor="middle" dominant-baseline="central" fill="' + COLORS.bk + '" font-size="' + Math.round(r9*.7) + '" font-family="' + BC + '" font-weight="800">9</text>';
+  }
+
+  for (var i = 0; i < cfg.lo.length; i++) {
+    var j = cfg.lo[i];
+    var x = px[i];
+    var isJ = (j === cfg.jumper);
+    var letter = (cfg.tempo && cfg.tempo[j]) ? cfg.tempo[j] : '';
+    var fill, stroke, sW;
+    if (cfg.defRoles) {
+      var role = cfg.defRoles[j] || 'blue';
+      fill = role === 'blue' ? COLORS.blue : role === 'green' ? COLORS.green : COLORS.red;
+      stroke = 'rgba(255,255,255,0.15)'; sW = 1;
+    } else {
+      fill = isJ ? COLORS.green : COLORS.blue;
+      stroke = isJ ? COLORS.gb : 'rgba(255,255,255,0.16)'; sW = isJ ? 2 : 1;
+    }
+    h += '<circle cx="' + x + '" cy="' + lineY + '" r="' + R + '" fill="' + fill + '" stroke="' + stroke + '" stroke-width="' + sW + '"/>';
+    h += '<text x="' + x + '" y="' + lineY + '" text-anchor="middle" dominant-baseline="central" fill="' + COLORS.wh + '" font-size="' + Math.round(R*.62) + '" font-family="' + BC + '" font-weight="700">' + j + '</text>';
+    if (letter) {
+      h += '<text x="' + x + '" y="' + (lineY + R + 11) + '" text-anchor="middle" fill="' + (isJ ? COLORS.gb : 'rgba(255,255,255,0.35)') + '" font-size="9" font-family="' + BC + '" font-weight="700">' + letter + '</text>';
+    }
+  }
+  el.innerHTML = h;
+}
+var T7={3:'T',4:'E',5:'M',6:'P',7:'O'};
+var T6={3:'T',4:'E',6:'M',7:'P'};
+var T5={4:'T',5:'E',6:'M'};
+var DEF_STD={1:'blue',3:'blue',4:'green',5:'red',6:'red',7:'green',8:'blue'};
+var DEF_HNG={1:'blue',3:'blue',4:'green',5:'red',6:'red',7:'red',8:'blue'};
+
+makeField('svg7t',{lo:[1,3,4,5,6,7,8],hooker:2,jumper:5,tempo:T7,pods:null});
+makeField('svg7s1',{lo:[1,3,4,5,6,7,8],hooker:2,jumper:5,tempo:T7,pods:[[1],[3,4,5,6,7],[8]]});
+makeField('svg7s2',{lo:[1,3,4,5,6,7,8],hooker:2,jumper:5,tempo:T7,pods:[[1,3],[4,5,6],[7,8]]});
+makeField('svg7s3',{lo:[1,3,4,5,6,7,8],hooker:2,jumper:5,tempo:T7,pods:[[1,3,4],[5],[6,7,8]]});
+makeField('svg7s4',{lo:[1,3,4,5,6,7,8],hooker:2,jumper:5,tempo:T7,pods:[[1,3],[4,5],[6,7,8]]});
+makeField('svg6t',{lo:[1,3,4,6,7,8],hooker:2,jumper:6,tempo:T6,pods:null});
+makeField('svg6s1',{lo:[1,3,4,6,7,8],hooker:2,jumper:6,tempo:T6,pods:[[1],[3,4,6,7],[8]]});
+makeField('svg6s2',{lo:[1,3,4,6,7,8],hooker:2,jumper:6,tempo:T6,pods:[[1,3],[4,6],[7,8]]});
+makeField('svg6s3',{lo:[1,3,4,6,7,8],hooker:2,jumper:6,tempo:T6,pods:[[1,3],[4,6,7],[8]]});
+makeField('svg6s4',{lo:[1,3,4,6,7,8],hooker:2,jumper:6,tempo:T6,pods:[[1,3,4],[6,7],[8]]});
+makeField('svg5t',{lo:[1,4,5,6,8],hooker:2,jumper:5,tempo:T5,pods:null});
+makeField('svg5s1',{lo:[1,4,5,6,8],hooker:2,jumper:5,tempo:T5,pods:[[1],[4,5,6],[8]]});
+makeField('svg5s2',{lo:[1,4,5,6,8],hooker:2,jumper:5,tempo:T5,pods:[[1,4],[5],[6,8]]});
+makeField('svg5s3',{lo:[1,4,5,6,8],hooker:2,jumper:5,tempo:T5,pods:[[1,4],[5,6,8]]});
+makeField('svg5s4',{lo:[1,4,5,6,8],hooker:2,jumper:5,tempo:T5,pods:[[1,4,5],[6,8]]});
+makeField('svgDef1',{lo:[1,3,4,5,6,7,8],hooker:2,jumper:5,tempo:{},pods:null,defRoles:DEF_STD});
+makeField('svgDef2',{lo:[1,3,4,5,6,7,8],hooker:2,jumper:5,tempo:{},pods:null,defRoles:DEF_HNG});
+
+</script>
+</body>
+</html>

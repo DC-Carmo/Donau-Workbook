@@ -215,34 +215,40 @@
     defenceRoles: [
       {
         name: "INSIDE CHOP",
-        desc: "Low dominant tackle inside the ball carrier. Cut space and win the shoulder."
+        desc: "Low, dominant tackle on the inside shoulder. Cut the legs, win the collision, stop the momentum."
       },
       {
         name: "OUTSIDE TOP",
-        desc: "High control tackle outside the ball carrier. Contain, slow ball speed."
+        desc: "High, controlling tackle on the outside. Hold him up, kill the offload, slow their ball."
+      },
+      {
+        name: "GUARD A",
+        desc: "First defender at the ruck. Low, square, loud — call the ball's exit and set the inside gate. Own the pick-and-go and the 9's snipe."
       },
       {
         name: "GUARD B",
-        desc: "First defender next to the ruck. Holds inside gate. Scans and contests if the picture is live."
+        desc: "Rushes up connected off A. Deny the second pass — get off the line and pressure the first receiver before the ball travels wide. Square, never drifting."
       },
       {
         name: "GUARD C",
-        desc: "Second defender next to the ruck. Scans a beat later. Contest if clean — otherwise Back in game."
+        desc: "The connector to the edge. Go hard in the outside channel and own it, linking inside-out so the whole line arrives together — no dog-legs."
       },
       {
         name: "BACK IN GAME",
-        desc: "Reload from the breakdown back into the defensive line. Connection priority over contest attempt."
+        desc: "Clear or reload from the breakdown straight back into the line. Connection before contest — be in the picture first."
       }
     ],
 
     defenceCalls: [
-      { name: "WIN THE RACE",  action: "Line speed standard — arrive at the tackle picture first, connected." },
-      { name: "READY / UP",    action: "Primary line call. Edge is set and connected before the ball is live." },
-      { name: "ICE",           action: "Dead ruck - Leave" },
-      { name: "RED",           action: "Emergency scramble or linebreak response." },
-      { name: "GUARD B",       action: "First defender locks inside gate and reads the next action." },
-      { name: "GUARD C",       action: "Second defender scans. Contest if clean, Back in game if not." },
-      { name: "BACK IN GAME",  action: "Clear the breakdown — reload into the line immediately." }
+      { name: "WIN THE RACE", action: "Line-speed standard — arrive at the tackle picture first, connected." },
+      { name: "UP ON THE BALL", action: "Move as the ball leaves the hands. Every pass in the air is ground we take — together, on the same trigger." },
+      { name: "READY / UP", action: "Primary line call. Edge is set and connected before the ball is live." },
+      { name: "ICE", action: "Dead ruck — leave it." },
+      { name: "RED", action: "Emergency scramble or line-break response." },
+      { name: "GUARD A", action: "First defender locks the inside gate; owns pick-and-go and the 9's snipe." },
+      { name: "GUARD B", action: "Rush connected off A; deny the second pass." },
+      { name: "GUARD C", action: "Connect to the edge; defend the outside channel hard, no dog-legs." },
+      { name: "BACK IN GAME", action: "Clear the breakdown — reload into the line immediately." }
     ],
 
     defData: {
@@ -252,7 +258,7 @@
           color: "g",
           points: [
             "Organised line, connected inside-out.",
-            "Guard B holds inside gate and scans for contest opportunity.",
+            "Guard A owns the inside gate; Guard B rushes connected off him.",
             "Back three keep width and solve kick-return picture early."
           ]
         },
@@ -260,7 +266,7 @@
           title: "Principle C — Guard Scanning",
           color: "o",
           points: [
-            "Guard B and C scan — contest if the picture is live.",
+            "Guard B denies the second pass; Guard C owns the outside channel.",
             "If no clean contest: Back in game immediately.",
             "Line must not wait — Win The Race applies to the fold too."
           ]
@@ -281,7 +287,7 @@
           color: "g",
           points: [
             "Organised line from the inside out.",
-            "Guard C holds second gate and reads the next action.",
+            "Guard A sets the inside gate; Guard C owns the outside channel.",
             "Midfield stays square and connected before pushing up."
           ]
         },
@@ -289,7 +295,7 @@
           title: "Principle C — Guard Scanning",
           color: "o",
           points: [
-            "Guard B and C scanning. Contest if available.",
+            "Guard B rushes to deny the second pass; Guard C defends the edge.",
             "Back in game takes priority over a loose pilfer.",
             "Short-side picture must be read before the ball is live."
           ]
@@ -310,7 +316,7 @@
           color: "g",
           points: [
             "Organised line with width and discipline.",
-            "Guard B and C scan the breakdown before committing.",
+            "Guard A sets the gate; B and C rush connected together.",
             "Back three keep pendulum alive and hold width."
           ]
         },
@@ -318,7 +324,7 @@
           title: "Principle C — Guard Scanning",
           color: "o",
           points: [
-            "Guard B and C contest if clean — otherwise Back in game fast.",
+            "Guard B denies the second pass, Guard C holds the edge — Back in game fast if beaten.",
             "Line cannot afford a soft seam between 10 and 12.",
             "Win The Race: fold speed matters as much as line speed."
           ]
@@ -479,7 +485,7 @@
           "Link inside forward pressure to outside speed."
         ],
         defence: [
-          "Guard B and C roles — own the ruck contest decision.",
+          "Guard A, B and C — own the inside gate, the connected rush, and the edge.",
           "Back in game is the default when contest is not clean."
         ],
         setPiece: [
@@ -571,7 +577,7 @@
           progressLabel: "LIVE FILE",
           progressValue: "Week 1",
           progressPercent: 64,
-          status: "Active",
+          status: "In Development",
           accent: "red",
           icon: "OP",
           points: ["Kick-return threats", "Preferred launch areas", "Weak shoulders to target"]
@@ -582,7 +588,7 @@
           progressLabel: "CLIP BANK",
           progressValue: "18 clips",
           progressPercent: 52,
-          status: "Available",
+          status: "In Development",
           accent: "silver",
           icon: "FR",
           points: ["Positive examples", "Fix-it moments", "Unit review prompts"]
@@ -593,7 +599,7 @@
           progressLabel: "TRACKING",
           progressValue: "9 KPIs",
           progressPercent: 58,
-          status: "Active",
+          status: "In Development",
           accent: "gold",
           icon: "KP",
           points: ["Launch quality", "Territory wins", "Penalty profile"]
@@ -604,7 +610,7 @@
           progressLabel: "NOTEBOOK",
           progressValue: "Ready",
           progressPercent: 42,
-          status: "In Build",
+          status: "In Development",
           accent: "red",
           icon: "MN",
           points: ["Pre-match cues", "Bench notes", "Post-match review prompts"]
@@ -623,6 +629,6 @@
     },
 
     // ── AI PLAYBOOK CONTEXT ──────────────────────────────────────────────
-    playbookContext: "You are the Austria Youth Rugby playbook assistant. Use only the pathway context provided here. Keep answers concise, practical, and in plain text. Motto: Represent, Compete, Finish.\n\nAttack pitch principles: A = Clean exit (touch, minimal phases). B = Kick to contest if momentum allows. C = Starter plays, two avenues of attack, hold width. D = Vary forward attack, earn the right to go wide, play for points.\n\nDirection calls: BLACK = pass to forward off 9. RED = pass to forward off 10.\n\nPhase plays: Rhino = pick and go. Magic = forwards dummy-run, play released to backs. Boss = pull pass from forward to playmaker out the back. Tips = short pass close to contact. Fiji = change direction, snap back. 2&2 = pods of 2 forwards, inside bind active, outside pre-binds on contact.\n\nSet piece starters: England = 5-man lineout launch into Magic sequence. Wales = two forward pod carries then back inside. O? = structured starter used to launch with clarity from the set piece platform. Launch 41 = set piece starter built to create an immediate launch picture.\n\nKicking system: Tonic 1/2/3 = box kick system. Whiskey 1/2/3 = exit kick system. Vodka 1/2/3 = chip and regather system.\n\nLineout formations: 5 Man, 5+1, 6 Man, 6+1, Full. Throw codes: 4 = Forward, 3 = Back. TEMPO = quick throw before opposition sets. Lineout reads in order: Pre-set locations, Body shape, Are they switched on?, Can we tempo and get in and out?\n\nDefence pitch principles: A = Blitz (line speed, connected, no ruck over-commit). B = Organised line, connected, inside contest if possible. C = Guard B/C scanning, contest if possible, otherwise Back in game. D = Organised discipline, win collisions, apply kick pressure.\n\nDefensive roles: Inside CHOP = low dominant tackle inside. Outside TOP = high control tackle outside. Guard B = first defender next to ruck. Guard C = second defender next to ruck. Back in game = reload from breakdown into the defensive line.\n\nDefensive calls: Win The Race, Ready/Up, ICE, RED, Guard B, Guard C, Back in game.\n\nUnits: Back Three (15, 11, 14), Inside Backs (9, 10, 12, 13), Tight Five (1-5), Loose Forwards (6, 7, 8), Halfback Spine (9, 10, 15), Finishers (bench)."
+    playbookContext: "You are the Austria Youth Rugby playbook assistant. Use only the pathway context provided here. Keep answers concise, practical, and in plain text. Motto: Represent, Compete, Finish.\n\nAttack pitch principles: A = Clean exit (touch, minimal phases). B = Kick to contest if momentum allows. C = Starter plays, two avenues of attack, hold width. D = Vary forward attack, earn the right to go wide, play for points.\n\nDirection calls: BLACK = pass to forward off 9. RED = pass to forward off 10.\n\nPhase plays: Rhino = pick and go. Magic = forwards dummy-run, play released to backs. Boss = pull pass from forward to playmaker out the back. Tips = short pass close to contact. Fiji = change direction, snap back. 2&2 = pods of 2 forwards, inside bind active, outside pre-binds on contact.\n\nSet piece starters: England = 5-man lineout launch into Magic sequence. Wales = two forward pod carries then back inside. O? = structured starter used to launch with clarity from the set piece platform. Launch 41 = set piece starter built to create an immediate launch picture.\n\nKicking system: Tonic 1/2/3 = box kick system. Whiskey 1/2/3 = exit kick system. Vodka 1/2/3 = chip and regather system.\n\nLineout formations: 5 Man, 5+1, 6 Man, 6+1, Full. Throw codes: 4 = Forward, 3 = Back. TEMPO = quick throw before opposition sets. Lineout reads in order: Pre-set locations, Body shape, Are they switched on?, Can we tempo and get in and out?\n\nDefence pitch principles: A = Blitz (line speed, connected, no ruck over-commit). B = Organised line, connected, inside contest if possible. C = Guard B/C scanning, contest if possible, otherwise Back in game. D = Organised discipline, win collisions, apply kick pressure.\n\nDefensive roles: Inside CHOP = low dominant tackle on the inside shoulder. Outside TOP = high control tackle outside. Guard A = first defender at the ruck; sets the inside gate; owns pick-and-go and the 9's snipe. Guard B = rushes connected off A to deny the second pass. Guard C = connects to the edge and defends the outside channel, no dog-legs. Back in game = reload from the breakdown into the defensive line.\n\nDefensive calls: Win The Race, Up On The Ball (move as the ball leaves the hands), Ready/Up, ICE, RED, Guard A, Guard B, Guard C, Back in game.\n\nUnits: Back Three (15, 11, 14), Inside Backs (9, 10, 12, 13), Tight Five (1-5), Loose Forwards (6, 7, 8), Halfback Spine (9, 10, 15), Finishers (bench)."
   };
 })();
