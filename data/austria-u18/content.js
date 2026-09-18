@@ -577,7 +577,7 @@
           progressLabel: "LIVE FILE",
           progressValue: "Week 1",
           progressPercent: 64,
-          status: "Active",
+          status: "In Development",
           accent: "red",
           icon: "OP",
           points: ["Kick-return threats", "Preferred launch areas", "Weak shoulders to target"]
@@ -588,7 +588,7 @@
           progressLabel: "CLIP BANK",
           progressValue: "18 clips",
           progressPercent: 52,
-          status: "Available",
+          status: "In Development",
           accent: "silver",
           icon: "FR",
           points: ["Positive examples", "Fix-it moments", "Unit review prompts"]
@@ -599,7 +599,7 @@
           progressLabel: "TRACKING",
           progressValue: "9 KPIs",
           progressPercent: 58,
-          status: "Active",
+          status: "In Development",
           accent: "gold",
           icon: "KP",
           points: ["Launch quality", "Territory wins", "Penalty profile"]
@@ -610,7 +610,7 @@
           progressLabel: "NOTEBOOK",
           progressValue: "Ready",
           progressPercent: 42,
-          status: "In Build",
+          status: "In Development",
           accent: "red",
           icon: "MN",
           points: ["Pre-match cues", "Bench notes", "Post-match review prompts"]
