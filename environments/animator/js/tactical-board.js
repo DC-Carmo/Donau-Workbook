@@ -20,12 +20,21 @@ const F = { // Field constants
 };
 const FVW = F.DX1 - F.DX0;
 const FVH = F.DY1 - F.DY0;
+const FIELD_X_STRETCH = 1.7;
 const BALL_CARRY_OFFSET = { x: 1.45, y: -1.05 };
+const BALL_CARRY_SNAP = 2.2; // a ball within ~2 units of the owner's centre counts as carried
 const MOBILE_TAP_TOGGLE_PX = 5;
 const PENDING_GROUP_DRAG_PX = 8;
 const SNAP_RADIUS = 4; // field units (~4m)
+const GEOMETRIC_ANNOTATION_MIN_SIZE = 1.5;
+const GEOMETRIC_ANNOTATION_MIN_VISIBLE = 1.5;
+const GEOMETRIC_ANNOTATION_MAX_WIDTH = FVW;
+const GEOMETRIC_ANNOTATION_MAX_HEIGHT = FVH;
+const GEOMETRIC_ANNOTATION_MAX_RADIUS = Math.max(FVW, FVH);
 let GAINLINE_Y = 50;      // default: halfway
-let showGainline = true;
+let showGainline = false;
+const ATTACK_DIRECTION_UP = 'up';
+const ATTACK_DIRECTION_DOWN = 'down';
 let radialMenu = null; // { playerId, x, y } in canvas px
 let teleStrokes = []; // [{ pts:[{x,y}], born: timestamp, color }]
 let teleDrawing = null; // current stroke being drawn
@@ -37,9 +46,37 @@ let currentPresetId = null;
 const SCHEMA_VERSION = 2;
 
 // Canvas scaling
-const FIELD_X_STRETCH = 1.7;
-let cvW=0, cvH=0, sc=1, sx=1, sy=1, ox=0, oy=0;
+let cvW=0, cvH=0, sc=1, sx=1, sy=1, ox=0, oy=0, renderDpr=1;
+let isPhoneViewport = false;
+let isMobilePortraitBoard = false;
+let isPhoneLandscapeBoard = false;
+let phoneVerticalPanPx = 0;
+let phoneVerticalOverflowPx = 0;
+let phoneUserPanned = false;
+// Portrait-only "Fit Full Pitch" mode (toggled from More): temporarily
+// contain-fits the whole pitch instead of the default large editing view.
+// Never persisted; auto-returns to editing view on the triggers listed at
+// its toggle function below.
+let mobileFitFullPitch = false;
+let mobilePortraitScrollTop = null; // last editing-view scroll position, restored across landscape<->portrait
+let viewportState = null;
+let resizeObserver = null;
+let resizeRaf = 0;
+let dprMediaQuery = null;
+let dprMediaQueryListener = null;
 const cv  = document.getElementById('field');
+const supportsPointerEvents = typeof window !== 'undefined' && 'PointerEvent' in window;
+let staticFieldCanvas = null;
+let staticFieldCtx = null;
+let staticFieldCacheKey = '';
+let floatingSelectionToolbarRaf = 0;
+let floatingToolbarOpenFlyout = '';
+
+function isVerticalPhoneBoard() {
+  // Upright pitch in PORTRAIT. Landscape rotates to a horizontal pitch (see the
+  // isPhoneLandscapeBoard branch in toC/frC) so the whole pitch fits the wide screen.
+  return isMobilePortraitBoard;
+}
 
 function normEvent(e) {
   const src = e.touches && e.touches.length > 0         ? e.touches[0]
@@ -53,10 +90,148 @@ function normEvent(e) {
   }
   return e;
 }
-const ctx = cv.getContext('2d');
+let ctx = cv.getContext('2d');
 
-function toC(fx, fy) { return { x: ox + (fx - F.DX0) * sx, y: oy + (fy - F.DY0) * sy }; }
-function frC(cx, cy) { return { x: (cx - ox) / sx + F.DX0, y: (cy - oy) / sy + F.DY0 }; }
+function withRenderContext(nextCtx, fn) {
+  const prevCtx = ctx;
+  ctx = nextCtx;
+  try {
+    return fn();
+  } finally {
+    ctx = prevCtx;
+  }
+}
+
+function syncCanvasResolution(canvas, context, width, height) {
+  const pxW = Math.max(1, Math.round(width * renderDpr));
+  const pxH = Math.max(1, Math.round(height * renderDpr));
+  if (canvas.width !== pxW) canvas.width = pxW;
+  if (canvas.height !== pxH) canvas.height = pxH;
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.imageSmoothingEnabled = true;
+  if ('imageSmoothingQuality' in context) context.imageSmoothingQuality = 'high';
+  context.setTransform(renderDpr, 0, 0, renderDpr, 0, 0);
+}
+
+function normalizeAttackDirection(value) {
+  return value === ATTACK_DIRECTION_DOWN ? ATTACK_DIRECTION_DOWN : ATTACK_DIRECTION_UP;
+}
+
+function attackDirectionSign(direction = currentAttackDirection()) {
+  return normalizeAttackDirection(direction) === ATTACK_DIRECTION_DOWN ? -1 : 1;
+}
+
+function currentAttackDirection() {
+  return normalizeAttackDirection(S.playMetadata?.attackDirection);
+}
+
+function attackDirectionUiCopy() {
+  const lang = window.AnimatorBoardI18n?.getLanguage?.() || document.documentElement.lang || 'en';
+  const base = String(lang || 'en').toLowerCase();
+  if (base.startsWith('pt')) {
+    return {
+      label: 'Ataque',
+      up: 'Para cima',
+      down: 'Para baixo',
+      upShort: '↑',
+      downShort: '↓',
+    };
+  }
+  if (base.startsWith('es')) {
+    return {
+      label: 'Ataque',
+      up: 'Hacia arriba',
+      down: 'Hacia abajo',
+      upShort: '↑',
+      downShort: '↓',
+    };
+  }
+  if (base.startsWith('fr')) {
+    return {
+      label: 'Attaque',
+      up: 'Vers le haut',
+      down: 'Vers le bas',
+      upShort: '↑',
+      downShort: '↓',
+    };
+  }
+  return {
+    label: 'Attack',
+    up: 'Attacking Up',
+    down: 'Attacking Down',
+    upShort: '↑',
+    downShort: '↓',
+  };
+}
+
+function computeDesktopCanvasMetrics(width, height) {
+  const safeWidth = Math.max(1, Number(width) || 1);
+  const safeHeight = Math.max(1, Number(height) || 1);
+  const padX = Math.max(6, Math.min(12, safeWidth * 0.008));
+  const padY = Math.max(8, Math.min(14, safeHeight * 0.01));
+  const baseFromWidth = (safeWidth - padX * 2) / (FVW * FIELD_X_STRETCH);
+  const baseFromHeight = (safeHeight - padY * 2) / FVH;
+  const nextSc = Math.max(0.01, Math.min(baseFromWidth, baseFromHeight));
+  const nextSx = nextSc * FIELD_X_STRETCH;
+  const nextSy = nextSc;
+  return {
+    cvW: safeWidth,
+    cvH: safeHeight,
+    sc: nextSc,
+    sx: nextSx,
+    sy: nextSy,
+    ox: (safeWidth - FVW * nextSx) / 2,
+    oy: (safeHeight - FVH * nextSy) / 2,
+  };
+}
+
+function invalidateStaticFieldCache() {
+  staticFieldCacheKey = '';
+}
+
+function getStaticFieldCacheKey() {
+  return [
+    cvW,
+    cvH,
+    renderDpr.toFixed(3),
+    sx.toFixed(4),
+    sy.toFixed(4),
+    ox.toFixed(2),
+    oy.toFixed(2),
+    isPhoneViewport ? 1 : 0,
+    Number(S?.stripeCount || 12).toFixed(2),
+    Number(S?.textureStrength || 0).toFixed(3),
+  ].join('|');
+}
+
+function ensureStaticFieldSnapshotBuffer() {
+  if (!staticFieldCanvas) {
+    staticFieldCanvas = document.createElement('canvas');
+    staticFieldCtx = staticFieldCanvas.getContext('2d');
+  }
+  syncCanvasResolution(staticFieldCanvas, staticFieldCtx, cvW, cvH);
+}
+
+function toC(fx, fy) {
+  if (isPhoneLandscapeBoard) {
+    // Landscape: pitch rotated 90deg. Length (fy) -> screen X, width (fx) -> screen Y.
+    return { x: ox + (fy - F.DY0) * sx, y: oy + (fx - F.DX0) * sy };
+  }
+  if (isVerticalPhoneBoard()) {
+    return { x: ox + (fx - F.DX0) * sx, y: oy + (fy - F.DY0) * sy };
+  }
+  return { x: ox + (fx - F.DX0) * sx, y: oy + (fy - F.DY0) * sy };
+}
+function frC(cx, cy) {
+  if (isPhoneLandscapeBoard) {
+    return { x: (cy - oy) / sy + F.DX0, y: (cx - ox) / sx + F.DY0 };
+  }
+  if (isVerticalPhoneBoard()) {
+    return { x: (cx - ox) / sx + F.DX0, y: (cy - oy) / sy + F.DY0 };
+  }
+  return { x: (cx - ox) / sx + F.DX0, y: (cy - oy) / sy + F.DY0 };
+}
 function d2(a, b)    { return Math.hypot(a.x - b.x, a.y - b.y); }
 function isInsidePitch(point) {
   return !!point &&
@@ -70,12 +245,36 @@ function clampFieldPoint(point) {
   };
 }
 
+function annotationBoardBounds() {
+  const pitchWidth = F.XMAX - F.XMIN;
+  const pitchHeight = F.YMAX - F.YMIN;
+  // Give geometric annotations a much larger working envelope than the field
+  // itself so coaches can straddle touchlines and push shapes past in-goals
+  // while still keeping every element at least partly reachable.
+  const horizontalMargin = pitchWidth * 0.5;
+  const verticalMargin = pitchHeight * 0.5;
+  return {
+    left: F.XMIN - horizontalMargin,
+    right: F.XMAX + horizontalMargin,
+    top: F.YMIN - verticalMargin,
+    bottom: F.YMAX + verticalMargin,
+  };
+}
+
+function clampGeometricFieldPoint(point) {
+  const bounds = annotationBoardBounds();
+  return {
+    x: clamp(point.x, bounds.left, bounds.right),
+    y: clamp(point.y, bounds.top, bounds.bottom),
+  };
+}
+
 function updateGainDisplayForY(y) {
   const el = document.getElementById('gainDisplay');
   if (!el) return;
-  const dist = Math.round((GAINLINE_Y - y) * 1);
+  const dist = Math.round((GAINLINE_Y - y) * attackDirectionSign());
   const sign = dist > 0 ? '+' : '';
-  el.textContent = dist === 0 ? 'On gainline' : `${sign}${dist}m`;
+  el.textContent = dist === 0 ? tr('gainline.status', {}, 'On gainline') : `${sign}${dist}m`;
   el.style.color = dist > 0 ? '#4ade80' : dist < 0 ? '#f87171' : '#fbbf24';
 }
 
@@ -86,6 +285,112 @@ function closeRadialMenu() {
     menu.classList.remove('visible');
     menu.innerHTML = '';
   }
+}
+
+function ensureRadialSourcePlayerSelected(sourcePlayerId) {
+  const sourcePlayer = S.players.find(player => player.id === sourcePlayerId) || null;
+  if (!sourcePlayer) return null;
+  selectPlayer(sourcePlayer.id, { highlightedIds: [sourcePlayer.id] });
+  return sourcePlayer;
+}
+
+function resetRadialToolInteractionState(nextTool) {
+  const staleTool = S.tool === nextTool;
+  const hasWorkflow = !!activeWorkflowPlayerId();
+  const hasRunSource = !!S.activeRunSourceId;
+  const hasDrawing = !!S.drawing;
+  if (!staleTool && !hasWorkflow && !hasRunSource && !hasDrawing) return;
+  // Only clear the specific stale field(s) actually present, instead of
+  // unconditionally clearing both pass/kick AND run state (each clear also
+  // resets the highlight + legacy selection mirror, so doing both when only
+  // one is stale is pure extra churn on the selected-player visuals).
+  if (hasWorkflow) clearPassKickState();
+  if (hasRunSource) clearArmedRunState();
+  clearDragPlayer();
+  if (hasDrawing) S.drawing = null;
+  S.pointerTap = null;
+  if (staleTool) S.tool = 'move';
+}
+
+function addPlayerAnchoredLabel(playerId, { beginEditing = true } = {}) {
+  const player = S.players.find(item => item.id === playerId) || null;
+  if (!player) return false;
+  snapshot();
+  const annotation = normalizeAnnotation({
+    id: mkAnnotationId(),
+    type: 'playerLabel',
+    playerId: player.id,
+    playerRef: playerRef(player),
+    offsetX: 0,
+    offsetY: PLAYER_LABEL_OFFSET_Y,
+    text: PLAYER_LABEL_DEFAULT,
+    color: annotationColor('playerLabel'),
+    align: 'center',
+    opacity: 1,
+  });
+  if (!annotation) return false;
+  S.annotations.push(annotation);
+  selectAnnotationById(annotation.id);
+  setHint(`${player.team === 'A' ? 'Attack' : 'Defence'} #${player.num} label added.`);
+  refreshInteractionUI();
+  render();
+  if (beginEditing) {
+    requestAnimationFrame(() => beginNoteInlineEdit(annotation.id, { selectAll: true }));
+  }
+  return true;
+}
+
+function activateRadialAction(action, sourcePlayerId) {
+  closeRadialMenu();
+  if (!action || sourcePlayerId === null || sourcePlayerId === undefined) return false;
+  // Look up (don't yet re-select) the source player: the two-tap gesture that
+  // opens the radial menu already left it selected, so the one confirming
+  // selectPlayer() call below - after any stale tool state is cleared - is
+  // enough. Selecting it again here too would just be a second, redundant
+  // reselect of the same player before we've even touched the tool state.
+  const sourcePlayer = S.players.find(player => player.id === sourcePlayerId) || null;
+  if (!sourcePlayer) return false;
+
+  if (action.tool) {
+    resetRadialToolInteractionState(action.tool);
+    ensureRadialSourcePlayerSelected(sourcePlayer.id);
+    setTool(action.tool);
+    // Arrow armed from the radial is a one-shot, player-anchored draw: mark it
+    // (after setTool(), which unconditionally clears it first) so
+    // handlePointerDown starts the arrow at this player's position and
+    // finishAnnotationDraft auto-returns to Move once it commits. Any other
+    // radial tool leaves it at setTool()'s cleared default.
+    if (action.tool === 'arrow') S.radialArrowSourcePlayerId = sourcePlayer.id;
+    return true;
+  }
+
+  if (action.kind === 'ball') {
+    ensureRadialSourcePlayerSelected(sourcePlayer.id);
+    addBall();
+    return true;
+  }
+
+  if (action.kind === 'label') {
+    ensureRadialSourcePlayerSelected(sourcePlayer.id);
+    return addPlayerAnchoredLabel(sourcePlayer.id, { beginEditing: true });
+  }
+
+  if (action.kind === 'remove') {
+    ensureRadialSourcePlayerSelected(sourcePlayer.id);
+    deleteSelected();
+    return true;
+  }
+
+  return false;
+}
+
+function radialEventTargetsMenu(event) {
+  const path = typeof event?.composedPath === 'function' ? event.composedPath() : [];
+  return path.some((node) => {
+    if (!node || typeof node !== 'object') return false;
+    if (node.id === 'radialMenu') return true;
+    return !!node.classList?.contains('radial-btn');
+  });
 }
 
 function renderRadialMenu() {
@@ -108,30 +413,48 @@ function renderRadialMenu() {
   menu.innerHTML = '';
   menu.classList.add('visible');
 
-  const ACTIONS = [
-    { label: 'Run', icon: '→', tool: 'run' },
+  const actions = [
+    { label: 'Run', icon: '&#8594;', tool: 'run', ariaLabel: 'Draw run path' },
+    { label: 'Arrow', icon: '&#8599;', tool: 'arrow', ariaLabel: 'Draw tactical arrow' },
     { label: 'Pass', icon: '~', tool: 'pass' },
-    { label: 'Kick', icon: '⬆', tool: 'kick' },
-    { label: 'Ball', icon: '●', fn: () => giveBall(radialMenu.playerId) },
-    { label: 'Remove', icon: '✕', fn: () => { snapshot(); removePlayer(radialMenu.playerId); }, danger: true },
+    { label: 'Kick', icon: '&uarr;', tool: 'kick' },
+    { label: 'Label', icon: '&#9998;', kind: 'label', ariaLabel: 'Add anchored player label' },
+    { label: 'Ball', icon: '&#9679;', kind: 'ball' },
+    { label: 'Remove', icon: '&#10005;', kind: 'remove', danger: true },
   ];
 
-  const radius = 52;
-  ACTIONS.forEach((action, index) => {
-    const angle = (-Math.PI / 2) + (index * (Math.PI * 2 / ACTIONS.length));
+  const radius = actions.length > 5 ? 58 : 52;
+  actions.forEach((action, index) => {
+    const angle = (-Math.PI / 2) + (index * (Math.PI * 2 / actions.length));
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = `radial-btn${action.danger ? ' danger' : ''}`;
     btn.style.left = `${center.x + Math.cos(angle) * radius}px`;
     btn.style.top = `${center.y + Math.sin(angle) * radius}px`;
     btn.innerHTML = `<span>${action.icon}</span><span>${action.label}</span>`;
-    btn.addEventListener('click', (event) => {
+    if (action.ariaLabel) btn.setAttribute('aria-label', action.ariaLabel);
+    let pointerHandled = false;
+    const handleActivation = (event) => {
       event.preventDefault();
       event.stopPropagation();
-      if (radialMenu?.playerId) selectPlayer(radialMenu.playerId);
-      if (action.tool) setTool(action.tool);
-      if (action.fn) action.fn();
-      closeRadialMenu();
+      event.stopImmediatePropagation?.();
+      const sourcePlayerId = radialMenu?.playerId ?? null;
+      activateRadialAction(action, sourcePlayerId);
+    };
+    btn.addEventListener('pointerdown', (event) => {
+      pointerHandled = true;
+      handleActivation(event);
+    });
+    btn.addEventListener('click', (event) => {
+      if (event.detail !== 0 || pointerHandled) {
+        pointerHandled = false;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+        return;
+      }
+      pointerHandled = false;
+      handleActivation(event);
     });
     menu.appendChild(btn);
   });
@@ -142,22 +465,431 @@ function showRadial(pl, canvasX, canvasY) {
   renderRadialMenu();
 }
 
+function syncMobileNotesPanelHost() {
+  const notes = document.querySelector('.sp-notes-panel');
+  const host = document.getElementById('mobileNotesSheetHost');
+  const anchor = document.getElementById('smartPanelNotesAnchor');
+  if (!notes || !host || !anchor || !anchor.parentNode) return;
+  if (isPhoneViewport) {
+    if (notes.parentNode !== host) host.appendChild(notes);
+    return;
+  }
+  const targetParent = anchor.parentNode;
+  if (notes.parentNode !== targetParent || notes.previousElementSibling !== anchor) {
+    targetParent.insertBefore(notes, anchor.nextSibling);
+  }
+}
+
+function syncMobileBoardNameInput() {
+  const desktopInput = document.getElementById('playName');
+  const mobileInput = document.getElementById('mobilePlayNameInput');
+  if (!desktopInput || !mobileInput || mobileInput === document.activeElement) return;
+  if (mobileInput.value !== desktopInput.value) mobileInput.value = desktopInput.value;
+}
+
+// window.visualViewport reflects what is ACTUALLY visible in Safari (it can
+// differ from window.innerWidth/innerHeight while the dynamic toolbar is
+// showing/hiding). It is used ONLY to establish the outer visible phone
+// region for orientation/size classification below - never as the source of
+// canvas geometry (that always comes from #canvasWrap's own settled
+// getBoundingClientRect(), after CSS layout - aspect-ratio, contain sizing,
+// flex centring - has done all the real fitting work).
+function getVisualViewportBox() {
+  const vv = window.visualViewport;
+  if (vv) {
+    return {
+      width: vv.width,
+      height: vv.height,
+      offsetLeft: vv.offsetLeft || 0,
+      offsetTop: vv.offsetTop || 0,
+    };
+  }
+  return {
+    width: window.innerWidth || document.documentElement.clientWidth || 0,
+    height: window.innerHeight || document.documentElement.clientHeight || 0,
+    offsetLeft: 0,
+    offsetTop: 0,
+  };
+}
+
+// Phone LANDSCAPE only: #canvasHost/the side rails are the only things CSS
+// positions. This measures their settled boxes and writes #canvasWrap's
+// exact pixel rectangle (position:absolute; left/top/width/height) directly,
+// contain-fitting the complete rendered-board's rotated aspect ratio into
+// the space between the rails. Root-caused via empirical Playwright testing:
+// the previous container-query (cqw/cqh) contain-fit technique measured as
+// numerically correct in every geometry/computed-style check, yet the canvas
+// painted nothing visible on screen in real Chrome (confirmed with
+// canvas.toDataURL() showing a fully correct render while the actual
+// composited page showed none) - isolated specifically to a canvas
+// descendant of a container-query-sized, flex-centred #canvasWrap in phone
+// landscape. Explicit absolute positioning does not exhibit it. This is the
+// only function that writes #canvasWrap's landscape geometry.
+const LANDSCAPE_BOARD_ASPECT = FVH / FVW; // rotated: pitch length / pitch width
+const LANDSCAPE_RAIL_GAP_PX = 8;
+function applyPhoneLandscapeWrapGeometry() {
+  const host = document.getElementById('canvasHost');
+  const wrap = document.getElementById('canvasWrap');
+  const railLeft = document.getElementById('mobileRailLeft');
+  const railRight = document.getElementById('mobileRailRight');
+  if (!host || !wrap || !railLeft || !railRight) return false;
+  const hostRect = host.getBoundingClientRect();
+  const leftRailRect = railLeft.getBoundingClientRect();
+  const rightRailRect = railRight.getBoundingClientRect();
+  const usableLeft = Math.max(hostRect.left, leftRailRect.right + LANDSCAPE_RAIL_GAP_PX);
+  const usableRight = Math.min(hostRect.right, rightRailRect.left - LANDSCAPE_RAIL_GAP_PX);
+  const usableTop = hostRect.top;
+  const usableBottom = hostRect.bottom;
+  const availableWidth = usableRight - usableLeft;
+  const availableHeight = usableBottom - usableTop;
+  if (!Number.isFinite(availableWidth) || !Number.isFinite(availableHeight)
+    || availableWidth <= 0 || availableHeight <= 0) {
+    return false;
+  }
+  const widthFromHeight = availableHeight * LANDSCAPE_BOARD_ASPECT;
+  const heightFromWidth = availableWidth / LANDSCAPE_BOARD_ASPECT;
+  let wrapWidth, wrapHeight;
+  if (widthFromHeight <= availableWidth) {
+    wrapWidth = widthFromHeight;
+    wrapHeight = availableHeight;
+  } else {
+    wrapWidth = availableWidth;
+    wrapHeight = heightFromWidth;
+  }
+  if (!Number.isFinite(wrapWidth) || !Number.isFinite(wrapHeight) || wrapWidth <= 0 || wrapHeight <= 0) {
+    return false;
+  }
+  const wrapLeft = usableLeft + (availableWidth - wrapWidth) / 2;
+  const wrapTop = usableTop + (availableHeight - wrapHeight) / 2;
+  // #canvasWrap is position:absolute inside the position:fixed #canvasHost
+  // (zero padding/border on the host in this mode), so its containing block
+  // origin IS hostRect's own top-left - convert back to host-relative px.
+  wrap.style.left = `${wrapLeft - hostRect.left}px`;
+  wrap.style.top = `${wrapTop - hostRect.top}px`;
+  wrap.style.width = `${wrapWidth}px`;
+  wrap.style.height = `${wrapHeight}px`;
+  return true;
+}
+
+function clearPhoneLandscapeWrapGeometry() {
+  const wrap = document.getElementById('canvasWrap');
+  if (!wrap) return;
+  wrap.style.left = '';
+  wrap.style.top = '';
+  wrap.style.width = '';
+  wrap.style.height = '';
+}
+
+// Reads the FINAL, CSS-settled #canvasWrap box and derives the render
+// transform from it directly - no independent fit math. CSS (aspect-ratio,
+// max-width/max-height, flex centring, or the portrait scroller's 96% width)
+// has already decided the board's exact size and position; this only
+// translates that measured box into the sc/sx/sy/ox/oy the renderer needs.
+function getPhoneViewportState() {
+  const wrap = document.getElementById('canvasWrap');
+  const rect = wrap ? wrap.getBoundingClientRect() : null;
+  const availW = rect ? rect.width : 0;
+  const availH = rect ? rect.height : 0;
+  const isLandscape = !isMobilePortraitBoard;
+  // Landscape: pitch length (FVH) maps to the wrap's width axis, width (FVW)
+  // to its height axis (rotated). Portrait: upright, straight mapping.
+  const fieldScaleX = isLandscape ? availW / FVH : availW / FVW;
+  const fieldScaleY = isLandscape ? availH / FVW : availH / FVH;
+  const fieldScale = fieldScaleX;
+  const host = document.getElementById('canvasHost');
+  const overflow = host ? Math.max(0, host.scrollHeight - host.clientHeight) : 0;
+  return {
+    availTop: rect ? rect.top : 0,
+    availBottom: rect ? rect.bottom : 0,
+    availLeft: rect ? rect.left : 0,
+    availRight: rect ? rect.right : 0,
+    availW,
+    availH,
+    fieldScale,
+    fieldScaleX,
+    fieldScaleY,
+    // The board fills #canvasWrap exactly (no letterboxing WITHIN it - all
+    // letterboxing/margin now happens outside, in #canvasHost, via CSS), so
+    // the rendered board IS the wrap and the offset within it is always 0.
+    fieldCssW: availW,
+    fieldCssH: availH,
+    baseX: 0,
+    baseY: 0,
+    overflow,
+    cssWidth: availW,
+    cssHeight: availH,
+  };
+}
+
+function updateViewportStateAssertions() {
+  if (!viewportState) {
+    window.__viewportState = null;
+    return;
+  }
+  const canaryOk = viewportState.cssWidth > 0 && viewportState.cssHeight > 0
+    && viewportState.cssWidth < 4000 && viewportState.cssHeight < 4000;
+  window.__viewportState = {
+    ...viewportState,
+    canaryOk,
+  };
+}
+
+function translatePathPoints(path, dx, dy) {
+  if (!path || !Array.isArray(path.pts) || !path.pts.length) return;
+  path.pts = path.pts.map((pt) => ({
+    x: pt.x + dx,
+    y: pt.y + dy,
+  }));
+}
+
 function resize() {
   const wrap = document.getElementById('canvasWrap');
-  cvW = cv.clientWidth || wrap.clientWidth;
-  cvH = cv.clientHeight || wrap.clientHeight;
-  cv.width = cvW; cv.height = cvH;
+  const vv = getVisualViewportBox();
+  const vpW = vv.width || window.innerWidth || document.documentElement.clientWidth || 0;
+  const vpH = vv.height || window.innerHeight || document.documentElement.clientHeight || 0;
+  if (vpW < 50 || vpH < 50) {
+    if (!window.__animatorResizeRetry) {
+      window.__animatorResizeRetry = setTimeout(() => {
+        window.__animatorResizeRetry = null;
+        scheduleResizePass();
+      }, 180);
+    }
+    return;
+  }
+  // Safari can fire orientationchange/resize with visualViewport/innerWidth
+  // still reporting the PREVIOUS orientation's dimensions for one event,
+  // before the real ones land, while #canvasWrap's own live CSS box (driven
+  // by the browser's own reflow, independent of JS) has already flipped to
+  // the new one. document.documentElement.clientWidth/Height is a second,
+  // independently-updated source of the current layout viewport; when it
+  // disagrees with vpW/vpH on which axis is longer, this pass's dimensions
+  // are stale - classifying orientation from them would toggle the wrong
+  // is-phone/tb-mobile-portrait CSS classes for one pass. Skip this pass
+  // entirely (leaving whatever was last painted on screen untouched) and let
+  // the next scheduled pass - orientationchange's own +250ms/+500ms
+  // catch-ups, or the ResizeObserver on #canvasWrap/#topbar/#bottomPanel,
+  // which will have settled - apply the real geometry instead.
+  const docW = document.documentElement.clientWidth;
+  const docH = document.documentElement.clientHeight;
+  if (docW > 0 && docH > 0 && (vpW > vpH) !== (docW > docH)) {
+    scheduleResizePass();
+    return;
+  }
+  const coarse = !!window.matchMedia?.('(pointer: coarse)')?.matches;
+  const noHover = !!window.matchMedia?.('(hover: none)')?.matches;
+  const small = Math.min(vpW, vpH);
+  const big = Math.max(vpW, vpH);
+  const isPhone = (coarse || noHover)
+    ? (small <= 560)
+    : (small <= 480 && big <= 900);
+  const MOBILE_PORTRAIT = isPhone && vpH > vpW;
+  const PHONE_LANDSCAPE = isPhone && !MOBILE_PORTRAIT;
+  renderDpr = Math.max(1, window.devicePixelRatio || 1);
+  isPhoneViewport = isPhone;
+  isMobilePortraitBoard = MOBILE_PORTRAIT;
+  isPhoneLandscapeBoard = PHONE_LANDSCAPE;
+  document.body.classList.toggle('is-phone', isPhone);
+  document.body.classList.toggle('tb-mobile-portrait', MOBILE_PORTRAIT);
+  document.body.classList.toggle('tb-fit-full-pitch', isPhone && MOBILE_PORTRAIT && mobileFitFullPitch);
+  syncMobileNotesPanelHost();
+  // Landscape only: write #canvasWrap's explicit pixel geometry from the
+  // settled host/rail rects BEFORE reading it below (see
+  // applyPhoneLandscapeWrapGeometry's doc comment for why this replaced the
+  // former CSS-only container-query sizing). Any other mode clears leftover
+  // inline geometry so it can't leak into portrait/desktop's own CSS sizing.
+  if (isPhone && PHONE_LANDSCAPE) {
+    if (!applyPhoneLandscapeWrapGeometry()) {
+      if (!window.__animatorResizeRetry) {
+        window.__animatorResizeRetry = setTimeout(() => {
+          window.__animatorResizeRetry = null;
+          scheduleResizePass();
+        }, 180);
+      }
+      return;
+    }
+  } else {
+    clearPhoneLandscapeWrapGeometry();
+  }
+  const phoneBox = isPhone ? getPhoneViewportState() : null;
+  // CSS (aspect-ratio / max-width+max-height / the portrait scroller's fixed
+  // width) now does 100% of the phone board's sizing and positioning; this
+  // just validates the SETTLED result before using it. A momentarily-invalid
+  // rect (0-size, non-finite, or implausibly small - e.g. mid-transition
+  // before the class toggle above has been painted) is rejected WITHOUT
+  // touching cv/sc/sx/sy/ox/oy, so whatever was last rendered stays on
+  // screen (never blanks) and one rAF retry is scheduled to pick up the
+  // settled geometry.
+  if (isPhone) {
+    const nums = phoneBox && [phoneBox.availW, phoneBox.availH, phoneBox.fieldScale, phoneBox.fieldScaleX, phoneBox.fieldScaleY];
+    const isValid = !!phoneBox && nums.every(Number.isFinite)
+      && phoneBox.availW > 100 && phoneBox.availH > 100
+      && phoneBox.fieldScale > 0;
+    if (!isValid) {
+      if (!window.__animatorResizeRetry) {
+        window.__animatorResizeRetry = setTimeout(() => {
+          window.__animatorResizeRetry = null;
+          scheduleResizePass();
+        }, 180);
+      }
+      return;
+    }
+  }
+  const wrapRect = wrap.getBoundingClientRect();
+  const wrapW = wrap.clientWidth || wrapRect.width || cv.clientWidth || window.innerWidth;
+  const wrapH = wrap.clientHeight || wrapRect.height || cv.clientHeight || window.innerHeight;
+  cvW = isPhone ? Math.max(1, phoneBox?.cssWidth || wrapW) : Math.max(1, wrapW);
+  cvH = isPhone ? Math.max(1, phoneBox?.cssHeight || wrapH) : Math.max(1, wrapH);
   const padX = Math.max(6, Math.min(12, cvW * 0.008));
   const padY = Math.max(8, Math.min(14, cvH * 0.01));
-  const baseFromWidth = (cvW - padX * 2) / (FVW * FIELD_X_STRETCH);
-  const baseFromHeight = (cvH - padY * 2) / FVH;
-  sc = Math.min(baseFromWidth, baseFromHeight);
-  sx = sc * FIELD_X_STRETCH;
-  sy = sc;
-  ox = (cvW - FVW * sx) / 2;
-  oy = (cvH - FVH * sy) / 2;
+  if (isPhone) {
+    cv.style.width = `${cvW}px`;
+    cv.style.height = `${cvH}px`;
+    sc = phoneBox.fieldScale;
+    sx = phoneBox.fieldScaleX || sc;
+    sy = phoneBox.fieldScaleY || sc;
+    // The board fills #canvasWrap exactly now - no letterboxing offset
+    // inside it, and panning is native #canvasHost scroll (see
+    // startPortraitPan/its pointermove handler), not a render-transform
+    // offset - so there is nothing left for ox/oy/phoneVerticalPanPx to do.
+    ox = 0;
+    oy = 0;
+    phoneVerticalPanPx = 0;
+    phoneVerticalOverflowPx = phoneBox.overflow;
+    handleMobilePortraitScrollLifecycle(MOBILE_PORTRAIT);
+    viewportState = {
+      mode: MOBILE_PORTRAIT ? 'phone-portrait' : 'phone-landscape',
+      availTop: phoneBox.availTop,
+      availBottom: phoneBox.availBottom,
+      availH: phoneBox.availH,
+      availW: phoneBox.availW,
+      cssWidth: cvW,
+      cssHeight: cvH,
+      fieldCssW: phoneBox.fieldCssW,
+      fieldCssH: phoneBox.fieldCssH,
+      overflow: phoneBox.overflow,
+      baseX: 0,
+      baseY: 0,
+      panY: 0,
+      panYMin: 0,
+      panYMax: 0,
+      fieldTop: phoneBox.availTop,
+      fieldBottom: phoneBox.availBottom,
+      dpr: renderDpr,
+    };
+  } else {
+    cv.style.width = `${cvW}px`;
+    cv.style.height = `${cvH}px`;
+    wrap.style.width = '';
+    wrap.style.height = '';
+    cvH = Math.max(1, cv.clientHeight || wrapH || (window.innerHeight * 0.6));
+    const baseFromWidth = (cvW - padX * 2) / (FVW * FIELD_X_STRETCH);
+    const baseFromHeight = (cvH - padY * 2) / FVH;
+    sc = Math.max(0.01, Math.min(baseFromWidth, baseFromHeight));
+    sx = sc * FIELD_X_STRETCH;
+    sy = sc;
+    ox = (cvW - FVW * sx) / 2;
+    oy = (cvH - FVH * sy) / 2;
+    phoneVerticalOverflowPx = 0;
+    phoneVerticalPanPx = 0;
+    viewportState = {
+      mode: 'desktop',
+      availTop: 0,
+      availBottom: cvH,
+      availH: cvH,
+      availW: cvW,
+      cssWidth: cvW,
+      cssHeight: cvH,
+      fieldCssW: FVW * sx,
+      fieldCssH: FVH * sy,
+      baseX: ox,
+      baseY: oy,
+      panY: 0,
+      panYMin: 0,
+      panYMax: 0,
+      fieldTop: oy,
+      fieldBottom: oy + (FVH * sy),
+      dpr: renderDpr,
+    };
+  }
+  updateViewportStateAssertions();
+  syncCanvasResolution(cv, ctx, cvW, cvH);
+  invalidateStaticFieldCache();
+  syncMobileBoardNameInput();
   updateMobileUI();
   render();
+  scheduleSequenceDockPosition();
+}
+
+function scheduleResizePass() {
+  if (resizeRaf) return;
+  resizeRaf = requestAnimationFrame(() => {
+    resizeRaf = 0;
+    resize();
+  });
+}
+
+function bindDprChangeListener() {
+  if (!window.matchMedia) return;
+  if (dprMediaQuery && dprMediaQueryListener) {
+    if (typeof dprMediaQuery.removeEventListener === 'function') {
+      dprMediaQuery.removeEventListener('change', dprMediaQueryListener);
+    } else if (typeof dprMediaQuery.removeListener === 'function') {
+      dprMediaQuery.removeListener(dprMediaQueryListener);
+    }
+  }
+  dprMediaQueryListener = () => {
+    bindDprChangeListener();
+    scheduleResizePass();
+  };
+  dprMediaQuery = window.matchMedia(`(resolution: ${(window.devicePixelRatio || 1)}dppx)`);
+  if (typeof dprMediaQuery.addEventListener === 'function') {
+    dprMediaQuery.addEventListener('change', dprMediaQueryListener);
+  } else if (typeof dprMediaQuery.addListener === 'function') {
+    dprMediaQuery.addListener(dprMediaQueryListener);
+  }
+}
+
+function handlePhoneOrientationChange() {
+  // iOS Safari reports stale / zero viewport dimensions for ~200-400ms after
+  // orientationchange. Re-anchor the pan unconditionally (kills any stale pan
+  // that could push the field off-screen when the aspect ratio flips) and re-run
+  // the resize across the settle window; the ResizeObserver on #canvasWrap also
+  // fires once the cell's real size lands.
+  phoneUserPanned = false;
+  scheduleResizePass();
+  setTimeout(scheduleResizePass, 250);
+  setTimeout(scheduleResizePass, 500);
+}
+
+function bindViewportObservers() {
+  bindDprChangeListener();
+  if (!window.__animatorResizeFallbackBound) {
+    window.__animatorResizeFallbackBound = true;
+    window.addEventListener('resize', scheduleResizePass);
+    window.addEventListener('orientationchange', handlePhoneOrientationChange);
+    window.addEventListener('pageshow', scheduleResizePass);
+    document.addEventListener('visibilitychange', scheduleResizePass);
+    document.addEventListener('fullscreenchange', scheduleSequenceDockPosition);
+    if (window.visualViewport && typeof window.visualViewport.addEventListener === 'function') {
+      window.visualViewport.addEventListener('resize', scheduleResizePass);
+      window.visualViewport.addEventListener('resize', scheduleSequenceDockPosition);
+      // Safari can pan the visual viewport (e.g. while the on-screen keyboard
+      // or the dynamic toolbar is animating) without firing its own resize -
+      // the phone fit reads visualViewport.offsetTop/offsetTop+height, so it
+      // needs to re-run on scroll too, not just resize.
+      window.visualViewport.addEventListener('scroll', scheduleResizePass);
+    }
+  }
+  if (resizeObserver || typeof ResizeObserver !== 'function') {
+    return;
+  }
+  const wrap = document.getElementById('canvasWrap');
+  const topbar = document.getElementById('topbar');
+  const bottomPanel = document.getElementById('bottomPanel');
+  resizeObserver = new ResizeObserver(() => {
+    scheduleResizePass();
+  });
+  [wrap, cv, topbar, bottomPanel].filter(Boolean).forEach((el) => resizeObserver.observe(el));
 }
 
 const GamePlan = {
@@ -176,6 +908,21 @@ const GamePlan = {
   ]
 };
 window.GamePlan = GamePlan;
+
+function tr(key, params = {}, fallback = '') {
+  if (window.AnimatorBoardI18n && typeof window.AnimatorBoardI18n.t === 'function') {
+    return window.AnimatorBoardI18n.t(key, params, fallback);
+  }
+  return fallback || key;
+}
+
+function modeLabel(key) {
+  return tr(`mode.${key}`, {}, MODE_LABELS[key] || key);
+}
+
+function hintText(key) {
+  return tr(`hint.${key}`, {}, HINTS[key] || '');
+}
 
 function S() {
   return GamePlan.phases[GamePlan.currentPhase];
@@ -217,6 +964,21 @@ Object.assign(S, {
   playMetadata: null,
   projectPlayback: null,
   annotationDraft: null,
+  arrowColor: '#d9b46c',
+  arrowThickness: 'normal',
+  arrowDash: 'solid',
+  zoneColor: '#10b981',
+  zoneThickness: 'normal',
+  zoneDash: 'solid',
+  zoneFill: 'none',
+  boxColor: '#d9b46c',
+  boxThickness: 'normal',
+  boxDash: 'solid',
+  boxFill: 'none',
+  ellipseColor: '#d9b46c',
+  ellipseThickness: 'normal',
+  ellipseDash: 'solid',
+  ellipseFill: 'none',
   // Selection model:
   // - selectedPlayerId: one player selected for editing at a time
   // - selectedObjectType/selectedAnnotationIdValue: non-player object selection
@@ -229,6 +991,10 @@ Object.assign(S, {
   selectedGroupId: null,
   selectedObjectType: null,
   selectedAnnotationIdValue: null,
+  currentStepBaseline: null,
+  showGhostPrevious: false,
+  moveGuideOrigins: {},
+  annotationClipboard: null,
   dragPlayerId: null,
   dragging: null,       // { type:'player'|'group'|'ball', id? }
   dragOff: { x:0, y:0 },
@@ -237,6 +1003,11 @@ Object.assign(S, {
   activePasserId: null,
   activeKickerId: null,
   activeRunSourceId: null,
+  // Set only while an Arrow armed from the player radial menu is awaiting its
+  // draw gesture or draft commit - marks the in-flight annotationDraft as a
+  // one-shot, player-anchored Arrow (see activateRadialAction/handlePointerDown/
+  // finishAnnotationDraft). Always null for the rail Arrow tool.
+  radialArrowSourcePlayerId: null,
   highlightedPlayerIds: [],
   pendingGroupPlacement: null,
   history: [],          // undo stack (snapshots)
@@ -254,17 +1025,374 @@ Object.assign(S, {
   selectedPassIdx: null,
   selectedPathPid: null,
 });
-const SPEEDS = [0.25, 0.5, 1, 2];
-let   spdIdx = 2;
-function fmtSpd(v) { return v===0.25?'¼×':v===0.5?'½×':v+'×'; }
+const SPEEDS = [1, 2, 3];
+let   spdIdx = 0;
+function fmtSpd(v) { return v + '×'; }
 const SAVED_PLAYS_KEY = 'coachmato.animator.savedPlays.v1';
+const RECOVERY_DRAFT_KEY = 'rugby-gameplan:animator:recovery-draft:v1';
+const RECOVERY_DRAFT_VERSION = 1;
 const FIRST_USE_TUTORIAL_KEY = 'coachmato.animator.firstUseTutorial.v1';
 const PROJECT_SCHEMA_VERSION = 4;
+const AUTOSAVE_DEBOUNCE_MS = 800;
+const PLAY_FILE_TYPE = 'rugby-gameplan-play';
+const PLAY_FILE_VERSION = 1;
+const PLAY_FILE_GENERATOR = 'Rugby GamePlan Tactical Board';
+const IMPORT_MAX_STRING_LENGTH = 4000;
+const IMPORT_MAX_NAME_LENGTH = 120;
+const IMPORT_MAX_ID_LENGTH = 120;
+const PHONE_UI_ACTION_GUARD_MS = 300;
+const PHONE_DATA_ACTION_GUARD_MS = 400;
+const NOTE_INLINE_EDIT_DOUBLE_TAP_MS = 320;
+let lastPhoneAddAction = { team: null, at: -Infinity };
+let playerNumberPickerState = { team: null, anchorId: null };
+let phoneMoveToastTimer = null;
+let phoneMoveToastShown = false;
+let phoneDeleteConfirmTimers = { phase: null, move: null };
+let phoneDeleteConfirmState = { phase: false, move: false };
+const phoneDataActionAt = new Map();
+let noteInlineEditorState = null;
+let noteSelectionClearTimer = null;
+let lastNoteSelectionTap = { id: null, at: 0 };
 const PROJECT_TYPE = 'coachmato.animator.project';
 const PLAYBACK_TIMELINE_MODEL = 'global_progress_v1';
 const DEFAULT_PLAYBACK_DURATION = 5;
+const PLAYBACK_MOVE_UNITS_PER_SECOND = 6;
+const PLAYBACK_BALL_UNITS_PER_SECOND = 8;
+const PLAYBACK_MIN_MOVE_DURATION = 2.4;
+const PLAYBACK_MAX_MOVE_DURATION = 8;
+const PLAYBACK_STATIC_MOVE_DURATION = 0.05;
+
+function claimPhoneDataAction(actionKey) {
+  if (!isPhoneViewport) return true;
+  const now = (typeof performance !== 'undefined' && Number.isFinite(performance.now())) ? performance.now() : Date.now();
+  const lastAt = phoneDataActionAt.get(actionKey) ?? -Infinity;
+  if ((now - lastAt) < PHONE_DATA_ACTION_GUARD_MS) return false;
+  phoneDataActionAt.set(actionKey, now);
+  return true;
+}
 const ANNOTATION_NOTE_DEFAULT = 'Note';
+const PLAYER_LABEL_DEFAULT = 'Label';
 const NOTE_FONT = '"Barlow Condensed"';
+const NOTE_LEGACY_SCALE_MIN = 0.6;
+const NOTE_LEGACY_SCALE_MAX = 3.0;
+const NOTE_DEFAULT_WIDTH = 12;
+const NOTE_DEFAULT_HEIGHT = 6.5;
+const NOTE_MIN_WIDTH = 2.4;
+const NOTE_MIN_HEIGHT = 1.5;
+const NOTE_MAX_WIDTH = 24;
+const NOTE_MAX_HEIGHT = 18;
+const NOTE_PADDING_X = 0.78;
+const NOTE_PADDING_Y = 0.6;
+const NOTE_HANDLE_HIT_PADDING = 1.25;
+const PLAYER_LABEL_OFFSET_Y = -5.4;
+const PLAYER_LABEL_MIN_WIDTH = 4.2;
+const PLAYER_LABEL_MAX_WIDTH = 16;
+const PLAYER_LABEL_MIN_HEIGHT = 1.9;
+const PLAYER_LABEL_MAX_HEIGHT = 8.2;
+const PLAYER_LABEL_PADDING_X = 0.72;
+const PLAYER_LABEL_PADDING_Y = 0.46;
+const ANNOTATION_CLIPBOARD_OFFSET = 1.5;
+const ANNOTATION_NUDGE_STEP = 0.5;
+const ARROW_DEFAULT_COLOR = '#d9b46c';
+const SHAPE_DEFAULTS = Object.freeze({
+  zone: { color: '#10b981', thickness: 'normal', dash: 'solid', fill: 'none' },
+  box: { color: '#d9b46c', thickness: 'normal', dash: 'solid', fill: 'none' },
+  ellipse: { color: '#d9b46c', thickness: 'normal', dash: 'solid', fill: 'none' },
+});
+const ARROW_THICKNESS_PRESETS = Object.freeze({
+  thin: 2.2,
+  normal: 3.2,
+  thick: 4.6,
+});
+
+function normalizeHexColor(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function colorsMatchSwatch(currentColor, swatchColor) {
+  const current = normalizeHexColor(currentColor);
+  const swatch = normalizeHexColor(swatchColor);
+  if (!current || !swatch) return false;
+  if (current === swatch) return true;
+  return (current === '#d9b46c' && swatch === '#e3b23c')
+    || (current === '#e3b23c' && swatch === '#d9b46c');
+}
+
+function arrowThicknessValue(value) {
+  return Object.prototype.hasOwnProperty.call(ARROW_THICKNESS_PRESETS, value) ? value : 'normal';
+}
+
+function arrowDashValue(value) {
+  return value === 'dashed' ? 'dashed' : 'solid';
+}
+
+function arrowStrokeWidthPx(value) {
+  return ARROW_THICKNESS_PRESETS[arrowThicknessValue(value)] || ARROW_THICKNESS_PRESETS.normal;
+}
+
+function isShapeAnnotationType(type) {
+  return type === 'zone' || type === 'box' || type === 'ellipse';
+}
+
+function defaultShapeStyle(type) {
+  return SHAPE_DEFAULTS[type] || SHAPE_DEFAULTS.box;
+}
+
+function shapeStyleStateKeys(type) {
+  if (type === 'zone' || type === 'ellipse') return { color: 'zoneColor', thickness: 'zoneThickness', dash: 'zoneDash', fill: 'zoneFill' };
+  return { color: 'boxColor', thickness: 'boxThickness', dash: 'boxDash', fill: 'boxFill' };
+}
+
+function normalizeShapeFill(value) {
+  if (value === 'solid' || value === 'hatch' || value === 'grid') return value;
+  return 'none';
+}
+
+function constrainEllipseBounds(anchorX, anchorY, pointX, pointY) {
+  const dx = pointX - anchorX;
+  const dy = pointY - anchorY;
+  const size = Math.max(Math.abs(dx), Math.abs(dy), 1.5);
+  const nextX = anchorX + ((dx < 0) ? -size : size);
+  const nextY = anchorY + ((dy < 0) ? -size : size);
+  return {
+    left: Math.min(anchorX, nextX),
+    right: Math.max(anchorX, nextX),
+    top: Math.min(anchorY, nextY),
+    bottom: Math.max(anchorY, nextY),
+  };
+}
+
+function currentShapeStyleSelection(type = null) {
+  const selected = selectedAnnotation();
+  const styleType = isShapeAnnotationType(selected?.type) ? selected.type : (isShapeAnnotationType(type) ? type : (isShapeAnnotationType(S.tool) ? S.tool : 'box'));
+  const defaults = defaultShapeStyle(styleType);
+  if (selected?.type === styleType) {
+    return {
+      type: styleType,
+      color: selected.color || defaults.color,
+      thickness: arrowThicknessValue(selected.thickness),
+      dash: arrowDashValue(selected.dash),
+      fill: normalizeShapeFill(selected.fill ?? defaults.fill),
+    };
+  }
+  const keys = shapeStyleStateKeys(styleType);
+  return {
+    type: styleType,
+    color: S[keys.color] || defaults.color,
+    thickness: arrowThicknessValue(S[keys.thickness]),
+    dash: arrowDashValue(S[keys.dash]),
+    fill: normalizeShapeFill(S[keys.fill] ?? defaults.fill),
+  };
+}
+
+function applyShapeStyleSelection(partial = {}) {
+  const selectedId = selectedAnnotationId();
+  const selected = selectedAnnotation();
+  const styleType = isShapeAnnotationType(selected?.type) ? selected.type : (isShapeAnnotationType(S.tool) ? S.tool : 'box');
+  const current = currentShapeStyleSelection(styleType);
+  const next = {
+    type: styleType,
+    color: partial.color || current.color || defaultShapeStyle(styleType).color,
+    thickness: arrowThicknessValue(partial.thickness ?? current.thickness),
+    dash: arrowDashValue(partial.dash ?? current.dash),
+    fill: normalizeShapeFill(partial.fill ?? current.fill ?? defaultShapeStyle(styleType).fill),
+  };
+  const keys = shapeStyleStateKeys(styleType);
+  S[keys.color] = next.color;
+  S[keys.thickness] = next.thickness;
+  S[keys.dash] = next.dash;
+  S[keys.fill] = next.fill;
+  if (selected?.type === styleType && selectedId) {
+    snapshot();
+    const ann = findAnnotationById(selectedId);
+    if (ann?.type === styleType) {
+      ann.color = next.color;
+      ann.thickness = next.thickness;
+      ann.dash = next.dash;
+      ann.fill = next.fill;
+    }
+  }
+  refreshInteractionUI();
+  render();
+  return next;
+}
+
+function shapeDashPattern(dash, strokeWidth) {
+  return arrowDashValue(dash) === 'dashed'
+    ? [Math.max(8, strokeWidth * 2.8), Math.max(6, strokeWidth * 1.9)]
+    : [];
+}
+
+function hexToRgba(color, alpha) {
+  const hex = normalizeHexColor(color).replace('#', '');
+  if (hex.length !== 6) return `rgba(217,180,108,${alpha})`;
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function drawShapeFillPattern(fill, color, bounds) {
+  if (fill === 'none') return;
+  const width = Math.max(1, Number(bounds?.width) || 1);
+  const height = Math.max(1, Number(bounds?.height) || 1);
+  const left = Number(bounds?.left) || 0;
+  const top = Number(bounds?.top) || 0;
+  const preview = !!bounds?.preview;
+  const strokeWidth = Math.max(1, Number(bounds?.strokeWidth) || 1);
+  const tintAlpha = preview ? 0.18 : 0.14;
+  const lineAlpha = preview ? 0.34 : 0.28;
+  const spacing = Math.max(10, Math.min(24, strokeWidth * 4.5));
+  const diag = Math.sqrt((width * width) + (height * height)) + (spacing * 2);
+  ctx.fillStyle = hexToRgba(color, tintAlpha);
+  ctx.fillRect(left - 1, top - 1, width + 2, height + 2);
+  if (fill === 'solid') return;
+  ctx.strokeStyle = hexToRgba(color, lineAlpha);
+  ctx.lineWidth = Math.max(1.15, Math.min(2.2, strokeWidth * 0.5));
+  ctx.beginPath();
+  for (let offset = -diag; offset <= diag; offset += spacing) {
+    ctx.moveTo(left + offset, top + height);
+    ctx.lineTo(left + offset + diag, top);
+  }
+  if (fill === 'grid') {
+    for (let offset = -diag; offset <= diag; offset += spacing) {
+      ctx.moveTo(left + offset, top);
+      ctx.lineTo(left + offset + diag, top + height);
+    }
+  }
+  ctx.stroke();
+}
+
+function syncColorSwatches(root, currentColor) {
+  if (!root) return;
+  root.querySelectorAll('.sp-color-swatch').forEach(sw => {
+    sw.classList.toggle('active', colorsMatchSwatch(currentColor, sw.dataset.color));
+  });
+}
+
+function syncArrowStyleButtons(root, arrowStyle) {
+  if (!root) return;
+  root.querySelectorAll('[data-arrow-thickness]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.arrowThickness === arrowStyle.thickness);
+  });
+  root.querySelectorAll('[data-arrow-dash]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.arrowDash === arrowStyle.dash);
+  });
+}
+
+function syncShapeStyleButtons(root, shapeStyle) {
+  if (!root) return;
+  root.querySelectorAll('[data-shape-thickness]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.shapeThickness === shapeStyle.thickness);
+  });
+  root.querySelectorAll('[data-shape-dash]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.shapeDash === shapeStyle.dash);
+  });
+  root.querySelectorAll('[data-shape-fill]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.shapeFill === shapeStyle.fill);
+  });
+  root.querySelectorAll('[data-shape-fill-preview]').forEach(preview => {
+    preview.dataset.fill = shapeStyle.fill;
+    preview.style.color = shapeStyle.color || annotationColor(shapeStyle.type || 'box');
+  });
+}
+
+function syncNoteAlignButtons(root, align) {
+  if (!root) return;
+  root.querySelectorAll('[data-note-align]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.noteAlign === align);
+  });
+}
+
+function annotationColorLabel(color) {
+  const normalized = normalizeHexColor(color);
+  if (normalized === '#ffffff') return 'White';
+  if (normalized === '#e3b23c') return 'Gold';
+  if (normalized === '#10b981') return 'Green';
+  if (normalized === '#ef4444') return 'Red';
+  if (normalized === '#3b82f6') return 'Blue';
+  if (normalized === '#f97316') return 'Orange';
+  return 'Color';
+}
+
+function styleWeightLabel(weight) {
+  if (weight === 'thin') return 'Thin';
+  if (weight === 'thick') return 'Thick';
+  return 'Normal';
+}
+
+function styleLineLabel(dash) {
+  return arrowDashValue(dash) === 'dashed' ? 'Dashed' : 'Solid';
+}
+
+function shapeFillLabel(fill) {
+  if (fill === 'solid') return 'Solid';
+  if (fill === 'hatch') return 'Hatch';
+  if (fill === 'grid') return 'Grid';
+  return 'None';
+}
+
+function noteAlignLabel(align) {
+  if (align === 'center') return 'C';
+  if (align === 'right') return 'R';
+  return 'L';
+}
+
+function closeFloatingToolbarFlyout() {
+  floatingToolbarOpenFlyout = '';
+  const toolbar = document.getElementById('floatingSelectionToolbar');
+  if (!toolbar) return;
+  toolbar.querySelectorAll('[data-flyout-target]').forEach(btn => {
+    btn.setAttribute('aria-expanded', 'false');
+  });
+  toolbar.querySelectorAll('.floating-selection-toolbar-flyout').forEach(flyout => {
+    flyout.hidden = true;
+    flyout.dataset.placement = 'bottom';
+    flyout.style.left = '0px';
+    flyout.style.top = '';
+    flyout.style.bottom = '';
+  });
+}
+window.closeFloatingToolbarFlyout = closeFloatingToolbarFlyout;
+
+function setFloatingToolbarColor(color) {
+  setAnnotationColor(color);
+  closeFloatingToolbarFlyout();
+}
+window.setFloatingToolbarColor = setFloatingToolbarColor;
+
+function setFloatingToolbarLineStyle(dash) {
+  const ann = selectedAnnotation();
+  if (!ann) return;
+  if (ann.type === 'arrow') setArrowDash(dash);
+  else if (isShapeAnnotationType(ann.type)) setShapeDash(dash);
+  closeFloatingToolbarFlyout();
+}
+window.setFloatingToolbarLineStyle = setFloatingToolbarLineStyle;
+
+function setFloatingToolbarWeight(thickness) {
+  const ann = selectedAnnotation();
+  if (!ann) return;
+  if (ann.type === 'arrow') setArrowThickness(thickness);
+  else if (isShapeAnnotationType(ann.type)) setShapeThickness(thickness);
+  closeFloatingToolbarFlyout();
+}
+window.setFloatingToolbarWeight = setFloatingToolbarWeight;
+
+function setFloatingToolbarShapeFill(fill) {
+  setShapeFill(fill);
+  closeFloatingToolbarFlyout();
+}
+window.setFloatingToolbarShapeFill = setFloatingToolbarShapeFill;
+
+function setFloatingToolbarNoteAlign(align) {
+  setSelectedNoteAlign(align);
+  closeFloatingToolbarFlyout();
+}
+window.setFloatingToolbarNoteAlign = setFloatingToolbarNoteAlign;
+const ANNOTATION_NUDGE_STEP_LARGE = 1.5;
+const NOTE_LEGACY_REFERENCE_SCALE = 10;
+const NOTE_LEGACY_FONT_PX = 12.5;
 const STEP_MIN_COUNT = 3;
 let firstUseTutorialDismissed = false;
 const BOARD_BALL_ASSET_SRC = '../../assets/donau/images/rugby_ball_fire_scalable_bottom_right_fixed.svg';
@@ -323,7 +1451,7 @@ function getGrassTile() {
 }
 
 function isMobileBoardViewport() {
-  return window.innerWidth <= 768;
+  return isPhoneViewport;
 }
 
 function hasSeenFirstUseTutorial() {
@@ -348,38 +1476,38 @@ const TOUR_STEPS = [
   {
     targetId: 'mobileAddAttackBtn',
     position: 'above',
-    title: 'Add players',
-    body: 'Tap <strong>+ ATTACK</strong> or <strong>+ DEFENCE</strong> to drop numbered players onto the board. Add as many as you need.',
+    titleKey: 'tour.1.title',
+    bodyKey: 'tour.1.body',
   },
   {
     targetId: 'mobileBallBtn',
     position: 'above',
-    title: 'Place the ball',
-    body: 'Tap <strong>BALL</strong> to add the ball, then drag it to the starting position for your play.',
+    titleKey: 'tour.2.title',
+    bodyKey: 'tour.2.body',
   },
   {
     targetId: null,
     position: 'centre',
-    title: 'Drag & arrange',
-    body: 'With <strong>MOVE</strong> active, drag any player or the ball to set up your starting formation.',
+    titleKey: 'tour.3.title',
+    bodyKey: 'tour.3.body',
   },
   {
     targetId: 'bottomPanel',
     position: 'above',
-    title: 'Draw movement',
-    body: 'Select <strong>RUN</strong>, <strong>PASS</strong>, or <strong>KICK</strong> from the toolbar, then drag from a player to draw the action.',
+    titleKey: 'tour.4.title',
+    bodyKey: 'tour.4.body',
   },
   {
     targetId: 'phaseChipStrip',
     position: 'below',
-    title: 'Build phases',
-    body: 'Tap <strong>+ STEP</strong> to add the next phase of play. Each chip represents one phase - scrub through them to review the sequence.',
+    titleKey: 'tour.5.title',
+    bodyKey: 'tour.5.body',
   },
   {
     targetId: 'playBtn',
     position: 'above',
-    title: 'Play it back',
-    body: 'Tap <strong>PLAY</strong> to animate the whole sequence. Use <strong>PLAY ALL</strong> to run through every phase automatically. You\'re ready to coach!',
+    titleKey: 'tour.6.title',
+    bodyKey: 'tour.6.body',
   },
 ];
 
@@ -440,10 +1568,11 @@ function _tourShowStep(index) {
   const step = TOUR_STEPS[index];
   const isLast = index === TOUR_STEPS.length - 1;
 
-  counter.textContent = `Step ${index + 1} of ${TOUR_STEPS.length}`;
-  title.textContent = step.title;
-  body.innerHTML = step.body;
-  nextBtn.textContent = isLast ? 'Done ✓' : 'Next →';
+  counter.textContent = tr('tour.counter', { current: index + 1, total: TOUR_STEPS.length }, `Step ${index + 1} of ${TOUR_STEPS.length}`);
+  title.textContent = tr(step.titleKey, {}, step.title || '');
+  body.innerHTML = tr(step.bodyKey, {}, step.body || '');
+  nextBtn.textContent = isLast ? tr('tour.done', {}, 'Done') : tr('tour.next', {}, 'Next');
+  if (skipBtn) skipBtn.textContent = tr('tour.skip', {}, 'Skip tour');
 
   const targetEl = step.targetId ? document.getElementById(step.targetId) : null;
   if (targetEl) {
@@ -506,8 +1635,9 @@ window.dismissFirstUseTutorial = dismissFirstUseTutorial;
 window.startTour = startTour;
 
 const R = () => {
-  const base = Math.max(15, Math.min(24, sc * 1.8));
-  return isMobileBoardViewport() ? base * 0.88 : base;
+  const base = Math.max(19, Math.min(30, sc * 2.22));
+  if (isPhoneViewport) return Math.max(20, Math.min(27, sc * 2.38));
+  return base;
 };
 
 function nowIso() {
@@ -593,7 +1723,7 @@ function playerKey(ref) {
 
 function normalizeStepPlayers(players = []) {
   if (!Array.isArray(players)) return [];
-  return players
+  const normalized = players
     .map(pl => {
       const id = Number(pl?.id);
       const colorOverride = typeof pl?.colorOverride === 'string' ? pl.colorOverride : '';
@@ -612,6 +1742,11 @@ function normalizeStepPlayers(players = []) {
       };
     })
     .filter(Boolean);
+  const deduped = new Map();
+  normalized.forEach(player => {
+    deduped.set(playerKey(player), player);
+  });
+  return Array.from(deduped.values());
 }
 
 function normalizeBallPosition(ball) {
@@ -622,8 +1757,14 @@ function normalizeBallPosition(ball) {
   return { x, y };
 }
 
+function normalizeRunPathKind(value) {
+  if (value === undefined || value === null || value === '') return 'run';
+  return value === 'run' ? 'run' : null;
+}
+
 function normalizeStepPath(path) {
   if (!path || typeof path !== 'object') return null;
+  const kind = normalizeRunPathKind(path.kind);
   const team = path.team === 'D' ? 'D' : path.team === 'A' ? 'A' : null;
   const num = Number(path.num);
   const pts = Array.isArray(path.pts)
@@ -635,8 +1776,8 @@ function normalizeStepPath(path) {
         })
         .filter(Boolean)
     : [];
-  if (!team || !Number.isFinite(num) || pts.length < 2) return null;
-  return { num, team, pts };
+  if (!kind || !team || !Number.isFinite(num) || pts.length < 2) return null;
+  return { kind, num, team, pts };
 }
 
 function normalizeStepPass(pass) {
@@ -685,6 +1826,7 @@ function normalizePhaseState(phase = {}, index = 0) {
   const steps = Array.isArray(phase.steps) && phase.steps.length
     ? phase.steps.map(step => normalizeStepState(step, fallbackStep.players))
     : [fallbackStep];
+  reconcileRunBoundaries(steps);
   const currentStep = clamp(Number.isFinite(phase.currentStep) ? Number(phase.currentStep) : 0, 0, steps.length - 1);
   const liveStep = steps[currentStep] || steps[0] || fallbackStep;
   const players = cloneData(liveStep.players);
@@ -719,18 +1861,89 @@ function emptyStepState() {
   return { players: [], ball: null, ballOwner: null, ballAttached: false, paths: [], passes: [], annotations: [] };
 }
 
+function effectiveBallCarryState(players = S.players, ball = S.ball, ownerRef = S.ballOwner, attached = S.ballAttached) {
+  const normalizedBall = normalizeBallPosition(ball);
+  const normalizedOwner = normalizePlayerRef(ownerRef);
+  if (!normalizedBall || !normalizedOwner) {
+    return {
+      ball: normalizedBall,
+      ballOwner: normalizedOwner,
+      ballAttached: !!(normalizedBall && normalizedOwner && attached),
+    };
+  }
+  const owner = (Array.isArray(players) ? players : []).find(player => samePlayerRef(playerRef(player), normalizedOwner)) || null;
+  if (!owner) {
+    return {
+      ball: normalizedBall,
+      ballOwner: normalizedOwner,
+      ballAttached: false,
+    };
+  }
+  const attachedBall = attachedBallPositionForPlayer(owner);
+  if (attached) {
+    return {
+      ball: attachedBall,
+      ballOwner: playerRef(owner),
+      ballAttached: true,
+    };
+  }
+  const attachedDistance = d2(normalizedBall, attachedBall);
+  const centerDistance = d2(normalizedBall, { x: owner.x, y: owner.y });
+  if (attachedDistance <= 0.9 || centerDistance <= BALL_CARRY_SNAP) {
+    return {
+      ball: attachedBall,
+      ballOwner: playerRef(owner),
+      ballAttached: true,
+    };
+  }
+  return {
+    ball: normalizedBall,
+    ballOwner: playerRef(owner),
+    ballAttached: false,
+  };
+}
+
+function projectPlayersToRunEndpoints(players = S.players, paths = S.paths) {
+  const sourcePlayers = Array.isArray(players) ? players : [];
+  const pathByPlayerId = new Map(
+    (Array.isArray(paths) ? paths : [])
+      .filter(path => Number.isFinite(path?.pid) && Array.isArray(path?.pts) && path.pts.length >= 2)
+      .map(path => [Number(path.pid), path])
+  );
+  return sourcePlayers.map(player => {
+    const path = pathByPlayerId.get(Number(player?.id));
+    if (!path) return { ...player };
+    const end = catmullRom(path.pts, 1.0);
+    return {
+      ...player,
+      x: end.x,
+      y: end.y,
+    };
+  });
+}
+
+function effectiveBallCarryStateForRuntimeStep(players = S.players, paths = S.paths, ball = S.ball, ownerRef = S.ballOwner, attached = S.ballAttached) {
+  // Keep the ball with its carrier at the carrier's CURRENT position for the
+  // resting/committed step (a ball on the carrier stays attached via the centre
+  // check in effectiveBallCarryState). Playback is what moves the ball ALONG the
+  // run - do NOT pre-project it to the run end here, or the ball teleports to the
+  // finish the moment the run is drawn.
+  return effectiveBallCarryState(players, ball, ownerRef, attached);
+}
+
 function liveBoardToStepState() {
+  const ballCarry = effectiveBallCarryStateForRuntimeStep();
   return normalizeStepState({
     players: S.players.map(({ id, num, team, x, y, colorOverride }) => ({
       id, num, team, x, y,
       ...(colorOverride ? { colorOverride } : {}),
     })),
-    ball: S.ball ? { ...S.ball } : null,
-    ballOwner: normalizePlayerRef(S.ballOwner),
-    ballAttached: !!S.ballAttached,
+    ball: ballCarry.ball ? { ...ballCarry.ball } : null,
+    ballOwner: normalizePlayerRef(ballCarry.ballOwner),
+    ballAttached: !!ballCarry.ballAttached,
     paths: S.paths.map(path => {
       const pl = S.players.find(q => q.id === path.pid);
-      return pl ? { num: pl.num, team: pl.team, pts: path.pts.map(pt => ({ ...pt })) } : null;
+      return pl ? { kind: 'run', num: pl.num, team: pl.team, pts: path.pts.map(pt => ({ ...pt })) } : null;
     }).filter(Boolean),
     passes: S.passes.map(pass => {
       const from = S.players.find(q => q.id === pass.from);
@@ -752,9 +1965,34 @@ function ensureSteps() {
   S.currentStep = clamp(S.currentStep, 0, S.steps.length - 1);
 }
 
+function reconcileRunBoundaries(steps) {
+  if (!Array.isArray(steps)) return;
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    if (!step || !Array.isArray(step.paths)) continue;
+    const cur = buildStepLookup(step.players);
+    const nxt = (i + 1 < steps.length && steps[i + 1]) ? buildStepLookup(steps[i + 1].players) : null;
+    step.paths.forEach(path => {
+      if (!Array.isArray(path.pts) || path.pts.length < 2) return;
+      const key = playerKey({ team: path.team, num: path.num });
+      const c = cur.get(key);
+      if (c) path.pts[0] = { x: c.x, y: c.y };
+      const n = nxt ? nxt.get(key) : null;
+      if (n) path.pts[path.pts.length - 1] = { x: n.x, y: n.y };
+    });
+  }
+}
+
 function persistCurrentStep() {
   ensureSteps();
   S.steps[S.currentStep] = liveBoardToStepState();
+  reconcileRunBoundaries(S.steps);
+}
+
+function commitLiveBoardToCurrentStep() {
+  ensureSteps();
+  S.steps[S.currentStep] = liveBoardToStepState();
+  reconcileRunBoundaries(S.steps);
 }
 
 function serializePhase(phase = S(), index = GamePlan.currentPhase) {
@@ -778,7 +2016,27 @@ function serializePhase(phase = S(), index = GamePlan.currentPhase) {
 
 function persistCurrentPhase() {
   persistCurrentStep();
-  GamePlan.phases[GamePlan.currentPhase] = normalizePhaseState(serializePhase(S(), GamePlan.currentPhase), GamePlan.currentPhase);
+  // normalizePhaseState()/serializePhase() derive their top-level .passes/.paths
+  // from the just-persisted .steps[currentStep], which is in the SERIALIZED
+  // shape needed for storage (passes keyed by fromNum/fromT/toNum/toT, paths
+  // keyed by num/team) - that shape is only valid inside .steps. S.passes and
+  // S.paths are getters straight into this same phase object's top-level
+  // .passes/.paths, so assigning the round-tripped result there directly would
+  // replace the live, id-keyed runtime shape (pass.from/pass.to are player
+  // ids; path.pid/path.color) with the serialized one, breaking every
+  // id-based lookup against S.players (silently corrupting or dropping the
+  // pass/path next time anything reads it as live state). Capture fresh,
+  // independent clones of the actual live arrays first and restore them onto
+  // the persisted phase object afterward, so persisting never mutates - or
+  // leaves a serialized-shaped copy of - runtime Pass/Kick/path state. The
+  // exported/autosaved payload is unaffected: it's built from .steps, not
+  // from these top-level fields.
+  const livePasses = cloneData(S.passes);
+  const livePaths = cloneData(S.paths);
+  const persistedPhase = normalizePhaseState(serializePhase(S(), GamePlan.currentPhase), GamePlan.currentPhase);
+  persistedPhase.passes = livePasses;
+  persistedPhase.paths = livePaths;
+  GamePlan.phases[GamePlan.currentPhase] = persistedPhase;
 }
 
 function serializeGamePlan(nameOverride) {
@@ -816,7 +2074,7 @@ function setLiveBoardFromStep(step, { keepSelection = false } = {}) {
   S.paths = normalized.paths.map(path => {
     const pl = S.players.find(q => q.num === path.num && q.team === path.team);
     const col = path.team === 'A' ? '#60a5fa' : '#f87171';
-    return pl ? { pid: pl.id, pts: path.pts || [], color: col } : null;
+    return pl ? { kind: 'run', pid: pl.id, pts: path.pts || [], color: col } : null;
   }).filter(Boolean);
 
   S.passes = normalized.passes.map(pass => {
@@ -833,6 +2091,8 @@ function setLiveBoardFromStep(step, { keepSelection = false } = {}) {
   S.selectedPlayerId = selectedPlayer?.id || null;
   S.selectedObjectType = selectedObjectType === 'player' && !selectedPlayer ? null : selectedObjectType;
   S.selectedAnnotationIdValue = selectedAnnotation;
+  S.currentStepBaseline = cloneStepState(normalized);
+  S.moveGuideOrigins = {};
   syncLegacySelectionState();
   if (S.ballAttached && S.ballOwner) syncAttachedBallToOwner();
   else if (S.ball && !S.ballOwner) updateBallOwnerFromPosition();
@@ -840,11 +2100,17 @@ function setLiveBoardFromStep(step, { keepSelection = false } = {}) {
 }
 
 function goToPhase(idx) {
+  clearPendingCanonicalPhaseStart();
+  resetDeleteConfirm('phase');
+  resetDeleteConfirm('move');
   persistCurrentPhase();
+  cancelCanonicalPlaybackFrame();
   S.animating = false;
   S.playAll = false;
   S.lastTs = null;
   S.animT = 0;
+  canonicalPlaybackBoundaryIndex = null;
+  canonicalPlaybackMode = 'idle';
   GamePlan.currentPhase = Math.max(0, Math.min(idx, GamePlan.phases.length - 1));
   const phase = normalizePhaseState(GamePlan.phases[GamePlan.currentPhase], GamePlan.currentPhase);
   GamePlan.phases[GamePlan.currentPhase] = phase;
@@ -862,6 +2128,8 @@ function goToPhase(idx) {
 }
 
 function addPhase() {
+  clearPendingCanonicalPhaseStart();
+  snapshot();
   const current = serializePhase(S(), GamePlan.currentPhase);
   const sourceStep = cloneStepState(current.steps?.[Number(current.currentStep)] || current.steps?.[0] || emptyStepState());
   const carryForwardStep = createCarryForwardStep(sourceStep);
@@ -880,10 +2148,13 @@ function addPhase() {
   const nextPhaseIndex = GamePlan.phases.length;
   const nextPhase = normalizePhaseState(current, nextPhaseIndex);
   GamePlan.phases.push(nextPhase);
+  cancelCanonicalPlaybackFrame();
   S.animating = false;
   S.playAll = false;
   S.lastTs = null;
   S.animT = 0;
+  canonicalPlaybackBoundaryIndex = null;
+  canonicalPlaybackMode = 'idle';
   GamePlan.currentPhase = nextPhaseIndex;
   clearSelectedObject();
   S.dragging = null;
@@ -898,6 +2169,122 @@ function addPhase() {
   updateSelInfo();
   updatePhaseUI();
   refreshInteractionUI();
+  flashMobilePhaseCounter();
+  render();
+}
+
+function relabelPhases() {
+  GamePlan.phases.forEach((phase, index) => {
+    phase.label = `Phase ${index + 1}`;
+  });
+}
+
+function loadCurrentPhaseBoardState() {
+  const phase = normalizePhaseState(GamePlan.phases[GamePlan.currentPhase], GamePlan.currentPhase);
+  GamePlan.phases[GamePlan.currentPhase] = phase;
+  clearSelectedObject();
+  S.dragging = null;
+  S.drawing = null;
+  clearPassKickState();
+  S.annotationDraft = null;
+  setLiveBoardFromStep(phase.steps[phase.currentStep] || emptyStepState());
+  S.ballOwner = normalizePlayerRef(phase.ballOwner);
+  S.ballAttached = !!phase.ballAttached;
+  applyBallOwnershipVisualState();
+  rebuildPalette();
+  updateSelInfo();
+  updatePhaseUI();
+  refreshInteractionUI();
+}
+
+function addPhaseAfterCurrent() {
+  clearPendingCanonicalPhaseStart();
+  if (!claimPhoneDataAction('more:phase:add')) return;
+  resetDeleteConfirm('phase');
+  resetDeleteConfirm('move');
+  snapshot();
+  persistCurrentPhase();
+  const current = serializePhase(S(), GamePlan.currentPhase);
+  const sourceStep = cloneStepState(current.steps?.[Number(current.currentStep)] || current.steps?.[0] || emptyStepState());
+  const carryForwardStep = createCarryForwardStep(sourceStep);
+  const nextPhase = normalizePhaseState({
+    id: crypto.randomUUID(),
+    label: `Phase ${GamePlan.currentPhase + 2}`,
+    notes: '',
+    players: cloneData(carryForwardStep.players),
+    ball: carryForwardStep.ball ? cloneData(carryForwardStep.ball) : null,
+    ballOwner: normalizePlayerRef(carryForwardStep.ballOwner),
+    ballAttached: !!carryForwardStep.ballAttached,
+    paths: [],
+    passes: [],
+    annotations: cloneData(carryForwardStep.annotations || []),
+    steps: [carryForwardStep],
+    currentStep: 0,
+  }, GamePlan.currentPhase + 1);
+  const nextPhaseIndex = GamePlan.currentPhase + 1;
+  snapshot();
+  GamePlan.phases.splice(nextPhaseIndex, 0, nextPhase);
+  relabelPhases();
+  cancelCanonicalPlaybackFrame();
+  S.animating = false;
+  S.playAll = false;
+  S.lastTs = null;
+  S.animT = 0;
+  canonicalPlaybackBoundaryIndex = null;
+  canonicalPlaybackMode = 'idle';
+  GamePlan.currentPhase = nextPhaseIndex;
+  loadCurrentPhaseBoardState();
+  flashMobilePhaseCounter();
+  render();
+}
+
+function resetDeleteConfirm(kind) {
+  if (phoneDeleteConfirmTimers[kind]) {
+    clearTimeout(phoneDeleteConfirmTimers[kind]);
+    phoneDeleteConfirmTimers[kind] = null;
+  }
+  phoneDeleteConfirmState[kind] = false;
+}
+
+function armDeleteConfirm(kind) {
+  resetDeleteConfirm(kind);
+  phoneDeleteConfirmState[kind] = true;
+  phoneDeleteConfirmTimers[kind] = setTimeout(() => {
+    phoneDeleteConfirmState[kind] = false;
+    phoneDeleteConfirmTimers[kind] = null;
+    refreshInteractionUI();
+  }, 3000);
+  refreshInteractionUI();
+}
+
+function confirmDeleteAction(kind) {
+  if (phoneDeleteConfirmState[kind]) {
+    resetDeleteConfirm(kind);
+    return true;
+  }
+  armDeleteConfirm(kind);
+  return false;
+}
+
+function deleteCurrentPhaseWithConfirm() {
+  if (!claimPhoneDataAction('more:phase:delete')) return;
+  if (!confirmDeleteAction('phase')) return;
+  resetDeleteConfirm('move');
+  snapshot();
+  persistCurrentPhase();
+  stopPlayback(true);
+  if (GamePlan.phases.length === 1) {
+    GamePlan.currentPhase = 0;
+    GamePlan.phases = [normalizePhaseState({ label: 'Phase 1' }, 0)];
+    setHint('Phase reset. Build the board again from a clean starting phase.');
+  } else {
+    GamePlan.phases.splice(GamePlan.currentPhase, 1);
+    GamePlan.currentPhase = Math.min(GamePlan.currentPhase, GamePlan.phases.length - 1);
+    relabelPhases();
+    setHint(`Phase ${GamePlan.currentPhase + 1} ready after deletion.`);
+  }
+  loadCurrentPhaseBoardState();
+  flashMobilePhaseCounter();
   render();
 }
 
@@ -987,21 +2374,40 @@ function createCarryForwardStep(step) {
   );
 
   let ball = source.ball ? cloneData(source.ball) : null;
+  let ballOwner = normalizePlayerRef(source.ballOwner);
+  let ballAttached = !!source.ballAttached;
   const finalPass = source.passes[source.passes.length - 1];
   if (finalPass?.style === 'kick' && finalPass.targetX !== undefined && finalPass.targetY !== undefined) {
     ball = { x: finalPass.targetX, y: finalPass.targetY };
+    ballOwner = null;
+    ballAttached = false;
   } else if (finalPass && finalPass.toT !== undefined && finalPass.toNum !== undefined) {
     const receiver = carriedPlayerByRef.get(playerKey({ team: finalPass.toT, num: finalPass.toNum }));
     if (receiver) {
-      ball = { x: receiver.x, y: receiver.y };
+      if (finalPass.style === 'pass') {
+        ball = attachedBallPositionForPlayer(receiver);
+        ballOwner = playerRef(receiver);
+        ballAttached = true;
+      } else {
+        ball = { x: receiver.x, y: receiver.y };
+        ballOwner = null;
+        ballAttached = false;
+      }
+    }
+  } else if (ballAttached && ballOwner) {
+    const carrier = carriedPlayerByRef.get(playerKey(ballOwner));
+    if (carrier) {
+      ball = attachedBallPositionForPlayer(carrier);
+      ballOwner = playerRef(carrier);
+      ballAttached = true;
     }
   }
 
   return normalizeStepState({
     players,
     ball,
-    ballOwner: null,
-    ballAttached: false,
+    ballOwner,
+    ballAttached,
     paths: [],
     passes: [],
     annotations: cloneData(source.annotations || []),
@@ -1012,8 +2418,18 @@ function phasePlaybackTargetIndex(startIdx = GamePlan.currentPhase) {
   return startIdx < GamePlan.phases.length - 1 ? startIdx + 1 : null;
 }
 
+function canonicalPlaybackTargetIndex(startIndex = getCurrentCanonicalMoveIndex()) {
+  const moveCount = getCanonicalMoveCount();
+  if (!Number.isInteger(startIndex) || startIndex < 0 || startIndex >= moveCount - 1) return null;
+  return startIndex + 1;
+}
+
 function currentPhaseHasPlayablePlayback() {
-  return GamePlan.phases.length > 1;
+  return canonicalPlaybackTargetIndex() !== null;
+}
+
+function projectHasPlayablePlayback() {
+  return canonicalPlaybackTargetIndex() !== null;
 }
 
 function phasePlaybackStepAt(index) {
@@ -1024,9 +2440,355 @@ function phasePlaybackStepAt(index) {
   return cloneStepState(normalizedPhase.steps[normalizedPhase.currentStep] || emptyStepState());
 }
 
+function phaseStepCountAt(phaseIndex) {
+  const phase = GamePlan.phases?.[phaseIndex];
+  if (!phase) return 0;
+  return Array.isArray(phase.steps) ? phase.steps.length : 0;
+}
+
+function getCanonicalMoveRefs() {
+  const phases = Array.isArray(GamePlan.phases) ? GamePlan.phases : [];
+  const refs = [];
+  phases.forEach((phase, phaseIndex) => {
+    const stepCount = Array.isArray(phase?.steps) ? phase.steps.length : 0;
+    for (let stepIndex = 0; stepIndex < stepCount; stepIndex += 1) {
+      refs.push({ phaseIndex, stepIndex });
+    }
+  });
+  return refs;
+}
+
+function getCanonicalMoveCount() {
+  return getCanonicalMoveRefs().length;
+}
+
+function getCanonicalMoveRef(index) {
+  const refs = getCanonicalMoveRefs();
+  if (!refs.length) return null;
+  if (!Number.isInteger(index) || index < 0 || index >= refs.length) return null;
+  return refs[index] || null;
+}
+
+function getCurrentCanonicalMoveIndex() {
+  const refs = getCanonicalMoveRefs();
+  if (!refs.length) return -1;
+  if (!Number.isInteger(GamePlan.currentPhase) || !Number.isInteger(S.currentStep)) return -1;
+  const phases = Array.isArray(GamePlan.phases) ? GamePlan.phases : [];
+  if (GamePlan.currentPhase < 0 || GamePlan.currentPhase >= phases.length) return -1;
+  if (S.currentStep < 0 || S.currentStep >= phaseStepCountAt(GamePlan.currentPhase)) return -1;
+  return refs.findIndex(ref => ref.phaseIndex === GamePlan.currentPhase && ref.stepIndex === S.currentStep);
+}
+
+function hasPreviousCanonicalMove() {
+  const currentIndex = getCurrentCanonicalMoveIndex();
+  return currentIndex > 0;
+}
+
+function hasNextCanonicalMove() {
+  const currentIndex = getCurrentCanonicalMoveIndex();
+  return currentIndex >= 0 && currentIndex < getCanonicalMoveCount() - 1;
+}
+
+function getCanonicalPhasePlaybackRange(moveIndex = getCurrentCanonicalMoveIndex()) {
+  const ref = getCanonicalMoveRef(moveIndex);
+  if (!ref) return null;
+  const refs = getCanonicalMoveRefs();
+  const firstIndex = refs.findIndex(r => r.phaseIndex === ref.phaseIndex);
+  if (firstIndex < 0) return null;
+  const moveCount = phaseStepCountAt(ref.phaseIndex);
+  return {
+    phaseIndex: ref.phaseIndex,
+    firstIndex,
+    lastIndex: firstIndex + moveCount - 1,
+    moveCount,
+  };
+}
+
+function clearPendingCanonicalPhaseStart() {
+  if (!pendingCanonicalPhaseStart) return false;
+  pendingCanonicalPhaseStart = false;
+  return true;
+}
+
+function shouldKeepPendingCanonicalPhaseStart() {
+  const currentIndex = getCurrentCanonicalMoveIndex();
+  const moveCount = getCanonicalMoveCount();
+  return pendingCanonicalPhaseStart && moveCount > 0 && currentIndex === moveCount - 1;
+}
+
+function syncPendingCanonicalPhaseStart() {
+  if (!pendingCanonicalPhaseStart) return false;
+  if (shouldKeepPendingCanonicalPhaseStart()) return false;
+  pendingCanonicalPhaseStart = false;
+  return true;
+}
+
+function getCanonicalPhaseStartContext() {
+  syncPendingCanonicalPhaseStart();
+  const currentRef = getCanonicalMoveRef(getCurrentCanonicalMoveIndex());
+  if (!currentRef) return { kind: 'unavailable', currentRef: null, nextRef: null };
+  const nextRef = getCanonicalMoveRef(getCurrentCanonicalMoveIndex() + 1);
+  if (!nextRef) {
+    return {
+      kind: pendingCanonicalPhaseStart ? 'pending-final' : 'final-move',
+      currentRef,
+      nextRef: null,
+    };
+  }
+  if (nextRef.phaseIndex !== currentRef.phaseIndex) {
+    return { kind: 'existing-boundary', currentRef, nextRef };
+  }
+  return { kind: 'split-available', currentRef, nextRef };
+}
+
+function getCanonicalPhaseActionDetails() {
+  const context = getCanonicalPhaseStartContext();
+  if (context.kind === 'unavailable') {
+    return {
+      context,
+      label: tr('dock.phaseAction.start'),
+      note: '',
+      ariaLabel: tr('dock.phaseAction.unavailable'),
+      title: tr('dock.phaseAction.unavailableTitle'),
+      pressed: false,
+      disabled: true,
+    };
+  }
+  if (context.kind === 'existing-boundary') {
+    const currentMoveNumber = getCurrentCanonicalMoveIndex() + 1;
+    return {
+      context,
+      label: tr('dock.phaseAction.removeBreak'),
+      note: tr('dock.phaseAction.removeBreak.note', { move: currentMoveNumber }),
+      ariaLabel: tr('dock.phaseAction.removeBreak.aria'),
+      title: tr('dock.phaseAction.removeBreak.title'),
+      pressed: false,
+      disabled: false,
+    };
+  }
+  if (context.kind === 'pending-final') {
+    return {
+      context,
+      label: tr('dock.phaseAction.cancel'),
+      note: tr('dock.phaseAction.cancel.note'),
+      ariaLabel: tr('dock.phaseAction.cancel.aria'),
+      title: tr('dock.phaseAction.cancel.title'),
+      pressed: true,
+      disabled: false,
+    };
+  }
+  if (context.kind === 'final-move') {
+    return {
+      context,
+      label: tr('dock.phaseAction.next'),
+      note: '',
+      ariaLabel: tr('dock.phaseAction.next.aria'),
+      title: tr('dock.phaseAction.next.title'),
+      pressed: false,
+      disabled: false,
+    };
+  }
+  return {
+    context,
+    label: tr('dock.phaseAction.start'),
+    note: tr('dock.phaseAction.start.note', { phase: context.currentRef.phaseIndex + 2 }),
+    ariaLabel: tr('dock.phaseAction.start.aria'),
+    title: tr('dock.phaseAction.start.title'),
+    pressed: false,
+    disabled: false,
+  };
+}
+
+function removeCanonicalPhaseBreakAfterCurrentMove() {
+  const context = getCanonicalPhaseStartContext();
+  if (context.kind !== 'existing-boundary') return false;
+  snapshot();
+  stopPlayback(true);
+  clearPendingCanonicalPhaseStart();
+  const currentPhaseIndex = context.currentRef.phaseIndex;
+  const nextPhaseIndex = context.nextRef.phaseIndex;
+  const currentPhase = normalizePhaseState(GamePlan.phases[currentPhaseIndex], currentPhaseIndex);
+  const nextPhase = normalizePhaseState(GamePlan.phases[nextPhaseIndex], nextPhaseIndex);
+  currentPhase.steps = [
+    ...currentPhase.steps.map(step => cloneStepState(step)),
+    ...nextPhase.steps.map(step => cloneStepState(step)),
+  ];
+  currentPhase.currentStep = clamp(context.currentRef.stepIndex, 0, currentPhase.steps.length - 1);
+  GamePlan.phases[currentPhaseIndex] = normalizePhaseState(currentPhase, currentPhaseIndex);
+  GamePlan.phases.splice(nextPhaseIndex, 1);
+  relabelPhases();
+  GamePlan.currentPhase = currentPhaseIndex;
+  loadCurrentPhaseBoardState();
+  setHint(`Phase ${nextPhaseIndex + 1} merged into Phase ${currentPhaseIndex + 1}.`);
+  flashMobilePhaseCounter();
+  render();
+  return true;
+}
+
+function startCanonicalPhaseAfterCurrentMove() {
+  const context = getCanonicalPhaseStartContext();
+  if (context.kind === 'unavailable') return false;
+  if (context.kind === 'existing-boundary') {
+    return removeCanonicalPhaseBreakAfterCurrentMove();
+  }
+  if (context.kind === 'pending-final') {
+    clearPendingCanonicalPhaseStart();
+    setHint('Pending new phase cancelled. The next Move will stay in the current phase.');
+    refreshInteractionUI();
+    return true;
+  }
+  if (context.kind === 'final-move') {
+    pendingCanonicalPhaseStart = true;
+    setHint('The next added Move will start a new phase.');
+    refreshInteractionUI();
+    return true;
+  }
+
+  persistCurrentPhase();
+  snapshot();
+  const sourcePhase = normalizePhaseState(serializePhase(S(), GamePlan.currentPhase), GamePlan.currentPhase);
+  const splitAfterStepIndex = context.currentRef.stepIndex;
+  const currentSteps = Array.isArray(sourcePhase.steps) ? sourcePhase.steps : [];
+  const leadingSteps = currentSteps.slice(0, splitAfterStepIndex + 1);
+  const trailingSteps = currentSteps.slice(splitAfterStepIndex + 1);
+  if (!trailingSteps.length) {
+    pendingCanonicalPhaseStart = true;
+    setHint('The next added Move will start a new phase.');
+    refreshInteractionUI();
+    return true;
+  }
+
+  sourcePhase.steps = leadingSteps;
+  sourcePhase.currentStep = clamp(splitAfterStepIndex, 0, Math.max(0, leadingSteps.length - 1));
+  const currentPhaseIndex = context.currentRef.phaseIndex;
+  GamePlan.phases[currentPhaseIndex] = normalizePhaseState(sourcePhase, currentPhaseIndex);
+
+  const nextPhaseIndex = currentPhaseIndex + 1;
+  const nextPhase = normalizePhaseState({
+    id: crypto.randomUUID(),
+    label: `Phase ${nextPhaseIndex + 1}`,
+    notes: '',
+    groups: cloneData(sourcePhase.groups || []),
+    steps: trailingSteps,
+    currentStep: 0,
+  }, nextPhaseIndex);
+  GamePlan.phases.splice(nextPhaseIndex, 0, nextPhase);
+  relabelPhases();
+  GamePlan.currentPhase = currentPhaseIndex;
+  loadCurrentPhaseBoardState();
+  setHint(`New phase starts at Move ${getCurrentCanonicalMoveIndex() + 2}.`);
+  flashMobilePhaseCounter();
+  render();
+  return true;
+}
+
+function deleteCanonicalMove(index = getCurrentCanonicalMoveIndex()) {
+  syncPendingCanonicalPhaseStart();
+  const moveCount = getCanonicalMoveCount();
+  if (moveCount <= 1) {
+    setHint('A play must contain at least one Move.');
+    refreshInteractionUI();
+    return false;
+  }
+  const targetRef = getCanonicalMoveRef(index);
+  if (!targetRef) return false;
+
+  snapshot();
+  stopPlayback(true);
+  clearPendingCanonicalPhaseStart();
+
+  const targetPhaseIndex = targetRef.phaseIndex;
+  const targetPhase = normalizePhaseState(GamePlan.phases[targetPhaseIndex], targetPhaseIndex);
+  const targetSteps = Array.isArray(targetPhase.steps) ? targetPhase.steps.map(step => cloneStepState(step)) : [];
+  if (targetRef.stepIndex < 0 || targetRef.stepIndex >= targetSteps.length) return false;
+  targetSteps.splice(targetRef.stepIndex, 1);
+
+  const removedGroupNumber = targetSteps.length ? null : targetPhaseIndex + 1;
+  if (targetSteps.length) {
+    targetPhase.steps = targetSteps;
+    targetPhase.currentStep = clamp(targetRef.stepIndex, 0, targetSteps.length - 1);
+    GamePlan.phases[targetPhaseIndex] = normalizePhaseState(targetPhase, targetPhaseIndex);
+  } else {
+    GamePlan.phases.splice(targetPhaseIndex, 1);
+  }
+
+  relabelPhases();
+  const remainingMoveCount = getCanonicalMoveCount();
+  const nextIndex = Math.min(index, remainingMoveCount - 1);
+  const nextRef = getCanonicalMoveRef(nextIndex);
+  if (!nextRef) return false;
+
+  const nextPhase = normalizePhaseState(GamePlan.phases[nextRef.phaseIndex], nextRef.phaseIndex);
+  nextPhase.currentStep = clamp(nextRef.stepIndex, 0, nextPhase.steps.length - 1);
+  GamePlan.phases[nextRef.phaseIndex] = normalizePhaseState(nextPhase, nextRef.phaseIndex);
+  GamePlan.currentPhase = nextRef.phaseIndex;
+  loadCurrentPhaseBoardState();
+  setHint(removedGroupNumber
+    ? `Move ${index + 1} removed. Phase ${removedGroupNumber} also removed.`
+    : `Move ${index + 1} removed. Now viewing Move ${nextIndex + 1}.`);
+  flashMobilePhaseCounter();
+  render();
+  return true;
+}
+
+function goToCanonicalMove(index, options = {}) {
+  syncPendingCanonicalPhaseStart();
+  const targetRef = getCanonicalMoveRef(index);
+  if (!targetRef) return false;
+  const targetStepCount = phaseStepCountAt(targetRef.phaseIndex);
+  if (targetStepCount <= 0 || targetRef.stepIndex < 0 || targetRef.stepIndex >= targetStepCount) return false;
+  const samePhase = targetRef.phaseIndex === GamePlan.currentPhase;
+  const targetStepIndex = targetRef.stepIndex;
+
+  if (samePhase) {
+    if (targetStepIndex === S.currentStep) return true;
+    gotoStep(targetStepIndex, options);
+    return true;
+  }
+
+  if (options.snapshotBefore) snapshot();
+  goToPhase(targetRef.phaseIndex);
+  if (S.currentStep !== targetStepIndex) {
+    gotoStep(targetStepIndex, { ...options, snapshotBefore: false });
+  }
+  return true;
+}
+
+function getCanonicalMoveDisplay() {
+  const count = getCanonicalMoveCount();
+  const index = getCurrentCanonicalMoveIndex();
+  return {
+    count,
+    index,
+    current: index >= 0 ? index + 1 : null,
+    hasSelection: index >= 0,
+  };
+}
+
+function goToPreviousCanonicalMove(options = {}) {
+  const currentIndex = getCurrentCanonicalMoveIndex();
+  if (currentIndex <= 0) return false;
+  return goToCanonicalMove(currentIndex - 1, options);
+}
+
+function goToNextCanonicalMove(options = {}) {
+  const currentIndex = getCurrentCanonicalMoveIndex();
+  if (currentIndex < 0) return false;
+  return goToCanonicalMove(currentIndex + 1, options);
+}
+
+function addCanonicalMove() {
+  syncPendingCanonicalPhaseStart();
+  if (pendingCanonicalPhaseStart) {
+    pendingCanonicalPhaseStart = false;
+    return addPhase();
+  }
+  return addStep();
+}
+
 function phasePathForPlayer(step, player) {
   const key = playerKey(player);
-  return step.paths.find(path => playerKey({ team: path.team, num: path.num }) === key) || null;
+  return step.paths.find(path => normalizeRunPathKind(path?.kind) === 'run' && playerKey({ team: path.team, num: path.num }) === key) || null;
 }
 
 function emptyPlayMetadata(title = '') {
@@ -1036,6 +2798,7 @@ function emptyPlayMetadata(title = '') {
     coachingPoints: [],
     decisionCue: '',
     commonMistakes: [],
+    attackDirection: ATTACK_DIRECTION_UP,
   };
 }
 
@@ -1055,6 +2818,7 @@ function normalizeProjectMetadata(project = {}, metadata = {}) {
     coachingPoints: normalizeTextList(metadata.coachingPoints, 3),
     decisionCue: String(metadata.decisionCue || '').trim(),
     commonMistakes: normalizeTextList(metadata.commonMistakes, 3),
+    attackDirection: normalizeAttackDirection(metadata.attackDirection || project.attackDirection || project.meta?.attackDirection),
     createdAt: metadata.createdAt || project.createdAt || project.savedAt || stamp,
     updatedAt: metadata.updatedAt || project.updatedAt || project.savedAt || stamp,
     source: metadata.source || project.source || 'animator',
@@ -1127,7 +2891,7 @@ function movePendingGroupTo(pending, fp) {
     live.x += dx;
     live.y += dy;
     const path = S.paths.find(pathItem => pathItem.pid === live.id);
-    if (path && path.pts.length) path.pts[0] = { x: live.x, y: live.y };
+    if (path && path.pts.length) translatePathPoints(path, dx, dy);
     if (live.isBC && S.ball) {
       if (S.ballAttached && samePlayerRef(playerRef(live), S.ballOwner)) {
         S.ball = attachedBallPositionForPlayer(live);
@@ -1159,10 +2923,12 @@ function placeGroupAtPoint(placement, point) {
   const dx = clamp(dxRaw, dxMin, dxMax);
   const dy = clamp(dyRaw, dyMin, dyMax);
   members.forEach(({ live, start }) => {
+    const prevX = live.x;
+    const prevY = live.y;
     live.x = start.x + dx;
     live.y = start.y + dy;
     const path = S.paths.find(pathItem => pathItem.pid === live.id);
-    if (path && path.pts.length) path.pts[0] = { x: live.x, y: live.y };
+    if (path && path.pts.length) translatePathPoints(path, live.x - prevX, live.y - prevY);
     if (live.isBC && S.ball) {
       if (S.ballAttached && samePlayerRef(playerRef(live), S.ballOwner)) {
         S.ball = attachedBallPositionForPlayer(live);
@@ -1298,6 +3064,10 @@ function selectPlayer(id, { highlightedIds = [] } = {}) {
   S.ballAssignCandidate = id;
   S.highlightedPlayerIds = Array.isArray(highlightedIds) ? [...highlightedIds] : [];
   syncLegacySelectionState();
+  // Covers select, drag-start (selectPlayer runs at the top of a player
+  // drag) and add-player (addPlayerByNum selects the new player) in one
+  // hook - all three are "return to editing view" triggers.
+  if (id !== null) mobileAutoReturnFromFitFullPitch();
 }
 
 function selectedPlayers() {
@@ -1350,6 +3120,7 @@ function selectBall(candidateId = null) {
 }
 
 function selectAnnotationById(id) {
+  if (noteInlineEditorState && noteInlineEditorState.id !== id) endNoteInlineEdit();
   S.selectedPlayerId = null;
   S.selectedPlayerIds = [];
   clearSelectedGroup();
@@ -1359,6 +3130,17 @@ function selectAnnotationById(id) {
   S.selectedPassIdx = null;
   S.selectedPathPid = null;
   clearHighlightedPlayers();
+  const annotation = findAnnotationById(id);
+  if (annotation?.type === 'arrow') {
+    S.arrowColor = annotation.color || ARROW_DEFAULT_COLOR;
+    S.arrowThickness = arrowThicknessValue(annotation.thickness);
+    S.arrowDash = arrowDashValue(annotation.dash);
+  } else if (isShapeAnnotationType(annotation?.type)) {
+    const keys = shapeStyleStateKeys(annotation.type);
+    S[keys.color] = annotation.color || defaultShapeStyle(annotation.type).color;
+    S[keys.thickness] = arrowThicknessValue(annotation.thickness);
+    S[keys.dash] = arrowDashValue(annotation.dash);
+  }
   syncLegacySelectionState();
 }
 
@@ -1454,17 +3236,145 @@ function selectedAnnotation() {
   return id ? findAnnotationById(id) : null;
 }
 
+function annotationEditableTarget(target) {
+  return !!target && (
+    target.tagName === 'INPUT'
+    || target.tagName === 'TEXTAREA'
+    || target.isContentEditable
+  );
+}
+
 function defaultAnnotationText() {
   const input = document.getElementById('annotationText');
   const txt = input?.value?.trim();
   return txt || ANNOTATION_NOTE_DEFAULT;
 }
 
+function isEditableTextAnnotationType(type) {
+  return type === 'note' || type === 'playerLabel';
+}
+
 function annotationColor(type) {
   if (type === 'zone') return '#10b981';
   if (type === 'box') return '#d9b46c';
+  if (type === 'ellipse') return '#d9b46c';
   if (type === 'arrow') return '#d9b46c';
+  if (type === 'playerLabel') return '#f3f4f6';
   return '#f3f4f6';
+}
+
+function currentArrowStyleSelection() {
+  const selected = selectedAnnotation();
+  if (selected?.type === 'arrow') {
+    return {
+      color: selected.color || ARROW_DEFAULT_COLOR,
+      thickness: arrowThicknessValue(selected.thickness),
+      dash: arrowDashValue(selected.dash),
+    };
+  }
+  return {
+    color: S.arrowColor || ARROW_DEFAULT_COLOR,
+    thickness: arrowThicknessValue(S.arrowThickness),
+    dash: arrowDashValue(S.arrowDash),
+  };
+}
+
+function applyArrowStyleSelection(partial = {}) {
+  const selectedId = selectedAnnotationId();
+  const hasSelectedArrow = selectedAnnotation()?.type === 'arrow';
+  const current = currentArrowStyleSelection();
+  const next = {
+    color: partial.color || current.color || ARROW_DEFAULT_COLOR,
+    thickness: arrowThicknessValue(partial.thickness ?? current.thickness),
+    dash: arrowDashValue(partial.dash ?? current.dash),
+  };
+  S.arrowColor = next.color;
+  S.arrowThickness = next.thickness;
+  S.arrowDash = next.dash;
+  if (hasSelectedArrow && selectedId) {
+    snapshot();
+    const ann = findAnnotationById(selectedId);
+    if (ann?.type === 'arrow') {
+      ann.color = next.color;
+      ann.thickness = next.thickness;
+      ann.dash = next.dash;
+    }
+  }
+  if (!hasSelectedArrow) {
+    refreshInteractionUI();
+    render();
+    return next;
+  }
+  refreshInteractionUI();
+  render();
+  return next;
+}
+
+function noteScaleValue(note) {
+  const scale = Number(note?.scale);
+  return Number.isFinite(scale) ? clamp(scale, NOTE_LEGACY_SCALE_MIN, NOTE_LEGACY_SCALE_MAX) : 1;
+}
+
+function noteLegacyDimensions(note) {
+  const scale = noteScaleValue(note);
+  const text = String(note?.text || ANNOTATION_NOTE_DEFAULT);
+  ctx.save();
+  ctx.font = `700 ${NOTE_LEGACY_FONT_PX}px ${NOTE_FONT}`;
+  const baseTextWidth = ctx.measureText(text).width;
+  ctx.restore();
+  const widthPx = Math.max(52 * scale, (baseTextWidth + 18) * scale);
+  const heightPx = (NOTE_LEGACY_FONT_PX + 12) * scale;
+  return {
+    width: clamp(widthPx / NOTE_LEGACY_REFERENCE_SCALE, NOTE_MIN_WIDTH, NOTE_MAX_WIDTH),
+    height: clamp(heightPx / NOTE_LEGACY_REFERENCE_SCALE, NOTE_MIN_HEIGHT, NOTE_MAX_HEIGHT),
+  };
+}
+
+function noteWidthValue(note) {
+  const width = Number(note?.width);
+  if (Number.isFinite(width)) return clamp(width, NOTE_MIN_WIDTH, NOTE_MAX_WIDTH);
+  if (Number.isFinite(Number(note?.scale))) {
+    const legacy = noteLegacyDimensions(note);
+    return Number.isFinite(legacy.width) ? legacy.width : NOTE_DEFAULT_WIDTH;
+  }
+  return NOTE_DEFAULT_WIDTH;
+}
+
+function noteHeightValue(note) {
+  const height = Number(note?.height);
+  if (Number.isFinite(height)) return clamp(height, NOTE_MIN_HEIGHT, NOTE_MAX_HEIGHT);
+  if (Number.isFinite(Number(note?.scale))) {
+    const legacy = noteLegacyDimensions(note);
+    return Number.isFinite(legacy.height) ? legacy.height : NOTE_DEFAULT_HEIGHT;
+  }
+  return NOTE_DEFAULT_HEIGHT;
+}
+
+function noteDimensions(note) {
+  return {
+    width: noteWidthValue(note),
+    height: noteHeightValue(note),
+  };
+}
+
+function noteAlignValue(note) {
+  return note?.align === 'center' || note?.align === 'right' ? note.align : 'left';
+}
+
+function playerLabelPlayerRef(annotation) {
+  return normalizePlayerRef(annotation?.playerRef);
+}
+
+function findPlayerForAnchoredLabel(annotation, players = S.players) {
+  if (!annotation || annotation.type !== 'playerLabel' || !Array.isArray(players)) return null;
+  const playerId = Number(annotation.playerId);
+  if (Number.isFinite(playerId)) {
+    const byId = players.find(player => Number(player?.id) === playerId) || null;
+    if (byId) return byId;
+  }
+  const ref = playerLabelPlayerRef(annotation);
+  if (!ref) return null;
+  return players.find(player => playerMatchesRef(player, ref)) || null;
 }
 
 function normalizeAnnotation(annotation) {
@@ -1482,7 +3392,26 @@ function normalizeAnnotation(annotation) {
       ...base,
       x,
       y,
-      text: String(annotation.text || ANNOTATION_NOTE_DEFAULT).slice(0, 48),
+      text: String(annotation.text ?? ANNOTATION_NOTE_DEFAULT).slice(0, 160),
+      align: noteAlignValue(annotation),
+      width: noteWidthValue(annotation),
+      height: noteHeightValue(annotation),
+    };
+  }
+  if (annotation.type === 'playerLabel') {
+    const playerId = Number(annotation.playerId);
+    const offsetX = Number(annotation.offsetX);
+    const offsetY = Number(annotation.offsetY);
+    if (!Number.isFinite(playerId) || !Number.isFinite(offsetX) || !Number.isFinite(offsetY)) return null;
+    return {
+      ...base,
+      playerId,
+      playerRef: playerLabelPlayerRef(annotation),
+      offsetX,
+      offsetY,
+      text: String(annotation.text ?? PLAYER_LABEL_DEFAULT).slice(0, 160),
+      align: noteAlignValue(annotation),
+      color: annotation.color || annotationColor('playerLabel'),
     };
   }
   if (annotation.type === 'arrow') {
@@ -1494,6 +3423,9 @@ function normalizeAnnotation(annotation) {
       ...base,
       start: { x: sx, y: sy },
       end: { x: ex, y: ey },
+      color: annotation.color || annotationColor('arrow'),
+      thickness: arrowThicknessValue(annotation.thickness),
+      dash: arrowDashValue(annotation.dash),
     };
   }
   if (annotation.type === 'zone') {
@@ -1504,6 +3436,29 @@ function normalizeAnnotation(annotation) {
       x,
       y,
       r: Math.max(1.5, r),
+      color: annotation.color || annotationColor('zone'),
+      thickness: arrowThicknessValue(annotation.thickness),
+      dash: arrowDashValue(annotation.dash),
+      fill: normalizeShapeFill(annotation.fill),
+    };
+  }
+  if (annotation.type === 'circle') {
+    const x = Number(annotation.x);
+    const y = Number(annotation.y);
+    const r = Number(annotation.r);
+    if (![x, y, r].every(Number.isFinite)) return null;
+    return {
+      ...base,
+      type: 'ellipse',
+      x: x - Math.max(1.5, r),
+      y: y - Math.max(1.5, r),
+      w: Math.max(3, Math.abs(r) * 2),
+      h: Math.max(3, Math.abs(r) * 2),
+      rotation: normalizeShapeRotation(annotation.rotation),
+      color: annotation.color || annotationColor('zone'),
+      thickness: arrowThicknessValue(annotation.thickness),
+      dash: arrowDashValue(annotation.dash),
+      fill: normalizeShapeFill(annotation.fill),
     };
   }
   if (annotation.type === 'box') {
@@ -1518,6 +3473,30 @@ function normalizeAnnotation(annotation) {
       y,
       w: Math.max(1.5, Math.abs(w)),
       h: Math.max(1.5, Math.abs(h)),
+      rotation: normalizeShapeRotation(annotation.rotation),
+      color: annotation.color || annotationColor('box'),
+      thickness: arrowThicknessValue(annotation.thickness),
+      dash: arrowDashValue(annotation.dash),
+      fill: normalizeShapeFill(annotation.fill),
+    };
+  }
+  if (annotation.type === 'ellipse') {
+    const x = Number(annotation.x);
+    const y = Number(annotation.y);
+    const w = Number(annotation.w);
+    const h = Number(annotation.h);
+    if (![x, y, w, h].every(Number.isFinite)) return null;
+    return {
+      ...base,
+      x,
+      y,
+      w: Math.max(1.5, Math.abs(w)),
+      h: Math.max(1.5, Math.abs(h)),
+      rotation: normalizeShapeRotation(annotation.rotation),
+      color: annotation.color || annotationColor('ellipse'),
+      thickness: arrowThicknessValue(annotation.thickness),
+      dash: arrowDashValue(annotation.dash),
+      fill: normalizeShapeFill(annotation.fill),
     };
   }
   return null;
@@ -2020,7 +3999,7 @@ function presetGroupsForView(play) {
 function updatePresetOptionsUI() {
   const btn = document.getElementById('presetOppositionToggle');
   if (!btn) return;
-  btn.textContent = presetShowOpposition ? 'Opposition: On' : 'Opposition: Off';
+  btn.textContent = presetShowOpposition ? tr('opposition.on', {}, 'Opposition: On') : tr('opposition.off', {}, 'Opposition: Off');
   btn.classList.toggle('sp-btn-accent', presetShowOpposition);
 }
 
@@ -2028,7 +4007,7 @@ function togglePresetOpposition() {
   presetShowOpposition = !presetShowOpposition;
   updatePresetOptionsUI();
   if (currentPresetId) {
-    loadPlay(currentPresetId);
+    loadPlay(currentPresetId, { snapshotBefore: false });
     return;
   }
   render();
@@ -2107,9 +4086,23 @@ function buildPlayList() {
 
     label.onclick = () => {
       const isOpen = !list.hidden;
+      if (!isOpen && !document.body.classList.contains('is-phone')) {
+        c.querySelectorAll('.play-category-section').forEach(otherSection => {
+          if (otherSection === section) return;
+          const otherLabel = otherSection.querySelector('.play-category-toggle');
+          const otherList = otherSection.querySelector('.play-category-list');
+          const otherChevron = otherSection.querySelector('.play-cat-chevron');
+          if (otherList) otherList.hidden = true;
+          if (otherLabel) otherLabel.setAttribute('aria-expanded', 'false');
+          if (otherChevron) otherChevron.style.transform = '';
+          otherSection.classList.remove('is-open');
+        });
+      }
       list.hidden = isOpen;
       label.setAttribute('aria-expanded', String(!isOpen));
-      label.querySelector('.play-cat-chevron').style.transform = isOpen ? '' : 'rotate(90deg)';
+      const chevron = label.querySelector('.play-cat-chevron');
+      if (chevron) chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
+      section.classList.toggle('is-open', !isOpen);
     };
 
     section.appendChild(list);
@@ -2117,11 +4110,16 @@ function buildPlayList() {
   });
 }
 
-function loadPlay(id) {
+function loadPlay(id, { snapshotBefore = true } = {}) {
   const play = PLAYS.find(p => p.id === id);
   if (!play) return;
   closeRadialMenu();
-  if (applyBoardData(presetToProject(play))) {
+  const presetProject = presetToProject(play);
+  presetProject.metadata = {
+    ...(presetProject.metadata || {}),
+    presetId: play.id,
+  };
+  if (applyBoardData(presetProject, { snapshotBefore })) {
     currentPresetId = play.id;
     updatePresetOptionsUI();
     const defaultGroup = S.groups.find(group => group.id === play.defaultGroupId) || null;
@@ -2139,6 +4137,242 @@ function currentPlayTitle() {
   return document.getElementById('playName').value.trim() || 'Untitled Play';
 }
 
+let autosaveTimer = null;
+let autosaveState = 'saved';
+let autosaveLastFingerprint = '';
+let autosaveStartupNotice = '';
+let autosavePromptDeferredThisSession = false;
+let recoveryPromptContext = null;
+let autosaveStatusEls = null;
+
+function getAutosaveStatusElements() {
+  if (autosaveStatusEls) return autosaveStatusEls;
+  autosaveStatusEls = {
+    status: document.getElementById('autosaveStatus'),
+    prompt: document.getElementById('recoveryDraftPrompt'),
+    promptMessage: document.getElementById('recoveryDraftMessage'),
+    restoreBtn: document.getElementById('recoveryDraftRestoreBtn'),
+    discardBtn: document.getElementById('recoveryDraftDiscardBtn'),
+    laterBtn: document.getElementById('recoveryDraftLaterBtn'),
+  };
+  return autosaveStatusEls;
+}
+
+function setAutosaveStatus(state, label = '') {
+  autosaveState = state;
+  const el = getAutosaveStatusElements().status;
+  if (!el) return;
+  const text = label || tr(`autosave.${state}`, {}, state === 'saving'
+    ? 'Saving...'
+    : state === 'unsaved'
+      ? 'Unsaved'
+      : state === 'failed'
+        ? 'Save failed'
+        : 'Saved');
+  el.dataset.state = state;
+  el.textContent = text;
+}
+
+function stripProjectVolatileFields(project) {
+  const normalized = cloneData(project);
+  delete normalized.id;
+  delete normalized.savedAt;
+  if (normalized.metadata) {
+    delete normalized.metadata.createdAt;
+    delete normalized.metadata.updatedAt;
+  }
+  return normalized;
+}
+
+function getCurrentRecoveryFingerprint() {
+  return JSON.stringify(stripProjectVolatileFields(makeBoardData()));
+}
+
+function buildRecoveryDraftEnvelope() {
+  const payload = makeBoardData();
+  return {
+    recoveryVersion: RECOVERY_DRAFT_VERSION,
+    savedAt: nowIso(),
+    source: 'autosave',
+    appSchemaVersion: PROJECT_SCHEMA_VERSION || null,
+    projectId: S.projectId || null,
+    projectName: currentPlayTitle() || null,
+    payload,
+  };
+}
+
+function removeRecoveryDraft() {
+  try {
+    localStorage.removeItem(RECOVERY_DRAFT_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function quarantineRecoveryDraft(message = 'A recovery draft could not be opened.') {
+  removeRecoveryDraft();
+  autosaveStartupNotice = message;
+}
+
+function isMeaningfulRecoveryProject(project) {
+  if (!project) return false;
+  const activePhase = project.phases?.[project.currentPhase] || project.phases?.[0];
+  const activeStep = activePhase?.steps?.[activePhase.currentStep] || activePhase?.steps?.[0] || null;
+  const metadata = project.metadata || {};
+  const hasBoardContent = (project.phases?.length || 0) > 1
+    || (activePhase?.steps?.length || 0) > 1
+    || (activeStep?.players?.length || 0) > 0
+    || !!activeStep?.ball
+    || (activeStep?.paths?.length || 0) > 0
+    || (activeStep?.passes?.length || 0) > 0
+    || (activeStep?.annotations?.length || 0) > 0;
+  const hasMetadataContent = !!String(metadata.purpose || '').trim()
+    || (Array.isArray(metadata.coachingPoints) && metadata.coachingPoints.some(Boolean))
+    || !!String(metadata.decisionCue || '').trim()
+    || (Array.isArray(metadata.commonMistakes) && metadata.commonMistakes.some(Boolean));
+  const hasCustomName = !!String(project.name || '').trim() && String(project.name || '').trim() !== 'New Play';
+  return hasBoardContent || hasMetadataContent || hasCustomName;
+}
+
+function readRecoveryDraftEnvelope() {
+  try {
+    const raw = localStorage.getItem(RECOVERY_DRAFT_KEY);
+    if (!raw) return null;
+    const envelope = JSON.parse(raw);
+    if (!envelope || typeof envelope !== 'object') {
+      quarantineRecoveryDraft();
+      return null;
+    }
+    if (envelope.recoveryVersion !== RECOVERY_DRAFT_VERSION) {
+      quarantineRecoveryDraft();
+      return null;
+    }
+    if (envelope.source !== 'autosave' || !envelope.payload) {
+      quarantineRecoveryDraft();
+      return null;
+    }
+    const project = normalizeProjectRecord(envelope.payload);
+    if (!project) {
+      quarantineRecoveryDraft();
+      return null;
+    }
+    return { envelope, project };
+  } catch {
+    quarantineRecoveryDraft();
+    return null;
+  }
+}
+
+function isAutosaveInteractionBusy() {
+  return !!(S.dragging || S.drawing || S.animating || trackDrag);
+}
+
+function scheduleAutosave({ immediate = false } = {}) {
+  clearTimeout(autosaveTimer);
+  autosaveTimer = null;
+  if (immediate) {
+    writeRecoveryDraftNow({ force: true });
+    return;
+  }
+  setAutosaveStatus('unsaved');
+  autosaveTimer = setTimeout(() => {
+    autosaveTimer = null;
+    writeRecoveryDraftNow();
+  }, AUTOSAVE_DEBOUNCE_MS);
+}
+
+function writeRecoveryDraftNow({ force = false } = {}) {
+  clearTimeout(autosaveTimer);
+  autosaveTimer = null;
+  if (!force && isAutosaveInteractionBusy()) {
+    scheduleAutosave();
+    return false;
+  }
+  try {
+    const envelope = buildRecoveryDraftEnvelope();
+    const fingerprint = JSON.stringify(stripProjectVolatileFields(envelope.payload));
+    if (!force && fingerprint === autosaveLastFingerprint) {
+      setAutosaveStatus('saved');
+      return true;
+    }
+    setAutosaveStatus('saving');
+    localStorage.setItem(RECOVERY_DRAFT_KEY, JSON.stringify(envelope));
+    autosaveLastFingerprint = fingerprint;
+    setAutosaveStatus('saved');
+    return true;
+  } catch {
+    setAutosaveStatus('failed');
+    return false;
+  }
+}
+
+function replaceRecoveryDraftWithCurrentBoard() {
+  writeRecoveryDraftNow({ force: true });
+}
+
+function showRecoveryDraftPrompt(context) {
+  if (!context || autosavePromptDeferredThisSession) return;
+  recoveryPromptContext = context;
+  const els = getAutosaveStatusElements();
+  if (!els.prompt || !els.promptMessage) return;
+  const savedAtLabel = context.envelope.savedAt
+    ? new Date(context.envelope.savedAt).toLocaleString()
+    : 'an earlier time';
+  els.promptMessage.textContent = `We found an unsaved play from ${savedAtLabel}.`;
+  els.prompt.hidden = false;
+  els.restoreBtn?.focus();
+}
+
+function hideRecoveryDraftPrompt({ deferForSession = false } = {}) {
+  const els = getAutosaveStatusElements();
+  if (els.prompt) els.prompt.hidden = true;
+  if (deferForSession) autosavePromptDeferredThisSession = true;
+  recoveryPromptContext = null;
+}
+
+function restoreRecoveryDraftFromPrompt() {
+  if (!recoveryPromptContext) return;
+  try {
+    if (applyBoardData(recoveryPromptContext.envelope.payload, { snapshotBefore: false })) {
+      S.history = [];
+      S.future = [];
+      stopPlayback(true);
+      replaceRecoveryDraftWithCurrentBoard();
+      setHint(`Recovered unsaved play from ${new Date(recoveryPromptContext.envelope.savedAt).toLocaleString()}.`);
+    }
+  } catch {
+    quarantineRecoveryDraft();
+  }
+  hideRecoveryDraftPrompt();
+}
+
+function discardRecoveryDraftFromPrompt() {
+  removeRecoveryDraft();
+  setAutosaveStatus('saved');
+  hideRecoveryDraftPrompt();
+}
+
+function maybeOfferRecoveryDraftOnStartup() {
+  const recovery = readRecoveryDraftEnvelope();
+  if (autosaveStartupNotice) {
+    setHint(autosaveStartupNotice);
+    autosaveStartupNotice = '';
+  }
+  if (!recovery || !isMeaningfulRecoveryProject(recovery.project)) {
+    autosaveLastFingerprint = getCurrentRecoveryFingerprint();
+    setAutosaveStatus('saved');
+    return;
+  }
+  showRecoveryDraftPrompt(recovery);
+  autosaveLastFingerprint = JSON.stringify(stripProjectVolatileFields(recovery.project));
+  setAutosaveStatus('saved');
+}
+
+function flushAutosaveOnPageHide() {
+  writeRecoveryDraftNow({ force: true });
+}
+
 function serializePlay() {
   const stamp = Date.now();
   return {
@@ -2147,6 +4381,7 @@ function serializePlay() {
       name: currentPlayTitle(),
       createdAt: stamp,
       modifiedAt: stamp,
+      attackDirection: currentAttackDirection(),
     },
     phases: GamePlan.phases.map((phase, index) => serializePhase(phase, index)),
     currentPhase: GamePlan.currentPhase,
@@ -2173,12 +4408,17 @@ function migratePlay(obj) {
 }
 
 function deserializePlay(obj) {
+  clearPendingCanonicalPhaseStart();
   const play = migratePlay(obj);
   if (Array.isArray(play.phases) && play.phases.length) {
     const phases = play.phases.map((phase, index) => normalizePhaseState(phase, index));
     GamePlan.name = typeof play.meta?.name === 'string' && play.meta.name.trim()
       ? play.meta.name.trim()
       : 'Untitled Play';
+    S.playMetadata = normalizeProjectMetadata(
+      { name: GamePlan.name, meta: play.meta || {}, attackDirection: play.attackDirection },
+      { ...(S.playMetadata || {}), title: GamePlan.name, attackDirection: play.meta?.attackDirection || play.attackDirection }
+    );
     GamePlan.currentPhase = clamp(Number.isFinite(play.currentPhase) ? Number(play.currentPhase) : 0, 0, phases.length - 1);
     GamePlan.phases = phases;
     const activePhase = GamePlan.phases[GamePlan.currentPhase] || GamePlan.phases[0];
@@ -2208,6 +4448,9 @@ function deserializePlay(obj) {
     S.pointerTap = null;
     S.animT = 0;
     S.animating = false;
+    S.playAll = false;
+    canonicalPlaybackBoundaryIndex = null;
+    canonicalPlaybackMode = 'idle';
     S.raf = null;
     S.lastTs = null;
     S.history = [];
@@ -2221,6 +4464,7 @@ function deserializePlay(obj) {
     refreshInteractionUI();
     updateTL();
     render();
+    replaceRecoveryDraftWithCurrentBoard();
     return;
   }
   const players = Array.isArray(play.players) ? cloneData(play.players) : [];
@@ -2303,6 +4547,9 @@ function deserializePlay(obj) {
   S.pointerTap = null;
   S.animT = 0;
   S.animating = false;
+  S.playAll = false;
+  canonicalPlaybackBoundaryIndex = null;
+  canonicalPlaybackMode = 'idle';
   S.animSpd = 1;
   S.raf = null;
   S.lastTs = null;
@@ -2331,6 +4578,7 @@ function deserializePlay(obj) {
   updateTL();
   setTab('atk');
   setTool('move');
+  replaceRecoveryDraftWithCurrentBoard();
 }
 
 function buildPlayMetadata() {
@@ -2367,8 +4615,15 @@ function updateBallOwnerFromPosition() {
       best = pl;
     }
   });
-  S.ballOwner = best && bestDist <= 3.5 ? playerRef(best) : null;
-  S.ballAttached = false;
+  if (best && bestDist <= 3.5) {
+    const effective = effectiveBallCarryState(S.players, S.ball, playerRef(best), false);
+    S.ballOwner = effective.ballOwner;
+    S.ballAttached = !!effective.ballAttached;
+    S.ball = effective.ball ? { ...effective.ball } : null;
+  } else {
+    S.ballOwner = null;
+    S.ballAttached = false;
+  }
   applyBallOwnershipVisualState();
 }
 
@@ -2505,93 +4760,545 @@ function normalizeProjectRecord(input) {
   return normalized;
 }
 
+function isPlainObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+const FORBIDDEN_IMPORT_KEYS = ['__proto__', 'prototype', 'constructor'];
+
+// Scans the RAW parsed JSON tree (before sanitizeImportedValue's strip-and-
+// continue pass) for an exact forbidden key anywhere in the object/array
+// tree, so a file containing one can be rejected outright instead of
+// silently sanitized. JSON.parse always assigns parsed keys - including
+// "__proto__" - as genuine OWN data properties (never through the special
+// object-literal accessor), so Object.getOwnPropertyNames + reading via the
+// property descriptor (never `value[key]`, which could invoke a getter on
+// non-JSON-parse input) is both sufficient and safe here; inherited
+// properties are never visited since getOwnPropertyNames only ever returns
+// a value's own keys.
+function findForbiddenImportKey(value, path = 'root') {
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) {
+      const found = findForbiddenImportKey(value[i], `${path}[${i}]`);
+      if (found) return found;
+    }
+    return null;
+  }
+  if (!value || typeof value !== 'object') return null;
+  const keys = Object.getOwnPropertyNames(value);
+  for (const key of keys) {
+    if (FORBIDDEN_IMPORT_KEYS.includes(key)) {
+      return { key, path: `${path}.${key}` };
+    }
+  }
+  for (const key of keys) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    const found = findForbiddenImportKey(descriptor?.value, `${path}.${key}`);
+    if (found) return found;
+  }
+  return null;
+}
+
+function sanitizeImportedValue(value, repairNotes, path = 'root') {
+  if (Array.isArray(value)) {
+    return value.map((item, index) => sanitizeImportedValue(item, repairNotes, `${path}[${index}]`));
+  }
+  if (typeof value === 'string') {
+    return value.length > IMPORT_MAX_STRING_LENGTH ? value.slice(0, IMPORT_MAX_STRING_LENGTH) : value;
+  }
+  if (!value || typeof value !== 'object') return value;
+  if (!isPlainObject(value)) {
+    repairNotes.push(`Unsupported value at ${path} was ignored.`);
+    return {};
+  }
+  const clean = {};
+  Object.keys(value).forEach((key) => {
+    if (key === '__proto__' || key === 'prototype' || key === 'constructor') {
+      repairNotes.push(`Unsafe field "${key}" was ignored.`);
+      return;
+    }
+    clean[key] = sanitizeImportedValue(value[key], repairNotes, `${path}.${key}`);
+  });
+  return clean;
+}
+
+function boundImportedString(value, maxLength = IMPORT_MAX_STRING_LENGTH, fallback = '') {
+  if (typeof value !== 'string') return fallback;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, maxLength) : fallback;
+}
+
+function sanitizeImportedText(value, maxLength = IMPORT_MAX_STRING_LENGTH, fallback = '') {
+  const bounded = boundImportedString(value, maxLength, fallback);
+  return bounded
+    .replace(/[<>]/g, '')
+    .replace(/[\u0000-\u001f\u007f]/g, '')
+    .trim() || fallback;
+}
+
+function isFiniteCoordinate(value) {
+  const n = Number(value);
+  return Number.isFinite(n);
+}
+
+function countInvalidPlayers(players) {
+  if (!Array.isArray(players)) return 0;
+  return players.reduce((count, player) => {
+    const team = player?.team === 'A' || player?.team === 'D';
+    return count + (team && isFiniteCoordinate(player?.num) && isFiniteCoordinate(player?.x) && isFiniteCoordinate(player?.y) ? 0 : 1);
+  }, 0);
+}
+
+function countInvalidPaths(paths) {
+  if (!Array.isArray(paths)) return 0;
+  return paths.reduce((count, path) => count + (normalizeStepPath(path) ? 0 : 1), 0);
+}
+
+function countInvalidPasses(passes) {
+  if (!Array.isArray(passes)) return 0;
+  return passes.reduce((count, pass) => count + (normalizeStepPass(pass) ? 0 : 1), 0);
+}
+
+function countInvalidAnnotations(annotations) {
+  if (!Array.isArray(annotations)) return 0;
+  return annotations.reduce((count, annotation) => count + (normalizeAnnotation(annotation) ? 0 : 1), 0);
+}
+
+function addRepairCount(repairCounts, key, amount = 1) {
+  if (!amount) return;
+  repairCounts[key] = (repairCounts[key] || 0) + amount;
+}
+
+function summarizeRepairCounts(repairCounts) {
+  const labels = {
+    metadataDefaults: 'metadata defaults applied',
+    notesDefaults: 'missing notes defaulted',
+    ballDefaults: 'ball state defaulted',
+    currentPhaseClamped: 'current phase clamped',
+    currentStepClamped: 'current move clamped',
+    emptyPhaseRepaired: 'empty phase repaired',
+    invalidPlayers: 'invalid player entries skipped',
+    invalidPaths: 'invalid paths skipped',
+    invalidPasses: 'invalid passes skipped',
+    invalidAnnotations: 'invalid annotations skipped',
+    legacyMigrated: 'legacy file migrated',
+    unsafeFields: 'unsafe fields ignored',
+  };
+  return Object.entries(repairCounts)
+    .filter(([, count]) => count > 0)
+    .map(([key, count]) => `${count} ${labels[key] || key}`);
+}
+
+function analyzeImportedProjectRepairs(sourceInput, normalizedProject, repairCounts, repairNotes) {
+  const sourceProject = sourceInput?.project || sourceInput?.play || sourceInput;
+  if (!sourceProject || typeof sourceProject !== 'object') return;
+  const sourcePhases = Array.isArray(sourceProject.phases) && sourceProject.phases.length
+    ? sourceProject.phases
+    : [sourceProject];
+  const normalizedPhases = normalizedProject.phases || [];
+
+  if (!isPlainObject(sourceProject.metadata)) addRepairCount(repairCounts, 'metadataDefaults');
+  if (Number.isFinite(sourceProject.currentPhase) && normalizedProject.currentPhase !== Number(sourceProject.currentPhase)) {
+    addRepairCount(repairCounts, 'currentPhaseClamped');
+  }
+
+  sourcePhases.forEach((phase, phaseIndex) => {
+    const normalizedPhase = normalizedPhases[phaseIndex] || normalizedPhases[0];
+    if (!isPlainObject(phase)) {
+      addRepairCount(repairCounts, 'emptyPhaseRepaired');
+      return;
+    }
+    if (typeof phase.notes !== 'string') addRepairCount(repairCounts, 'notesDefaults');
+    if (phase.ball === undefined || phase.ball === null || normalizeBallPosition(phase.ball) === null) {
+      if (phase.ball !== undefined) addRepairCount(repairCounts, 'ballDefaults');
+    }
+    const sourceSteps = Array.isArray(phase.steps) && phase.steps.length ? phase.steps : [phase];
+    if (!Array.isArray(phase.steps) || !phase.steps.length) addRepairCount(repairCounts, 'emptyPhaseRepaired');
+    if (Number.isFinite(phase.currentStep) && normalizedPhase && normalizedPhase.currentStep !== Number(phase.currentStep)) {
+      addRepairCount(repairCounts, 'currentStepClamped');
+    }
+    sourceSteps.forEach((step) => {
+      addRepairCount(repairCounts, 'invalidPlayers', countInvalidPlayers(step?.players));
+      addRepairCount(repairCounts, 'invalidPaths', countInvalidPaths(step?.paths));
+      addRepairCount(repairCounts, 'invalidPasses', countInvalidPasses(step?.passes));
+      addRepairCount(repairCounts, 'invalidAnnotations', countInvalidAnnotations(step?.annotations));
+    });
+  });
+
+  const unsafeCount = repairNotes.filter(note => note.startsWith('Unsafe field')).length;
+  if (unsafeCount) addRepairCount(repairCounts, 'unsafeFields', unsafeCount);
+}
+
+function buildCanonicalPlayEnvelope(project) {
+  return {
+    fileType: PLAY_FILE_TYPE,
+    fileVersion: PLAY_FILE_VERSION,
+    appSchemaVersion: PROJECT_SCHEMA_VERSION,
+    exportedAt: nowIso(),
+    generator: PLAY_FILE_GENERATOR,
+    payload: project,
+  };
+}
+
+function sanitizeExportFilename(name) {
+  let safe = typeof name === 'string' ? name : '';
+  if (safe.normalize) safe = safe.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+  safe = safe
+    .replace(/[<>:"/\\|?*\u0000-\u001f]+/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^[.-]+|[.-]+$/g, '')
+    .replace(/\.json$/i, '')
+    .slice(0, 80);
+  return safe || 'rugby-gameplan-play';
+}
+
+function buildExportDownload(filename, jsonValue) {
+  const blob = new Blob([JSON.stringify(jsonValue, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${sanitizeExportFilename(filename)}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function validateExportProject(project) {
+  const normalized = normalizeProjectRecord(project);
+  if (!normalized || !Array.isArray(normalized.phases) || !normalized.phases.length) {
+    throw new Error('Export validation failed.');
+  }
+  normalized.name = sanitizeImportedText(normalized.name, IMPORT_MAX_NAME_LENGTH, 'Untitled Play');
+  normalized.id = sanitizeImportedText(normalized.id, IMPORT_MAX_ID_LENGTH, mkProjectId());
+  return normalized;
+}
+
+function sanitizeNormalizedProjectTextFields(project) {
+  project.name = sanitizeImportedText(project.name, IMPORT_MAX_NAME_LENGTH, 'Untitled Play');
+  project.id = sanitizeImportedText(project.id, IMPORT_MAX_ID_LENGTH, mkProjectId());
+  project.cat = sanitizeImportedText(project.cat, 80, 'Saved Board');
+  if (project.metadata && typeof project.metadata === 'object') {
+    project.metadata.title = sanitizeImportedText(project.metadata.title, IMPORT_MAX_NAME_LENGTH, project.name);
+    project.metadata.purpose = sanitizeImportedText(project.metadata.purpose, 600, '');
+    project.metadata.decisionCue = sanitizeImportedText(project.metadata.decisionCue, 600, '');
+    project.metadata.source = sanitizeImportedText(project.metadata.source, 80, 'animator');
+    project.metadata.attackDirection = normalizeAttackDirection(project.metadata.attackDirection);
+    project.metadata.coachingPoints = Array.isArray(project.metadata.coachingPoints)
+      ? project.metadata.coachingPoints.map(item => sanitizeImportedText(item, 240, '')).filter(Boolean).slice(0, 3)
+      : [];
+    project.metadata.commonMistakes = Array.isArray(project.metadata.commonMistakes)
+      ? project.metadata.commonMistakes.map(item => sanitizeImportedText(item, 240, '')).filter(Boolean).slice(0, 3)
+      : [];
+  }
+  if (Array.isArray(project.phases)) {
+    project.phases = project.phases.map((phase, phaseIndex) => ({
+      ...phase,
+      id: sanitizeImportedText(phase.id, IMPORT_MAX_ID_LENGTH, `phase_${phaseIndex + 1}`),
+      label: sanitizeImportedText(phase.label, 120, `Phase ${phaseIndex + 1}`),
+      notes: sanitizeImportedText(phase.notes, 1000, ''),
+      annotations: Array.isArray(phase.annotations)
+        ? phase.annotations.map((annotation) => isEditableTextAnnotationType(annotation?.type)
+          ? { ...annotation, text: sanitizeImportedText(annotation.text, 240, annotation?.type === 'playerLabel' ? PLAYER_LABEL_DEFAULT : ANNOTATION_NOTE_DEFAULT) }
+          : annotation)
+        : [],
+      steps: Array.isArray(phase.steps)
+        ? phase.steps.map((step) => ({
+          ...step,
+          annotations: Array.isArray(step.annotations)
+            ? step.annotations.map((annotation) => isEditableTextAnnotationType(annotation?.type)
+              ? { ...annotation, text: sanitizeImportedText(annotation.text, 240, annotation?.type === 'playerLabel' ? PLAYER_LABEL_DEFAULT : ANNOTATION_NOTE_DEFAULT) }
+              : annotation)
+            : [],
+        }))
+        : phase.steps,
+    }));
+  }
+  return project;
+}
+
+function detectImportedPlayFormat(value) {
+  if (!isPlainObject(value)) {
+    throw new Error('This file is not a valid Rugby GamePlan play.');
+  }
+  if ('fileType' in value || 'fileVersion' in value || 'payload' in value) return 'envelope';
+  if (Number.isFinite(value.version)) return 'legacy-play';
+  if ('project' in value || 'play' in value || 'schemaVersion' in value || 'projectType' in value || Array.isArray(value.phases) || Array.isArray(value.players) || Array.isArray(value.steps)) {
+    return 'project';
+  }
+  throw new Error('This file is not a valid Rugby GamePlan play.');
+}
+
+function isMeaningfulBoardProject(project) {
+  return isMeaningfulRecoveryProject(project);
+}
+
+function buildImportSuccessMessage(importResult) {
+  if (importResult.repairSummary.length) {
+    return `Play imported with ${importResult.repairSummary.length} repair${importResult.repairSummary.length === 1 ? '' : 's'}.`;
+  }
+  return 'Play imported.';
+}
+
+function prepareImportedProject(rawValue) {
+  // Reject a file containing a forbidden key OUTRIGHT, before any migration,
+  // normalization, or sanitization runs - not silently stripped and allowed
+  // to continue. This must run first: sanitizeImportedValue() below already
+  // strips these same keys as a defense-in-depth fallback, but by the time
+  // it would run, the "strip and continue" behavior is exactly what this
+  // check exists to replace.
+  const forbidden = findForbiddenImportKey(rawValue);
+  if (forbidden) {
+    console.error(`Import rejected: forbidden key "${forbidden.key}" found at ${forbidden.path}`);
+    throw new Error('This file contains unsafe object keys and cannot be imported.');
+  }
+
+  const repairNotes = [];
+  const repairCounts = {};
+  const sanitizedRoot = sanitizeImportedValue(rawValue, repairNotes);
+  const format = detectImportedPlayFormat(sanitizedRoot);
+  let sourceValue = sanitizedRoot;
+  let importCategory = 'current';
+
+  if (format === 'envelope') {
+    if (sanitizedRoot.fileType !== PLAY_FILE_TYPE) {
+      throw new Error('This file is not a valid Rugby GamePlan play.');
+    }
+    const fileVersion = Number(sanitizedRoot.fileVersion);
+    if (!Number.isFinite(fileVersion) || fileVersion < 1) {
+      throw new Error('This play could not be imported. Your current board was not changed.');
+    }
+    if (fileVersion > PLAY_FILE_VERSION) {
+      throw new Error('This play was created by a newer version of Rugby GamePlan and cannot be opened here yet.');
+    }
+    const appSchemaVersion = Number(sanitizedRoot.appSchemaVersion);
+    if (Number.isFinite(appSchemaVersion) && appSchemaVersion > PROJECT_SCHEMA_VERSION) {
+      throw new Error('This play was created by a newer version of Rugby GamePlan and cannot be opened here yet.');
+    }
+    if (!sanitizedRoot.payload || typeof sanitizedRoot.payload !== 'object') {
+      throw new Error('This play could not be imported. Your current board was not changed.');
+    }
+    sourceValue = sanitizedRoot.payload;
+  } else if (format === 'legacy-play') {
+    let migrated;
+    try {
+      migrated = migratePlay(sanitizedRoot);
+    } catch (err) {
+      const message = String(err?.message || '');
+      if (message.startsWith('Unsupported play version')) {
+        throw new Error('This play was created by a newer version of Rugby GamePlan and cannot be opened here yet.');
+      }
+      if (message.startsWith('Invalid play JSON')) {
+        throw new Error('This file is not a valid Rugby GamePlan play.');
+      }
+      throw err;
+    }
+    if (sanitizedRoot.version !== migrated.version) addRepairCount(repairCounts, 'legacyMigrated');
+    importCategory = sanitizedRoot.version === migrated.version ? 'current' : 'legacy';
+    sourceValue = migrated;
+  }
+
+  const rawProject = sourceValue?.project || sourceValue?.play || sourceValue;
+  if (Number.isFinite(rawProject?.schemaVersion) && rawProject.schemaVersion > PROJECT_SCHEMA_VERSION) {
+    throw new Error('This play was created by a newer version of Rugby GamePlan and cannot be opened here yet.');
+  }
+
+  const normalizedProject = normalizeProjectRecord(sourceValue);
+  if (!normalizedProject) {
+    throw new Error('This play could not be imported. Your current board was not changed.');
+  }
+
+  sanitizeNormalizedProjectTextFields(normalizedProject);
+  normalizedProject.currentPhase = clamp(Number(normalizedProject.currentPhase) || 0, 0, Math.max(0, (normalizedProject.phases?.length || 1) - 1));
+  normalizedProject.metadata = normalizeProjectMetadata(normalizedProject, normalizedProject.metadata);
+
+  analyzeImportedProjectRepairs(sourceValue, normalizedProject, repairCounts, repairNotes);
+  const repairSummary = summarizeRepairCounts(repairCounts);
+  if (repairSummary.length) importCategory = importCategory === 'current' ? 'repairable' : importCategory;
+
+  return {
+    category: importCategory,
+    format,
+    project: normalizedProject,
+    repairSummary,
+    repairNotes,
+    displayName: normalizedProject.name || 'Untitled Play',
+  };
+}
+
+function applyImportedProject(importResult) {
+  stopPlayback(true);
+  if (!applyBoardData(importResult.project, { snapshotBefore: false })) {
+    throw new Error('This play could not be imported. Your current board was not changed.');
+  }
+  S.history = [];
+  S.future = [];
+  sequenceDockView = 'primary';
+  setTool('move');
+  setHint(buildImportSuccessMessage(importResult));
+  refreshInteractionUI();
+}
+
 function snapshot() {
-  persistCurrentPhase();
-  S.history.push(cloneData({
-    phaseIdx: GamePlan.currentPhase,
-    phase: serializePhase(S(), GamePlan.currentPhase),
-    gamePlanName: GamePlan.name,
-    playMetadata: S.playMetadata,
-    projectId: S.projectId,
-    projectMeta: S.projectMeta,
-    projectPlayback: S.projectPlayback,
-  }));
+  ensureWholeGamePlanHistoryStacks();
+  S.history.push(captureWholeGamePlanHistoryEntry());
   if (S.history.length > 30) S.history.shift();
   S.future = [];
+  scheduleAutosave();
 }
-function undo() {
-  if (!S.history.length) return;
-  persistCurrentPhase();
-  S.future.push(cloneData({
-    phaseIdx: GamePlan.currentPhase,
-    phase: serializePhase(S(), GamePlan.currentPhase),
-    gamePlanName: GamePlan.name,
+
+function isWholeGamePlanHistoryEntry(entry) {
+  return !!entry
+    && typeof entry === 'object'
+    && entry.historyVersion === 2
+    && Array.isArray(entry.phases)
+    && Number.isFinite(entry.currentPhase);
+}
+
+function ensureWholeGamePlanHistoryStacks() {
+  const hasLegacyHistory = S.history.some(entry => !isWholeGamePlanHistoryEntry(entry))
+    || S.future.some(entry => !isWholeGamePlanHistoryEntry(entry));
+  if (!hasLegacyHistory) return false;
+  S.history = [];
+  S.future = [];
+  return true;
+}
+
+function captureWholeGamePlanHistoryEntry() {
+  const title = currentPlayTitle() || GamePlan.name || 'Untitled Play';
+  const gamePlan = serializeGamePlan(title);
+  return cloneData({
+    historyVersion: 2,
+    gamePlanName: gamePlan.name || title,
+    currentPhase: gamePlan.currentPhase,
+    phases: gamePlan.phases,
     playMetadata: S.playMetadata,
     projectId: S.projectId,
     projectMeta: S.projectMeta,
     projectPlayback: S.projectPlayback,
-  }));
+  });
+}
+
+function restoreWholeGamePlanHistoryEntry(entry) {
+  if (!isWholeGamePlanHistoryEntry(entry)) return false;
+
+  clearPendingCanonicalPhaseStart();
+  stopPlayback(true);
+  S.playAll = false;
+  S.lastTs = null;
+  S.animT = 0;
+
+  const title = typeof entry.gamePlanName === 'string' && entry.gamePlanName.trim()
+    ? entry.gamePlanName.trim()
+    : 'Untitled Play';
+  const restoredPhases = Array.isArray(entry.phases) && entry.phases.length
+    ? entry.phases.map((phase, index) => normalizePhaseState(phase, index))
+    : [normalizePhaseState({ label: 'Phase 1' }, 0)];
+
+  GamePlan.name = title;
+  GamePlan.phases = restoredPhases;
+  GamePlan.currentPhase = clamp(Number(entry.currentPhase), 0, restoredPhases.length - 1);
+
+  const activePhaseIndex = GamePlan.currentPhase;
+  const activePhase = normalizePhaseState(GamePlan.phases[activePhaseIndex], activePhaseIndex);
+  GamePlan.phases[activePhaseIndex] = activePhase;
+
+  clearSelectedObject();
+  S.selectedPlayerIds = [];
+  S.selectedGroupId = null;
+  S.selectedObjectType = null;
+  S.selectedAnnotationIdValue = null;
+  S.dragPlayerId = null;
+  S.dragging = null;
+  S.dragOff = { x: 0, y: 0 };
+  S.drawing = null;
+  S.passFrom = null;
+  S.activePasserId = null;
+  S.activeKickerId = null;
+  S.activeRunSourceId = null;
+  S.highlightedPlayerIds = [];
+  S.pendingGroupPlacement = null;
+  S.annotationDraft = null;
+  S.ballAssignCandidate = null;
+  S.pointerTap = null;
+  S.moveGuideOrigins = {};
+  clearPassKickState();
+
+  setLiveBoardFromStep(activePhase.steps[activePhase.currentStep] || emptyStepState());
+  S.projectId = entry.projectId || null;
+  S.projectMeta = entry.projectMeta || null;
+  S.playMetadata = entry.playMetadata ? cloneData(entry.playMetadata) : null;
+  S.projectPlayback = entry.projectPlayback ? normalizePlaybackSettings(entry.projectPlayback) : null;
+  currentPresetId = entry.projectMeta?.source === 'preset' && typeof entry.projectMeta?.presetId === 'string'
+    ? entry.projectMeta.presetId
+    : null;
+  S.animSpd = S.projectPlayback?.currentSpeed || 1;
+  spdIdx = Math.max(0, SPEEDS.indexOf(S.animSpd));
+
+  document.getElementById('playName').value = title;
+  document.getElementById('spdLabel').textContent = fmtSpd(S.animSpd);
+  setPlayBtnState();
+  updatePresetOptionsUI();
+  updatePhaseUI();
+  rebuildPalette();
+  refreshInteractionUI();
+  updateTL();
+  render();
+  return true;
+}
+
+function undo() {
+  clearPendingCanonicalPhaseStart();
+  ensureWholeGamePlanHistoryStacks();
+  if (!S.history.length) return;
+  S.future.push(captureWholeGamePlanHistoryEntry());
   if (S.future.length > 30) S.future.shift();
   const h = S.history.pop();
-  GamePlan.name = h.gamePlanName || GamePlan.name;
-  GamePlan.currentPhase = clamp(Number.isFinite(h.phaseIdx) ? h.phaseIdx : GamePlan.currentPhase, 0, Math.max(0, GamePlan.phases.length - 1));
-  while (GamePlan.phases.length <= GamePlan.currentPhase) {
-    GamePlan.phases.push(normalizePhaseState({ label: `Phase ${GamePlan.phases.length + 1}` }, GamePlan.phases.length));
-  }
-  GamePlan.phases[GamePlan.currentPhase] = normalizePhaseState(h.phase, GamePlan.currentPhase);
-  const phase = GamePlan.phases[GamePlan.currentPhase];
-  setLiveBoardFromStep(phase.steps[phase.currentStep] || emptyStepState());
-  document.getElementById('playName').value = GamePlan.name || 'Untitled Play';
-  S.playMetadata = normalizeProjectMetadata({ name: GamePlan.name || 'Untitled Play' }, h.playMetadata || {});
-  S.projectId = h.projectId || null;
-  S.projectMeta = h.projectMeta || null;
-  S.projectPlayback = normalizePlaybackSettings(h.projectPlayback || {});
-  clearSelectedObject();
-  clearPassKickState();
-  updatePlayMetadataPanel();
-  updatePhaseUI();
-  rebuildPalette(); refreshInteractionUI();
-  render();
+  restoreWholeGamePlanHistoryEntry(h);
+  scheduleAutosave();
 }
 window.undo = undo;
 function redo() {
+  clearPendingCanonicalPhaseStart();
+  if (!claimPhoneDataAction('more:redo')) return;
+  ensureWholeGamePlanHistoryStacks();
   if (!S.future.length) return;
-  persistCurrentPhase();
-  S.history.push(cloneData({
-    phaseIdx: GamePlan.currentPhase,
-    phase: serializePhase(S(), GamePlan.currentPhase),
-    gamePlanName: GamePlan.name,
-    playMetadata: S.playMetadata,
-    projectId: S.projectId,
-    projectMeta: S.projectMeta,
-    projectPlayback: S.projectPlayback,
-  }));
+  S.history.push(captureWholeGamePlanHistoryEntry());
   if (S.history.length > 30) S.history.shift();
   const h = S.future.pop();
-  GamePlan.name = h.gamePlanName || GamePlan.name;
-  GamePlan.currentPhase = clamp(Number.isFinite(h.phaseIdx) ? h.phaseIdx : GamePlan.currentPhase, 0, Math.max(0, GamePlan.phases.length - 1));
-  while (GamePlan.phases.length <= GamePlan.currentPhase) {
-    GamePlan.phases.push(normalizePhaseState({ label: `Phase ${GamePlan.phases.length + 1}` }, GamePlan.phases.length));
-  }
-  GamePlan.phases[GamePlan.currentPhase] = normalizePhaseState(h.phase, GamePlan.currentPhase);
-  const phase = GamePlan.phases[GamePlan.currentPhase];
-  setLiveBoardFromStep(phase.steps[phase.currentStep] || emptyStepState());
-  document.getElementById('playName').value = GamePlan.name || 'Untitled Play';
-  S.playMetadata = normalizeProjectMetadata({ name: GamePlan.name || 'Untitled Play' }, h.playMetadata || {});
-  S.projectId = h.projectId || null;
-  S.projectMeta = h.projectMeta || null;
-  S.projectPlayback = normalizePlaybackSettings(h.projectPlayback || {});
-  clearSelectedObject();
-  clearPassKickState();
-  updatePlayMetadataPanel();
-  updatePhaseUI();
-  rebuildPalette(); refreshInteractionUI();
-  render();
+  restoreWholeGamePlanHistoryEntry(h);
+  scheduleAutosave();
 }
 window.redo = redo;
 
+function syncHistoryControls() {
+  const editingLocked = !!S.animating;
+  const undoDisabled = editingLocked || !(S.history && S.history.length);
+  const redoDisabled = editingLocked || !(S.future && S.future.length);
+  const bindings = [
+    { id: 'topbarUndoBtn', disabled: undoDisabled, title: undoDisabled ? tr('dock.undo.none') : tr('dock.undo.ready') },
+    { id: 'topbarRedoBtn', disabled: redoDisabled, title: redoDisabled ? tr('dock.redo.none') : tr('dock.redo.ready') },
+  ];
+  bindings.forEach(({ id, disabled, title }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.disabled = disabled;
+    el.title = title;
+    el.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+  });
+}
+
 //  FIELD RENDERING
 function drawField() {
+  const cacheKey = getStaticFieldCacheKey();
+  if (!showGainline && staticFieldCanvas && staticFieldCacheKey === cacheKey) {
+    ctx.clearRect(0, 0, cvW, cvH);
+    ctx.drawImage(staticFieldCanvas, 0, 0, staticFieldCanvas.width / renderDpr, staticFieldCanvas.height / renderDpr);
+    return;
+  }
   ctx.clearRect(0, 0, cvW, cvH);
 
   // ── 1. Background ────────────────────────────────────────────────────────
@@ -2601,50 +5308,56 @@ function drawField() {
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, cvW, cvH);
 
-  const TL = toC(0, F.YMIN), BR = toC(F.W, F.YMAX);
-  const FW = BR.x - TL.x, FH = BR.y - TL.y;
-  const GL_TOP = toC(0, 0), GL_BOT = toC(F.W, 100);
+  const fieldStart = toC(0, F.YMIN);
+  const fieldEnd = toC(F.W, F.YMAX);
+  const fieldLeft = Math.min(fieldStart.x, fieldEnd.x);
+  const fieldRight = Math.max(fieldStart.x, fieldEnd.x);
+  const fieldTop = Math.min(fieldStart.y, fieldEnd.y);
+  const fieldBottom = Math.max(fieldStart.y, fieldEnd.y);
+  const FW = fieldRight - fieldLeft;
+  const FH = fieldBottom - fieldTop;
+  const goalTopY = Math.min(toC(0, 0).y, toC(F.W, 0).y);
+  const goalBottomY = Math.max(toC(0, 100).y, toC(F.W, 100).y);
 
   // ── 2. Field drop shadow ─────────────────────────────────────────────────
   ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,0.6)';
   ctx.shadowBlur = 28;
   ctx.fillStyle = 'rgba(0,0,0,0.01)';
-  ctx.fillRect(TL.x, TL.y, FW, FH);
+  ctx.fillRect(fieldLeft, fieldTop, FW, FH);
   ctx.restore();
 
   // ── 3. Base grass — radial centre-bright ─────────────────────────────────
   const grassGrad = ctx.createRadialGradient(
-    TL.x + FW * 0.5, TL.y + FH * 0.5, FH * 0.04,
-    TL.x + FW * 0.5, TL.y + FH * 0.5, FH * 0.76
+    fieldLeft + FW * 0.5, fieldTop + FH * 0.5, Math.max(FW, FH) * 0.05,
+    fieldLeft + FW * 0.5, fieldTop + FH * 0.5, Math.max(FW, FH) * 1.05
   );
-  grassGrad.addColorStop(0,    '#3D9326');
-  grassGrad.addColorStop(0.38, '#388C21');
-  grassGrad.addColorStop(1,    '#287016');
+  grassGrad.addColorStop(0,    '#2a7d36');
+  grassGrad.addColorStop(0.55, '#236b2f');
+  grassGrad.addColorStop(1,    '#1c5828');
   ctx.fillStyle = grassGrad;
-  ctx.fillRect(TL.x, TL.y, FW, FH);
+  ctx.fillRect(fieldLeft, fieldTop, FW, FH);
 
-  // ── 4. Mow stripes — 16 crisp bands, more contrast ──────────────────────
-  const N_STRIPES = 16;
-  const bandW = FW / N_STRIPES;
+  // ── 4. Mow stripes — field-axis bands so every orientation keeps the same grass texture ──
+  const N_STRIPES = Math.max(8, S.stripeCount || 9);
+  const stripeFieldLen = (F.YMAX - F.YMIN) / N_STRIPES;
   ctx.save();
-  ctx.beginPath(); ctx.rect(TL.x, TL.y, FW, FH); ctx.clip();
+  ctx.beginPath(); ctx.rect(fieldLeft, fieldTop, FW, FH); ctx.clip();
   for (let si = 0; si < N_STRIPES; si++) {
-    const bx = TL.x + si * bandW;
-    const sg = ctx.createLinearGradient(bx, 0, bx + bandW, 0);
-    if (si % 2 === 0) {
-      sg.addColorStop(0,    'rgba(255,255,255,0.000)');
-      sg.addColorStop(0.28, 'rgba(255,255,255,0.062)');
-      sg.addColorStop(0.72, 'rgba(255,255,255,0.062)');
-      sg.addColorStop(1,    'rgba(255,255,255,0.000)');
-    } else {
-      sg.addColorStop(0,    'rgba(0,0,0,0.000)');
-      sg.addColorStop(0.28, 'rgba(0,0,0,0.068)');
-      sg.addColorStop(0.72, 'rgba(0,0,0,0.068)');
-      sg.addColorStop(1,    'rgba(0,0,0,0.000)');
-    }
-    ctx.fillStyle = sg;
-    ctx.fillRect(bx, TL.y, bandW, FH);
+    const y0 = F.YMIN + si * stripeFieldLen;
+    const y1 = Math.min(F.YMAX, y0 + stripeFieldLen);
+    const p0 = toC(0, y0);
+    const p1 = toC(F.W, y0);
+    const p2 = toC(F.W, y1);
+    const p3 = toC(0, y1);
+    ctx.fillStyle = (si % 2 === 0) ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.11)';
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    ctx.lineTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y);
+    ctx.lineTo(p3.x, p3.y);
+    ctx.closePath();
+    ctx.fill();
   }
   ctx.restore();
 
@@ -2654,35 +5367,38 @@ function drawField() {
     const pat = ctx.createPattern(tile, 'repeat');
     if (pat) {
       ctx.save();
-      ctx.globalAlpha = 0.055;
-      ctx.beginPath(); ctx.rect(TL.x, TL.y, FW, FH); ctx.clip();
+      ctx.globalAlpha = Math.max(0.04, S.textureStrength || 0.05);
+      ctx.beginPath(); ctx.rect(fieldLeft, fieldTop, FW, FH); ctx.clip();
       ctx.fillStyle = pat;
-      ctx.fillRect(TL.x, TL.y, FW, FH);
+      ctx.fillRect(fieldLeft, fieldTop, FW, FH);
       ctx.restore();
     }
   }
 
-  // ── 6. In-goal areas — darker overlay for visual separation ──────────────
-  const igH_top = GL_TOP.y - TL.y;
-  const igH_bot = BR.y - GL_BOT.y;
-  ctx.fillStyle = 'rgba(0,0,0,0.16)';
-  ctx.fillRect(TL.x, TL.y, FW, igH_top);
-  ctx.fillRect(GL_BOT.x, GL_BOT.y, FW, igH_bot);
+  // ── 6. In-goal areas — FIELD-SPACE quads (only the real in-goals in ANY orientation).
+  //    The old screen-axis version filled ~the whole pitch in portrait (flipped Y), which
+  //    flattened the mowing stripes. Draw the two in-goal zones as field polygons instead.
+  [[F.YMIN, 0], [100, F.YMAX]].forEach(function (seg) {
+    const q0 = toC(0, seg[0]), q1 = toC(F.W, seg[0]), q2 = toC(F.W, seg[1]), q3 = toC(0, seg[1]);
+    ctx.fillStyle = 'rgba(22,60,32,0.55)';
+    ctx.beginPath();
+    ctx.moveTo(q0.x, q0.y); ctx.lineTo(q1.x, q1.y); ctx.lineTo(q2.x, q2.y); ctx.lineTo(q3.x, q3.y);
+    ctx.closePath(); ctx.fill();
+  });
 
   // ── 7. Vignette ──────────────────────────────────────────────────────────
   const vig = ctx.createRadialGradient(
-    TL.x + FW * 0.5, TL.y + FH * 0.5, Math.min(FW, FH) * 0.26,
-    TL.x + FW * 0.5, TL.y + FH * 0.5, Math.max(FW, FH) * 0.78
+    fieldLeft + FW * 0.5, fieldTop + FH * 0.5, Math.min(FW, FH) * 0.26,
+    fieldLeft + FW * 0.5, fieldTop + FH * 0.5, Math.max(FW, FH) * 0.78
   );
   vig.addColorStop(0, 'rgba(0,0,0,0.00)');
-  vig.addColorStop(1, 'rgba(0,0,0,0.20)');
+  vig.addColorStop(1, 'rgba(0,0,0,0.06)');
   ctx.fillStyle = vig;
-  ctx.fillRect(TL.x, TL.y, FW, FH);
+  ctx.fillRect(fieldLeft, fieldTop, FW, FH);
 
   // ── 8. Line helpers — pixel-aligned for crisp rendering ──────────────────
   function hline(fy, color, lw, dash = [], x0 = 0, x1 = F.W, glow = 0) {
     const p = toC(x0, fy), q = toC(x1, fy);
-    const py = Math.round(p.y) + 0.5;
     ctx.save();
     if (glow > 0) { ctx.shadowColor = `rgba(255,255,255,${glow})`; ctx.shadowBlur = 5; }
     ctx.strokeStyle = color;
@@ -2691,8 +5407,8 @@ function drawField() {
     ctx.lineJoin = 'miter';
     if (dash.length) ctx.setLineDash(dash);
     ctx.beginPath();
-    ctx.moveTo(Math.round(p.x), py);
-    ctx.lineTo(Math.round(q.x), py);
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(q.x, q.y);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
@@ -2700,7 +5416,6 @@ function drawField() {
 
   function vline(fx, color, lw, fy0 = F.YMIN, fy1 = F.YMAX, dash = [], glow = 0) {
     const p = toC(fx, fy0), q = toC(fx, fy1);
-    const px = Math.round(p.x) + 0.5;
     ctx.save();
     if (glow > 0) { ctx.shadowColor = `rgba(255,255,255,${glow})`; ctx.shadowBlur = 5; }
     ctx.strokeStyle = color;
@@ -2709,8 +5424,8 @@ function drawField() {
     ctx.lineJoin = 'miter';
     if (dash.length) ctx.setLineDash(dash);
     ctx.beginPath();
-    ctx.moveTo(px, Math.round(p.y));
-    ctx.lineTo(px, Math.round(q.y));
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(q.x, q.y);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
@@ -2734,13 +5449,13 @@ function drawField() {
   hline(50,  T1_C, T1_W, [], 0, F.W, 0.28);
   if (showGainline) {
     const p0 = toC(0, GAINLINE_Y), p1 = toC(68, GAINLINE_Y);
-    const top = toC(0, F.YMIN);
+    const gainLeft = Math.min(p0.x, p1.x);
+    const gainWidth = Math.abs(p1.x - p0.x);
+    const gainY = p0.y;
     ctx.fillStyle = 'rgba(34,197,94,0.07)';
-    ctx.fillRect(p0.x, top.y, p1.x - p0.x, p0.y - top.y);
-
-    const bot = toC(68, F.YMAX);
+    ctx.fillRect(gainLeft, fieldTop, gainWidth, Math.abs(gainY - fieldTop));
     ctx.fillStyle = 'rgba(239,68,68,0.07)';
-    ctx.fillRect(p0.x, p0.y, p1.x - p0.x, bot.y - p0.y);
+    ctx.fillRect(gainLeft, Math.min(gainY, fieldBottom), gainWidth, Math.abs(fieldBottom - gainY));
 
     ctx.save();
     ctx.strokeStyle = 'rgba(251,191,36,0.7)';
@@ -2752,7 +5467,8 @@ function drawField() {
     ctx.fillStyle = 'rgba(251,191,36,0.8)';
     ctx.font = `bold ${Math.max(9, sc * 0.75)}px "Barlow Condensed"`;
     ctx.textAlign = 'right';
-    ctx.fillText('GAINLINE', toC(67, GAINLINE_Y).x, p0.y - 4);
+    const gainLabelY = clamp(gainY + (isPhoneViewport ? 14 : -4), fieldTop + 12, fieldBottom - 6);
+    ctx.fillText('GAINLINE', toC(67, GAINLINE_Y).x, gainLabelY);
     ctx.restore();
   }
   vline(0,  T1_C, T1_W, F.YMIN, F.YMAX, [], 0.22);
@@ -2786,20 +5502,19 @@ function drawField() {
     const ANCHORS = [0, 22, 40, 50, 60, 78, 100];
 
     function syncedDashV(fx, color, lw) {
-      const px = Math.round(toC(fx, 0).x) + 0.5;
       ctx.save();
       ctx.strokeStyle = color;
       ctx.lineWidth   = lw;
       ctx.lineCap     = 'butt';
       ctx.setLineDash([dashPx, gapPx]);
       for (let i = 0; i < ANCHORS.length - 1; i++) {
-        const y0 = Math.round(toC(fx, ANCHORS[i]).y);
-        const y1 = Math.round(toC(fx, ANCHORS[i + 1]).y);
+        const p0 = toC(fx, ANCHORS[i]);
+        const p1 = toC(fx, ANCHORS[i + 1]);
         // Center a dash exactly at y0 (the anchor intersection)
         ctx.lineDashOffset = -dashPx / 2;
         ctx.beginPath();
-        ctx.moveTo(px, y0);
-        ctx.lineTo(px, y1);
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p1.x, p1.y);
         ctx.stroke();
       }
       ctx.setLineDash([]);
@@ -2841,12 +5556,20 @@ function drawField() {
   fieldLabel(4.2, 79.4, '22', 0.48); fieldLabel(63.8, 79.4, '22', 0.48);
   fieldLabel(4.2, 38.6, '10', 0.48); fieldLabel(63.8, 38.6, '10', 0.48);
   fieldLabel(4.2, 61.4, '10', 0.48); fieldLabel(63.8, 61.4, '10', 0.48);
-  fieldLabel(34, -5,  'IN-GOAL', 0.48);
-  fieldLabel(34, 105, 'IN-GOAL', 0.48);
+  fieldLabel(34, -5,  'IN-GOAL', 0.56);
+  fieldLabel(34, 105, 'IN-GOAL', 0.56);
 
   // ── 16. Goal posts ────────────────────────────────────────────────────────
-  drawPosts(34, 0, 'top');
-  drawPosts(34, 100, 'bot');
+  isPhoneViewport ? drawTopViewPosts(34, 0) : drawPosts(34, 0, 'top');
+  isPhoneViewport ? drawTopViewPosts(34, 100) : drawPosts(34, 100, 'bottom');
+  if (!showGainline) {
+    ensureStaticFieldSnapshotBuffer();
+    staticFieldCtx.setTransform(1, 0, 0, 1, 0, 0);
+    staticFieldCtx.clearRect(0, 0, staticFieldCanvas.width, staticFieldCanvas.height);
+    staticFieldCtx.drawImage(ctx.canvas, 0, 0);
+    staticFieldCtx.setTransform(renderDpr, 0, 0, renderDpr, 0, 0);
+    staticFieldCacheKey = cacheKey;
+  }
 }
 
 function drawPosts(fx, fy, side) {
@@ -2941,6 +5664,67 @@ function drawPosts(fx, fy, side) {
   ctx.restore();
 }
 
+function drawTopViewPosts(fx, fy) {
+  const dir = fy <= 50 ? -1 : 1;
+  const halfSpan = 2.8;
+  const uprightDepth = isPhoneViewport ? 2.35 : 2.9;
+  const baseDepth = isPhoneViewport ? 0.6 : 0.78;
+  const leftBase = toC(fx - halfSpan, fy);
+  const rightBase = toC(fx + halfSpan, fy);
+  const leftBack = toC(fx - halfSpan, fy + dir * uprightDepth);
+  const rightBack = toC(fx + halfSpan, fy + dir * uprightDepth);
+  const leftStem = toC(fx - halfSpan, fy + dir * baseDepth);
+  const rightStem = toC(fx + halfSpan, fy + dir * baseDepth);
+  const postW = Math.max(isPhoneViewport ? 1.9 : 2.4, sc * (isPhoneViewport ? 0.18 : 0.22));
+  const highlightW = Math.max(1, postW * 0.34);
+  const baseW = Math.max(isPhoneViewport ? 5.5 : 7.2, sc * (isPhoneViewport ? 0.68 : 0.84));
+  const baseH = Math.max(isPhoneViewport ? 2.2 : 2.8, sc * (isPhoneViewport ? 0.28 : 0.34));
+  const baseOffset = dir * (baseH * 0.25);
+  const gold = 'rgba(227,178,60,0.9)';
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0,0,0,0.34)';
+  ctx.lineWidth = postW + 2.8;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(leftBase.x + 1.1, leftBase.y + 1.1); ctx.lineTo(rightBase.x + 1.1, rightBase.y + 1.1);
+  ctx.moveTo(leftBase.x + 1.1, leftBase.y + 1.1); ctx.lineTo(leftBack.x + 1.1, leftBack.y + 1.1);
+  ctx.moveTo(rightBase.x + 1.1, rightBase.y + 1.1); ctx.lineTo(rightBack.x + 1.1, rightBack.y + 1.1);
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(0,0,0,0.26)';
+  ctx.fillRect(leftBase.x - (baseW / 2) + 0.9, leftBase.y - (baseH / 2) + baseOffset + 1.1, baseW, baseH);
+  ctx.fillRect(rightBase.x - (baseW / 2) + 0.9, rightBase.y - (baseH / 2) + baseOffset + 1.1, baseW, baseH);
+
+  ctx.fillStyle = 'rgba(255,250,232,0.95)';
+  ctx.fillRect(leftBase.x - (baseW / 2), leftBase.y - (baseH / 2) + baseOffset, baseW, baseH);
+  ctx.fillRect(rightBase.x - (baseW / 2), rightBase.y - (baseH / 2) + baseOffset, baseW, baseH);
+
+  ctx.strokeStyle = 'rgba(255,249,220,0.96)';
+  ctx.lineWidth = postW;
+  ctx.beginPath();
+  ctx.moveTo(leftBase.x, leftBase.y); ctx.lineTo(rightBase.x, rightBase.y);
+  ctx.moveTo(leftStem.x, leftStem.y); ctx.lineTo(leftBack.x, leftBack.y);
+  ctx.moveTo(rightStem.x, rightStem.y); ctx.lineTo(rightBack.x, rightBack.y);
+  ctx.stroke();
+
+  ctx.strokeStyle = gold;
+  ctx.lineWidth = highlightW;
+  ctx.beginPath();
+  ctx.moveTo(leftBase.x, leftBase.y - 0.7); ctx.lineTo(rightBase.x, rightBase.y - 0.7);
+  ctx.moveTo(leftStem.x - 0.7, leftStem.y); ctx.lineTo(leftBack.x - 0.7, leftBack.y);
+  ctx.moveTo(rightStem.x - 0.7, rightStem.y); ctx.lineTo(rightBack.x - 0.7, rightBack.y);
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.44)';
+  ctx.lineWidth = Math.max(0.9, highlightW * 0.7);
+  ctx.beginPath();
+  ctx.moveTo(leftStem.x + 0.7, leftStem.y); ctx.lineTo(leftBack.x + 0.7, leftBack.y);
+  ctx.moveTo(rightStem.x + 0.7, rightStem.y); ctx.lineTo(rightBack.x + 0.7, rightBack.y);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawFieldLabel(fx, fy, text, wide = false) {
   const p = toC(fx, fy);
   const fontSize = Math.max(8, sc * (wide ? 0.95 : 0.86));
@@ -2992,7 +5776,7 @@ function playerColorPalette(player) {
 
 function drawPlayer(fx, fy, num, team, selected, isBallCarrier, palette = null) {
   const p = toC(fx, fy);
-  const r = R();
+  const r = isMobileBoardViewport() ? Math.max(R(), 16) : R();
   const fill = palette?.fill || (team === 'A' ? '#2563eb' : '#dc2626');
   const border = palette?.border || (team === 'A' ? '#93c5fd' : '#fca5a5');
   const glow = palette?.glow || (team === 'A' ? '#3b82f6' : '#ef4444');
@@ -3096,6 +5880,75 @@ function drawBallCarrierHighlight(fx, fy) {
   ctx.lineWidth = 1;
   ctx.stroke();
   ctx.restore();
+}
+
+function drawPathOriginMarker(fx, fy, palette = null) {
+  const p = toC(fx, fy);
+  const r = isPhoneViewport ? Math.max(5.5, R() * 0.52) : Math.max(7, R() * 0.6);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+  ctx.strokeStyle = palette?.border || 'rgba(255,255,255,0.7)';
+  ctx.lineWidth = isPhoneViewport ? 1.6 : 2;
+  ctx.setLineDash([4, 3]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+}
+
+function renderPathOriginMarkers(players = S.players, paths = S.paths) {
+  if (!S.showGhostPrevious) return;
+  if (isPhoneViewport) return;
+  paths.forEach((path) => {
+    if (!Array.isArray(path?.pts) || path.pts.length < 2) return;
+    const pl = players.find((player) => player.id === path.pid);
+    if (!pl) return;
+    const origin = path.pts[0];
+    if (d2(origin, { x: pl.x, y: pl.y }) < 0.75) return;
+    drawPathOriginMarker(origin.x, origin.y, playerColorPalette(pl));
+  });
+}
+
+function drawMovementGuideLine(start, end, color) {
+  const a = toC(start.x, start.y);
+  const b = toC(end.x, end.y);
+  ctx.save();
+  ctx.strokeStyle = 'rgba(7,16,24,0.38)';
+  ctx.lineWidth = isPhoneViewport ? 4.2 : 4.8;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y);
+  ctx.lineTo(b.x, b.y);
+  ctx.stroke();
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = isPhoneViewport ? 2.3 : 2.6;
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y);
+  ctx.lineTo(b.x, b.y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function renderPhoneEditMovementGuides() {
+  // Ghost Preview has no visible effect on phone: its control is not shown
+  // there, and this overlay (the only ghost-related renderer that ever ran
+  // on phone) must stay suppressed even if the underlying desktop preference
+  // (S.showGhostPrevious) is left on from a previous desktop session.
+  if (isPhoneViewport) return;
+  if (!S.showGhostPrevious) return;
+  if (S.animating) return;
+  const baseStep = S.currentStepBaseline || S.steps?.[S.currentStep];
+  const baseLookup = baseStep?.players?.length ? buildStepLookup(baseStep.players) : new Map();
+  S.players.forEach((player) => {
+    const start = S.moveGuideOrigins?.[player.id] || baseLookup.get(playerKey(player));
+    if (!start) return;
+    const end = { x: player.x, y: player.y };
+    if (d2(start, end) < 0.75) return;
+    const palette = playerColorPalette(player);
+    drawMovementGuideLine(start, end, palette.fill);
+    drawPathOriginMarker(start.x, start.y, palette);
+  });
 }
 
 function lighten(hex, amt) {
@@ -3203,6 +6056,230 @@ function catmullRom(pts, t) {
     x: 0.5*((2*p1.x)+(-p0.x+p2.x)*u+(2*p0.x-5*p1.x+4*p2.x-p3.x)*cu+(-p0.x+3*p1.x-3*p2.x+p3.x)*cu3),
     y: 0.5*((2*p1.y)+(-p0.y+p2.y)*u+(2*p0.y-5*p1.y+4*p2.y-p3.y)*cu+(-p0.y+3*p1.y-3*p2.y+p3.y)*cu3),
   };
+}
+
+function _cmrLerp(a, b, s) { return { x: a.x + (b.x - a.x) * s, y: a.y + (b.y - a.y) * s }; }
+
+function centripetalCatmullRom(points, t) {
+  const alpha = 0.5;
+  if (!Array.isArray(points) || points.length === 0) return { x: 0, y: 0 };
+  if (points.length === 1) return { x: points[0].x, y: points[0].y };
+  if (points.length === 2) return { x: points[0].x + (points[1].x - points[0].x) * t, y: points[0].y + (points[1].y - points[0].y) * t };
+  const n = points.length - 1;
+  const tt = Math.min(Math.max(t, 0), 1);
+  const seg = Math.min(Math.floor(tt * n), n - 1);
+  const localU = tt * n - seg;
+  const P = (i) => {
+    if (i < 0) return { x: 2 * points[0].x - points[1].x, y: 2 * points[0].y - points[1].y };
+    if (i > n) return { x: 2 * points[n].x - points[n - 1].x, y: 2 * points[n].y - points[n - 1].y };
+    return points[i];
+  };
+  const p0 = P(seg - 1), p1 = P(seg), p2 = P(seg + 1), p3 = P(seg + 2);
+  const knot = (ti, pa, pb) => ti + Math.pow(Math.hypot(pb.x - pa.x, pb.y - pa.y), alpha);
+  const t0 = 0, t1 = knot(t0, p0, p1), t2 = knot(t1, p1, p2), t3 = knot(t2, p2, p3);
+  if (t1 === t0 || t2 === t1 || t3 === t2) return _cmrLerp(p1, p2, localU);
+  const tp = t1 + (t2 - t1) * localU;
+  const A1 = _cmrLerp(p0, p1, (tp - t0) / (t1 - t0));
+  const A2 = _cmrLerp(p1, p2, (tp - t1) / (t2 - t1));
+  const A3 = _cmrLerp(p2, p3, (tp - t2) / (t3 - t2));
+  const B1 = _cmrLerp(A1, A2, (tp - t0) / (t2 - t0));
+  const B2 = _cmrLerp(A2, A3, (tp - t1) / (t3 - t1));
+  return _cmrLerp(B1, B2, (tp - t1) / (t2 - t1));
+}
+
+function sanitizeTrajectoryPoints(points, eps = 1e-4) {
+  if (!Array.isArray(points)) return [];
+  const out = [];
+  for (const p of points) {
+    if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) continue;
+    const last = out[out.length - 1];
+    if (last && Math.hypot(p.x - last.x, p.y - last.y) <= eps) continue;
+    out.push({ x: p.x, y: p.y });
+  }
+  return out;
+}
+
+function buildArcLengthSampler(rawPoints, samplesPerSeg = 16) {
+  const points = sanitizeTrajectoryPoints(rawPoints);
+  if (points.length === 0) return { sampleByDistance: () => ({ x: 0, y: 0 }), length: 0, kind: 'empty', points };
+  const first = { x: points[0].x, y: points[0].y };
+  const last = { x: points[points.length - 1].x, y: points[points.length - 1].y };
+  if (points.length === 1) return { sampleByDistance: () => ({ ...first }), length: 0, kind: 'constant', points };
+  if (points.length === 2) {
+    const L = Math.hypot(last.x - first.x, last.y - first.y);
+    return { sampleByDistance: (f) => { const ff = Math.min(Math.max(f, 0), 1); if (ff <= 0) return { ...first }; if (ff >= 1) return { ...last }; return _cmrLerp(first, last, ff); }, length: L, kind: 'linear', points };
+  }
+  const N = Math.max(1, (points.length - 1) * samplesPerSeg);
+  const samples = [], dists = [0];
+  let prev = centripetalCatmullRom(points, 0); samples.push(prev); let acc = 0;
+  for (let i = 1; i <= N; i++) { const p = centripetalCatmullRom(points, i / N); acc += Math.hypot(p.x - prev.x, p.y - prev.y); samples.push(p); dists.push(acc); prev = p; }
+  const total = acc;
+  function sampleByDistance(f) {
+    const ff = Math.min(Math.max(f, 0), 1);
+    if (ff <= 0) return { ...first };
+    if (ff >= 1) return { ...last };
+    if (total === 0) return { ...first };
+    const target = ff * total;
+    let lo = 0, hi = dists.length - 1;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (dists[mid] < target) lo = mid + 1; else hi = mid; }
+    const i1 = lo, i0 = Math.max(0, i1 - 1), d0 = dists[i0], d1 = dists[i1];
+    const s = d1 > d0 ? (target - d0) / (d1 - d0) : 0;
+    return _cmrLerp(samples[i0], samples[i1], s);
+  }
+  return { sampleByDistance, length: total, kind: 'spline', points };
+}
+
+function deriveBallMotion(fromStep, toStep, motionStep) {
+  const warnings = [];
+  const passes = Array.isArray(motionStep?.passes) ? motionStep.passes : [];
+  const kick = passes.find(p => p && p.style === 'kick');
+  if (kick) return { kind: 'kick', from: playerKey({ num: kick.fromNum, team: kick.fromT }), pass: kick, warnings };
+  const pass = passes.find(p => p && p.style === 'pass');
+  if (pass) return { kind: 'pass', from: playerKey({ num: pass.fromNum, team: pass.fromT }), to: playerKey({ num: pass.toNum, team: pass.toT }), pass, warnings };
+  const fromOwner = fromStep?.ballAttached ? normalizePlayerRef(fromStep.ballOwner) : null;
+  const toOwner = toStep?.ballAttached ? normalizePlayerRef(toStep.ballOwner) : null;
+  const fromKey = fromOwner ? playerKey(fromOwner) : null;
+  const toKey = toOwner ? playerKey(toOwner) : null;
+  if (fromKey && toKey) {
+    if (fromKey === toKey) return { kind: 'carry', owner: fromKey, warnings };
+    warnings.push(`Ambiguous ball transition: owner changed without pass/kick (${fromKey} -> ${toKey}); carrying source owner.`);
+    return { kind: 'carry', owner: fromKey, ambiguous: true, warnings };
+  }
+  if (fromKey && !toKey) {
+    warnings.push(`Destination ownership missing; carrying source owner ${fromKey} for compatibility.`);
+    return { kind: 'carry', owner: fromKey, warnings };
+  }
+  if (!fromKey && toKey) return { kind: 'pickup', owner: toKey, warnings };
+  const hasBall = normalizeBallPosition(fromStep?.ball) || normalizeBallPosition(toStep?.ball) || fromStep?.ballOwner || toStep?.ballOwner;
+  return hasBall ? { kind: 'loose', warnings } : { kind: 'none', warnings };
+}
+
+function prepareTrajectory(fromPos, toPos, runPts) {
+  const from = { x: fromPos.x, y: fromPos.y };
+  const to = { x: toPos.x, y: toPos.y };
+  const hasRun = Array.isArray(runPts) && runPts.length >= 2;
+  let pts;
+  if (hasRun) {
+    pts = runPts.map(p => ({ x: p.x, y: p.y }));
+    pts[0] = { ...from };
+    pts[pts.length - 1] = { ...to };
+  } else {
+    pts = [{ ...from }, { ...to }];
+  }
+  const lut = buildArcLengthSampler(pts);
+  const sampleByDistance = (f) => {
+    const ff = Math.min(Math.max(f, 0), 1);
+    if (ff <= 0) return { ...from };
+    if (ff >= 1) return { ...to };
+    return lut.sampleByDistance(ff);
+  };
+  return { from, to, distance: lut.length, kind: hasRun ? lut.kind : 'linear', sampleByDistance };
+}
+
+function resolveBallEndpoint(step) {
+  const b = normalizeBallPosition(step?.ball);
+  if (b) return b;
+  const o = normalizePlayerRef(step?.ballOwner);
+  if (!o) return null;
+  const pl = buildStepLookup(step?.players || []).get(playerKey(o));
+  return pl ? { x: pl.x, y: pl.y } : null;
+}
+
+function prepareBallMotion(motion, fromStep, toStep) {
+  if (motion.kind === 'carry' || motion.kind === 'pickup') {
+    return { kind: motion.kind, owner: motion.owner, sample: (t, byKey) => {
+      const c = byKey.get(motion.owner);
+      return c ? { pos: { x: c.x + BALL_CARRY_OFFSET.x, y: c.y + BALL_CARRY_OFFSET.y }, owner: motion.owner } : { pos: null, owner: null };
+    } };
+  }
+  if (motion.kind === 'pass' || motion.kind === 'kick') {
+    const a = resolveBallEndpoint(fromStep) || { x: 34, y: 50 };
+    const b = motion.kind === 'pass' ? (resolveBallEndpoint(toStep) || a) : { x: motion.pass?.targetX ?? a.x, y: motion.pass?.targetY ?? a.y };
+    const traj = prepareTrajectory(a, b, null);
+    return { kind: motion.kind, sample: (t) => ({ pos: traj.sampleByDistance(t), owner: t <= 0 ? motion.from : (t >= 1 ? (motion.to || null) : null) }) };
+  }
+  if (motion.kind === 'loose') {
+    const a = resolveBallEndpoint(fromStep);
+    const b = resolveBallEndpoint(toStep) || a;
+    return { kind: 'loose', sample: (t) => ({ pos: a && b ? _cmrLerp(a, b, t) : (a || b || null), owner: null }) };
+  }
+  return { kind: 'none', sample: () => ({ pos: null, owner: null }) };
+}
+
+function preparePlaybackLeg(fromStep, toStep) {
+  const motionStep = fromStep;
+  const fromLookup = buildStepLookup(fromStep.players);
+  const toLookup = buildStepLookup(toStep.players);
+  const keys = new Set([...fromLookup.keys(), ...toLookup.keys()]);
+  const players = new Map();
+  const debug = { warnings: [], trajectories: {} };
+  for (const key of keys) {
+    const a = fromLookup.get(key) || toLookup.get(key);
+    const b = toLookup.get(key) || fromLookup.get(key);
+    const runPath = phasePathForPlayer(motionStep, b);
+    const runPts = runPath && Array.isArray(runPath.pts) && runPath.pts.length >= 2 ? runPath.pts : null;
+    const traj = prepareTrajectory({ x: a.x, y: a.y }, { x: b.x, y: b.y }, runPts);
+    players.set(key, { identity: playerRef(b), staticProps: { ...b }, trajectory: traj });
+    debug.trajectories[key] = { to: traj.to, distance: Math.round(traj.distance * 10) / 10, kind: traj.kind };
+  }
+  const motion = deriveBallMotion(fromStep, toStep, motionStep);
+  if (motion.warnings && motion.warnings.length) debug.warnings.push(...motion.warnings);
+  const ball = prepareBallMotion(motion, fromStep, toStep);
+  return { players, ball, annotations: motionStep.annotations, paths: motionStep.paths, passes: motionStep.passes, debug };
+}
+
+function playerKeyToRef(key) {
+  if (!key || typeof key !== 'string') return null;
+  const idx = key.indexOf(':');
+  if (idx < 0) return null;
+  const team = key.slice(0, idx);
+  const num = Number(key.slice(idx + 1));
+  return Number.isFinite(num) ? { team, num } : null;
+}
+
+function samplePlaybackLeg(leg, t) {
+  const f = Math.min(Math.max(t, 0), 1);
+  const players = [];
+  const byKey = new Map();
+  for (const [key, pr] of leg.players) {
+    const pos = pr.trajectory.sampleByDistance(f);
+    players.push({ ...pr.staticProps, x: pos.x, y: pos.y });
+    byKey.set(key, pos);
+  }
+  const b = leg.ball.sample(f, byKey);
+  return { players, ball: b.pos, ballOwner: playerKeyToRef(b.owner), annotations: leg.annotations, paths: leg.paths, passes: leg.passes, localT: f };
+}
+
+const PLAYBACK_SHADOW = false;
+let _shadowLegKey = null;
+function runPlaybackShadowCheck(fromStep, toStep, fromIdx, toIdx) {
+  const key = `${fromIdx}:${toIdx}`;
+  if (key === _shadowLegKey) return;
+  _shadowLegKey = key;
+  try {
+    const leg = preparePlaybackLeg(fromStep, toStep);
+    const issues = [];
+    const end = samplePlaybackLeg(leg, 1);
+    const toLookup = buildStepLookup(toStep.players);
+    for (const p of end.players) {
+      const tp = toLookup.get(`${p.team}:${p.num}`);
+      if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) issues.push(`NaN ${p.team}:${p.num}`);
+      else if (tp && Math.hypot(p.x - tp.x, p.y - tp.y) > 1e-6) issues.push(`endpoint drift ${p.team}:${p.num}`);
+    }
+    if (leg.ball.kind === 'carry' || leg.ball.kind === 'pickup') {
+      const mid = samplePlaybackLeg(leg, 0.5);
+      const carrier = mid.players.find(p => `${p.team}:${p.num}` === leg.ball.owner);
+      if (!carrier) issues.push(`carry owner ${leg.ball.owner} absent`);
+      else if (!mid.ball) issues.push('carry ball null mid-leg');
+    }
+    if (leg.debug.warnings.length || issues.length) {
+      console.warn(`[leg-shadow ${key}] ball=${leg.ball.kind}`, { warnings: leg.debug.warnings, issues, trajectories: leg.debug.trajectories });
+    } else {
+      console.log(`[leg-shadow ${key}] OK ball=${leg.ball.kind}`);
+    }
+  } catch (e) {
+    console.warn(`[leg-shadow ${key}] compiler threw:`, e && e.message);
+  }
 }
 
 function distPointToSegmentPx(p, a, b) {
@@ -3395,12 +6472,380 @@ function drawArc(x1, y1, x2, y2, color, progress = 1, thick = false, selected = 
 }
 
 function noteMetrics(note) {
-  const fontSize = Math.max(11, sc * 1.25);
-  ctx.save();
-  ctx.font = `700 ${fontSize}px ${NOTE_FONT}`;
-  const width = Math.max(sc * 5.2, ctx.measureText(note.text || ANNOTATION_NOTE_DEFAULT).width + 18);
-  ctx.restore();
-  return { fontSize, width, height: fontSize + 12 };
+  const { width: widthField, height: heightField } = noteDimensions(note);
+  const width = widthField * sc;
+  const height = heightField * sc;
+  const align = noteAlignValue(note);
+  const paddingX = Math.max(1, Math.min(NOTE_PADDING_X * sc, width * 0.12));
+  const paddingY = Math.max(1, Math.min(NOTE_PADDING_Y * sc, height * 0.12));
+  const minFontSize = Math.max(0.9, sc * 0.08);
+  const maxFontSize = Math.max(42, sc * 14);
+  const preferredFontSize = clamp(height * 0.72, minFontSize, maxFontSize);
+  const innerWidth = Math.max(2, width - (paddingX * 2));
+  const innerHeight = Math.max(2, height - (paddingY * 2));
+  const cornerRadius = Math.max(9, Math.min(18, Math.min(width, height) * 0.18));
+  const measure = (value, fontSize) => {
+    ctx.save();
+    ctx.font = `700 ${fontSize}px ${NOTE_FONT}`;
+    const size = ctx.measureText(value).width;
+    ctx.restore();
+    return size;
+  };
+  const wrapText = (value, fontSize) => {
+    const source = String(value ?? ANNOTATION_NOTE_DEFAULT).replace(/\r\n?/g, '\n');
+    const rawLines = source.split('\n');
+    const wrapped = [];
+    rawLines.forEach((rawLine, rawIndex) => {
+      if (!rawLine.length) {
+        wrapped.push('');
+      } else {
+        let remaining = rawLine;
+        while (remaining.length) {
+          let fitIndex = 0;
+          let lastWhitespaceFit = -1;
+          for (let idx = 1; idx <= remaining.length; idx++) {
+            const segment = remaining.slice(0, idx);
+            if (measure(segment, fontSize) <= innerWidth + 0.01) {
+              fitIndex = idx;
+              if (/\s/.test(remaining[idx - 1])) lastWhitespaceFit = idx;
+            } else {
+              break;
+            }
+          }
+          if (!fitIndex) {
+            wrapped.push(remaining[0]);
+            remaining = remaining.slice(1);
+            continue;
+          }
+          const breakIndex = fitIndex < remaining.length && lastWhitespaceFit > 0
+            ? lastWhitespaceFit
+            : fitIndex;
+          wrapped.push(remaining.slice(0, breakIndex));
+          remaining = remaining.slice(breakIndex);
+        }
+      }
+      if (rawIndex < rawLines.length - 1 && !rawLine.length) {
+        return;
+      }
+    });
+    return wrapped.length ? wrapped : [ANNOTATION_NOTE_DEFAULT];
+  };
+
+  let fontSize = preferredFontSize;
+  let lines = wrapText(note.text ?? ANNOTATION_NOTE_DEFAULT, fontSize);
+  let lineHeight = Math.max(fontSize + 0.3, fontSize * 1.04);
+  while (fontSize > minFontSize) {
+    const totalTextHeight = lines.length * lineHeight;
+    const fitsWidth = lines.every((line) => measure(line || '', fontSize) <= innerWidth + 0.01);
+    if (fitsWidth && totalTextHeight <= innerHeight + 0.01) {
+      break;
+    }
+    fontSize = Math.max(minFontSize, fontSize - 0.25);
+    lines = wrapText(note.text ?? ANNOTATION_NOTE_DEFAULT, fontSize);
+    lineHeight = Math.max(fontSize + 0.3, fontSize * 1.04);
+  }
+  const visibleLines = lines;
+  const clipped = false;
+  const lineWidths = visibleLines.map((line) => measure(line || '', fontSize));
+
+  return {
+    width,
+    height,
+    widthField,
+    heightField,
+    paddingX,
+    paddingY,
+    innerWidth,
+    innerHeight,
+    fontSize,
+    lineHeight,
+    cornerRadius,
+    align,
+    lines,
+    visibleLines,
+    lineWidths,
+    clipped,
+  };
+}
+window.__noteBox = noteMetrics;
+
+function playerLabelMetrics(annotation, players = S.players) {
+  const player = findPlayerForAnchoredLabel(annotation, players);
+  const source = String(annotation?.text ?? PLAYER_LABEL_DEFAULT).replace(/\r\n?/g, '\n');
+  const rawLines = source.split('\n');
+  const minFontSize = Math.max(12, sc * 0.21);
+  const maxFontSize = Math.max(22, sc * 0.5);
+  let fontSize = clamp(sc * 0.34, minFontSize, maxFontSize);
+  const maxWidthPx = Math.max(72, PLAYER_LABEL_MAX_WIDTH * sc);
+  const minWidthPx = Math.max(40, PLAYER_LABEL_MIN_WIDTH * sc);
+  const measure = (value, size) => {
+    ctx.save();
+    ctx.font = `700 ${size}px ${NOTE_FONT}`;
+    const width = ctx.measureText(value).width;
+    ctx.restore();
+    return width;
+  };
+  const wrapText = (lines, size) => {
+    const wrapped = [];
+    lines.forEach((line) => {
+      if (!line.length) {
+        wrapped.push('');
+        return;
+      }
+      let remaining = line;
+      while (remaining.length) {
+        let fitIndex = 0;
+        let lastWhitespaceFit = -1;
+        for (let idx = 1; idx <= remaining.length; idx++) {
+          const segment = remaining.slice(0, idx);
+          if (measure(segment, size) <= maxWidthPx + 0.01) {
+            fitIndex = idx;
+            if (/\s/.test(remaining[idx - 1])) lastWhitespaceFit = idx;
+          } else {
+            break;
+          }
+        }
+        if (!fitIndex) {
+          wrapped.push(remaining[0]);
+          remaining = remaining.slice(1);
+          continue;
+        }
+        const breakIndex = fitIndex < remaining.length && lastWhitespaceFit > 0
+          ? lastWhitespaceFit
+          : fitIndex;
+        wrapped.push(remaining.slice(0, breakIndex));
+        remaining = remaining.slice(breakIndex);
+      }
+    });
+    return wrapped.length ? wrapped : [PLAYER_LABEL_DEFAULT];
+  };
+  let lines = wrapText(rawLines, fontSize);
+  let lineHeight = Math.max(fontSize * 1.04, fontSize + 0.2);
+  while (fontSize > minFontSize) {
+    const lineWidths = lines.map(line => measure(line || '', fontSize));
+    const width = Math.min(maxWidthPx, Math.max(minWidthPx, ...lineWidths, 0) + (PLAYER_LABEL_PADDING_X * sc * 2));
+    const height = Math.min(PLAYER_LABEL_MAX_HEIGHT * sc, Math.max(PLAYER_LABEL_MIN_HEIGHT * sc, (lines.length * lineHeight) + (PLAYER_LABEL_PADDING_Y * sc * 2)));
+    if (width <= maxWidthPx + 0.01 && height <= PLAYER_LABEL_MAX_HEIGHT * sc + 0.01) break;
+    fontSize = Math.max(minFontSize, fontSize - 0.3);
+    lines = wrapText(rawLines, fontSize);
+    lineHeight = Math.max(fontSize * 1.04, fontSize + 0.2);
+  }
+  const lineWidths = lines.map(line => measure(line || '', fontSize));
+  const width = Math.min(maxWidthPx, Math.max(minWidthPx, ...lineWidths, 0) + (PLAYER_LABEL_PADDING_X * sc * 2));
+  const height = Math.min(PLAYER_LABEL_MAX_HEIGHT * sc, Math.max(PLAYER_LABEL_MIN_HEIGHT * sc, (lines.length * lineHeight) + (PLAYER_LABEL_PADDING_Y * sc * 2)));
+  return {
+    player,
+    x: player ? player.x + Number(annotation.offsetX || 0) : 0,
+    y: player ? player.y + Number(annotation.offsetY || 0) : 0,
+    width,
+    height,
+    widthField: width / Math.max(sc, 0.001),
+    heightField: height / Math.max(sc, 0.001),
+    paddingX: Math.max(3, PLAYER_LABEL_PADDING_X * sc),
+    paddingY: Math.max(2, PLAYER_LABEL_PADDING_Y * sc),
+    fontSize,
+    lineHeight,
+    align: noteAlignValue(annotation),
+    lines,
+    lineWidths,
+    cornerRadius: Math.max(7, Math.min(13, height * 0.34)),
+    opacity: clamp(Number(annotation.opacity) || 1, 0.2, 1),
+  };
+}
+
+function playerLabelBounds(annotation, players = S.players) {
+  const box = playerLabelMetrics(annotation, players);
+  if (!box.player) return null;
+  const halfW = box.widthField / 2;
+  const halfH = box.heightField / 2;
+  return {
+    left: box.x - halfW,
+    right: box.x + halfW,
+    top: box.y - halfH,
+    bottom: box.y + halfH,
+    width: halfW * 2,
+    height: halfH * 2,
+    centerX: box.x,
+    centerY: box.y,
+  };
+}
+
+function noteAnnotationBounds(note) {
+  const box = noteMetrics(note);
+  const halfW = box.widthField / 2;
+  const halfH = box.heightField / 2;
+  return {
+    left: note.x - halfW,
+    right: note.x + halfW,
+    top: note.y - halfH,
+    bottom: note.y + halfH,
+    width: halfW * 2,
+    height: halfH * 2,
+  };
+}
+
+function noteAnnotationCorners(note) {
+  const bounds = noteAnnotationBounds(note);
+  return {
+    nw: { x: bounds.left, y: bounds.top },
+    ne: { x: bounds.right, y: bounds.top },
+    sw: { x: bounds.left, y: bounds.bottom },
+    se: { x: bounds.right, y: bounds.bottom },
+  };
+}
+
+function drawAnnotationHandleAtFieldPoint(point, size = 6.2) {
+  const handle = toC(point.x, point.y);
+  const half = size / 2;
+  const corner = Math.max(2, size * 0.22);
+  ctx.beginPath();
+  roundRect(ctx, handle.x - half, handle.y - half, size, size, corner);
+  ctx.fill();
+  ctx.stroke();
+}
+
+function noteHandleSizePx() {
+  const dpr = window.devicePixelRatio || 1;
+  return Math.max(6, Math.min(8, 6 * dpr));
+}
+
+function noteHandleHitRadiusField(note) {
+  const handleSize = noteHandleSizePx();
+  const generousRadiusPx = Math.max(handleSize * 1.7, 11);
+  const baseRadius = (generousRadiusPx / Math.max(sc, 0.001)) + NOTE_HANDLE_HIT_PADDING;
+  const bounds = noteAnnotationBounds(note);
+  const minDimension = Math.min(bounds.width, bounds.height);
+  const centerToCorner = Math.hypot(bounds.width / 2, bounds.height / 2);
+  const cappedRadius = Math.max(0.55, Math.min(minDimension * 0.45, centerToCorner * 0.7));
+  return Math.min(baseRadius, cappedRadius);
+}
+
+function clearPendingNoteSelectionClear({ resetTap = false } = {}) {
+  if (noteSelectionClearTimer) {
+    clearTimeout(noteSelectionClearTimer);
+    noteSelectionClearTimer = null;
+  }
+  if (resetTap) lastNoteSelectionTap = { id: null, at: 0 };
+}
+
+function isInlineNoteEditing(noteId = null) {
+  return !!noteInlineEditorState && (!noteId || noteInlineEditorState.id === noteId);
+}
+
+function hideNoteInlineEditor() {
+  const editor = document.getElementById('noteInlineEditor');
+  if (!editor) return;
+  editor.hidden = true;
+  editor.style.left = '';
+  editor.style.top = '';
+  editor.style.width = '';
+  editor.style.height = '';
+}
+
+function endNoteInlineEdit({ keepSelection = true } = {}) {
+  const wasEditing = !!noteInlineEditorState;
+  noteInlineEditorState = null;
+  hideNoteInlineEditor();
+  clearPendingNoteSelectionClear({ resetTap: true });
+  if (!keepSelection && wasEditing) clearSelectedObject();
+}
+
+function syncNoteInlineEditor() {
+  const editor = document.getElementById('noteInlineEditor');
+  const wrap = document.getElementById('canvasWrap');
+  if (!editor || !wrap) return;
+  const annotation = noteInlineEditorState ? findAnnotationById(noteInlineEditorState.id) : null;
+  if (!annotation || !isEditableTextAnnotationType(annotation.type) || selectedAnnotationId() !== annotation.id) {
+    if (noteInlineEditorState) noteInlineEditorState = null;
+    hideNoteInlineEditor();
+    return;
+  }
+
+  const box = annotation.type === 'note' ? noteMetrics(annotation) : playerLabelMetrics(annotation);
+  if (annotation.type === 'playerLabel' && !box.player) {
+    noteInlineEditorState = null;
+    hideNoteInlineEditor();
+    return;
+  }
+  const center = toC(box.x, box.y);
+  const left = center.x - (box.width / 2);
+  const top = center.y - (box.height / 2);
+  const opacity = clamp(Number(annotation.opacity) || 1, 0.2, 1);
+  const value = String(annotation.text ?? '');
+  if (editor.value !== value) editor.value = value;
+
+  editor.hidden = false;
+  editor.style.left = `${left}px`;
+  editor.style.top = `${top}px`;
+  editor.style.width = `${box.width}px`;
+  editor.style.height = `${box.height}px`;
+  editor.style.padding = `${box.paddingY}px ${box.paddingX}px`;
+  editor.style.fontSize = `${box.fontSize}px`;
+  editor.style.lineHeight = `${box.lineHeight}px`;
+  editor.style.textAlign = noteAlignValue(annotation);
+  editor.style.opacity = `${opacity}`;
+}
+
+function beginNoteInlineEdit(noteId, { selectAll = false } = {}) {
+  const note = findAnnotationById(noteId);
+  const editor = document.getElementById('noteInlineEditor');
+  if (!note || !isEditableTextAnnotationType(note.type) || !editor) return false;
+  clearPendingNoteSelectionClear({ resetTap: true });
+  if (!isInlineNoteEditing(noteId)) snapshot();
+  noteInlineEditorState = { id: noteId };
+  selectAnnotationById(noteId);
+  closeFloatingToolbarFlyout();
+  refreshInteractionUI();
+  render();
+  requestAnimationFrame(() => {
+    syncNoteInlineEditor();
+    editor.focus();
+    if (selectAll) editor.select();
+    else {
+      const end = editor.value.length;
+      editor.setSelectionRange(end, end);
+    }
+  });
+  return true;
+}
+
+function beginSelectedNoteInlineEdit(options = {}) {
+  const note = selectedAnnotation();
+  if (!note || !isEditableTextAnnotationType(note.type)) return false;
+  return beginNoteInlineEdit(note.id, options);
+}
+window.beginSelectedNoteInlineEdit = beginSelectedNoteInlineEdit;
+
+function handleSelectedNoteTapForEditing(noteId) {
+  const note = findAnnotationById(noteId);
+  if (!note || !isEditableTextAnnotationType(note.type)) return false;
+  const now = Date.now();
+  if (lastNoteSelectionTap.id === noteId && (now - lastNoteSelectionTap.at) <= NOTE_INLINE_EDIT_DOUBLE_TAP_MS) {
+    beginNoteInlineEdit(noteId);
+    return true;
+  }
+  clearPendingNoteSelectionClear();
+  lastNoteSelectionTap = { id: noteId, at: now };
+  noteSelectionClearTimer = setTimeout(() => {
+    noteSelectionClearTimer = null;
+    if (!isInlineNoteEditing(noteId) && selectedAnnotationId() === noteId && lastNoteSelectionTap.id === noteId) {
+      clearSelection();
+    }
+    lastNoteSelectionTap = { id: null, at: 0 };
+  }, NOTE_INLINE_EDIT_DOUBLE_TAP_MS + 30);
+  return true;
+}
+
+function setNoteFromBounds(note, left, top, right, bottom) {
+  const clampedLeft = Math.min(left, right);
+  const clampedRight = Math.max(left, right);
+  const clampedTop = Math.min(top, bottom);
+  const clampedBottom = Math.max(top, bottom);
+  note.width = clamp(clampedRight - clampedLeft, NOTE_MIN_WIDTH, NOTE_MAX_WIDTH);
+  note.height = clamp(clampedBottom - clampedTop, NOTE_MIN_HEIGHT, NOTE_MAX_HEIGHT);
+  note.x = clampedLeft + (note.width / 2);
+  note.y = clampedTop + (note.height / 2);
+  return note;
 }
 
 function drawAnnotationSelectionRing(x, y, r) {
@@ -3417,59 +6862,246 @@ function drawAnnotationSelectionRing(x, y, r) {
 }
 
 function boxAnnotationBounds(box) {
-  const left = Math.min(box.x, box.x + box.w);
-  const right = Math.max(box.x, box.x + box.w);
-  const top = Math.min(box.y, box.y + box.h);
-  const bottom = Math.max(box.y, box.y + box.h);
-  return {
-    left,
-    top,
-    right,
-    bottom,
-    width: Math.max(1.5, right - left),
-    height: Math.max(1.5, bottom - top),
-  };
+  return rotatedShapeAnnotationBounds(box);
 }
 
-function boxAnnotationCorners(box) {
-  const bounds = boxAnnotationBounds(box);
-  return {
-    nw: { x: bounds.left, y: bounds.top },
-    ne: { x: bounds.right, y: bounds.top },
-    sw: { x: bounds.left, y: bounds.bottom },
-    se: { x: bounds.right, y: bounds.bottom },
-  };
+function ellipseAnnotationBounds(ellipse) {
+  return rotatedShapeAnnotationBounds(ellipse);
+}
+
+function setEllipseFromBounds(ellipse, left, top, right, bottom) {
+  setBoxFromBounds(ellipse, left, top, right, bottom);
 }
 
 function setBoxFromBounds(box, left, top, right, bottom) {
   box.x = Math.min(left, right);
   box.y = Math.min(top, bottom);
-  box.w = Math.max(1.5, Math.abs(right - left));
-  box.h = Math.max(1.5, Math.abs(bottom - top));
+  box.w = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, Math.abs(right - left));
+  box.h = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, Math.abs(bottom - top));
 }
 
 function clampZoneAnnotation(zone) {
-  zone.r = Math.max(1.5, zone.r);
-  const maxRadius = Math.max(
-    1.5,
-    Math.min(zone.x - F.XMIN, F.XMAX - zone.x, zone.y - F.YMIN, F.YMAX - zone.y)
+  const bounds = annotationBoardBounds();
+  zone.r = clamp(zone.r, GEOMETRIC_ANNOTATION_MIN_SIZE, GEOMETRIC_ANNOTATION_MAX_RADIUS);
+  zone.x = clamp(
+    zone.x,
+    bounds.left - zone.r + GEOMETRIC_ANNOTATION_MIN_VISIBLE,
+    bounds.right + zone.r - GEOMETRIC_ANNOTATION_MIN_VISIBLE
   );
-  zone.r = Math.min(zone.r, maxRadius);
-  zone.x = clamp(zone.x, F.XMIN + zone.r, F.XMAX - zone.r);
-  zone.y = clamp(zone.y, F.YMIN + zone.r, F.YMAX - zone.r);
+  zone.y = clamp(
+    zone.y,
+    bounds.top - zone.r + GEOMETRIC_ANNOTATION_MIN_VISIBLE,
+    bounds.bottom + zone.r - GEOMETRIC_ANNOTATION_MIN_VISIBLE
+  );
   return zone;
 }
 
 function clampBoxAnnotation(box) {
-  const width = Math.max(1.5, Math.abs(box.w));
-  const height = Math.max(1.5, Math.abs(box.h));
-  const x = clamp(box.x, F.XMIN, F.XMAX - width);
-  const y = clamp(box.y, F.YMIN, F.YMAX - height);
-  box.x = x;
-  box.y = y;
-  box.w = Math.min(width, F.XMAX - x);
-  box.h = Math.min(height, F.YMAX - y);
-  return box;
+  return clampRotatedShapeAnnotation(box);
+}
+
+function clampEllipseAnnotation(ellipse) {
+  return clampRotatedShapeAnnotation(ellipse);
+}
+
+function zoneAnnotationBounds(zone) {
+  return {
+    left: zone.x - zone.r,
+    right: zone.x + zone.r,
+    top: zone.y - zone.r,
+    bottom: zone.y + zone.r,
+    width: zone.r * 2,
+    height: zone.r * 2,
+  };
+}
+
+function annotationFieldBounds(annotation) {
+  if (!annotation) return null;
+  if (annotation.type === 'note') return noteAnnotationBounds(annotation);
+  if (annotation.type === 'playerLabel') return playerLabelBounds(annotation);
+  if (annotation.type === 'zone') return zoneAnnotationBounds(annotation);
+  if (annotation.type === 'box') return boxAnnotationBounds(annotation);
+  if (annotation.type === 'ellipse') return ellipseAnnotationBounds(annotation);
+  if (annotation.type === 'arrow') {
+    const pad = Math.max(2.4, arrowStrokeWidthPx(annotation.thickness) * 0.26);
+    return {
+      left: Math.min(annotation.start.x, annotation.end.x) - pad,
+      right: Math.max(annotation.start.x, annotation.end.x) + pad,
+      top: Math.min(annotation.start.y, annotation.end.y) - pad,
+      bottom: Math.max(annotation.start.y, annotation.end.y) + pad,
+      width: Math.abs(annotation.end.x - annotation.start.x) + (pad * 2),
+      height: Math.abs(annotation.end.y - annotation.start.y) + (pad * 2),
+    };
+  }
+  return null;
+}
+
+function annotationScreenBounds(annotation) {
+  const bounds = annotationFieldBounds(annotation);
+  if (!bounds) return null;
+  const topLeft = toC(bounds.left, bounds.top);
+  const bottomRight = toC(bounds.right, bounds.bottom);
+  return {
+    left: Math.min(topLeft.x, bottomRight.x),
+    right: Math.max(topLeft.x, bottomRight.x),
+    top: Math.min(topLeft.y, bottomRight.y),
+    bottom: Math.max(topLeft.y, bottomRight.y),
+    width: Math.abs(bottomRight.x - topLeft.x),
+    height: Math.abs(bottomRight.y - topLeft.y),
+  };
+}
+
+function annotationToolbarTitle(annotation) {
+  if (!annotation) return '';
+  if (annotation.type === 'note') return 'Note';
+  if (annotation.type === 'playerLabel') return 'Player Label';
+  if (annotation.type === 'arrow') return 'Arrow';
+  if (annotation.type === 'box') return 'Box';
+  return 'Circle';
+}
+
+function floatingToolbarVisibleBounds(wrapRect, hostRect, edgeMargin = 8) {
+  return {
+    left: Math.max(
+      edgeMargin,
+      Math.round(Math.max(0, hostRect.left - wrapRect.left, -wrapRect.left))
+    ),
+    top: Math.max(
+      edgeMargin,
+      Math.round(Math.max(0, hostRect.top - wrapRect.top, -wrapRect.top))
+    ),
+    right: Math.min(
+      wrapRect.width - edgeMargin,
+      Math.round(Math.min(wrapRect.width, hostRect.right - wrapRect.left, window.innerWidth - wrapRect.left))
+    ),
+    bottom: Math.min(
+      wrapRect.height - edgeMargin,
+      Math.round(Math.min(wrapRect.height, hostRect.bottom - wrapRect.top, window.innerHeight - wrapRect.top))
+    ),
+  };
+}
+
+function positionOpenFloatingToolbarFlyout() {
+  if (!floatingToolbarOpenFlyout) return;
+  const toolbar = document.getElementById('floatingSelectionToolbar');
+  const wrap = document.getElementById('canvasWrap');
+  if (!toolbar || toolbar.hidden || !wrap) return;
+  const flyout = toolbar.querySelector(`.floating-selection-toolbar-flyout[data-flyout="${floatingToolbarOpenFlyout}"]`);
+  const trigger = toolbar.querySelector(`[data-flyout-target="${floatingToolbarOpenFlyout}"]`);
+  if (!flyout || !trigger || trigger.hidden || trigger.closest('[hidden]')) {
+    closeFloatingToolbarFlyout();
+    return;
+  }
+
+  const wrapRect = wrap.getBoundingClientRect();
+  const host = document.getElementById('canvasHost');
+  const hostRect = host ? host.getBoundingClientRect() : wrapRect;
+  const visible = floatingToolbarVisibleBounds(wrapRect, hostRect, 8);
+  const toolbarRect = toolbar.getBoundingClientRect();
+  const triggerRect = trigger.getBoundingClientRect();
+  const flyoutWidth = flyout.offsetWidth || 0;
+  const flyoutHeight = flyout.offsetHeight || 0;
+  const gap = 8;
+  const minLeft = visible.left - toolbarRect.left;
+  const maxLeft = Math.max(minLeft, visible.right - toolbarRect.left - flyoutWidth);
+  const desiredLeft = (triggerRect.left + (triggerRect.width / 2)) - toolbarRect.left - (flyoutWidth / 2);
+  const left = clamp(desiredLeft, minLeft, maxLeft);
+  const spaceBelow = visible.bottom - toolbarRect.bottom - gap;
+  const spaceAbove = toolbarRect.top - visible.top - gap;
+  const placeAbove = spaceBelow < flyoutHeight && spaceAbove > spaceBelow;
+  const minTop = visible.top - toolbarRect.top;
+  const maxTop = visible.bottom - toolbarRect.top - flyoutHeight;
+  const desiredTop = placeAbove ? -(flyoutHeight + gap) : (toolbar.offsetHeight + gap);
+  const top = clamp(desiredTop, minTop, Math.max(minTop, maxTop));
+
+  flyout.dataset.placement = placeAbove ? 'top' : 'bottom';
+  flyout.style.left = `${left}px`;
+  flyout.style.top = `${top}px`;
+  flyout.style.bottom = '';
+}
+
+function positionFloatingSelectionToolbar() {
+  const toolbar = document.getElementById('floatingSelectionToolbar');
+  const wrap = document.getElementById('canvasWrap');
+  const annotation = selectedAnnotation();
+  if (!toolbar || !wrap || !annotation) return;
+  const bounds = annotationScreenBounds(annotation);
+  if (!bounds) return;
+
+  const wrapRect = wrap.getBoundingClientRect();
+  const host = document.getElementById('canvasHost');
+  const hostRect = host ? host.getBoundingClientRect() : wrapRect;
+  const edgeMargin = 8;
+  const gap = 14 + (isShapeAnnotationType(annotation.type) ? 34 : 0);
+  const toolbarWidth = toolbar.offsetWidth || 0;
+  const toolbarHeight = toolbar.offsetHeight || 0;
+  const visible = floatingToolbarVisibleBounds(wrapRect, hostRect, edgeMargin);
+  const visibleLeft = visible.left;
+  const visibleTop = visible.top;
+  const visibleRight = visible.right;
+  const visibleBottom = visible.bottom;
+  const minLeft = visibleLeft;
+  const maxLeft = Math.max(minLeft, visibleRight - toolbarWidth);
+  const minTop = visibleTop;
+  const maxTop = Math.max(minTop, visibleBottom - toolbarHeight);
+  const anchorX = clamp(bounds.left + (bounds.width / 2), visibleLeft + 10, visibleRight - 10);
+  const anchorTop = clamp(bounds.top, visibleTop, visibleBottom);
+  const anchorBottom = clamp(bounds.bottom, visibleTop, visibleBottom);
+  const preferredTop = bounds.top - toolbarHeight - gap;
+  const preferredBottom = bounds.bottom + gap;
+  const fitsAbove = preferredTop >= minTop;
+  const fitsBelow = preferredBottom + toolbarHeight <= visibleBottom;
+  const placeBelow = !fitsAbove && fitsBelow;
+  const top = placeBelow
+    ? clamp(preferredBottom, minTop, maxTop)
+    : clamp(preferredTop, minTop, maxTop);
+  const left = clamp(anchorX - (toolbarWidth / 2), minLeft, maxLeft);
+  const caretLeft = clamp(anchorX - left, 18, Math.max(18, toolbarWidth - 18));
+
+  toolbar.dataset.placement = placeBelow ? 'bottom' : 'top';
+  toolbar.style.right = 'auto';
+  toolbar.style.bottom = 'auto';
+  toolbar.style.left = `${left}px`;
+  toolbar.style.top = `${top}px`;
+  toolbar.style.setProperty('--fst-caret-left', `${caretLeft}px`);
+  positionOpenFloatingToolbarFlyout();
+}
+
+function scheduleFloatingSelectionToolbarUpdate() {
+  if (floatingSelectionToolbarRaf) cancelAnimationFrame(floatingSelectionToolbarRaf);
+  floatingSelectionToolbarRaf = requestAnimationFrame(() => {
+    floatingSelectionToolbarRaf = 0;
+    positionFloatingSelectionToolbar();
+  });
+}
+
+function toggleFloatingToolbarFlyout(name, event = null) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  const toolbar = document.getElementById('floatingSelectionToolbar');
+  if (!toolbar || toolbar.hidden) return;
+  const targetBtn = toolbar.querySelector(`[data-flyout-target="${name}"]`);
+  const targetFlyout = toolbar.querySelector(`.floating-selection-toolbar-flyout[data-flyout="${name}"]`);
+  if (!targetBtn || !targetFlyout || targetBtn.hidden || targetBtn.closest('[hidden]')) return;
+  const willOpen = floatingToolbarOpenFlyout !== name;
+  closeFloatingToolbarFlyout();
+  if (!willOpen) return;
+  floatingToolbarOpenFlyout = name;
+  targetBtn.setAttribute('aria-expanded', 'true');
+  targetFlyout.hidden = false;
+  positionOpenFloatingToolbarFlyout();
+}
+window.toggleFloatingToolbarFlyout = toggleFloatingToolbarFlyout;
+
+function clampNoteAnnotation(note) {
+  note.width = noteWidthValue(note);
+  note.height = noteHeightValue(note);
+  const bounds = noteAnnotationBounds(note);
+  const halfW = bounds.width / 2;
+  const halfH = bounds.height / 2;
+  note.x = clamp(note.x, F.XMIN + halfW, F.XMAX - halfW);
+  note.y = clamp(note.y, F.YMIN + halfH, F.YMAX - halfH);
+  return note;
 }
 
 function drawNoteAnnotation(note, selected = false) {
@@ -3477,74 +7109,352 @@ function drawNoteAnnotation(note, selected = false) {
   const box = noteMetrics(note);
   const width = box.width;
   const height = box.height;
-  const opacity = Number(note.opacity) || 1;
+  const opacity = clamp(Number(note.opacity) || 1, 0.2, 1);
 
   ctx.save();
   ctx.globalAlpha = opacity;
   ctx.shadowColor = 'rgba(0,0,0,0.28)';
   ctx.shadowBlur = 16;
   ctx.fillStyle = 'rgba(3,8,14,0.82)';
-  roundRect(ctx, p.x - width / 2, p.y - height / 2, width, height, 12);
+  roundRect(ctx, p.x - width / 2, p.y - height / 2, width, height, box.cornerRadius);
   ctx.fill();
   ctx.restore();
 
   ctx.save();
+  ctx.globalAlpha = opacity;
   if (selected) {
     ctx.shadowColor = 'rgba(251,191,36,0.22)';
     ctx.shadowBlur = 18;
   }
   ctx.strokeStyle = selected ? '#fbbf24' : (note.color || 'rgba(217,180,108,0.68)');
   ctx.lineWidth = selected ? 2 : 1.2;
-  roundRect(ctx, p.x - width / 2, p.y - height / 2, width, height, 12);
+  roundRect(ctx, p.x - width / 2, p.y - height / 2, width, height, box.cornerRadius);
   ctx.stroke();
+  ctx.beginPath();
+  roundRect(ctx, p.x - width / 2, p.y - height / 2, width, height, box.cornerRadius);
+  ctx.clip();
   ctx.fillStyle = '#f7fafc';
   ctx.font = `700 ${box.fontSize}px ${NOTE_FONT}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(note.text || ANNOTATION_NOTE_DEFAULT, p.x, p.y + 0.5);
+  ctx.textAlign = box.align;
+  ctx.textBaseline = 'top';
+  const textLeft = p.x - (width / 2) + box.paddingX;
+  const textRight = p.x + (width / 2) - box.paddingX;
+  const textCenter = textLeft + (box.innerWidth / 2);
+  const textTop = p.y - (height / 2) + box.paddingY;
+  const totalTextHeight = box.visibleLines.length * box.lineHeight;
+  const textY = textTop + Math.max(0, (box.innerHeight - totalTextHeight) / 2);
+  if (!isInlineNoteEditing(note.id)) {
+    box.visibleLines.forEach((line, index) => {
+      const textX = box.align === 'center'
+        ? textCenter
+        : box.align === 'right'
+          ? textRight
+          : textLeft;
+      ctx.fillText(line || '', textX, textY + (index * box.lineHeight));
+    });
+  }
   ctx.restore();
 
   if (selected) {
+    const corners = noteAnnotationCorners(note);
     ctx.save();
-    ctx.fillStyle = '#fbbf24';
-    ctx.strokeStyle = '#0b1420';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 5.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
+    ctx.globalAlpha = Math.max(0.42, opacity);
+    const handleSize = noteHandleSizePx();
+    ctx.fillStyle = '#E3B23C';
+    ctx.strokeStyle = 'rgba(7,16,24,0.95)';
+    ctx.lineWidth = Math.max(1.4, (window.devicePixelRatio || 1) * 1.2);
+    drawAnnotationHandleAtFieldPoint(corners.nw, handleSize);
+    drawAnnotationHandleAtFieldPoint(corners.ne, handleSize);
+    drawAnnotationHandleAtFieldPoint(corners.sw, handleSize);
+    drawAnnotationHandleAtFieldPoint(corners.se, handleSize);
     ctx.restore();
   }
 }
 
+function noteResizeCursorForHandle(handle) {
+  if (handle === 'nw' || handle === 'se') return 'nwse-resize';
+  if (handle === 'ne' || handle === 'sw') return 'nesw-resize';
+  return 'default';
+}
+
+function normalizeShapeRotation(rotation) {
+  const raw = Number(rotation);
+  if (!Number.isFinite(raw)) return 0;
+  let normalized = raw % 360;
+  if (normalized < 0) normalized += 360;
+  return normalized;
+}
+
+function shapeFrameBounds(shape) {
+  const width = Math.max(1.5, Math.abs(Number(shape?.w) || 0));
+  const height = Math.max(1.5, Math.abs(Number(shape?.h) || 0));
+  return {
+    left: Number(shape?.x) || 0,
+    top: Number(shape?.y) || 0,
+    right: (Number(shape?.x) || 0) + width,
+    bottom: (Number(shape?.y) || 0) + height,
+    width,
+    height,
+  };
+}
+
+function shapeAnnotationCenter(shape) {
+  const frame = shapeFrameBounds(shape);
+  return {
+    x: frame.left + (frame.width / 2),
+    y: frame.top + (frame.height / 2),
+  };
+}
+
+function fieldUnitsForPixels(px) {
+  return px / Math.max(sc || 1, 0.0001);
+}
+
+function rotateOffset(x, y, radians) {
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  return {
+    x: (x * cos) - (y * sin),
+    y: (x * sin) + (y * cos),
+  };
+}
+
+function shapeWorldPointFromLocal(shape, localX, localY) {
+  const center = shapeAnnotationCenter(shape);
+  const offset = rotateOffset(localX, localY, normalizeShapeRotation(shape.rotation) * (Math.PI / 180));
+  return {
+    x: center.x + offset.x,
+    y: center.y + offset.y,
+  };
+}
+
+function shapeLocalPointFromWorld(shape, worldPoint, rotationOverride = null) {
+  const center = shapeAnnotationCenter(shape);
+  const radians = (rotationOverride === null ? normalizeShapeRotation(shape.rotation) : normalizeShapeRotation(rotationOverride)) * (Math.PI / 180);
+  return rotateOffset(worldPoint.x - center.x, worldPoint.y - center.y, -radians);
+}
+
+function boxAnnotationCorners(box) {
+  const frame = shapeFrameBounds(box);
+  const halfW = frame.width / 2;
+  const halfH = frame.height / 2;
+  return {
+    nw: shapeWorldPointFromLocal(box, -halfW, -halfH),
+    ne: shapeWorldPointFromLocal(box, halfW, -halfH),
+    sw: shapeWorldPointFromLocal(box, -halfW, halfH),
+    se: shapeWorldPointFromLocal(box, halfW, halfH),
+  };
+}
+
+function ellipseAnnotationCorners(ellipse) {
+  return boxAnnotationCorners(ellipse);
+}
+
+function rotatedShapeAnnotationBounds(shape) {
+  const corners = Object.values(boxAnnotationCorners(shape));
+  const xs = corners.map(point => point.x);
+  const ys = corners.map(point => point.y);
+  return {
+    left: Math.min(...xs),
+    top: Math.min(...ys),
+    right: Math.max(...xs),
+    bottom: Math.max(...ys),
+    width: Math.max(1.5, Math.max(...xs) - Math.min(...xs)),
+    height: Math.max(1.5, Math.max(...ys) - Math.min(...ys)),
+  };
+}
+
+function shapeRotateStemLengthField() {
+  return fieldUnitsForPixels(18);
+}
+
+function shapeRotateHandleFieldPoint(shape) {
+  const frame = shapeFrameBounds(shape);
+  return shapeWorldPointFromLocal(shape, 0, -(frame.height / 2) - shapeRotateStemLengthField());
+}
+
+function shapeRotateStemFieldPoint(shape) {
+  const frame = shapeFrameBounds(shape);
+  return shapeWorldPointFromLocal(shape, 0, -(frame.height / 2));
+}
+
+function shapeHandleHitRadiusField() {
+  return Math.max(1.35, fieldUnitsForPixels(11));
+}
+
+function setShapeFrameFromCenter(shape, center, width, height) {
+  const nextWidth = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, width);
+  const nextHeight = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, height);
+  shape.x = center.x - (nextWidth / 2);
+  shape.y = center.y - (nextHeight / 2);
+  shape.w = nextWidth;
+  shape.h = nextHeight;
+}
+
+function clampRotatedShapeAnnotation(shape) {
+  const boundsLimit = annotationBoardBounds();
+  const frame = shapeFrameBounds(shape);
+  shape.w = clamp(frame.width, GEOMETRIC_ANNOTATION_MIN_SIZE, GEOMETRIC_ANNOTATION_MAX_WIDTH);
+  shape.h = clamp(frame.height, GEOMETRIC_ANNOTATION_MIN_SIZE, GEOMETRIC_ANNOTATION_MAX_HEIGHT);
+  const bounds = rotatedShapeAnnotationBounds(shape);
+  let dx = 0;
+  let dy = 0;
+  if (bounds.left > boundsLimit.right - GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dx = (boundsLimit.right - GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.left;
+  } else if (bounds.right < boundsLimit.left + GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dx = (boundsLimit.left + GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.right;
+  }
+  if (bounds.top > boundsLimit.bottom - GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dy = (boundsLimit.bottom - GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.top;
+  } else if (bounds.bottom < boundsLimit.top + GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dy = (boundsLimit.top + GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.bottom;
+  }
+  shape.x += dx;
+  shape.y += dy;
+  return shape;
+}
+
+function constrainEllipseSize(width, height) {
+  const size = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, Math.max(width, height));
+  return { width: size, height: size };
+}
+
+function clampArrowAnnotation(arrow) {
+  const boundsLimit = annotationBoardBounds();
+  const bounds = annotationFieldBounds(arrow);
+  if (!bounds) return arrow;
+  let dx = 0;
+  let dy = 0;
+  if (bounds.left > boundsLimit.right - GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dx = (boundsLimit.right - GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.left;
+  } else if (bounds.right < boundsLimit.left + GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dx = (boundsLimit.left + GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.right;
+  }
+  if (bounds.top > boundsLimit.bottom - GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dy = (boundsLimit.bottom - GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.top;
+  } else if (bounds.bottom < boundsLimit.top + GEOMETRIC_ANNOTATION_MIN_VISIBLE) {
+    dy = (boundsLimit.top + GEOMETRIC_ANNOTATION_MIN_VISIBLE) - bounds.bottom;
+  }
+  if (dx || dy) {
+    arrow.start.x += dx;
+    arrow.start.y += dy;
+    arrow.end.x += dx;
+    arrow.end.y += dy;
+  }
+  return arrow;
+}
+
+function resizeRotatedShapeAnnotation(shape, base, handle, point, constrainCircle = false) {
+  const rotation = normalizeShapeRotation(base.rotation);
+  const frame = shapeFrameBounds(base);
+  const halfW = frame.width / 2;
+  const halfH = frame.height / 2;
+  const signs = handle === 'nw'
+    ? { x: -1, y: -1 }
+    : handle === 'ne'
+      ? { x: 1, y: -1 }
+      : handle === 'sw'
+        ? { x: -1, y: 1 }
+        : { x: 1, y: 1 };
+  const anchorWorld = shapeWorldPointFromLocal(base, -signs.x * halfW, -signs.y * halfH);
+  const localDelta = rotateOffset(point.x - anchorWorld.x, point.y - anchorWorld.y, -(rotation * (Math.PI / 180)));
+  let width = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, Math.abs(localDelta.x));
+  let height = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, Math.abs(localDelta.y));
+  if (constrainCircle) {
+    const constrained = constrainEllipseSize(width, height);
+    width = constrained.width;
+    height = constrained.height;
+  }
+  const draggedLocal = {
+    x: signs.x * width,
+    y: signs.y * height,
+  };
+  const centerOffset = rotateOffset(draggedLocal.x / 2, draggedLocal.y / 2, rotation * (Math.PI / 180));
+  const center = {
+    x: anchorWorld.x + centerOffset.x,
+    y: anchorWorld.y + centerOffset.y,
+  };
+  setShapeFrameFromCenter(shape, center, width, height);
+  shape.rotation = rotation;
+  return clampRotatedShapeAnnotation(shape);
+}
+
+function shapeResizeCursorForHandle(handle) {
+  if (handle === 'rotate') return 'grab';
+  if (handle === 'nw' || handle === 'se') return 'nwse-resize';
+  if (handle === 'ne' || handle === 'sw') return 'nesw-resize';
+  return 'grab';
+}
+
+function drawShapeRotationHandle(shape, opacity = 1) {
+  const stemStart = toC(shapeRotateStemFieldPoint(shape).x, shapeRotateStemFieldPoint(shape).y);
+  const handleCenterField = shapeRotateHandleFieldPoint(shape);
+  const handleCenter = toC(handleCenterField.x, handleCenterField.y);
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.strokeStyle = 'rgba(251,191,36,0.42)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(stemStart.x, stemStart.y);
+  ctx.lineTo(handleCenter.x, handleCenter.y);
+  ctx.stroke();
+  ctx.fillStyle = '#fbbf24';
+  ctx.strokeStyle = '#0b1420';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(handleCenter.x, handleCenter.y, 6.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawArrowAnnotation(arrow, selected = false, preview = false) {
-  const color = preview ? 'rgba(217,180,108,0.72)' : (arrow.color || annotationColor('arrow'));
-  const opacity = preview ? 1 : (Number(arrow.opacity) || 1);
+  const color = arrow.color || annotationColor('arrow');
+  const opacity = preview ? 0.82 : (Number(arrow.opacity) || 1);
+  const thicknessKey = arrowThicknessValue(arrow.thickness);
+  const strokeWidth = preview ? Math.max(2, arrowStrokeWidthPx(thicknessKey) - 0.3) : arrowStrokeWidthPx(thicknessKey);
+  const shaftDash = arrowDashValue(arrow.dash) === 'dashed'
+    ? [Math.max(8, strokeWidth * 2.8), Math.max(6, strokeWidth * 1.9)]
+    : [];
   const start = toC(arrow.start.x, arrow.start.y);
   const end = toC(arrow.end.x, arrow.end.y);
-  const ang = Math.atan2(end.y - start.y, end.x - start.x);
-  const head = Math.max(9, sc * 1.6);
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const len = Math.hypot(dx, dy);
+  const ang = Math.atan2(dy, dx);
+  const head = Math.max(11, strokeWidth * 3.8, sc * 1.6);
+  const shaftEnd = len > 0.001
+    ? {
+        x: end.x - Math.cos(ang) * Math.min(head * 0.78, Math.max(0, len - 1)),
+        y: end.y - Math.sin(ang) * Math.min(head * 0.78, Math.max(0, len - 1)),
+      }
+    : { ...end };
+  const underlayWidth = strokeWidth + (selected ? 3.2 : 2.2);
 
   ctx.save();
   ctx.globalAlpha = opacity;
   ctx.strokeStyle = 'rgba(7,16,24,0.46)';
-  ctx.lineWidth = 5.2;
+  ctx.lineWidth = underlayWidth;
   ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  if (shaftDash.length) ctx.setLineDash(shaftDash);
   ctx.beginPath();
   ctx.moveTo(start.x, start.y);
-  ctx.lineTo(end.x, end.y);
+  ctx.lineTo(shaftEnd.x, shaftEnd.y);
   ctx.stroke();
+  ctx.setLineDash([]);
   ctx.restore();
 
   if (selected) {
     ctx.save();
     ctx.strokeStyle = 'rgba(251,191,36,0.42)';
-    ctx.lineWidth = 8;
+    ctx.lineWidth = underlayWidth + 2.6;
     ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     ctx.setLineDash([10, 8]);
     ctx.beginPath();
     ctx.moveTo(start.x, start.y);
-    ctx.lineTo(end.x, end.y);
+    ctx.lineTo(shaftEnd.x, shaftEnd.y);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
@@ -3552,12 +7462,15 @@ function drawArrowAnnotation(arrow, selected = false, preview = false) {
 
   ctx.save();
   ctx.strokeStyle = color;
-  ctx.lineWidth = preview ? 2.6 : 3.2;
+  ctx.lineWidth = strokeWidth;
   ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  if (shaftDash.length) ctx.setLineDash(shaftDash);
   ctx.beginPath();
   ctx.moveTo(start.x, start.y);
-  ctx.lineTo(end.x, end.y);
+  ctx.lineTo(shaftEnd.x, shaftEnd.y);
   ctx.stroke();
+  ctx.setLineDash([]);
 
   ctx.fillStyle = color;
   ctx.beginPath();
@@ -3588,15 +7501,33 @@ function drawZoneAnnotation(zone, selected = false, preview = false) {
   const p = toC(zone.x, zone.y);
   const radius = Math.max(zone.r * sc, sc * 1.5);
   const opacity = preview ? 1 : (Number(zone.opacity) || 1);
+  const strokeWidth = preview ? Math.max(1.8, arrowStrokeWidthPx(zone.thickness) - 0.3) : arrowStrokeWidthPx(zone.thickness);
+  const dash = shapeDashPattern(zone.dash, strokeWidth);
+  const fill = normalizeShapeFill(zone.fill);
   ctx.save();
   ctx.globalAlpha = opacity;
-  ctx.fillStyle = preview ? 'rgba(16,185,129,0.1)' : 'rgba(16,185,129,0.14)';
+  if (fill !== 'none') {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+    ctx.clip();
+    drawShapeFillPattern(fill, zone.color || annotationColor('zone'), {
+      preview,
+      left: p.x - radius,
+      top: p.y - radius,
+      width: radius * 2,
+      height: radius * 2,
+      strokeWidth,
+    });
+    ctx.restore();
+  }
   ctx.strokeStyle = selected ? '#fbbf24' : (zone.color || annotationColor('zone'));
-  ctx.lineWidth = selected ? 2.4 : 2;
+  ctx.lineWidth = selected ? strokeWidth + 0.35 : strokeWidth;
+  ctx.setLineDash(dash);
   ctx.beginPath();
   ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-  ctx.fill();
   ctx.stroke();
+  ctx.setLineDash([]);
   ctx.restore();
 
   if (selected) {
@@ -3637,29 +7568,51 @@ function drawZoneAnnotation(zone, selected = false, preview = false) {
 
 function drawBoxAnnotation(box, selected = false, preview = false) {
   const opacity = preview ? 1 : (Number(box.opacity) || 1);
-  const bounds = boxAnnotationBounds(box);
-  const topLeft = toC(bounds.left, bounds.top);
-  const bottomRight = toC(bounds.right, bounds.bottom);
-  const width = bottomRight.x - topLeft.x;
-  const height = bottomRight.y - topLeft.y;
+  const frame = shapeFrameBounds(box);
+  const center = shapeAnnotationCenter(box);
+  const centerPx = toC(center.x, center.y);
+  const width = frame.width * sc;
+  const height = frame.height * sc;
+  const strokeWidth = preview ? Math.max(1.8, arrowStrokeWidthPx(box.thickness) - 0.3) : arrowStrokeWidthPx(box.thickness);
+  const dash = shapeDashPattern(box.dash, strokeWidth);
+  const rotation = normalizeShapeRotation(box.rotation) * (Math.PI / 180);
+  const fill = normalizeShapeFill(box.fill);
 
   ctx.save();
   ctx.globalAlpha = opacity;
-  ctx.fillStyle = preview ? 'rgba(217,180,108,0.09)' : 'rgba(217,180,108,0.13)';
+  ctx.translate(centerPx.x, centerPx.y);
+  ctx.rotate(rotation);
+  if (fill !== 'none') {
+    ctx.save();
+    roundRect(ctx, -(width / 2), -(height / 2), width, height, 14);
+    ctx.clip();
+    drawShapeFillPattern(fill, box.color || annotationColor('box'), {
+      preview,
+      left: -(width / 2),
+      top: -(height / 2),
+      width,
+      height,
+      strokeWidth,
+    });
+    ctx.restore();
+  }
   ctx.strokeStyle = selected ? '#fbbf24' : (box.color || annotationColor('box'));
-  ctx.lineWidth = selected ? 2.4 : 2;
-  roundRect(ctx, topLeft.x, topLeft.y, width, height, 14);
-  ctx.fill();
+  ctx.lineWidth = selected ? Math.max(2.4, strokeWidth) : strokeWidth;
+  if (dash.length) ctx.setLineDash(dash);
+  roundRect(ctx, -(width / 2), -(height / 2), width, height, 14);
   ctx.stroke();
+  ctx.setLineDash([]);
   ctx.restore();
 
   if (selected) {
     const corners = boxAnnotationCorners(box);
     ctx.save();
+    ctx.translate(centerPx.x, centerPx.y);
+    ctx.rotate(rotation);
     ctx.strokeStyle = 'rgba(251,191,36,0.24)';
     ctx.lineWidth = 1.5;
     ctx.setLineDash([6, 5]);
-    roundRect(ctx, topLeft.x - 4, topLeft.y - 4, width + 8, height + 8, 16);
+    roundRect(ctx, -(width / 2) - 4, -(height / 2) - 4, width + 8, height + 8, 16);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
@@ -3676,16 +7629,134 @@ function drawBoxAnnotation(box, selected = false, preview = false) {
       ctx.stroke();
       ctx.restore();
     });
+    drawShapeRotationHandle(box, opacity);
   }
 }
 
-function renderAnnotations(layer, annotations = S.annotations) {
+function drawEllipseAnnotation(ellipse, selected = false, preview = false) {
+  const opacity = preview ? 1 : (Number(ellipse.opacity) || 1);
+  const frame = shapeFrameBounds(ellipse);
+  const center = shapeAnnotationCenter(ellipse);
+  const centerPx = toC(center.x, center.y);
+  const width = Math.max(1, frame.width * sc);
+  const height = Math.max(1, frame.height * sc);
+  const radiusX = width / 2;
+  const radiusY = height / 2;
+  const strokeWidth = preview ? Math.max(1.8, arrowStrokeWidthPx(ellipse.thickness) - 0.3) : arrowStrokeWidthPx(ellipse.thickness);
+  const dash = shapeDashPattern(ellipse.dash, strokeWidth);
+  const rotation = normalizeShapeRotation(ellipse.rotation) * (Math.PI / 180);
+  const fill = normalizeShapeFill(ellipse.fill);
+
+  ctx.save();
+  ctx.globalAlpha = opacity;
+  ctx.translate(centerPx.x, centerPx.y);
+  ctx.rotate(rotation);
+  if (fill !== 'none') {
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
+    ctx.clip();
+    drawShapeFillPattern(fill, ellipse.color || annotationColor('ellipse'), {
+      preview,
+      left: -radiusX,
+      top: -radiusY,
+      width,
+      height,
+      strokeWidth,
+    });
+    ctx.restore();
+  }
+  ctx.strokeStyle = selected ? '#fbbf24' : (ellipse.color || annotationColor('ellipse'));
+  ctx.lineWidth = selected ? Math.max(2.4, strokeWidth) : strokeWidth;
+  if (dash.length) ctx.setLineDash(dash);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, radiusX, radiusY, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  if (selected) {
+    const corners = ellipseAnnotationCorners(ellipse);
+    ctx.save();
+    ctx.translate(centerPx.x, centerPx.y);
+    ctx.rotate(rotation);
+    ctx.strokeStyle = 'rgba(251,191,36,0.24)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 5]);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, radiusX + 4, radiusY + 4, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    Object.values(corners).forEach(corner => {
+      const handle = toC(corner.x, corner.y);
+      ctx.save();
+      ctx.fillStyle = '#fbbf24';
+      ctx.strokeStyle = '#0b1420';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(handle.x, handle.y, 6.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    });
+    drawShapeRotationHandle(ellipse, opacity);
+  }
+}
+
+function drawPlayerLabelAnnotation(annotation, selected = false, players = S.players) {
+  const box = playerLabelMetrics(annotation, players);
+  if (!box.player) return;
+  const center = toC(box.x, box.y);
+  const left = center.x - (box.width / 2);
+  const top = center.y - (box.height / 2);
+  ctx.save();
+  ctx.globalAlpha = box.opacity;
+  ctx.fillStyle = 'rgba(7,16,24,0.82)';
+  ctx.strokeStyle = selected ? '#fbbf24' : 'rgba(251,191,36,0.24)';
+  ctx.lineWidth = selected ? 1.7 : 1;
+  roundRect(ctx, left, top, box.width, box.height, box.cornerRadius);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalAlpha = box.opacity;
+  ctx.fillStyle = annotation.color || annotationColor('playerLabel');
+  ctx.font = `700 ${box.fontSize}px ${NOTE_FONT}`;
+  ctx.textBaseline = 'middle';
+  box.lines.forEach((line, index) => {
+    const textWidth = box.lineWidths[index] || 0;
+    let x = left + box.paddingX;
+    if (box.align === 'center') x = center.x - (textWidth / 2);
+    else if (box.align === 'right') x = left + box.width - box.paddingX - textWidth;
+    const y = top + box.paddingY + (box.lineHeight * index) + (box.lineHeight / 2);
+    ctx.fillText(line || '', x, y);
+  });
+  ctx.restore();
+
+  if (selected) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(251,191,36,0.3)';
+    ctx.lineWidth = 1.4;
+    ctx.setLineDash([5, 4]);
+    roundRect(ctx, left - 3, top - 3, box.width + 6, box.height + 6, box.cornerRadius + 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+}
+
+function renderAnnotations(layer, annotations = S.annotations, players = S.players) {
   annotations.forEach(annotation => {
     const selected = annotations === S.annotations && selectedAnnotationId() === annotation.id;
     if (layer === 'zones' && annotation.type === 'zone') drawZoneAnnotation(annotation, selected);
     if (layer === 'zones' && annotation.type === 'box') drawBoxAnnotation(annotation, selected);
+    if (layer === 'zones' && annotation.type === 'ellipse') drawEllipseAnnotation(annotation, selected);
     if (layer === 'lines' && annotation.type === 'arrow') drawArrowAnnotation(annotation, selected);
     if (layer === 'notes' && annotation.type === 'note') drawNoteAnnotation(annotation, selected);
+    if (layer === 'notes' && annotation.type === 'playerLabel') drawPlayerLabelAnnotation(annotation, selected, players);
   });
 }
 
@@ -3699,6 +7770,9 @@ function renderAnnotationDraft() {
   }
   if (S.annotationDraft.type === 'box' && Number.isFinite(S.annotationDraft.w) && Number.isFinite(S.annotationDraft.h)) {
     drawBoxAnnotation(S.annotationDraft, false, true);
+  }
+  if (S.annotationDraft.type === 'ellipse' && Number.isFinite(S.annotationDraft.w) && Number.isFinite(S.annotationDraft.h)) {
+    drawEllipseAnnotation(S.annotationDraft, false, true);
   }
 }
 
@@ -3717,7 +7791,7 @@ function render() {
     const frame = buildSequenceFrame(S.animT);
     const playerLookup = new Map(frame.players.map(pl => [playerKey(pl), pl]));
     const animatedKickBall = resolveAnimatedKickBall(frame, playerLookup);
-    renderAnnotations('zones', frame.annotations);
+    renderAnnotations('zones', frame.annotations, frame.players);
     frame.passes.forEach(pass => {
       const from = playerLookup.get(playerKey({ num: pass.fromNum, team: pass.fromT }));
       if (!from) return;
@@ -3734,19 +7808,21 @@ function render() {
       if (path.pts.length < 2) return;
       drawRunPath(path.pts, path.team === 'A' ? '#60a5fa' : '#f87171', 2.8, 1);
     });
-    renderAnnotations('lines', frame.annotations);
+    renderAnnotations('lines', frame.annotations, frame.players);
+    renderPathOriginMarkers(frame.players, frame.paths);
     frame.players.forEach(pl => drawPlayer(pl.x, pl.y, pl.num, pl.team, false, samePlayerRef(playerRef(pl), frame.ballOwner), playerColorPalette(pl)));
     const frameBall = animatedKickBall || frame.ball;
     if (frameBall) drawBall(frameBall.x, frameBall.y, false);
     frame.players.forEach(pl => {
       if (samePlayerRef(playerRef(pl), frame.ballOwner)) drawBallCarrierHighlight(pl.x, pl.y);
     });
-    renderAnnotations('notes', frame.annotations);
+    renderAnnotations('notes', frame.annotations, frame.players);
     closeRadialMenu();
+    scheduleFloatingSelectionToolbarUpdate();
     return;
   }
 
-  const t = S.animT;
+  const t = (S.animating || isCanonicalPlaybackPaused()) ? S.animT : 0;
   const animatedKickBall = resolveLiveAnimatedKickBall(t);
   renderAnnotations('zones');
 
@@ -3794,6 +7870,8 @@ function render() {
     }
   }
   renderAnnotations('lines');
+  renderPhoneEditMovementGuides();
+  renderPathOriginMarkers();
 
   if (S.drawing && S.drawing.pts.length >= 2) {
     const pl  = S.players.find(p => p.id === S.drawing.pid);
@@ -3817,8 +7895,9 @@ function render() {
     }
   }
 
-  S.players.forEach(pl => {
-    const pos = animPos(pl, t);
+  const livePlayers = uniquePlayersByRef(S.players);
+  livePlayers.forEach(pl => {
+    const pos = S.animating ? animPos(pl, t) : pl;
     const sel = isPlayerSelected(pl.id);
     drawPlayer(pos.x, pos.y, pl.num, pl.team, sel, pl.isBC, playerColorPalette(pl));
   });
@@ -3826,7 +7905,7 @@ function render() {
   if (liveBall) {
     drawBall(liveBall.x, liveBall.y, isBallSelected());
   }
-  S.players.forEach(pl => {
+  livePlayers.forEach(pl => {
     if (pl.isBC) drawBallCarrierHighlight(pl.x, pl.y);
   });
   renderAnnotations('notes');
@@ -3851,6 +7930,7 @@ function render() {
     ctx.restore();
   });
   renderRadialMenu();
+  scheduleFloatingSelectionToolbarUpdate();
 }
 
 function animPos(pl, t) {
@@ -3863,6 +7943,14 @@ function animPos(pl, t) {
 function getF(e)  { const r=cv.getBoundingClientRect(); return frC(e.clientX-r.left, e.clientY-r.top); }
 function getPx(e) { const r=cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
 const PRT = () => (R() + 1) / sc; // player hit radius in field units
+
+function getPointerSamples(e) {
+  if (typeof e?.getCoalescedEvents === 'function') {
+    const samples = e.getCoalescedEvents();
+    if (Array.isArray(samples) && samples.length) return samples;
+  }
+  return [e];
+}
 
 function hitPlayer(fp) {
   let nearest = null;
@@ -3892,18 +7980,40 @@ function pointSegDist(p, a, b) {
 function hitAnnotation(fp) {
   for (let i = S.annotations.length - 1; i >= 0; i--) {
     const ann = S.annotations[i];
+    if (ann.type === 'playerLabel') {
+      const bounds = playerLabelBounds(ann);
+      if (!bounds) continue;
+      if (
+        fp.x >= bounds.left - 0.7 && fp.x <= bounds.right + 0.7 &&
+        fp.y >= bounds.top - 0.7 && fp.y <= bounds.bottom + 0.7
+      ) {
+        return { id: ann.id, part: 'move' };
+      }
+    }
     if (ann.type === 'note') {
-      const box = noteMetrics(ann);
-      const halfW = (box.width / sc) / 2 + 0.8;
-      const halfH = (box.height / sc) / 2 + 0.8;
-      if (Math.abs(fp.x - ann.x) <= halfW && Math.abs(fp.y - ann.y) <= halfH) {
+      const bounds = noteAnnotationBounds(ann);
+      const corners = noteAnnotationCorners(ann);
+      const isSelected = selectedAnnotationId() === ann.id;
+      if (isSelected) {
+        const handleTolerance = noteHandleHitRadiusField(ann);
+        if (d2(fp, corners.nw) <= handleTolerance) return { id: ann.id, part: 'resize', handle: 'nw' };
+        if (d2(fp, corners.ne) <= handleTolerance) return { id: ann.id, part: 'resize', handle: 'ne' };
+        if (d2(fp, corners.sw) <= handleTolerance) return { id: ann.id, part: 'resize', handle: 'sw' };
+        if (d2(fp, corners.se) <= handleTolerance) return { id: ann.id, part: 'resize', handle: 'se' };
+      }
+      if (
+        fp.x >= bounds.left - 0.8 && fp.x <= bounds.right + 0.8 &&
+        fp.y >= bounds.top - 0.8 && fp.y <= bounds.bottom + 0.8
+      ) {
         return { id: ann.id, part: 'move' };
       }
     }
     if (ann.type === 'arrow') {
-      if (d2(fp, ann.start) <= 2.8) return { id: ann.id, part: 'start' };
-      if (d2(fp, ann.end) <= 2.8) return { id: ann.id, part: 'end' };
-      if (pointSegDist(fp, ann.start, ann.end) <= 2.4) return { id: ann.id, part: 'move' };
+      const handleRadius = arrowThicknessValue(ann.thickness) === 'thick' ? 3.2 : 2.8;
+      const shaftTolerance = 2.4 + (arrowStrokeWidthPx(ann.thickness) * 0.25);
+      if (d2(fp, ann.start) <= handleRadius) return { id: ann.id, part: 'start' };
+      if (d2(fp, ann.end) <= handleRadius) return { id: ann.id, part: 'end' };
+      if (pointSegDist(fp, ann.start, ann.end) <= shaftTolerance) return { id: ann.id, part: 'move' };
     }
     if (ann.type === 'zone') {
       const handle = { x: ann.x + ann.r, y: ann.y };
@@ -3912,16 +8022,33 @@ function hitAnnotation(fp) {
       if (d2(fp, center) <= ann.r + 1.1) return { id: ann.id, part: 'move' };
     }
     if (ann.type === 'box') {
-      const bounds = boxAnnotationBounds(ann);
       const corners = boxAnnotationCorners(ann);
-      if (d2(fp, corners.nw) <= 2.8) return { id: ann.id, part: 'nw' };
-      if (d2(fp, corners.ne) <= 2.8) return { id: ann.id, part: 'ne' };
-      if (d2(fp, corners.sw) <= 2.8) return { id: ann.id, part: 'sw' };
-      if (d2(fp, corners.se) <= 2.8) return { id: ann.id, part: 'se' };
-      if (
-        fp.x >= bounds.left - 0.8 && fp.x <= bounds.right + 0.8 &&
-        fp.y >= bounds.top - 0.8 && fp.y <= bounds.bottom + 0.8
-      ) {
+      const handleRadius = shapeHandleHitRadiusField();
+      if (selectedAnnotationId() === ann.id && d2(fp, shapeRotateHandleFieldPoint(ann)) <= handleRadius) return { id: ann.id, part: 'rotate' };
+      if (d2(fp, corners.nw) <= handleRadius) return { id: ann.id, part: 'nw' };
+      if (d2(fp, corners.ne) <= handleRadius) return { id: ann.id, part: 'ne' };
+      if (d2(fp, corners.sw) <= handleRadius) return { id: ann.id, part: 'sw' };
+      if (d2(fp, corners.se) <= handleRadius) return { id: ann.id, part: 'se' };
+      const local = shapeLocalPointFromWorld(ann, fp);
+      const frame = shapeFrameBounds(ann);
+      if (Math.abs(local.x) <= (frame.width / 2) + 0.8 && Math.abs(local.y) <= (frame.height / 2) + 0.8) {
+        return { id: ann.id, part: 'move' };
+      }
+    }
+    if (ann.type === 'ellipse') {
+      const corners = ellipseAnnotationCorners(ann);
+      const handleRadius = shapeHandleHitRadiusField();
+      if (selectedAnnotationId() === ann.id && d2(fp, shapeRotateHandleFieldPoint(ann)) <= handleRadius) return { id: ann.id, part: 'rotate' };
+      if (d2(fp, corners.nw) <= handleRadius) return { id: ann.id, part: 'nw' };
+      if (d2(fp, corners.ne) <= handleRadius) return { id: ann.id, part: 'ne' };
+      if (d2(fp, corners.sw) <= handleRadius) return { id: ann.id, part: 'sw' };
+      if (d2(fp, corners.se) <= handleRadius) return { id: ann.id, part: 'se' };
+      const local = shapeLocalPointFromWorld(ann, fp);
+      const frame = shapeFrameBounds(ann);
+      const rx = Math.max(0.75, frame.width / 2);
+      const ry = Math.max(0.75, frame.height / 2);
+      const norm = ((local.x ** 2) / (rx ** 2)) + ((local.y ** 2) / (ry ** 2));
+      if (norm <= 1.15) {
         return { id: ann.id, part: 'move' };
       }
     }
@@ -3963,10 +8090,139 @@ function consumePointerTap(pointerId) {
   return tap;
 }
 
+function startPortraitPan(pointerId, point, payload = { type: 'portrait-pan' }) {
+  if (!isPhoneViewport || phoneVerticalOverflowPx <= 0 || !point) return false;
+  const host = document.getElementById('canvasHost');
+  closeRadialMenu();
+  S.dragging = {
+    type: 'portrait-pan',
+    startClientY: point.clientY,
+    startScrollTop: host ? host.scrollTop : 0,
+  };
+  beginPointerTap(pointerId, payload, point);
+  try { cv.setPointerCapture(pointerId); } catch(_) {}
+  setHint('Drag empty grass to pan the full field.');
+  return true;
+}
+
+function addKickToFieldTarget(fieldPoint) {
+  if (S.tool !== 'kick' || !activeWorkflowPlayerId() || !fieldPoint) return false;
+  S.passes.push({
+    from: activeWorkflowPlayerId(),
+    to: null,
+    targetX: fieldPoint.x,
+    targetY: fieldPoint.y,
+    style: 'kick',
+  });
+  S.ball = { x: fieldPoint.x, y: fieldPoint.y };
+  S.ballOwner = null;
+  S.ballAttached = false;
+  applyBallOwnershipVisualState();
+  clearPassKickState();
+  clearSelectedObject();
+  clearDragPlayer();
+  // A completed field-target Kick is a one-shot action: auto-return to Move.
+  returnInteractionToMoveTool();
+  refreshInteractionUI();
+  render();
+  return true;
+}
+
+function syncSpeedButtonsUI() {
+  document.querySelectorAll('.speed-btn[data-speed]').forEach((btn) => {
+    const btnSpeed = Number(btn.getAttribute('data-speed'));
+    btn.classList.toggle('active', btnSpeed === S.animSpd);
+  });
+  const speedLabel = document.getElementById('spdLabel');
+  if (speedLabel) speedLabel.textContent = fmtSpd(S.animSpd);
+}
+
+function updateMobilePhaseCounterLabel() {
+  const mobilePhaseCounterLabel = document.getElementById('mobilePhaseCounterLabel');
+  if (!mobilePhaseCounterLabel) return;
+  const mobilePhaseCounter = mobilePhaseCounterLabel;
+  mobilePhaseCounter.textContent = `PHASE ${GamePlan.currentPhase + 1}/${GamePlan.phases.length} · MOVE ${S.currentStep + 1}/${sequenceStepCount()}`;
+}
+
+function flashMobilePhaseCounter() {
+  const mobilePhaseCounter = document.getElementById('mobilePhasePill');
+  if (!mobilePhaseCounter) return;
+  mobilePhaseCounter.classList.remove('is-flashing');
+  void mobilePhaseCounter.offsetWidth;
+  mobilePhaseCounter.classList.add('is-flashing');
+  setTimeout(() => mobilePhaseCounter.classList.remove('is-flashing'), 420);
+}
+
+function finishEraseInteraction(message = 'Object erased. Back in Move mode.') {
+  returnInteractionToMoveTool();
+  setHint(message);
+  refreshInteractionUI();
+  render();
+}
+
+function showPhoneMoveToast() {
+  if (!isPhoneViewport || phoneMoveToastShown) return;
+  const toast = document.getElementById('mobileCoachToast');
+  if (!toast) return;
+  phoneMoveToastShown = true;
+  toast.textContent = 'Each MOVE is a moment inside this phase - PLAY runs them in order.';
+  toast.classList.add('is-visible');
+  toast.setAttribute('aria-hidden', 'false');
+  if (phoneMoveToastTimer) clearTimeout(phoneMoveToastTimer);
+  phoneMoveToastTimer = setTimeout(() => {
+    toast.classList.remove('is-visible');
+    toast.setAttribute('aria-hidden', 'true');
+    phoneMoveToastTimer = null;
+  }, 2000);
+}
+
 function handlePointerDown(e) {
+  clearPendingNoteSelectionClear();
   const fp = getF(e);
   const clampedFieldPoint = clampFieldPoint(fp);
+  const geometricFieldPoint = clampGeometricFieldPoint(fp);
   const canvasPoint = getPx(e);
+
+  // Canonical radial-menu dismissal: a radial menu can only be open while
+  // S.tool === 'move' (choosing any action closes it and arms a tool via
+  // activateRadialAction()), so any pointerdown reaching the canvas while one
+  // is still open is - by definition - a tap outside the menu itself
+  // (composedPath already ruled that case out via radialEventTargetsMenu in
+  // the separate document-level listener; that listener only ever sees this
+  // same event AFTER this handler, since it bubbles from the canvas up to
+  // document). Handling the close here, before the normal 'move' tool logic
+  // below runs for the same event, is what prevents two known-broken
+  // outcomes: (1) tapping the same still-selected player instantly reopening
+  // the menu on this same gesture's pointerup (the previous bug - closing
+  // only in the document-level listener left wasSelected/isPlayerSelected
+  // both true for that tap, so onPointerUp's "tap an already-selected player"
+  // branch fired again), and (2) an empty-pitch tap meant only to dismiss the
+  // menu instead falling through into starting an unrelated board
+  // interaction underneath it.
+  if (radialMenu) {
+    const priorPlayerId = radialMenu.playerId;
+    closeRadialMenu();
+    const tappedPlayer = hitPlayer(fp);
+    if (!tappedPlayer) {
+      // Tapped empty pitch (or anything else non-player): full dismiss -
+      // clear the selection and return to Move, swallowing this gesture so
+      // it can't also start a drag/annotation/etc. underneath the menu.
+      clearSelectedObject();
+      returnInteractionToMoveTool();
+      refreshInteractionUI();
+      render();
+      return;
+    }
+    if (tappedPlayer.id === priorPlayerId) {
+      // Tapped the same player the menu was open for: close without
+      // reopening from this same gesture.
+      refreshInteractionUI();
+      render();
+      return;
+    }
+    // Tapped a different player: let the normal 'move' tool selection logic
+    // below run for this same event, selecting the new player normally.
+  }
 
   if (S.tool === 'move') {
     const pl = hitPlayer(fp);
@@ -4025,6 +8281,9 @@ function handlePointerDown(e) {
         selectPlayer(pl.id);
         setDragPlayer(pl.id);
         S.ballAssignCandidate = pl.id;
+        if (!S.moveGuideOrigins[pl.id]) {
+          S.moveGuideOrigins[pl.id] = { x: pl.x, y: pl.y };
+        }
         S.dragging  = { type:'player', id:pl.id, snapshotDone: false };
         S.dragOff   = { x:fp.x - pl.x, y:fp.y - pl.y };
         beginPointerTap(e.pointerId, { type:'player', id:pl.id, wasSelected, canvasX: canvasPoint.x, canvasY: canvasPoint.y }, e);
@@ -4045,22 +8304,57 @@ function handlePointerDown(e) {
       try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     } else if (annHit) {
       const wasSelected = selectedAnnotationId() === annHit.id;
-      snapshot();
       clearDragPlayer();
       clearPassKickState();
       selectAnnotationById(annHit.id);
       S.ballAssignCandidate = null;
       const ann = findAnnotationById(annHit.id);
-      const dragOff = ann && (ann.type === 'note' || ann.type === 'zone' || ann.type === 'box')
-        ? { x: fp.x - ann.x, y: fp.y - ann.y }
-        : { x: 0, y: 0 };
+      const isNoteResize = ann?.type === 'note' && annHit.part === 'resize';
+      if (!isNoteResize) snapshot();
+      let dragOff = { x: 0, y: 0 };
+      if (ann && (ann.type === 'note' || ann.type === 'zone' || ann.type === 'box' || ann.type === 'ellipse')) {
+        dragOff = { x: fp.x - ann.x, y: fp.y - ann.y };
+      } else if (ann?.type === 'playerLabel') {
+        const bounds = playerLabelBounds(ann);
+        if (bounds) dragOff = { x: fp.x - bounds.centerX, y: fp.y - bounds.centerY };
+      }
+      const noteResize = isNoteResize
+        ? (() => {
+            const bounds = noteAnnotationBounds(ann);
+            const handle = annHit.handle || 'se';
+            return {
+              handle,
+              anchor: handle === 'nw'
+                ? { x: bounds.right, y: bounds.bottom }
+                : handle === 'ne'
+                  ? { x: bounds.left, y: bounds.bottom }
+                  : handle === 'sw'
+                    ? { x: bounds.right, y: bounds.top }
+                    : { x: bounds.left, y: bounds.top },
+              startSnapshot: ann ? cloneData(ann) : null,
+              snapshotDone: false,
+            };
+          })()
+        : null;
+      const shapeRotate = !isNoteResize && isShapeAnnotationType(ann?.type) && annHit.part === 'rotate'
+        ? (() => {
+            const center = shapeAnnotationCenter(ann);
+            return {
+              center,
+              startPointerAngle: Math.atan2(fp.y - center.y, fp.x - center.x),
+              baseRotation: normalizeShapeRotation(ann.rotation),
+            };
+          })()
+        : null;
       S.dragging = {
         type:'annotation',
         id:annHit.id,
-        part:annHit.part,
+        part:isNoteResize ? 'resize' : annHit.part,
         anchor:{ x:fp.x, y:fp.y },
         dragOff,
         startSnapshot: ann ? cloneData(ann) : null,
+        noteResize,
+        shapeRotate,
       };
       beginPointerTap(e.pointerId, { type:'annotation', id:annHit.id, wasSelected }, e);
       closeRadialMenu();
@@ -4094,6 +8388,10 @@ function handlePointerDown(e) {
         S.selectedPassIdx = null;
         S.ballAssignCandidate = null;
         S.pointerTap = null;
+      } else if (startPortraitPan(e.pointerId, e)) {
+        refreshInteractionUI();
+        render();
+        return;
       } else {
         clearDragPlayer();
         clearSelectedObject();
@@ -4110,33 +8408,38 @@ function handlePointerDown(e) {
   else if (S.tool === 'run') {
     const pl = hitPlayer(fp);
     if (S.activeRunSourceId) {
-      if (pl && pl.id === S.activeRunSourceId) {
+      const sourceId = pl ? pl.id : S.activeRunSourceId;
+      const source = S.players.find(player => player.id === sourceId);
+      if (!source) {
         cancelArmedRun();
       } else {
-        const source = S.players.find(player => player.id === S.activeRunSourceId);
-        if (!source) {
-          cancelArmedRun();
-        } else {
-          clearDragPlayer();
-          clearPassKickState();
-          selectPlayer(source.id, { highlightedIds: [source.id] });
-          S.drawing = {
-            pid: source.id,
-            pts: [{ x: source.x, y: source.y }, { x: fp.x, y: fp.y }],
-            last: { x: fp.x, y: fp.y },
-          };
-          try { cv.setPointerCapture(e.pointerId); } catch(_) {}
-          setHint('Draw the run path, then release to finish.');
-          refreshInteractionUI();
-        }
+        clearDragPlayer();
+        clearPassKickState();
+        setArmedRunSource(source.id);
+        selectPlayer(source.id, { highlightedIds: [source.id] });
+        S.drawing = {
+          kind: 'run',
+          pid: source.id,
+          pts: [{ x: source.x, y: source.y }],
+          last: { x: source.x, y: source.y },
+        };
+        try { cv.setPointerCapture(e.pointerId); } catch(_) {}
+        setHint('Draw the run path, then release to finish.');
+        refreshInteractionUI();
       }
     } else if (pl) {
       clearDragPlayer();
       clearPassKickState();
       setArmedRunSource(pl.id);
       selectPlayer(pl.id, { highlightedIds: [pl.id] });
-      const teamLabel = pl.team === 'A' ? 'Attack' : 'Defence';
-      setHint(`Run from ${teamLabel} #${pl.num}. Drag on the pitch to draw the path, or tap the same player again to cancel.`);
+      S.drawing = {
+        kind: 'run',
+        pid: pl.id,
+        pts: [{ x: pl.x, y: pl.y }],
+        last: { x: pl.x, y: pl.y },
+      };
+      try { cv.setPointerCapture(e.pointerId); } catch(_) {}
+      setHint('Draw the run path, then release to finish.');
       refreshInteractionUI();
     } else {
       setHint('Click a player first to start their run path.');
@@ -4146,6 +8449,82 @@ function handlePointerDown(e) {
   }
 
   else if (S.tool === 'note') {
+    const selectedId = selectedAnnotationId();
+    const selectedNote = selectedId ? findAnnotationById(selectedId) : null;
+    if (selectedNote?.type === 'note') {
+      const selectedHit = hitAnnotation(fp);
+      if (selectedHit?.id === selectedNote.id) {
+        clearDragPlayer();
+        clearPassKickState();
+        S.selectedPassIdx = null;
+        S.selectedPathPid = null;
+        S.ballAssignCandidate = null;
+        selectAnnotationById(selectedNote.id);
+        const isNoteResize = selectedHit.part === 'resize';
+        if (!isNoteResize) snapshot();
+        const noteResize = isNoteResize
+          ? (() => {
+              const bounds = noteAnnotationBounds(selectedNote);
+              const handle = selectedHit.handle || 'se';
+              return {
+                handle,
+                anchor: handle === 'nw'
+                  ? { x: bounds.right, y: bounds.bottom }
+                  : handle === 'ne'
+                    ? { x: bounds.left, y: bounds.bottom }
+                    : handle === 'sw'
+                      ? { x: bounds.right, y: bounds.top }
+                      : { x: bounds.left, y: bounds.top },
+                startSnapshot: cloneData(selectedNote),
+                snapshotDone: false,
+              };
+            })()
+          : null;
+        const shapeRotate = !isNoteResize && isShapeAnnotationType(selectedNote?.type) && selectedHit.part === 'rotate'
+          ? (() => {
+              const center = shapeAnnotationCenter(selectedNote);
+              return {
+                center,
+                startPointerAngle: Math.atan2(fp.y - center.y, fp.x - center.x),
+                baseRotation: normalizeShapeRotation(selectedNote.rotation),
+              };
+            })()
+          : null;
+        S.dragging = {
+          type:'annotation',
+          id:selectedNote.id,
+          part:isNoteResize ? 'resize' : selectedHit.part,
+          anchor:{ x:fp.x, y:fp.y },
+          dragOff:{ x: fp.x - selectedNote.x, y: fp.y - selectedNote.y },
+          startSnapshot: cloneData(selectedNote),
+          noteResize,
+          shapeRotate,
+        };
+        beginPointerTap(e.pointerId, { type:'annotation', id:selectedNote.id, wasSelected: true }, e);
+        closeRadialMenu();
+        try { cv.setPointerCapture(e.pointerId); } catch(_) {}
+        refreshInteractionUI();
+        render();
+        return;
+      }
+    }
+    const annHit = hitAnnotation(fp);
+    if (annHit) {
+      const ann = findAnnotationById(annHit.id);
+      if (ann?.type === 'note') {
+        clearDragPlayer();
+        clearPassKickState();
+        S.selectedPassIdx = null;
+        S.selectedPathPid = null;
+        S.ballAssignCandidate = null;
+        S.pointerTap = null;
+        selectAnnotationById(ann.id);
+        setHint('Note selected. Drag it in Move, use the corner handles to resize it, or update the text from Selection.');
+        refreshInteractionUI();
+        render();
+        return;
+      }
+    }
     snapshot();
     const annotation = normalizeAnnotation({
       id: mkAnnotationId(),
@@ -4156,22 +8535,32 @@ function handlePointerDown(e) {
       color: annotationColor('note'),
     });
     if (annotation) {
+      clampNoteAnnotation(annotation);
       S.annotations.push(annotation);
       selectAnnotationById(annotation.id);
-      setHint('Note placed. Drag it in Move or update the text from Selection.');
+      setHint('Note placed. Drag it in Move, use the corner handles to resize it, or update the text from Selection.');
       refreshInteractionUI();
       render();
-      focusSelectedNoteInput(true);
     }
   }
 
   else if (S.tool === 'arrow') {
+    // A radial one-shot Arrow is anchored to the source player: the drag only
+    // controls the end point, same field-unit coordinates (pl.x/pl.y) used
+    // for Pass/Kick lines - no canvas/pixel conversion or hard-coded offset
+    // needed since annotations already store field-unit start/end points.
+    const radialSource = S.radialArrowSourcePlayerId !== null && S.radialArrowSourcePlayerId !== undefined
+      ? S.players.find(player => player.id === S.radialArrowSourcePlayerId) || null
+      : null;
+    const start = radialSource ? { x: radialSource.x, y: radialSource.y } : { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
     S.annotationDraft = normalizeAnnotation({
       id: mkAnnotationId(),
       type: 'arrow',
-      start: { x: fp.x, y: fp.y },
-      end: { x: fp.x, y: fp.y },
-      color: annotationColor('arrow'),
+      start,
+      end: { x: geometricFieldPoint.x, y: geometricFieldPoint.y },
+      color: currentArrowStyleSelection().color,
+      thickness: currentArrowStyleSelection().thickness,
+      dash: currentArrowStyleSelection().dash,
     });
     try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     setHint('Drag out the tactical arrow, then release to place it.');
@@ -4185,16 +8574,22 @@ function handlePointerDown(e) {
       render();
       return;
     }
+    const shapeStyle = currentShapeStyleSelection('zone');
     S.annotationDraft = normalizeAnnotation({
       id: mkAnnotationId(),
-      type: 'zone',
-      x: clampedFieldPoint.x,
-      y: clampedFieldPoint.y,
-      r: 0.1,
-      color: annotationColor('zone'),
+      type: 'ellipse',
+      x: geometricFieldPoint.x,
+      y: geometricFieldPoint.y,
+      w: GEOMETRIC_ANNOTATION_MIN_SIZE,
+      h: GEOMETRIC_ANNOTATION_MIN_SIZE,
+      color: shapeStyle.color,
+      thickness: shapeStyle.thickness,
+      dash: shapeStyle.dash,
+      fill: shapeStyle.fill,
     });
+    S.annotationDraft.anchor = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
     try { cv.setPointerCapture(e.pointerId); } catch(_) {}
-    setHint('Drag outward to size the highlight zone.');
+    setHint('Drag outward to size the circle or oval highlight. Hold Shift for a perfect circle.');
     refreshInteractionUI();
   }
 
@@ -4205,18 +8600,48 @@ function handlePointerDown(e) {
       render();
       return;
     }
+    const shapeStyle = currentShapeStyleSelection('box');
     S.annotationDraft = normalizeAnnotation({
       id: mkAnnotationId(),
       type: 'box',
-      x: clampedFieldPoint.x,
-      y: clampedFieldPoint.y,
-      w: 1.5,
-      h: 1.5,
-      color: annotationColor('box'),
+      x: geometricFieldPoint.x,
+      y: geometricFieldPoint.y,
+      w: GEOMETRIC_ANNOTATION_MIN_SIZE,
+      h: GEOMETRIC_ANNOTATION_MIN_SIZE,
+      color: shapeStyle.color,
+      thickness: shapeStyle.thickness,
+      dash: shapeStyle.dash,
+      fill: shapeStyle.fill,
     });
-    S.annotationDraft.anchor = { x: clampedFieldPoint.x, y: clampedFieldPoint.y };
+    S.annotationDraft.anchor = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
     try { cv.setPointerCapture(e.pointerId); } catch(_) {}
     setHint('Drag outward to size the box highlight.');
+    refreshInteractionUI();
+  }
+
+  else if (S.tool === 'ellipse') {
+    if (!isInsidePitch(fp)) {
+      setHint('Start the ellipse highlight inside the pitch. Switch to MOVE to edit existing highlights.');
+      refreshInteractionUI();
+      render();
+      return;
+    }
+    const shapeStyle = currentShapeStyleSelection('ellipse');
+    S.annotationDraft = normalizeAnnotation({
+      id: mkAnnotationId(),
+      type: 'ellipse',
+      x: geometricFieldPoint.x,
+      y: geometricFieldPoint.y,
+      w: GEOMETRIC_ANNOTATION_MIN_SIZE,
+      h: GEOMETRIC_ANNOTATION_MIN_SIZE,
+      color: shapeStyle.color,
+      thickness: shapeStyle.thickness,
+      dash: shapeStyle.dash,
+      fill: shapeStyle.fill,
+    });
+    S.annotationDraft.anchor = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
+    try { cv.setPointerCapture(e.pointerId); } catch(_) {}
+    setHint('Drag outward to size the ellipse highlight.');
     refreshInteractionUI();
   }
 
@@ -4257,7 +8682,10 @@ function handlePointerDown(e) {
         }
         clearPassKickState();
         clearSelectedObject();
-        setHint(S.tool === 'pass' ? 'Pass added.' : 'Kick to player added.');
+        clearDragPlayer();
+        // A completed Pass/Kick is a one-shot action: auto-return to Move so
+        // the coach can immediately select another player.
+        returnInteractionToMoveTool();
         refreshInteractionUI();
       } else {
         // Clicked same player again: cancel
@@ -4273,51 +8701,66 @@ function handlePointerDown(e) {
         }
       }
       render();
-    } else if (S.tool === 'kick' && activeWorkflowPlayerId() && isInsidePitch(fp)) {
-      // Kick to field target (no receiver player)
-      S.passes.push({ from: activeWorkflowPlayerId(), to: null, targetX: clampedFieldPoint.x, targetY: clampedFieldPoint.y, style: 'kick' });
-      S.ball = { x: clampedFieldPoint.x, y: clampedFieldPoint.y };
-      S.ballOwner = null;
-      S.ballAttached = false;
-      applyBallOwnershipVisualState();
-      clearPassKickState();
-      clearSelectedObject();
-      setHint('Kick to field drawn.');
+    } else if (startPortraitPan(
+      e.pointerId,
+      e,
+      S.tool === 'kick' && activeWorkflowPlayerId() && isInsidePitch(fp)
+        ? { type: 'portrait-pan-kick-target', fieldPoint: { x: clampedFieldPoint.x, y: clampedFieldPoint.y } }
+        : { type: 'portrait-pan' }
+    )) {
       refreshInteractionUI();
       render();
+    } else if (S.tool === 'kick' && activeWorkflowPlayerId() && isInsidePitch(fp)) {
+      addKickToFieldTarget(clampedFieldPoint);
     }
   }
 
   else if (S.tool === 'erase') {
-    snapshot();
+    const erasePlayer = hitPlayer(fp);
+    const eraseBall = !erasePlayer && hitBall(fp);
+    const eraseAnnotation = !erasePlayer && !eraseBall ? hitAnnotation(fp) : null;
+    const eraseRun = hitRunPath(fp);
+    const erasePass = hitPassLine(fp);
+    const eraseKick = hitKickPath(fp);
+    if (isPhoneViewport && !erasePlayer && !eraseBall && !eraseAnnotation && eraseRun === null && erasePass === -1 && eraseKick === -1) {
+      startPortraitPan(e.pointerId, e);
+      refreshInteractionUI();
+      render();
+      return;
+    }
     let removed = false;
 
-    // 1. Try to erase a path near the click point
-    S.paths = S.paths.filter(path => {
-      if (removed) return true;
-      const close = path.pts.some(pt => d2(fp, pt) < 3.5);
-      if (close) { removed = true; return false; }
-      return true;
-    });
-
-    // 2. Try to erase a pass arc near the click point
-    if (!removed) {
-      const before = S.passes.length;
-      S.passes = S.passes.filter(pass => {
-        const fp2 = S.players.find(p => p.id === pass.from);
-        const tp  = S.players.find(p => p.id === pass.to);
-        if (!fp2 || !tp) return false;
-        const mx = (fp2.x + tp.x) / 2, my = (fp2.y + tp.y) / 2;
-        return d2(fp, { x: mx, y: my }) > 4;
-      });
-      if (S.passes.length < before) removed = true;
+    if (eraseRun !== null) {
+      snapshot();
+      S.paths = S.paths.filter(path => path.pid !== eraseRun);
+      S.selectedPathPid = S.selectedPathPid === eraseRun ? null : S.selectedPathPid;
+      removed = true;
+    } else if (erasePass !== -1 || eraseKick !== -1) {
+      const removeIdx = erasePass !== -1 ? erasePass : eraseKick;
+      snapshot();
+      S.passes.splice(removeIdx, 1);
+      if (S.selectedPassIdx === removeIdx) S.selectedPassIdx = null;
+      else if (S.selectedPassIdx !== null && S.selectedPassIdx > removeIdx) S.selectedPassIdx -= 1;
+      removed = true;
+    } else if (eraseAnnotation) {
+      snapshot();
+      removeAnnotation(eraseAnnotation.id);
+      removed = true;
+    } else if (erasePlayer) {
+      snapshot();
+      removePlayer(erasePlayer.id);
+      finishEraseInteraction(`${erasePlayer.team === 'A' ? 'Attack' : 'Defence'} #${erasePlayer.num} erased. Back in Move mode.`);
+      return;
+    } else if (eraseBall) {
+      snapshot();
+      S.ball = null;
+      clearSelectedObject();
+      removed = true;
     }
 
-    // 3. Only remove player or ball if nothing else was hit
-    if (!removed) {
-      const pl = hitPlayer(fp);
-      if (pl) removePlayer(pl.id);
-      else if (hitBall(fp)) { S.ball = null; clearSelectedObject(); }
+    if (removed) {
+      finishEraseInteraction();
+      return;
     }
 
     refreshInteractionUI();
@@ -4336,18 +8779,21 @@ function handlePointerDown(e) {
 cv.addEventListener('pointerdown', handlePointerDown);
 
 function handlePointerMove(e) {
-  const fp = getF(e);
+  const samples = getPointerSamples(e);
+  const latestSample = samples[samples.length - 1] || e;
+  const fp = getF(latestSample);
   const fieldPoint = clampFieldPoint(fp);
-  updatePointerTapMovement(e);
+  const geometricFieldPoint = clampGeometricFieldPoint(fp);
+  updatePointerTapMovement(latestSample);
 
   if (
     S.pendingGroupPlacement &&
     S.dragging === null &&
     S.pointerTap?.payload?.type === 'pending-group-place' &&
-    S.pointerTap.pointerId === e.pointerId
+    S.pointerTap.pointerId === latestSample.pointerId
   ) {
-    const dx = e.clientX - S.pointerTap.startClientX;
-    const dy = e.clientY - S.pointerTap.startClientY;
+    const dx = latestSample.clientX - S.pointerTap.startClientX;
+    const dy = latestSample.clientY - S.pointerTap.startClientY;
     if (Math.hypot(dx, dy) > PENDING_GROUP_DRAG_PX) {
       S.draggingPendingGroup = true;
     }
@@ -4368,6 +8814,8 @@ function handlePointerMove(e) {
           snapshot();
           S.dragging.snapshotDone = true;
         }
+        const prevX = pl.x;
+        const prevY = pl.y;
         pl.x = clamp(fp.x - S.dragOff.x, -2, 70);
         pl.y = clamp(fp.y - S.dragOff.y, -11, 111);
 
@@ -4378,7 +8826,7 @@ function handlePointerMove(e) {
         }
 
         const path = S.paths.find(p => p.pid === pl.id);
-        if (path && path.pts.length) path.pts[0] = {x:pl.x, y:pl.y};
+        if (path && path.pts.length) translatePathPoints(path, pl.x - prevX, pl.y - prevY);
         if (samePlayerRef(playerRef(pl), S.ballOwner) && S.ball) {
           // Ball magnet: this player owns the ball - always drag it along, regardless of ballAttached state
           S.ball = attachedBallPositionForPlayer(pl);
@@ -4422,10 +8870,12 @@ function handlePointerMove(e) {
         const dx = clamp(dxRaw, dxMin, dxMax);
         const dy = clamp(dyRaw, dyMin, dyMax);
         members.forEach(({ live, start }) => {
+          const prevX = live.x;
+          const prevY = live.y;
           live.x = start.x + dx;
           live.y = start.y + dy;
           const path = S.paths.find(pathItem => pathItem.pid === live.id);
-          if (path && path.pts.length) path.pts[0] = { x: live.x, y: live.y };
+          if (path && path.pts.length) translatePathPoints(path, live.x - prevX, live.y - prevY);
           if (live.isBC && S.ball) {
             if (S.ballAttached && samePlayerRef(playerRef(live), S.ballOwner)) {
               S.ball = attachedBallPositionForPlayer(live);
@@ -4457,57 +8907,120 @@ function handlePointerMove(e) {
       GAINLINE_Y = clamp(fp.y, 5, 95);
       const carrier = S.players.find(p => p.isBC);
       if (carrier) updateGainDisplayForY(carrier.y);
+    } else if (S.dragging.type === 'portrait-pan') {
+      // Direct-manipulation drag-to-pan: dragging down reveals content above
+      // (scrollTop decreases), matching the content following the finger.
+      // #canvasHost is a real native scroll container now, so this is the
+      // only place panning happens - there is no render-transform pan offset
+      // any more (ox/oy stay 0; see resize()).
+      const deltaY = latestSample.clientY - S.dragging.startClientY;
+      const host = document.getElementById('canvasHost');
+      if (host) host.scrollTop = S.dragging.startScrollTop - deltaY;
     } else if (S.dragging.type === 'annotation') {
       const ann = findAnnotationById(S.dragging.id);
       if (ann) {
         if (ann.type === 'note') {
-          ann.x = fp.x - (S.dragging.dragOff?.x || 0);
-          ann.y = fp.y - (S.dragging.dragOff?.y || 0);
+          if (S.dragging.part === 'move') {
+            ann.x = fp.x - (S.dragging.dragOff?.x || 0);
+            ann.y = fp.y - (S.dragging.dragOff?.y || 0);
+          } else if (S.dragging.part === 'resize') {
+            const resizeState = S.dragging.noteResize;
+            if (!resizeState?.snapshotDone) {
+              snapshot();
+              resizeState.snapshotDone = true;
+            }
+            const anchor = resizeState?.anchor || { x: ann.x, y: ann.y };
+            const handle = resizeState?.handle || 'se';
+            let left = anchor.x;
+            let right = anchor.x;
+            let top = anchor.y;
+            let bottom = anchor.y;
+            if (handle === 'se') {
+              right = clamp(fieldPoint.x, anchor.x + NOTE_MIN_WIDTH, Math.min(F.XMAX, anchor.x + NOTE_MAX_WIDTH));
+              bottom = clamp(fieldPoint.y, anchor.y + NOTE_MIN_HEIGHT, Math.min(F.YMAX, anchor.y + NOTE_MAX_HEIGHT));
+            } else if (handle === 'sw') {
+              left = clamp(fieldPoint.x, Math.max(F.XMIN, anchor.x - NOTE_MAX_WIDTH), anchor.x - NOTE_MIN_WIDTH);
+              bottom = clamp(fieldPoint.y, anchor.y + NOTE_MIN_HEIGHT, Math.min(F.YMAX, anchor.y + NOTE_MAX_HEIGHT));
+            } else if (handle === 'ne') {
+              right = clamp(fieldPoint.x, anchor.x + NOTE_MIN_WIDTH, Math.min(F.XMAX, anchor.x + NOTE_MAX_WIDTH));
+              top = clamp(fieldPoint.y, Math.max(F.YMIN, anchor.y - NOTE_MAX_HEIGHT), anchor.y - NOTE_MIN_HEIGHT);
+            } else {
+              left = clamp(fieldPoint.x, Math.max(F.XMIN, anchor.x - NOTE_MAX_WIDTH), anchor.x - NOTE_MIN_WIDTH);
+              top = clamp(fieldPoint.y, Math.max(F.YMIN, anchor.y - NOTE_MAX_HEIGHT), anchor.y - NOTE_MIN_HEIGHT);
+            }
+            setNoteFromBounds(ann, left, top, right, bottom);
+            clampNoteAnnotation(ann);
+            render();
+            return;
+          }
+          clampNoteAnnotation(ann);
+        } else if (ann.type === 'playerLabel') {
+          const player = findPlayerForAnchoredLabel(ann);
+          if (player) {
+            ann.playerRef = playerRef(player);
+            ann.offsetX = (fieldPoint.x - (S.dragging.dragOff?.x || 0)) - player.x;
+            ann.offsetY = (fieldPoint.y - (S.dragging.dragOff?.y || 0)) - player.y;
+          }
         } else if (ann.type === 'arrow') {
           if (S.dragging.part === 'start') {
-            ann.start = { x: fp.x, y: fp.y };
+            ann.start = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
           } else if (S.dragging.part === 'end') {
-            ann.end = { x: fp.x, y: fp.y };
+            ann.end = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
           } else {
-            const dx = fp.x - S.dragging.anchor.x;
-            const dy = fp.y - S.dragging.anchor.y;
+            const dx = geometricFieldPoint.x - S.dragging.anchor.x;
+            const dy = geometricFieldPoint.y - S.dragging.anchor.y;
             ann.start = { x: ann.start.x + dx, y: ann.start.y + dy };
             ann.end = { x: ann.end.x + dx, y: ann.end.y + dy };
-            S.dragging.anchor = { x: fp.x, y: fp.y };
+            S.dragging.anchor = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
           }
+          clampArrowAnnotation(ann);
         } else if (ann.type === 'zone') {
           if (S.dragging.part === 'radius') {
-            ann.r = Math.max(1.5, d2(fieldPoint, { x: ann.x, y: ann.y }));
+            ann.r = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, d2(geometricFieldPoint, { x: ann.x, y: ann.y }));
           } else if (S.dragging.part === 'center') {
             const base = S.dragging.startSnapshot || ann;
-            const angle = Math.atan2(fieldPoint.y - base.y, fieldPoint.x - base.x);
-            ann.r = Math.max(1.5, d2(fieldPoint, { x: base.x, y: base.y }));
+            const angle = Math.atan2(geometricFieldPoint.y - base.y, geometricFieldPoint.x - base.x);
+            ann.r = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, d2(geometricFieldPoint, { x: base.x, y: base.y }));
             ann.x = base.x;
             ann.y = base.y;
             S.dragging.lastAngle = angle;
           } else {
-            ann.x = fieldPoint.x - (S.dragging.dragOff?.x || 0);
-            ann.y = fieldPoint.y - (S.dragging.dragOff?.y || 0);
+            ann.x = geometricFieldPoint.x - (S.dragging.dragOff?.x || 0);
+            ann.y = geometricFieldPoint.y - (S.dragging.dragOff?.y || 0);
           }
           clampZoneAnnotation(ann);
         } else if (ann.type === 'box') {
           if (S.dragging.part === 'move') {
-            ann.x = fieldPoint.x - (S.dragging.dragOff?.x || 0);
-            ann.y = fieldPoint.y - (S.dragging.dragOff?.y || 0);
+            ann.x = geometricFieldPoint.x - (S.dragging.dragOff?.x || 0);
+            ann.y = geometricFieldPoint.y - (S.dragging.dragOff?.y || 0);
+          } else if (S.dragging.part === 'rotate') {
+            const rotateState = S.dragging.shapeRotate;
+            if (rotateState) {
+              const currentAngle = Math.atan2(geometricFieldPoint.y - rotateState.center.y, geometricFieldPoint.x - rotateState.center.x);
+              let nextRotation = rotateState.baseRotation + ((currentAngle - rotateState.startPointerAngle) * (180 / Math.PI));
+              if (latestSample.shiftKey) nextRotation = Math.round(nextRotation / 15) * 15;
+              ann.rotation = normalizeShapeRotation(nextRotation);
+            }
           } else {
-            const base = S.dragging.startSnapshot || ann;
-            const baseBounds = boxAnnotationBounds(base);
-            let left = baseBounds.left;
-            let right = baseBounds.right;
-            let top = baseBounds.top;
-            let bottom = baseBounds.bottom;
-            if (S.dragging.part === 'nw' || S.dragging.part === 'sw') left = fieldPoint.x;
-            if (S.dragging.part === 'ne' || S.dragging.part === 'se') right = fieldPoint.x;
-            if (S.dragging.part === 'nw' || S.dragging.part === 'ne') top = fieldPoint.y;
-            if (S.dragging.part === 'sw' || S.dragging.part === 'se') bottom = fieldPoint.y;
-            setBoxFromBounds(ann, left, top, right, bottom);
+            resizeRotatedShapeAnnotation(ann, S.dragging.startSnapshot || ann, S.dragging.part, geometricFieldPoint, false);
           }
           clampBoxAnnotation(ann);
+        } else if (ann.type === 'ellipse') {
+          if (S.dragging.part === 'move') {
+            ann.x = geometricFieldPoint.x - (S.dragging.dragOff?.x || 0);
+            ann.y = geometricFieldPoint.y - (S.dragging.dragOff?.y || 0);
+          } else if (S.dragging.part === 'rotate') {
+            const rotateState = S.dragging.shapeRotate;
+            if (rotateState) {
+              const currentAngle = Math.atan2(geometricFieldPoint.y - rotateState.center.y, geometricFieldPoint.x - rotateState.center.x);
+              let nextRotation = rotateState.baseRotation + ((currentAngle - rotateState.startPointerAngle) * (180 / Math.PI));
+              if (latestSample.shiftKey) nextRotation = Math.round(nextRotation / 15) * 15;
+              ann.rotation = normalizeShapeRotation(nextRotation);
+            }
+          } else {
+            resizeRotatedShapeAnnotation(ann, S.dragging.startSnapshot || ann, S.dragging.part, geometricFieldPoint, !!latestSample.shiftKey);
+          }
+          clampEllipseAnnotation(ann);
         }
       }
     }
@@ -4524,18 +9037,29 @@ function handlePointerMove(e) {
     return;
   }
 
-  if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box')) {
+  if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box' || S.tool === 'ellipse')) {
     if (S.annotationDraft.type === 'arrow') {
-      S.annotationDraft.end = { x: fp.x, y: fp.y };
+      S.annotationDraft.end = { x: geometricFieldPoint.x, y: geometricFieldPoint.y };
+      clampArrowAnnotation(S.annotationDraft);
     }
     if (S.annotationDraft.type === 'zone') {
-      S.annotationDraft.r = Math.max(1.5, d2(fieldPoint, { x: S.annotationDraft.x, y: S.annotationDraft.y }));
+      S.annotationDraft.r = Math.max(GEOMETRIC_ANNOTATION_MIN_SIZE, d2(geometricFieldPoint, { x: S.annotationDraft.x, y: S.annotationDraft.y }));
       clampZoneAnnotation(S.annotationDraft);
     }
     if (S.annotationDraft.type === 'box') {
       const start = S.annotationDraft.anchor || { x: S.annotationDraft.x, y: S.annotationDraft.y };
-      setBoxFromBounds(S.annotationDraft, start.x, start.y, fieldPoint.x, fieldPoint.y);
+      setBoxFromBounds(S.annotationDraft, start.x, start.y, geometricFieldPoint.x, geometricFieldPoint.y);
       clampBoxAnnotation(S.annotationDraft);
+    }
+    if (S.annotationDraft.type === 'ellipse') {
+      const start = S.annotationDraft.anchor || { x: S.annotationDraft.x, y: S.annotationDraft.y };
+      if (latestSample.shiftKey) {
+        const constrained = constrainEllipseBounds(start.x, start.y, geometricFieldPoint.x, geometricFieldPoint.y);
+        setEllipseFromBounds(S.annotationDraft, constrained.left, constrained.top, constrained.right, constrained.bottom);
+      } else {
+        setEllipseFromBounds(S.annotationDraft, start.x, start.y, geometricFieldPoint.x, geometricFieldPoint.y);
+      }
+      clampEllipseAnnotation(S.annotationDraft);
     }
     scheduleRender();
     return;
@@ -4550,8 +9074,15 @@ function handlePointerMove(e) {
   // Cursor
   const pl = hitPlayer(fp), bl = hitBall(fp), ann = hitAnnotation(fp);
   if (S.tool === 'move') {
-    const onPath = pl || bl || ann || hitRunPath(fp) !== null || hitPassLine(fp) !== -1 || hitKickPath(fp) !== -1;
-    cv.style.cursor = onPath ? 'grab' : 'default';
+    if (ann?.part === 'resize') cv.style.cursor = noteResizeCursorForHandle(ann.handle);
+    else if (ann?.part === 'rotate') cv.style.cursor = 'grab';
+    else if (ann && isShapeAnnotationType(findAnnotationById(ann.id)?.type) && ['nw', 'ne', 'sw', 'se'].includes(ann.part)) {
+      cv.style.cursor = shapeResizeCursorForHandle(ann.part);
+    }
+    else {
+      const onPath = pl || bl || ann || hitRunPath(fp) !== null || hitPassLine(fp) !== -1 || hitKickPath(fp) !== -1;
+      cv.style.cursor = onPath ? 'grab' : 'default';
+    }
   } else if (S.tool === 'erase') {
     cv.style.cursor = 'crosshair';
   } else if (S.tool === 'tele') {
@@ -4567,6 +9098,11 @@ cv.addEventListener('pointermove', handlePointerMove);
 function onPointerUp(e) {
   const clampedFieldPoint = clampFieldPoint(getF(e));
   const tap = consumePointerTap(e?.pointerId);
+  if (tap && !tap.moved && tap.payload?.type === 'portrait-pan-kick-target') {
+    S.dragging = null;
+    addKickToFieldTarget(tap.payload.fieldPoint || clampedFieldPoint);
+    return;
+  }
   if (tap?.payload?.type === 'pending-group-place') {
     const group = selectedGroup() || S.groups.find(item => item.id === S.pendingGroupPlacement?.id) || null;
     snapshot();
@@ -4578,8 +9114,16 @@ function onPointerUp(e) {
     render();
     return;
   }
+  if (tap && !tap.moved && tap.payload?.type === 'annotation' && tap.payload.wasSelected && selectedAnnotationId() === tap.payload.id) {
+    const tappedAnnotation = findAnnotationById(tap.payload.id);
+    if (isEditableTextAnnotationType(tappedAnnotation?.type) && handleSelectedNoteTapForEditing(tap.payload.id)) {
+      refreshInteractionUI();
+      render();
+      return;
+    }
+  }
   if (tap && !tap.moved && S.tool === 'move') {
-    if (tap.payload.type === 'player' && isPlayerSelected(tap.payload.id)) {
+    if (tap.payload.type === 'player' && tap.payload.wasSelected && isPlayerSelected(tap.payload.id)) {
       S.dragging = null;
       clearDragPlayer();
       const pl = S.players.find(p => p.id === tap.payload.id);
@@ -4615,6 +9159,9 @@ function onPointerUp(e) {
 
   if (S.dragging) {
     if (S.dragging.type === 'ball' || S.dragging.type === 'player' || S.dragging.type === 'group') updateBallOwnerFromPosition();
+    if (S.dragging.type === 'player' || S.dragging.type === 'group' || S.dragging.type === 'ball' || S.dragging.type === 'annotation') {
+      commitLiveBoardToCurrentStep();
+    }
     S.dragging = null;
     clearDragPlayer();
     refreshInteractionUI();
@@ -4629,25 +9176,68 @@ function onPointerUp(e) {
     scheduleRender();
   }
   if (S.drawing && S.tool === 'run') finishDraw();
-  if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box')) finishAnnotationDraft();
+  if (S.annotationDraft && (S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box' || S.tool === 'ellipse')) finishAnnotationDraft();
 }
 cv.addEventListener('pointerup', onPointerUp);
 cv.addEventListener('pointercancel', onPointerUp);
-cv.addEventListener('touchstart',  e => handlePointerDown(normEvent(e)), { passive: false });
-cv.addEventListener('touchmove',   e => handlePointerMove(normEvent(e)), { passive: false });
-cv.addEventListener('touchend',    e => onPointerUp(normEvent(e)),       { passive: false });
-cv.addEventListener('touchcancel', e => onPointerUp(normEvent(e)),       { passive: false });
+if (!supportsPointerEvents) {
+  cv.addEventListener('touchstart',  e => handlePointerDown(normEvent(e)), { passive: false });
+  cv.addEventListener('touchmove',   e => handlePointerMove(normEvent(e)), { passive: false });
+  cv.addEventListener('touchend',    e => onPointerUp(normEvent(e)),       { passive: false });
+  cv.addEventListener('touchcancel', e => onPointerUp(normEvent(e)),       { passive: false });
+}
 
 // Canva-style keyboard shortcuts: Delete/Backspace = delete selected, Escape = deselect
 document.addEventListener('keydown', (e) => {
   const tag = e.target.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
   if (e.key === 'Escape') {
+    if (noteInlineEditorState) {
+      endNoteInlineEdit();
+      refreshInteractionUI();
+      render();
+      e.preventDefault();
+      e.stopPropagation?.();
+      return;
+    }
+    if (floatingToolbarOpenFlyout) {
+      closeFloatingToolbarFlyout();
+      e.preventDefault();
+      return;
+    }
+    if (S.dragging?.type === 'annotation' && S.dragging.part === 'resize') {
+      const ann = findAnnotationById(S.dragging.id);
+      const restore = S.dragging.startSnapshot;
+      if (ann && restore?.type === 'note') {
+        ann.x = restore.x;
+        ann.y = restore.y;
+        ann.width = noteWidthValue(restore);
+        ann.height = noteHeightValue(restore);
+        clampNoteAnnotation(ann);
+        S.dragging = null;
+        refreshInteractionUI();
+        render();
+        e.preventDefault();
+        return;
+      }
+    }
+    if (selectedAnnotationId()) {
+      clearSelection();
+      refreshInteractionUI();
+      render();
+      e.preventDefault();
+      return;
+    }
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) {
+      e.preventDefault();
+      return;
+    }
     clearSelection();
     refreshInteractionUI();
     render();
     e.preventDefault();
+    return;
   }
+  if (annotationEditableTarget(e.target)) return;
   if (e.key === 'Delete' || e.key === 'Backspace') {
     const hasSelection = !!S.selectedPlayerId || !!selectedAnnotationId() ||
       isBallSelected() || S.selectedPassIdx !== null || S.selectedPathPid !== null;
@@ -4658,15 +9248,53 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+document.addEventListener('pointerdown', (event) => {
+  if (!noteInlineEditorState) return;
+  const editor = document.getElementById('noteInlineEditor');
+  if (editor?.contains(event.target)) return;
+  endNoteInlineEdit();
+  refreshInteractionUI();
+  render();
+}, true);
+
+document.addEventListener('pointerdown', (event) => {
+  if (!floatingToolbarOpenFlyout) return;
+  const toolbar = document.getElementById('floatingSelectionToolbar');
+  if (!toolbar || toolbar.hidden) {
+    closeFloatingToolbarFlyout();
+    return;
+  }
+  if (!toolbar.contains(event.target)) closeFloatingToolbarFlyout();
+});
+
 function finishDraw() {
   if (!S.drawing) return;
+  if (S.drawing.kind !== 'run') {
+    S.drawing = null;
+    clearArmedRunState();
+    clearSelectedObject();
+    refreshInteractionUI();
+    render();
+    return;
+  }
   if (S.drawing.pts.length >= 2) {
     snapshot();
     const simplified = dpSimplify(S.drawing.pts, 0.8);
     const pl  = S.players.find(p => p.id === S.drawing.pid);
     const col = pl?.team === 'A' ? '#60a5fa' : '#f87171';
     S.paths = S.paths.filter(p => p.pid !== S.drawing.pid);
-    S.paths.push({ pid:S.drawing.pid, pts:simplified, color:col });
+    S.paths.push({ kind: 'run', pid:S.drawing.pid, pts:simplified, color:col });
+    commitLiveBoardToCurrentStep();
+    S.drawing = null;
+    clearArmedRunState();
+    clearSelectedObject();
+    // A successfully completed Run path is a one-shot action: auto-return to
+    // Move so the coach can immediately select another player, matching
+    // Pass/Kick/Arrow's completion behavior.
+    returnInteractionToMoveTool();
+    refreshInteractionUI();
+    render();
+    return;
   }
   S.drawing = null;
   clearArmedRunState();
@@ -4680,6 +9308,7 @@ function finishAnnotationDraft() {
   if (!S.annotationDraft) return;
   if (S.annotationDraft.type === 'zone') clampZoneAnnotation(S.annotationDraft);
   if (S.annotationDraft.type === 'box') clampBoxAnnotation(S.annotationDraft);
+  if (S.annotationDraft.type === 'ellipse') clampEllipseAnnotation(S.annotationDraft);
   const rawDraft = cloneData(S.annotationDraft);
   const draft = normalizeAnnotation(S.annotationDraft);
   S.annotationDraft = null;
@@ -4705,8 +9334,32 @@ function finishAnnotationDraft() {
     render();
     return;
   }
+  if (draft.type === 'ellipse' && (Math.abs(Number(rawDraft.w)) < 1.5 || Math.abs(Number(rawDraft.h)) < 1.5)) {
+    setHint('Ellipse cancelled. Drag farther to create a highlight.');
+    refreshInteractionUI();
+    render();
+    return;
+  }
   snapshot();
   S.annotations.push(draft);
+  commitLiveBoardToCurrentStep();
+  // Arrow is a one-shot action, rail or radial alike: auto-return to Move
+  // instead of staying selected in the Arrow tool. The only difference
+  // between the two entry points is the start point (player-anchored for a
+  // radial activation, free-start for the rail) - completion behavior is now
+  // identical. The arrow itself, its Undo history entry, and the
+  // save/restore schema are all untouched above - only the post-commit
+  // interaction state differs from zone/box/note's "stay selected, keep
+  // drawing" flow.
+  if (draft.type === 'arrow') {
+    S.radialArrowSourcePlayerId = null;
+    clearSelectedObject();
+    completeFirstUseTutorial();
+    returnInteractionToMoveTool();
+    refreshInteractionUI();
+    render();
+    return;
+  }
   selectAnnotationById(draft.id);
   completeFirstUseTutorial();
   setHint(`${MODE_LABELS[draft.type] || 'Annotation'} placed — selected. Press Delete to remove, or click it again to reposition.`);
@@ -4753,9 +9406,17 @@ function clamp(v, mn, mx) { return Math.max(mn, Math.min(mx, v)); }
 //  PLAYER MANAGEMENT
 
 function addPlayerByNum(num, team) {
-  const used = team === 'A' ? S.atkUsed : S.defUsed;
-  if (used.has(num)) return; // already on field
+  const now = (typeof performance !== 'undefined' && Number.isFinite(performance.now())) ? performance.now() : Date.now();
+  if (isPhoneViewport && lastPhoneAddAction.team === team && (now - lastPhoneAddAction.at) < PHONE_DATA_ACTION_GUARD_MS) {
+    return;
+  }
+  if ((team === 'A' ? S.atkUsed : S.defUsed).has(num)) return; // already on field
+  lastPhoneAddAction = { team, at: now };
   snapshot();
+  // snapshot() persists the live board into GamePlan.phases[currentPhase] via a
+  // freshly normalized object, so S.atkUsed/S.defUsed (getters proxying into that
+  // phase) may now point at a new Set instance. Re-read them live rather than
+  // reusing a reference captured before snapshot(), or this add is silently lost.
   // Smart placement: stagger across field
   const existing = S.players.filter(p => p.team === team);
   const idx = existing.length;
@@ -4769,7 +9430,7 @@ function addPlayerByNum(num, team) {
     x: clamp(x, 2, 66), y: clamp(y, -8, 108),
     isBC: false
   });
-  used.add(num);
+  (team === 'A' ? S.atkUsed : S.defUsed).add(num);
   completeFirstUseTutorial();
   rebuildPalette();
   setTool('move');
@@ -4779,6 +9440,141 @@ function addPlayerByNum(num, team) {
   refreshInteractionUI();
   render();
 }
+
+function selectPalettePlayer(num, team) {
+  const existing = S.players.find((player) => player.num === num && player.team === team) || null;
+  if (!existing) return false;
+  setTool('move');
+  clearPassKickState();
+  selectPlayer(existing.id);
+  S.ballAssignCandidate = existing.id;
+  setHint(`${team === 'A' ? 'Attack' : 'Defence'} #${num} selected.`);
+  refreshInteractionUI();
+  render();
+  return true;
+}
+
+function syncPlayerNumberPickerButtons() {
+  ['mobileAddAttackPickerBtn', 'mobileAddDefencePickerBtn', 'mobileRailAddAttackPickerBtn', 'mobileRailAddDefencePickerBtn'].forEach((id) => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    const isActive = !document.getElementById('playerNumberPopover')?.hidden && playerNumberPickerState.anchorId === id;
+    btn.setAttribute('aria-expanded', isActive ? 'true' : 'false');
+    btn.classList.toggle('active', isActive);
+  });
+}
+
+function closePlayerNumberPicker() {
+  const popover = document.getElementById('playerNumberPopover');
+  if (!popover || popover.hidden) return;
+  popover.hidden = true;
+  popover.setAttribute('aria-hidden', 'true');
+  playerNumberPickerState = { team: null, anchorId: null };
+  syncPlayerNumberPickerButtons();
+}
+
+function positionPlayerNumberPicker() {
+  const popover = document.getElementById('playerNumberPopover');
+  const anchor = playerNumberPickerState.anchorId ? document.getElementById(playerNumberPickerState.anchorId) : null;
+  if (!popover || popover.hidden || !anchor || !anchor.offsetParent) {
+    closePlayerNumberPicker();
+    return;
+  }
+  const rect = anchor.getBoundingClientRect();
+  const popoverWidth = popover.offsetWidth;
+  const popoverHeight = popover.offsetHeight;
+  const margin = 8;
+  let left = rect.left + (rect.width / 2) - (popoverWidth / 2);
+  left = clamp(left, margin, Math.max(margin, window.innerWidth - popoverWidth - margin));
+  let top = rect.top - popoverHeight - 10;
+  let below = false;
+  if (top < margin) {
+    top = rect.bottom + 10;
+    below = true;
+  }
+  top = clamp(top, margin, Math.max(margin, window.innerHeight - popoverHeight - margin));
+  popover.style.left = `${left}px`;
+  popover.style.top = `${top}px`;
+  popover.dataset.placement = below ? 'below' : 'above';
+}
+
+function renderPlayerNumberPicker() {
+  const popover = document.getElementById('playerNumberPopover');
+  const grid = document.getElementById('playerNumberPopoverGrid');
+  const title = document.getElementById('playerNumberPopoverTitle');
+  const meta = document.getElementById('playerNumberPopoverMeta');
+  const team = playerNumberPickerState.team;
+  if (!popover || !grid || !team) return;
+  const used = team === 'A' ? S.atkUsed : S.defUsed;
+  title.textContent = `${team === 'A' ? 'Attack' : 'Defence'} Numbers`;
+  meta.textContent = 'Pick a number to place, or jump back to one already on the board.';
+  grid.innerHTML = '';
+  for (let n = 1; n <= 15; n++) {
+    const existing = S.players.find((player) => player.num === n && player.team === team) || null;
+    const isSelected = !!existing && isPlayerSelected(existing.id);
+    const isUsed = used.has(n);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `player-number-popover-btn ${team === 'A' ? 'atk' : 'def'}${isUsed ? ' is-used' : ''}${isSelected ? ' is-selected' : ''}`;
+    btn.textContent = String(n);
+    btn.setAttribute('role', 'option');
+    btn.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+    btn.dataset.used = isUsed ? 'true' : 'false';
+    btn.title = isUsed
+      ? `Select ${team === 'A' ? 'Attack' : 'Defence'} #${n}`
+      : `Add ${team === 'A' ? 'Attack' : 'Defence'} #${n}`;
+    btn.addEventListener('pointerdown', (event) => {
+      event.stopPropagation();
+    });
+    btn.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const targetTab = team === 'A' ? 'atk' : 'def';
+      if (palTab !== targetTab) setTab(targetTab);
+      if (existing) {
+        setTimeout(() => {
+          closePlayerNumberPicker();
+          setTimeout(() => {
+            selectPalettePlayer(n, team);
+          }, 60);
+        }, 0);
+        return;
+      }
+      if (!claimPhoneDataAction(`add-player:${team}:${n}`)) return;
+      addPlayerByNum(n, team);
+      setTimeout(() => {
+        closePlayerNumberPicker();
+        setTimeout(() => {
+          const added = S.players.find((player) => player.num === n && player.team === team) || null;
+          if (!added) return;
+          selectPlayer(added.id);
+          refreshInteractionUI();
+          render();
+        }, 60);
+      }, 0);
+    };
+    grid.appendChild(btn);
+  }
+  popover.hidden = false;
+  popover.setAttribute('aria-hidden', 'false');
+  syncPlayerNumberPickerButtons();
+  positionPlayerNumberPicker();
+}
+
+function togglePlayerNumberPicker(team, anchorId, event) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  const popover = document.getElementById('playerNumberPopover');
+  if (!popover) return;
+  const isSameAnchor = !popover.hidden && playerNumberPickerState.team === team && playerNumberPickerState.anchorId === anchorId;
+  if (isSameAnchor) {
+    closePlayerNumberPicker();
+    return;
+  }
+  playerNumberPickerState = { team, anchorId };
+  renderPlayerNumberPicker();
+}
+window.togglePlayerNumberPicker = togglePlayerNumberPicker;
 
 function togglePalettePlayer(num, team, event = null) {
   const existing = S.players.find((player) => player.num === num && player.team === team) || null;
@@ -4820,6 +9616,7 @@ function togglePalettePlayer(num, team, event = null) {
 }
 
 function addNextAvailablePlayer(team) {
+  if (!claimPhoneDataAction(`add-player:${team}`)) return;
   const used = team === 'A' ? S.atkUsed : S.defUsed;
   const nextNum = Array.from({ length: 15 }, (_, idx) => idx + 1).find(num => !used.has(num));
   if (!nextNum) {
@@ -4836,6 +9633,7 @@ function addNextAvailablePlayer(team) {
 window.addNextAvailablePlayer = addNextAvailablePlayer;
 
 function addBall() {
+  if (!claimPhoneDataAction('add-ball')) return;
   snapshot();
   const selectedPlayer = S.selectedPlayerId !== null
     ? S.players.find(p => p.id === S.selectedPlayerId)
@@ -4864,7 +9662,15 @@ function removePlayer(id) {
   }
   S.paths   = S.paths.filter(p => p.pid !== id);
   S.passes  = S.passes.filter(p => p.from!==id && p.to!==id);
+  S.annotations = S.annotations.filter((annotation) => {
+    if (annotation?.type !== 'playerLabel') return true;
+    const labelRef = playerLabelPlayerRef(annotation);
+    if (Number(annotation.playerId) === id) return false;
+    if (labelRef && playerMatchesRef(pl, labelRef)) return false;
+    return true;
+  });
   if (isPlayerSelected(id)) clearSelectedObject();
+  else if (selectedAnnotationId() && !findAnnotationById(selectedAnnotationId())) clearSelectedObject();
   if (S.activePasserId === id || S.activeKickerId === id) clearPassKickState();
   if (S.ballAssignCandidate === id) S.ballAssignCandidate = null;
   applyBallOwnershipVisualState();
@@ -4909,43 +9715,125 @@ function deleteSelected() {
 }
 window.deleteSelected = deleteSelected;
 
-function duplicateSelected() {
-  const ann = selectedAnnotation();
-  if (!ann) return;
-  snapshot();
-  const copy = cloneData(ann);
+function translateAnnotationCopy(sourceAnnotation, dx = ANNOTATION_CLIPBOARD_OFFSET, dy = ANNOTATION_CLIPBOARD_OFFSET) {
+  const copy = cloneData(sourceAnnotation);
   copy.id = mkAnnotationId();
   if (copy.type === 'note') {
-    copy.x = clamp(copy.x + 2, F.XMIN, F.XMAX);
-    copy.y = clamp(copy.y + 2, F.YMIN, F.YMAX);
+    copy.x += dx;
+    copy.y += dy;
+    copy.width = noteWidthValue(copy);
+    copy.height = noteHeightValue(copy);
+    clampNoteAnnotation(copy);
   } else if (copy.type === 'arrow') {
     copy.start = { ...copy.start };
     copy.end = { ...copy.end };
-    copy.start.x = clamp(copy.start.x + 2, F.XMIN, F.XMAX);
-    copy.start.y = clamp(copy.start.y + 2, F.YMIN, F.YMAX);
-    copy.end.x = clamp(copy.end.x + 2, F.XMIN, F.XMAX);
-    copy.end.y = clamp(copy.end.y + 2, F.YMIN, F.YMAX);
+    copy.start.x += dx;
+    copy.start.y += dy;
+    copy.end.x += dx;
+    copy.end.y += dy;
+    clampArrowAnnotation(copy);
   } else if (copy.type === 'zone') {
-    copy.x = clamp(copy.x + 2, F.XMIN + copy.r, F.XMAX - copy.r);
-    copy.y = clamp(copy.y + 2, F.YMIN + copy.r, F.YMAX - copy.r);
+    copy.x += dx;
+    copy.y += dy;
+    clampZoneAnnotation(copy);
   } else if (copy.type === 'box') {
-    copy.x = clamp(copy.x + 2, F.XMIN, F.XMAX - Math.abs(copy.w));
-    copy.y = clamp(copy.y + 2, F.YMIN, F.YMAX - Math.abs(copy.h));
+    copy.x += dx;
+    copy.y += dy;
+    clampBoxAnnotation(copy);
+  } else if (copy.type === 'ellipse') {
+    copy.x += dx;
+    copy.y += dy;
+    clampEllipseAnnotation(copy);
+  } else if (copy.type === 'playerLabel') {
+    copy.offsetX = Number(copy.offsetX || 0) + dx;
+    copy.offsetY = Number(copy.offsetY || 0) + dy;
   }
-  S.annotations.push(copy);
-  selectAnnotationById(copy.id);
+  return copy;
+}
+
+function copySelectedAnnotationToClipboard() {
+  const ann = selectedAnnotation();
+  if (!ann) return false;
+  S.annotationClipboard = cloneData(ann);
+  return true;
+}
+
+function pasteAnnotationFromClipboard(snapshotBefore = true) {
+  if (!S.annotationClipboard) return null;
+  if (snapshotBefore) snapshot();
+  const copy = translateAnnotationCopy(S.annotationClipboard);
+  const normalized = normalizeAnnotation(copy);
+  if (!normalized) return null;
+  S.annotations.push(normalized);
+  selectAnnotationById(normalized.id);
+  commitLiveBoardToCurrentStep();
   refreshInteractionUI();
   render();
+  return normalized;
+}
+
+function duplicateSelected() {
+  const ann = selectedAnnotation();
+  if (!ann) return null;
+  snapshot();
+  const copy = translateAnnotationCopy(ann);
+  const normalized = normalizeAnnotation(copy);
+  if (!normalized) return null;
+  S.annotations.push(normalized);
+  selectAnnotationById(normalized.id);
+  commitLiveBoardToCurrentStep();
+  refreshInteractionUI();
+  render();
+  return normalized;
 }
 window.duplicateSelected = duplicateSelected;
+
+function nudgeSelectedAnnotation(dx, dy) {
+  snapshot();
+  const ann = selectedAnnotation();
+  if (!ann) return false;
+  if (ann.type === 'note') {
+    ann.x += dx;
+    ann.y += dy;
+    clampNoteAnnotation(ann);
+  } else if (ann.type === 'box') {
+    ann.x += dx;
+    ann.y += dy;
+    clampBoxAnnotation(ann);
+  } else if (ann.type === 'ellipse') {
+    ann.x += dx;
+    ann.y += dy;
+    clampEllipseAnnotation(ann);
+  } else if (ann.type === 'zone') {
+    ann.x += dx;
+    ann.y += dy;
+    clampZoneAnnotation(ann);
+  } else if (ann.type === 'arrow') {
+    ann.start.x += dx;
+    ann.start.y += dy;
+    ann.end.x += dx;
+    ann.end.y += dy;
+    clampArrowAnnotation(ann);
+  } else if (ann.type === 'playerLabel') {
+    ann.offsetX = Number(ann.offsetX || 0) + dx;
+    ann.offsetY = Number(ann.offsetY || 0) + dy;
+  } else {
+    return false;
+  }
+  commitLiveBoardToCurrentStep();
+  refreshInteractionUI();
+  render();
+  return true;
+}
 
 function setSelectedAnnotationOpacity(value) {
   const ann = selectedAnnotation();
   if (!ann) return;
   const opacity = Number(value);
   if (!Number.isFinite(opacity)) return;
-  snapshot();
   ann.opacity = clamp(opacity, 0.2, 1);
+  const floatingOpacity = document.getElementById('floatingToolbarOpacity');
+  if (floatingOpacity) floatingOpacity.value = String(ann.opacity);
   refreshInteractionUI();
   render();
 }
@@ -4965,24 +9853,78 @@ function currentPlaybackUsesStepSequence() {
 }
 
 function currentPlaybackUsesImplicitMotion() {
-  return currentPhaseHasPlayablePlayback() && phasePlaybackTargetIndex() !== null;
+  return canonicalPlaybackTargetIndex() !== null;
+}
+
+function playbackPathDistance(path) {
+  if (!Array.isArray(path?.pts) || path.pts.length < 2) return 0;
+  let total = 0;
+  for (let i = 1; i < path.pts.length; i++) {
+    total += d2(path.pts[i - 1], path.pts[i]);
+  }
+  return total;
+}
+
+function computePlaybackSegmentDurationSeconds(fromStep, toStep, motionStep = toStep) {
+  const from = normalizeStepState(fromStep || emptyStepState());
+  const to = normalizeStepState(toStep || from);
+  const motion = normalizeStepState(motionStep || to);
+  const fromLookup = buildStepLookup(from.players);
+  const toLookup = buildStepLookup(to.players);
+  const allKeys = new Set([...fromLookup.keys(), ...toLookup.keys()]);
+  let maxPlayerDistance = 0;
+
+  allKeys.forEach(key => {
+    const fromPlayer = fromLookup.get(key) || toLookup.get(key);
+    const toPlayer = toLookup.get(key) || fromLookup.get(key);
+    if (!fromPlayer || !toPlayer) return;
+    const path = phasePathForPlayer(motion, toPlayer);
+    const distance = Math.max(
+      path ? playbackPathDistance(path) : 0,
+      d2({ x: fromPlayer.x, y: fromPlayer.y }, { x: toPlayer.x, y: toPlayer.y })
+    );
+    maxPlayerDistance = Math.max(maxPlayerDistance, distance);
+  });
+
+  const fromBall = resolveStepBall(from);
+  const toBall = resolveStepBall(to);
+  const ballDistance = fromBall && toBall ? d2(fromBall, toBall) : 0;
+  const passOrKickDistance = Array.isArray(motion.passes) && motion.passes.length ? ballDistance : 0;
+  const dominantDistance = Math.max(maxPlayerDistance, passOrKickDistance);
+  if (dominantDistance <= 0.05) return PLAYBACK_STATIC_MOVE_DURATION;
+  const playerDuration = maxPlayerDistance > 0 ? (maxPlayerDistance / PLAYBACK_MOVE_UNITS_PER_SECOND) : 0;
+  const ballDuration = passOrKickDistance > 0 ? (passOrKickDistance / PLAYBACK_BALL_UNITS_PER_SECOND) : 0;
+  return clamp(Math.max(playerDuration, ballDuration) + 0.8, PLAYBACK_MIN_MOVE_DURATION, PLAYBACK_MAX_MOVE_DURATION);
 }
 
 function playbackDurationSeconds() {
-  return DEFAULT_PLAYBACK_DURATION;
+  const fromIdx = getCurrentCanonicalMoveIndex();
+  const toIdx = canonicalPlaybackTargetIndex(fromIdx);
+  const fromRef = getCanonicalMoveRef(fromIdx);
+  const toRef = getCanonicalMoveRef(toIdx);
+  const from = canonicalPlaybackStepAt(fromRef) || emptyStepState();
+  const to = canonicalPlaybackStepAt(toRef) || from;
+  return computePlaybackSegmentDurationSeconds(from, to, from);
 }
 
 function currentStepStartProgress() {
-  const steps = sequenceStepCount();
-  if (steps <= 1) return 0;
-  const lastPlayable = Math.max(0, steps - 2);
-  return Math.min(lastPlayable, S.currentStep) / (steps - 1);
+  const currentIndex = getCurrentCanonicalMoveIndex();
+  const moveCount = getCanonicalMoveCount();
+  if (moveCount <= 1 || currentIndex < 0) return 0;
+  const lastPlayable = Math.max(0, moveCount - 2);
+  return Math.min(lastPlayable, currentIndex) / (moveCount - 1);
 }
 
 function stopPlayback(resetProgress = false) {
+  cancelCanonicalPlaybackFrame();
   S.animating = false;
   S.lastTs = null;
-  if (resetProgress) S.animT = 0;
+  if (resetProgress) clearCanonicalPlaybackOrigin();
+  if (resetProgress) {
+    S.animT = 0;
+    canonicalPlaybackBoundaryIndex = null;
+    canonicalPlaybackMode = 'idle';
+  }
   setPlayBtnState();
 }
 
@@ -4995,6 +9937,10 @@ function buildStepLookup(players = []) {
   return map;
 }
 
+function uniquePlayersByRef(players = []) {
+  return Array.from(buildStepLookup(players).values());
+}
+
 function lerp(a, b, t) {
   return a + (b - a) * t;
 }
@@ -5004,7 +9950,13 @@ function resolveStepBall(step) {
   if (step?.ballAttached && owner) {
     const lookup = buildStepLookup(step?.players || []);
     const ownerPlayer = lookup.get(playerKey(owner));
-    return ownerPlayer ? attachedBallPositionForPlayer(ownerPlayer) : null;
+    if (!ownerPlayer) return null;
+    const path = phasePathForPlayer(step, ownerPlayer);
+    const finalPoint = path?.pts?.length ? catmullRom(path.pts, 1.0) : null;
+    if (finalPoint) {
+      return attachedBallPositionForPlayer({ ...ownerPlayer, x: finalPoint.x, y: finalPoint.y });
+    }
+    return attachedBallPositionForPlayer(ownerPlayer);
   }
   const ball = normalizeBallPosition(step?.ball);
   if (ball) return ball;
@@ -5014,61 +9966,116 @@ function resolveStepBall(step) {
   return ownerPlayer ? { x: ownerPlayer.x, y: ownerPlayer.y } : null;
 }
 
+function computeChainedStepStates() {
+  ensureSteps();
+  const sourceSteps = S.steps.map(step => cloneStepState(step || emptyStepState()));
+  if (!sourceSteps.length) return [emptyStepState()];
+
+  const chained = [cloneStepState(sourceSteps[0])];
+  for (let idx = 1; idx < sourceSteps.length; idx++) {
+    const prevState = cloneStepState(chained[idx - 1]);
+    const stepDef = sourceSteps[idx];
+    const prevLookup = buildStepLookup(prevState.players);
+    const defLookup = buildStepLookup(stepDef.players);
+    const allKeys = new Set([...prevLookup.keys(), ...defLookup.keys()]);
+    const players = Array.from(allKeys).map((key) => {
+      const prevPlayer = prevLookup.get(key) || defLookup.get(key);
+      const defPlayer = defLookup.get(key) || prevPlayer;
+      const defPath = defPlayer ? phasePathForPlayer(stepDef, defPlayer) : null;
+      const finalPoint = defPath?.pts?.length ? defPath.pts[defPath.pts.length - 1] : null;
+      return {
+        ...(cloneData(defPlayer) || cloneData(prevPlayer) || {}),
+        x: finalPoint ? finalPoint.x : (Number.isFinite(defPlayer?.x) ? defPlayer.x : prevPlayer?.x),
+        y: finalPoint ? finalPoint.y : (Number.isFinite(defPlayer?.y) ? defPlayer.y : prevPlayer?.y),
+      };
+    });
+
+    const playerLookup = buildStepLookup(players);
+    let ball = resolveStepBall(stepDef);
+    if (stepDef.ballAttached) {
+      const owner = normalizePlayerRef(stepDef.ballOwner);
+      const ownerPlayer = owner ? playerLookup.get(playerKey(owner)) : null;
+      ball = ownerPlayer ? attachedBallPositionForPlayer(ownerPlayer) : ball;
+    } else if (stepDef.passes?.length) {
+      const lastPass = stepDef.passes[stepDef.passes.length - 1];
+      if (lastPass?.style === 'kick' && lastPass.targetX !== undefined && lastPass.targetY !== undefined) {
+        ball = { x: lastPass.targetX, y: lastPass.targetY };
+      } else if (lastPass?.toNum !== undefined && lastPass?.toT !== undefined) {
+        const receiver = playerLookup.get(playerKey({ num: lastPass.toNum, team: lastPass.toT }));
+        if (receiver) ball = attachedBallPositionForPlayer(receiver);
+      }
+    }
+
+    chained.push({
+      ...cloneStepState(stepDef),
+      players,
+      ball,
+      ballOwner: normalizePlayerRef(stepDef.ballOwner),
+      ballAttached: !!stepDef.ballAttached,
+      paths: cloneData(stepDef.paths),
+      passes: cloneData(stepDef.passes),
+      annotations: cloneData(stepDef.annotations),
+    });
+  }
+
+  return chained;
+}
+
+function canonicalPlaybackStepAt(ref) {
+  if (!ref) return null;
+  const phase = normalizePhaseState(GamePlan.phases?.[ref.phaseIndex], ref.phaseIndex);
+  if (!Array.isArray(phase.steps) || ref.stepIndex < 0 || ref.stepIndex >= phase.steps.length) return null;
+  return cloneStepState(phase.steps[ref.stepIndex] || emptyStepState());
+}
+
+function activateCanonicalMoveForPlayback(index, { resetProgress = false } = {}) {
+  const ref = getCanonicalMoveRef(index);
+  if (!ref) return false;
+  const phase = normalizePhaseState(GamePlan.phases?.[ref.phaseIndex], ref.phaseIndex);
+  if (!Array.isArray(phase.steps) || ref.stepIndex < 0 || ref.stepIndex >= phase.steps.length) return false;
+  if (resetProgress) S.animT = 0;
+  GamePlan.currentPhase = ref.phaseIndex;
+  phase.currentStep = ref.stepIndex;
+  GamePlan.phases[ref.phaseIndex] = phase;
+  S.currentStep = ref.stepIndex;
+  clearSelectedObject();
+  S.dragging = null;
+  S.drawing = null;
+  clearPassKickState();
+  S.annotationDraft = null;
+  setLiveBoardFromStep(phase.steps[ref.stepIndex] || emptyStepState());
+  rebuildPalette();
+  updateSelInfo();
+  updatePhaseUI();
+  refreshInteractionUI();
+  return true;
+}
+
 function buildSequenceFrame(progress) {
-  persistCurrentPhase();
   const localT = clamp(progress, 0, 1);
-  const fromIdx = GamePlan.currentPhase;
-  const toIdx = phasePlaybackTargetIndex(fromIdx);
-  const from = phasePlaybackStepAt(fromIdx);
-  if (toIdx === null) {
+  let from = null;
+  let to = null;
+  let motionStep = null;
+  const fromIdx = getCurrentCanonicalMoveIndex();
+  const toIdx = canonicalPlaybackTargetIndex(fromIdx);
+  const fromRef = getCanonicalMoveRef(fromIdx);
+  const toRef = getCanonicalMoveRef(toIdx);
+  from = canonicalPlaybackStepAt(fromRef) || emptyStepState();
+  if (toIdx === null || !toRef) {
     return {
       ...from,
       segmentIndex: fromIdx,
       localT: 0,
     };
   }
-  const to = phasePlaybackStepAt(toIdx);
-  const fromLookup = buildStepLookup(from.players);
-  const toLookup = buildStepLookup(to.players);
-  const allKeys = new Set([...fromLookup.keys(), ...toLookup.keys()]);
-  const players = Array.from(allKeys).map(key => {
-    const a = fromLookup.get(key) || toLookup.get(key);
-    const b = toLookup.get(key) || fromLookup.get(key);
-    const fromPath = a ? phasePathForPlayer(from, a) : null;
-    if (fromPath && Array.isArray(fromPath.pts) && fromPath.pts.length >= 2) {
-      const alongPath = catmullRom(fromPath.pts, localT);
-      return {
-        ...(cloneData(a) || cloneData(b) || {}),
-        x: alongPath.x,
-        y: alongPath.y,
-      };
-    }
-    return {
-      ...(cloneData(b) || cloneData(a) || {}),
-      x: lerp(a.x, b.x, localT),
-      y: lerp(a.y, b.y, localT),
-    };
-  });
-  const fromBall = resolveStepBall(from);
-  const toBall = resolveStepBall(to);
-  let ball = null;
-  if (fromBall && toBall) {
-    ball = { x: lerp(fromBall.x, toBall.x, localT), y: lerp(fromBall.y, toBall.y, localT) };
-  } else if (toBall) {
-    ball = { ...toBall };
-  } else if (fromBall) {
-    ball = { ...fromBall };
-  }
-  return {
-    players,
-    ball,
-    ballOwner: normalizePlayerRef(localT < 0.5 ? from.ballOwner : to.ballOwner),
-    annotations: cloneData(from.annotations),
-    paths: cloneData(from.paths),
-    passes: cloneData(from.passes),
-    segmentIndex: fromIdx,
-    localT,
-  };
+  to = canonicalPlaybackStepAt(toRef) || from;
+  motionStep = to;
+  let segmentIndex = fromIdx;
+  if (PLAYBACK_SHADOW) runPlaybackShadowCheck(from, to, fromIdx, toIdx);
+
+  const leg = preparePlaybackLeg(from, to);
+  const sampled = samplePlaybackLeg(leg, localT);
+  return { ...sampled, segmentIndex: fromIdx };
 }
 
 function resolveAnimatedKickBall(frame, playerLookup) {
@@ -5112,10 +10119,12 @@ function resolveLiveAnimatedKickBall(progress) {
 }
 
 function shouldRenderSequencePreview() {
-  return currentPhaseHasPlayablePlayback() && S.animating;
+  if (!S.animating && !isCanonicalPlaybackPaused()) return false;
+  return currentPhaseHasPlayablePlayback();
 }
 
 function gotoStep(index, { snapshotBefore = false } = {}) {
+  clearPendingCanonicalPhaseStart();
   ensureSteps();
   const next = clamp(index, 0, S.steps.length - 1);
   if (next === S.currentStep) return;
@@ -5144,16 +10153,21 @@ function nextStep() {
 }
 
 function addStep() {
+  if (!claimPhoneDataAction('more:move:add')) return;
+  resetDeleteConfirm('move');
+  resetDeleteConfirm('phase');
   snapshot();
   persistCurrentStep();
-  const next = cloneStepState(S.steps[S.currentStep] || liveBoardToStepState());
+  const next = createCarryForwardStep(S.steps[S.currentStep] || liveBoardToStepState());
   S.steps.splice(S.currentStep + 1, 0, next);
   S.currentStep += 1;
   stopPlayback(true);
   setLiveBoardFromStep(next);
-  setHint(`Step ${S.currentStep + 1} added. The previous step was duplicated so you can build the next action from it.`);
+  setHint(`Move ${S.currentStep + 1} added. The previous move was duplicated so you can build the next moment from it.`);
   rebuildPalette();
   refreshInteractionUI();
+  flashMobilePhaseCounter();
+  showPhoneMoveToast();
   updateTL();
   render();
 }
@@ -5225,7 +10239,457 @@ function deleteStepAt(idx) {
 }
 window.deleteStepAt = deleteStepAt;
 
+function deleteLastMoveWithConfirm() {
+  if (!claimPhoneDataAction('more:move:delete')) return;
+  if (!confirmDeleteAction('move')) return;
+  resetDeleteConfirm('phase');
+  ensureSteps();
+  snapshot();
+  persistCurrentStep();
+  const lastIdx = Math.max(0, S.steps.length - 1);
+  if (S.steps.length === 1) {
+    S.steps = [emptyStepState()];
+    S.currentStep = 0;
+    setHint('Move 1 reset. Build the phase again from a clean board.');
+  } else {
+    S.steps.splice(lastIdx, 1);
+    S.currentStep = Math.min(S.currentStep, S.steps.length - 1);
+    setHint(`Last move removed. Now on Move ${S.currentStep + 1}.`);
+  }
+  stopPlayback(true);
+  setLiveBoardFromStep(S.steps[S.currentStep]);
+  rebuildPalette();
+  refreshInteractionUI();
+  updateTL();
+  flashMobilePhaseCounter();
+  render();
+}
+
+let sequenceDockEls = null;
+let sequenceDockAddMoveLock = false;
+let sequenceDockAddMoveLockTimer = null;
+let sequenceDockPositionRaf = 0;
+const SEQUENCE_DOCK_GAP = 18;
+const SEQUENCE_DOCK_FULL_WIDTH = 320;
+const SEQUENCE_DOCK_COMPACT_WIDTH = 180;
+const SEQUENCE_DOCK_COLLAPSED_WIDTH = 148;
+let sequenceDockMode = 'full';
+let sequenceDockView = 'primary';
+let sequenceDockVisible = false;
+let sequenceDockSide = 'right';
+let pendingCanonicalPhaseStart = false;
+let canonicalPlaybackBoundaryIndex = null;
+// Runtime-only playback intent for the shared engine. Never persisted (not part of
+// GamePlan/save/export/import/history) - reset to 'idle' whenever playback fully stops.
+let canonicalPlaybackMode = 'idle'; // 'idle' | 'preview' | 'phase' | 'from-here'
+let canonicalPlaybackRafHandle = null;
+let canonicalPlaybackOriginRef = null;
+
+function cancelCanonicalPlaybackFrame() {
+  if (canonicalPlaybackRafHandle !== null) {
+    cancelAnimationFrame(canonicalPlaybackRafHandle);
+    canonicalPlaybackRafHandle = null;
+  }
+}
+
+function captureCanonicalPlaybackOrigin() {
+  const currentIndex = getCurrentCanonicalMoveIndex();
+  const currentRef = getCanonicalMoveRef(currentIndex);
+  canonicalPlaybackOriginRef = currentRef ? { ...currentRef } : null;
+}
+
+function clearCanonicalPlaybackOrigin() {
+  canonicalPlaybackOriginRef = null;
+}
+
+function restoreCanonicalPlaybackOrigin() {
+  if (!canonicalPlaybackOriginRef) return false;
+  const refs = getCanonicalMoveRefs();
+  const originIndex = refs.findIndex(ref => ref.phaseIndex === canonicalPlaybackOriginRef.phaseIndex && ref.stepIndex === canonicalPlaybackOriginRef.stepIndex);
+  if (originIndex < 0) {
+    clearCanonicalPlaybackOrigin();
+    return false;
+  }
+  const restored = activateCanonicalMoveForPlayback(originIndex, { resetProgress: true });
+  clearCanonicalPlaybackOrigin();
+  return restored;
+}
+
+function setSequenceDockVisibility(isVisible) {
+  if (!sequenceDockEls?.dock) return;
+  sequenceDockVisible = !!isVisible;
+  sequenceDockEls.dock.hidden = !isVisible;
+  if (!isVisible) {
+    sequenceDockView = 'primary';
+    sequenceDockEls.dock.style.left = '-9999px';
+    sequenceDockEls.dock.style.top = '0px';
+  }
+  document.getElementById('emptyState')?.classList.toggle('sequence-dock-suppressed', sequenceDockVisible);
+  // While the dock is visible it is the single playback-control authority;
+  // the duplicated top Play/Pause/Resume control hides (CSS). Phone never
+  // reaches this with isVisible=true, so the top control stays there.
+  document.body.classList.toggle('sequence-dock-active', sequenceDockVisible);
+}
+
+function getRenderedPitchViewportRect() {
+  const canvasRect = cv.getBoundingClientRect();
+  if (canvasRect.width <= 0 || canvasRect.height <= 0) return null;
+  const pitchStart = toC(0, F.YMIN);
+  const pitchEnd = toC(F.W, F.YMAX);
+  return {
+    left: canvasRect.left + Math.min(pitchStart.x, pitchEnd.x),
+    right: canvasRect.left + Math.max(pitchStart.x, pitchEnd.x),
+    top: canvasRect.top + Math.min(pitchStart.y, pitchEnd.y),
+    bottom: canvasRect.top + Math.max(pitchStart.y, pitchEnd.y),
+    width: Math.abs(pitchEnd.x - pitchStart.x),
+    height: Math.abs(pitchEnd.y - pitchStart.y),
+  };
+}
+
+function getSequenceDockPlacement(rightSpace, leftSpace) {
+  const widths = [
+    { mode: 'full', width: SEQUENCE_DOCK_FULL_WIDTH },
+    { mode: 'compact', width: SEQUENCE_DOCK_COMPACT_WIDTH },
+    { mode: 'collapsed', width: SEQUENCE_DOCK_COLLAPSED_WIDTH },
+  ];
+  for (const { mode, width } of widths) {
+    if (rightSpace >= width + SEQUENCE_DOCK_GAP) return { mode, side: 'right', width };
+    if (leftSpace >= width + SEQUENCE_DOCK_GAP) return { mode, side: 'left', width };
+  }
+  return null;
+}
+
+function getSequenceDockModeLabels(mode) {
+  if (mode === 'collapsed') {
+    return {
+      status: `P${GamePlan.currentPhase + 1} · M${S.currentStep + 1}/${sequenceStepCount()}`,
+      prev: 'Previous',
+      next: 'Next',
+      addMove: '+ Move',
+      play: 'Play',
+      more: 'More',
+      back: 'Back',
+      duplicate: 'Duplicate',
+      preview: 'Preview',
+      addPhase: phaseStartContext.kind === 'pending-final' ? 'Cancel Phase' : '+ Phase',
+      deleteMove: 'Delete Move',
+    };
+  }
+  if (mode === 'compact') {
+    return {
+      status: `P${GamePlan.currentPhase + 1} · M${S.currentStep + 1}/${sequenceStepCount()}`,
+      prev: 'Previous',
+      next: 'Next',
+      addMove: '+ Move',
+      play: 'Play',
+      more: 'More',
+      back: 'Back',
+      duplicate: 'Duplicate',
+      preview: 'Preview',
+      addPhase: phaseStartContext.kind === 'pending-final' ? 'Cancel Phase' : 'New Phase',
+      deleteMove: 'Delete Move',
+    };
+  }
+  return {
+    status: `Phase ${GamePlan.currentPhase + 1} of ${GamePlan.phases.length}. Move ${S.currentStep + 1} of ${sequenceStepCount()}.`,
+    prev: 'Previous Move',
+    next: 'Next Move',
+    addMove: 'Add Move',
+    play: 'Play from Here',
+    more: 'More',
+    back: 'Back',
+    duplicate: 'Duplicate Move',
+    preview: 'Preview Move',
+    addPhase: phaseStartContext.kind === 'pending-final' ? 'Cancel New Phase' : 'Start New Phase',
+    deleteMove: 'Delete selected move',
+  };
+}
+
+function focusSequenceDockViewTarget(view) {
+  if (!sequenceDockEls) return;
+  if (view === 'secondary') {
+    const candidates = [
+      sequenceDockEls.duplicate,
+      sequenceDockEls.back,
+    ].filter(Boolean);
+    const target = candidates.find(btn => !btn.disabled) || sequenceDockEls.back;
+    target?.focus();
+    return;
+  }
+  sequenceDockEls.more?.focus();
+}
+
+function setSequenceDockView(view, { focusTarget = false } = {}) {
+  const nextView = sequenceDockMode === 'full' ? 'primary' : (view === 'secondary' ? 'secondary' : 'primary');
+  const changed = sequenceDockView !== nextView;
+  sequenceDockView = nextView;
+  updateSequenceDockUI();
+  if (changed) scheduleSequenceDockPosition();
+  if (focusTarget) {
+    requestAnimationFrame(() => focusSequenceDockViewTarget(nextView));
+  }
+}
+
+function toggleSequenceDockView() {
+  if (sequenceDockMode === 'full') return;
+  setSequenceDockView(sequenceDockView === 'secondary' ? 'primary' : 'secondary', { focusTarget: true });
+}
+
+function positionSequenceControlDock() {
+  sequenceDockPositionRaf = 0;
+  if (!sequenceDockEls?.dock) return;
+  const dock = sequenceDockEls.dock;
+  if (isPhoneViewport) {
+    setSequenceDockVisibility(false);
+    return;
+  }
+
+  const viewportWidth = window.visualViewport?.width || window.innerWidth;
+  const viewportHeight = window.visualViewport?.height || window.innerHeight;
+  const viewportLeft = window.visualViewport?.offsetLeft || 0;
+  const viewportTop = window.visualViewport?.offsetTop || 0;
+  const viewportRight = viewportLeft + viewportWidth;
+
+  const topbar = document.getElementById('topbar');
+  const bottomPanel = document.getElementById('bottomPanel');
+  const smartPanel = document.getElementById('smartPanel');
+  if (!topbar || !bottomPanel) {
+    setSequenceDockVisibility(false);
+    return;
+  }
+
+  const pitchRect = getRenderedPitchViewportRect();
+  if (pitchRect.width <= 0 || pitchRect.height <= 0) {
+    setSequenceDockVisibility(false);
+    return;
+  }
+
+  const previousHidden = dock.hidden;
+  const previousVisibility = dock.style.visibility;
+  dock.hidden = false;
+  dock.style.visibility = 'hidden';
+  const dockRect = dock.getBoundingClientRect();
+  const dockWidth = dockRect.width;
+  const dockHeight = dockRect.height;
+  if (previousHidden) dock.hidden = true;
+  dock.style.visibility = previousVisibility;
+
+  if (dockWidth <= 0 || dockHeight <= 0) {
+    setSequenceDockVisibility(false);
+    return;
+  }
+
+  const safeLeftBoundary = Math.max(
+    viewportLeft,
+    smartPanel?.getBoundingClientRect().right || viewportLeft
+  );
+  const rightSpace = viewportRight - pitchRect.right;
+  const leftSpace = pitchRect.left - safeLeftBoundary;
+  const placement = getSequenceDockPlacement(rightSpace, leftSpace);
+  if (!placement) {
+    setSequenceDockVisibility(false);
+    return;
+  }
+  const previousMode = sequenceDockMode;
+  sequenceDockMode = placement.mode;
+  sequenceDockSide = placement.side;
+  if (sequenceDockMode === 'full' || previousMode !== sequenceDockMode) sequenceDockView = 'primary';
+  updateSequenceDockUI();
+
+  const previousHiddenAfterMode = dock.hidden;
+  const previousVisibilityAfterMode = dock.style.visibility;
+  dock.hidden = false;
+  dock.style.visibility = 'hidden';
+  const activeDockRect = dock.getBoundingClientRect();
+  const activeDockWidth = activeDockRect.width;
+  const activeDockHeight = activeDockRect.height;
+  if (previousHiddenAfterMode) dock.hidden = true;
+  dock.style.visibility = previousVisibilityAfterMode;
+
+  const dockLeft = sequenceDockSide === 'right'
+    ? pitchRect.right + SEQUENCE_DOCK_GAP
+    : pitchRect.left - activeDockWidth - SEQUENCE_DOCK_GAP;
+
+  const topLimit = Math.max(viewportTop + 10, topbar.getBoundingClientRect().bottom + 10);
+  const bottomLimit = Math.min(viewportTop + viewportHeight - activeDockHeight - 10, bottomPanel.getBoundingClientRect().top - activeDockHeight - 10);
+  if (bottomLimit < topLimit) {
+    setSequenceDockVisibility(false);
+    return;
+  }
+
+  const idealTop = pitchRect.top + ((pitchRect.height - activeDockHeight) / 2);
+  const dockTop = clamp(idealTop, topLimit, bottomLimit);
+  setSequenceDockVisibility(true);
+  dock.dataset.mode = sequenceDockMode;
+  dock.dataset.side = sequenceDockSide;
+  dock.dataset.view = sequenceDockView;
+  dock.style.left = `${Math.round(dockLeft)}px`;
+  dock.style.top = `${Math.round(dockTop)}px`;
+  dock.style.right = 'auto';
+}
+
+function scheduleSequenceDockPosition() {
+  if (sequenceDockPositionRaf) return;
+  sequenceDockPositionRaf = requestAnimationFrame(positionSequenceControlDock);
+}
+
+function releaseSequenceDockAddMoveLock() {
+  sequenceDockAddMoveLock = false;
+  if (sequenceDockAddMoveLockTimer) {
+    clearTimeout(sequenceDockAddMoveLockTimer);
+    sequenceDockAddMoveLockTimer = null;
+  }
+  updateSequenceDockUI();
+}
+
+function handleSequenceDockAddMove() {
+  if (sequenceDockAddMoveLock) return;
+  sequenceDockAddMoveLock = true;
+  updateSequenceDockUI();
+  sequenceDockAddMoveLockTimer = setTimeout(releaseSequenceDockAddMoveLock, 350);
+  try {
+    addStep();
+  } catch (err) {
+    releaseSequenceDockAddMoveLock();
+    throw err;
+  }
+}
+
+function confirmDeleteSelectedMoveFromDock() {
+  const moveCount = getCanonicalMoveCount();
+  const moveIndex = getCurrentCanonicalMoveIndex();
+  const targetRef = getCanonicalMoveRef(moveIndex);
+  if (moveCount <= 1 || !targetRef) return;
+  let message = `Delete Move ${moveIndex + 1} of ${moveCount}?`;
+  if (phaseStepCountAt(targetRef.phaseIndex) === 1) {
+    message += `\n\nThis will also remove Phase ${targetRef.phaseIndex + 1}.`;
+  }
+  if (!window.confirm(message)) return;
+  deleteCanonicalMove(moveIndex);
+}
+
+// Secondary dock control: Stop only. It never resumes - the one universal
+// Pause/Resume control is sequenceDockPlay (see toggleSmartPlay/togglePlayAll).
+function handleSequenceDockPlaybackControl() {
+  if (!S.animating && !isCanonicalPlaybackPaused()) return;
+  stopPlayback(true);
+  refreshInteractionUI();
+  updateTL();
+  render();
+}
+
+function updateSequenceDockUI() {
+  if (!sequenceDockEls) return;
+  const phaseCount = GamePlan.phases.length;
+  const moveCount = sequenceStepCount();
+  const currentPhase = GamePlan.currentPhase + 1;
+  const currentMove = S.currentStep + 1;
+  const previewPlayable = currentPhaseHasPlayablePlayback();
+  const playFromHerePlayable = projectHasPlayablePlayback();
+  const hasPausedPlayback = !S.animating && S.animT > 0;
+  const isAnimating = !!S.animating;
+  const editingLocked = isAnimating;
+  const showPlaybackControl = isAnimating || hasPausedPlayback;
+  const isFullMode = sequenceDockMode === 'full';
+  const isSecondaryView = !isFullMode && sequenceDockView === 'secondary';
+  const labels = getSequenceDockModeLabels(sequenceDockMode);
+  let playbackControlLabel = '';
+  let playbackControlAria = '';
+
+  if (isAnimating) {
+    playbackControlLabel = 'Pause';
+    playbackControlAria = 'Pause playback';
+  } else if (hasPausedPlayback) {
+    playbackControlLabel = 'Resume';
+    playbackControlAria = S.playAll ? 'Resume playback from here to the end' : 'Resume move preview';
+  }
+
+  sequenceDockEls.dock.dataset.mode = sequenceDockMode;
+  sequenceDockEls.dock.dataset.side = sequenceDockSide;
+  sequenceDockEls.dock.dataset.view = isFullMode ? 'full' : sequenceDockView;
+  sequenceDockEls.phase.textContent = `${currentPhase} / ${phaseCount}`;
+  sequenceDockEls.move.textContent = `${currentMove} / ${moveCount}`;
+  sequenceDockEls.status.textContent = labels.status;
+  sequenceDockEls.prev.textContent = labels.prev;
+  sequenceDockEls.next.textContent = labels.next;
+  sequenceDockEls.addMove.textContent = labels.addMove;
+  sequenceDockEls.play.textContent = labels.play;
+  sequenceDockEls.more.textContent = labels.more;
+  sequenceDockEls.duplicate.textContent = labels.duplicate;
+  sequenceDockEls.preview.textContent = labels.preview;
+  sequenceDockEls.addPhase.textContent = labels.addPhase;
+  sequenceDockEls.deleteMove.textContent = labels.deleteMove;
+  sequenceDockEls.back.textContent = labels.back;
+  sequenceDockEls.prev.disabled = S.currentStep === 0 || editingLocked;
+  sequenceDockEls.next.disabled = S.currentStep >= moveCount - 1 || editingLocked;
+  sequenceDockEls.addMove.disabled = editingLocked || sequenceDockAddMoveLock;
+  sequenceDockEls.duplicate.disabled = editingLocked || moveCount < 1;
+  sequenceDockEls.play.disabled = !playFromHerePlayable;
+  sequenceDockEls.preview.disabled = !previewPlayable;
+  sequenceDockEls.more.hidden = isFullMode;
+  sequenceDockEls.more.disabled = isFullMode;
+  sequenceDockEls.more.tabIndex = isFullMode ? -1 : 0;
+  sequenceDockEls.more.setAttribute('aria-expanded', isSecondaryView ? 'true' : 'false');
+  sequenceDockEls.primaryPanel.hidden = !isFullMode && isSecondaryView;
+  sequenceDockEls.secondaryPanel.hidden = !isFullMode && !isSecondaryView;
+  sequenceDockEls.back.hidden = isFullMode;
+  sequenceDockEls.back.disabled = isFullMode;
+  sequenceDockEls.back.tabIndex = isFullMode || !isSecondaryView ? -1 : 0;
+  sequenceDockEls.playbackControl.hidden = false;
+  sequenceDockEls.playbackControl.disabled = !showPlaybackControl;
+  sequenceDockEls.playbackControl.tabIndex = showPlaybackControl ? 0 : -1;
+  sequenceDockEls.playbackControl.textContent = playbackControlLabel;
+  sequenceDockEls.playbackControl.classList.toggle('sequence-dock__playback-control--inactive', !showPlaybackControl);
+  if (showPlaybackControl) {
+    sequenceDockEls.playbackControl.setAttribute('aria-label', playbackControlAria);
+  } else {
+    sequenceDockEls.playbackControl.removeAttribute('aria-label');
+  }
+  sequenceDockEls.addPhase.disabled = editingLocked;
+  sequenceDockEls.deleteMove.disabled = editingLocked || moveCount < 1;
+}
+
+function initSequenceControlDock() {
+  const dock = document.getElementById('sequenceControlDock');
+  if (!dock) return;
+  sequenceDockEls = {
+    dock,
+    phase: document.getElementById('sequenceDockPhase'),
+    move: document.getElementById('sequenceDockMove'),
+    status: document.getElementById('sequenceDockStatus'),
+    prev: document.getElementById('sequenceDockPrev'),
+    next: document.getElementById('sequenceDockNext'),
+    addMove: document.getElementById('sequenceDockAddMove'),
+    more: document.getElementById('sequenceDockMore'),
+    primaryPanel: document.getElementById('sequenceDockPrimaryPanel'),
+    secondaryPanel: document.getElementById('sequenceDockSecondaryPanel'),
+    duplicate: document.getElementById('sequenceDockDuplicate'),
+    play: document.getElementById('sequenceDockPlay'),
+    preview: document.getElementById('sequenceDockPreview'),
+    playbackControl: document.getElementById('sequenceDockPlaybackControl'),
+    addPhase: document.getElementById('sequenceDockAddPhase'),
+    phaseActionStatus: document.getElementById('sequenceDockPhaseActionStatus'),
+    deleteMove: document.getElementById('sequenceDockDelete'),
+    back: document.getElementById('sequenceDockBack'),
+  };
+
+  sequenceDockEls.prev.addEventListener('click', prevStep);
+  sequenceDockEls.next.addEventListener('click', nextStep);
+  sequenceDockEls.addMove.addEventListener('click', handleSequenceDockAddMove);
+  sequenceDockEls.more.addEventListener('click', toggleSequenceDockView);
+  sequenceDockEls.duplicate.addEventListener('click', duplicateStep);
+  sequenceDockEls.play.addEventListener('click', toggleSmartPlay);
+  sequenceDockEls.preview.addEventListener('click', previewCurrentMove);
+  sequenceDockEls.playbackControl.addEventListener('click', handleSequenceDockPlaybackControl);
+  sequenceDockEls.addPhase.addEventListener('click', handleSequenceDockStartPhase);
+  sequenceDockEls.deleteMove.addEventListener('click', confirmDeleteSelectedMoveFromDock);
+  sequenceDockEls.back.addEventListener('click', () => setSequenceDockView('primary', { focusTarget: true }));
+  updateSequenceDockUI();
+  scheduleSequenceDockPosition();
+}
+
 function updateSequenceUI() {
+  syncPendingCanonicalPhaseStart();
   const prevBtn = document.getElementById('seqPrevBtn');
   const nextBtn = document.getElementById('seqNextBtn');
   const seqBarPrev = document.getElementById('seqBarPrev');
@@ -5244,25 +10708,571 @@ function updateSequenceUI() {
   if (playLabel) playLabel.textContent = S.animating ? 'PAUSE' : 'PLAY';
   if (playBtn) playBtn.disabled = !playable;
   if (tlPlayBtn) tlPlayBtn.disabled = !playable;
+  updateSequenceDockUI();
+  scheduleSequenceDockPosition();
+}
+
+function updatePhaseUI() {
+  const strip = document.getElementById('phaseChipStrip');
+  if (!strip) return;
+  const currentCanonicalIndex = getCurrentCanonicalMoveIndex();
+  const phases = Array.isArray(GamePlan.phases) ? GamePlan.phases : [];
+  const phaseShort = tr('phase.short', {}, 'PHASE');
+  strip.innerHTML = '';
+  let moveCursor = 0;
+  phases.forEach((phase, phaseIndex) => {
+    const stepCount = Array.isArray(phase?.steps) ? phase.steps.length : 0;
+    if (!stepCount) return;
+    const firstIndexInPhase = moveCursor;
+
+    const group = document.createElement('div');
+    group.className = `tb-phase-group${phaseIndex === GamePlan.currentPhase ? ' active' : ''}`;
+
+    const label = document.createElement('button');
+    label.type = 'button';
+    label.className = 'tb-phase-label';
+    label.textContent = `${phaseShort} ${phaseIndex + 1}`;
+    label.title = `Go to ${phaseShort} ${phaseIndex + 1}`;
+    label.setAttribute('aria-label', `Go to ${phaseShort} ${phaseIndex + 1}, starting at Move ${firstIndexInPhase + 1}`);
+    label.onclick = () => handleCanonicalMoveChipSelect(firstIndexInPhase);
+    group.appendChild(label);
+
+    const moves = document.createElement('div');
+    moves.className = 'tb-phase-moves';
+    for (let stepIndex = 0; stepIndex < stepCount; stepIndex += 1) {
+      const globalIndex = moveCursor;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `tb-phase-chip${globalIndex === currentCanonicalIndex ? ' active' : ''}`;
+      btn.textContent = String(globalIndex + 1);
+      btn.title = `Go to Move ${globalIndex + 1}`;
+      btn.setAttribute('aria-label', `Go to Move ${globalIndex + 1}`);
+      if (globalIndex === currentCanonicalIndex) btn.setAttribute('aria-current', 'step');
+      else btn.removeAttribute('aria-current');
+      btn.onclick = () => handleCanonicalMoveChipSelect(globalIndex);
+      moves.appendChild(btn);
+      moveCursor += 1;
+    }
+    group.appendChild(moves);
+    strip.appendChild(group);
+  });
+
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'tb-phase-chip tb-phase-chip-add';
+  addBtn.textContent = '+';
+  addBtn.title = 'Add Move';
+  addBtn.setAttribute('aria-label', 'Add Move');
+  addBtn.onclick = () => addCanonicalMove();
+  strip.appendChild(addBtn);
+  scheduleSequenceBarScroller({ center: true, behavior: 'auto' });
+}
+
+function getCanonicalPhaseActionShortLabel(kind) {
+  switch (kind) {
+    case 'existing-boundary': return tr('dock.removeBreak');
+    case 'pending-final': return tr('dock.cancelPhase');
+    case 'final-move': return tr('dock.newPhase');
+    case 'split-available': return tr('dock.newPhase');
+    default: return tr('dock.phase');
+  }
+}
+
+function getSequenceDockModeLabels(mode) {
+  const phaseAction = getCanonicalPhaseActionDetails();
+  if (mode === 'collapsed' || mode === 'compact') {
+    return {
+      addMove: tr('dock.addMove.short'),
+      play: tr('dock.play'),
+      playPhase: tr('dock.playPhase'),
+      more: tr('dock.more'),
+      back: tr('dock.back'),
+      duplicate: tr('dock.duplicate'),
+      preview: tr('dock.preview'),
+      undo: tr('dock.undo'),
+      redo: tr('dock.redo'),
+      addPhase: getCanonicalPhaseActionShortLabel(phaseAction.context.kind),
+      deleteMove: tr('dock.deleteMove'),
+    };
+  }
+  return {
+    addMove: tr('dock.addMove'),
+    play: tr('dock.playFromHere'),
+    playPhase: tr('dock.playPhase'),
+    more: tr('dock.more'),
+    back: tr('dock.back'),
+    duplicate: tr('dock.duplicateMove'),
+    preview: tr('dock.previewMove'),
+    undo: tr('dock.undo'),
+    redo: tr('dock.redo'),
+    addPhase: phaseAction.label,
+    deleteMove: tr('dock.deleteMove'),
+  };
+}
+
+function handleSequenceDockAddMove() {
+  if (sequenceDockAddMoveLock) return;
+  sequenceDockAddMoveLock = true;
+  updateSequenceDockUI();
+  sequenceDockAddMoveLockTimer = setTimeout(releaseSequenceDockAddMoveLock, 350);
+  try {
+    addCanonicalMove();
+  } catch (err) {
+    releaseSequenceDockAddMoveLock();
+    throw err;
+  }
+}
+
+function handleSequenceDockStartPhase() {
+  return startCanonicalPhaseAfterCurrentMove();
+}
+
+function handleSequenceDockPlayPhase() {
+  if (S.animating) {
+    stopPlayback(false);
+    refreshInteractionUI();
+    updateTL();
+    render();
+    return;
+  }
+  if (isCanonicalPlaybackPaused()) {
+    resumeCanonicalPlayback();
+    return;
+  }
+  playCurrentCanonicalPhase();
+}
+
+function updateSequenceDockUI() {
+  if (!sequenceDockEls) return;
+  syncPendingCanonicalPhaseStart();
+  const canonicalMove = getCanonicalMoveDisplay();
+  const phaseAction = getCanonicalPhaseActionDetails();
+  const phaseCount = GamePlan.phases.length;
+  const hasValidPhase = Number.isInteger(GamePlan.currentPhase) && GamePlan.currentPhase >= 0 && GamePlan.currentPhase < phaseCount;
+  const currentPhase = hasValidPhase ? GamePlan.currentPhase + 1 : null;
+  const previewPlayable = currentPhaseHasPlayablePlayback();
+  const playFromHerePlayable = projectHasPlayablePlayback();
+  const phaseRange = getCanonicalPhasePlaybackRange();
+  const playPhasePlayable = !!phaseRange && phaseRange.moveCount > 1;
+  const isAnimating = !!S.animating;
+  const hasPausedPlayback = !isAnimating && S.animT > 0;
+  const anySessionActive = isAnimating || hasPausedPlayback;
+  const editingLocked = isAnimating;
+  const showPlaybackControl = anySessionActive;
+  const isFullMode = sequenceDockMode === 'full';
+  const isSecondaryView = !isFullMode && sequenceDockView === 'secondary';
+  const labels = getSequenceDockModeLabels(sequenceDockMode);
+  const phaseStartPending = phaseAction.pressed;
+  const phaseStartDisabled = editingLocked || canonicalMove.count < 1 || phaseAction.disabled;
+  const deleteDisabled = editingLocked || canonicalMove.count <= 1;
+  const historyDisabled = editingLocked || !(S.history && S.history.length);
+  const futureDisabled = editingLocked || !(S.future && S.future.length);
+  // Exactly one universal Pause/Resume control (sequenceDockPlay). The secondary
+  // control is Stop-only; Play Phase and Preview never relabel themselves.
+  const playbackControlLabel = showPlaybackControl ? tr('dock.stop') : '';
+  const playbackControlAria = tr('dock.stop.aria');
+
+  sequenceDockEls.dock.dataset.mode = sequenceDockMode;
+  sequenceDockEls.dock.dataset.side = sequenceDockSide;
+  sequenceDockEls.dock.dataset.view = isFullMode ? 'full' : sequenceDockView;
+  const translatedMoveHeadline = canonicalMove.hasSelection
+    ? (isFullMode
+      ? tr('dock.moveOf', { current: canonicalMove.current, total: canonicalMove.count })
+      : tr('dock.moveCompact', { current: canonicalMove.current, total: canonicalMove.count }))
+    : (isFullMode ? tr('dock.moveEmpty') : tr('dock.moveCompactEmpty'));
+  const translatedPhaseHeadline = currentPhase !== null
+    ? (isFullMode
+      ? tr('dock.phaseOf', { current: currentPhase, total: phaseCount })
+      : tr('dock.phaseCompact', { current: currentPhase, total: phaseCount }))
+    : (isFullMode ? tr('dock.phaseEmpty') : tr('dock.phaseCompactEmpty'));
+
+  sequenceDockEls.moveHeadline.textContent = canonicalMove.hasSelection
+    ? (isFullMode ? `Move ${canonicalMove.current} of ${canonicalMove.count}` : `M ${canonicalMove.current}/${canonicalMove.count}`)
+    : (isFullMode ? 'Move — of —' : 'M —/—');
+  sequenceDockEls.phaseHeadline.textContent = currentPhase !== null
+    ? (isFullMode ? `Phase ${currentPhase} of ${phaseCount}` : `P ${currentPhase}/${phaseCount}`)
+    : (isFullMode ? 'Phase — of —' : 'P —/—');
+
+  sequenceDockEls.moveHeadline.textContent = translatedMoveHeadline;
+  sequenceDockEls.phaseHeadline.textContent = translatedPhaseHeadline;
+
+  // sequenceDockPlay is the ONE universal Pause/Resume control in the dock.
+  let playLabel = labels.play;
+  let playAria = 'Play from the selected move to the end';
+  if (anySessionActive) {
+    playLabel = isAnimating ? 'Pause' : 'Resume';
+    playAria = isAnimating ? 'Pause playback' : 'Resume playback';
+  }
+  if (anySessionActive) {
+    playLabel = isAnimating ? tr('dock.pause') : tr('dock.resume');
+    playAria = isAnimating ? tr('dock.pause.aria') : tr('dock.resume.aria');
+  } else {
+    playAria = tr('dock.playFromHere.aria');
+  }
+  sequenceDockEls.play.textContent = playLabel;
+  sequenceDockEls.play.setAttribute('aria-label', playAria);
+  sequenceDockEls.play.disabled = anySessionActive ? false : !playFromHerePlayable;
+
+  // Play Phase and Preview never relabel to Pause/Resume - they only start a
+  // session. While any session is active or paused, they stay on their normal
+  // label and are disabled until the coach stops playback via sequenceDockPlay
+  // or the secondary Stop control.
+  sequenceDockEls.playPhase.textContent = labels.playPhase;
+  sequenceDockEls.playPhase.disabled = anySessionActive || !playPhasePlayable;
+  sequenceDockEls.playPhase.title = anySessionActive
+    ? 'Stop the current playback first'
+    : (playPhasePlayable ? 'Play this Phase from its first Move' : 'This Phase contains only one Move');
+  sequenceDockEls.playPhase.setAttribute('aria-label', anySessionActive
+    ? 'Play Phase unavailable: stop the current playback first'
+    : (playPhasePlayable ? 'Play the current Phase from its first move' : 'Play Phase unavailable: this Phase contains only one Move'));
+  sequenceDockEls.playPhase.title = anySessionActive
+    ? tr('dock.playPhase.title.busy')
+    : (playPhasePlayable ? tr('dock.playPhase.title.ready') : tr('dock.playPhase.title.single'));
+  sequenceDockEls.playPhase.setAttribute('aria-label', anySessionActive
+    ? tr('dock.playPhase.aria.busy')
+    : (playPhasePlayable ? tr('dock.playPhase.aria.ready') : tr('dock.playPhase.aria.single')));
+
+  sequenceDockEls.addMove.textContent = labels.addMove;
+  sequenceDockEls.addMove.disabled = editingLocked || sequenceDockAddMoveLock;
+  sequenceDockEls.duplicate.textContent = labels.duplicate;
+  sequenceDockEls.duplicate.disabled = editingLocked || canonicalMove.count < 1;
+  sequenceDockEls.preview.textContent = labels.preview;
+  sequenceDockEls.preview.disabled = anySessionActive || !previewPlayable;
+  sequenceDockEls.preview.title = anySessionActive
+    ? 'Stop the current playback first'
+    : (previewPlayable ? 'Preview the next transition' : 'No later move available to preview');
+  sequenceDockEls.preview.setAttribute('aria-label', anySessionActive
+    ? 'Preview unavailable: stop the current playback first'
+    : (previewPlayable ? 'Preview only the selected move' : 'Preview unavailable: no later move'));
+  sequenceDockEls.preview.title = anySessionActive
+    ? tr('dock.preview.title.busy')
+    : (previewPlayable ? tr('dock.preview.title.ready') : tr('dock.preview.title.none'));
+  sequenceDockEls.preview.setAttribute('aria-label', anySessionActive
+    ? tr('dock.preview.aria.busy')
+    : (previewPlayable ? tr('dock.preview.aria.ready') : tr('dock.preview.aria.none')));
+  sequenceDockEls.more.textContent = labels.more;
+  sequenceDockEls.more.hidden = isFullMode;
+  sequenceDockEls.more.disabled = isFullMode;
+  sequenceDockEls.more.tabIndex = isFullMode ? -1 : 0;
+  sequenceDockEls.more.setAttribute('aria-expanded', isSecondaryView ? 'true' : 'false');
+  sequenceDockEls.primaryPanel.hidden = !isFullMode && isSecondaryView;
+  sequenceDockEls.secondaryPanel.hidden = !isFullMode && !isSecondaryView;
+  sequenceDockEls.back.textContent = labels.back;
+  sequenceDockEls.back.hidden = isFullMode;
+  sequenceDockEls.back.disabled = isFullMode;
+  sequenceDockEls.back.tabIndex = isFullMode || !isSecondaryView ? -1 : 0;
+  sequenceDockEls.playbackControl.hidden = false;
+  sequenceDockEls.playbackControl.disabled = !showPlaybackControl;
+  sequenceDockEls.playbackControl.tabIndex = showPlaybackControl ? 0 : -1;
+  sequenceDockEls.playbackControl.textContent = playbackControlLabel;
+  sequenceDockEls.playbackControl.classList.toggle('sequence-dock__playback-control--inactive', !showPlaybackControl);
+  if (showPlaybackControl) {
+    sequenceDockEls.playbackControl.setAttribute('aria-label', playbackControlAria);
+  } else {
+    sequenceDockEls.playbackControl.removeAttribute('aria-label');
+  }
+  sequenceDockEls.addPhase.textContent = labels.addPhase;
+  sequenceDockEls.addPhase.disabled = phaseStartDisabled;
+  sequenceDockEls.addPhase.setAttribute('aria-pressed', phaseStartPending ? 'true' : 'false');
+  sequenceDockEls.addPhase.setAttribute('aria-label', phaseAction.ariaLabel);
+  sequenceDockEls.addPhase.title = phaseAction.title || '';
+  if (sequenceDockEls.phaseActionStatus) {
+    sequenceDockEls.phaseActionStatus.hidden = false;
+    sequenceDockEls.phaseActionStatus.textContent = phaseAction.note || ' ';
+  }
+  sequenceDockEls.deleteMove.textContent = labels.deleteMove;
+  sequenceDockEls.deleteMove.disabled = deleteDisabled;
+  sequenceDockEls.deleteMove.title = canonicalMove.count <= 1
+    ? 'A play must contain at least one Move'
+    : 'Delete the selected Move';
+  sequenceDockEls.deleteMove.title = canonicalMove.count <= 1
+    ? tr('dock.delete.disabled')
+    : tr('dock.delete.ready');
+}
+
+function initSequenceControlDock() {
+  const dock = document.getElementById('sequenceControlDock');
+  if (!dock) return;
+  sequenceDockEls = {
+    dock,
+    moveHeadline: document.getElementById('sequenceDockMoveHeadline'),
+    phaseHeadline: document.getElementById('sequenceDockPhaseHeadline'),
+    status: document.getElementById('sequenceDockStatus'),
+    addMove: document.getElementById('sequenceDockAddMove'),
+    more: document.getElementById('sequenceDockMore'),
+    primaryPanel: document.getElementById('sequenceDockPrimaryPanel'),
+    secondaryPanel: document.getElementById('sequenceDockSecondaryPanel'),
+    duplicate: document.getElementById('sequenceDockDuplicate'),
+    play: document.getElementById('sequenceDockPlay'),
+    playPhase: document.getElementById('sequenceDockPlayPhase'),
+    preview: document.getElementById('sequenceDockPreview'),
+    playbackControl: document.getElementById('sequenceDockPlaybackControl'),
+    addPhase: document.getElementById('sequenceDockAddPhase'),
+    phaseActionStatus: document.getElementById('sequenceDockPhaseActionStatus'),
+    deleteMove: document.getElementById('sequenceDockDelete'),
+    back: document.getElementById('sequenceDockBack'),
+  };
+
+  sequenceDockEls.addMove.addEventListener('click', handleSequenceDockAddMove);
+  sequenceDockEls.more.addEventListener('click', toggleSequenceDockView);
+  sequenceDockEls.duplicate.addEventListener('click', duplicateStep);
+  sequenceDockEls.play.addEventListener('click', toggleSmartPlay);
+  sequenceDockEls.playPhase.addEventListener('click', handleSequenceDockPlayPhase);
+  sequenceDockEls.preview.addEventListener('click', previewCurrentMove);
+  sequenceDockEls.playbackControl.addEventListener('click', handleSequenceDockPlaybackControl);
+  sequenceDockEls.addPhase.addEventListener('click', handleSequenceDockStartPhase);
+  sequenceDockEls.deleteMove.addEventListener('click', confirmDeleteSelectedMoveFromDock);
+  sequenceDockEls.back.addEventListener('click', () => setSequenceDockView('primary', { focusTarget: true }));
+  updateSequenceDockUI();
+  scheduleSequenceDockPosition();
+}
+
+function updateSequenceUI() {
+  const prevBtn = document.getElementById('seqPrevBtn');
+  const nextBtn = document.getElementById('seqNextBtn');
+  const seqBarPrev = document.getElementById('seqBarPrev');
+  const seqBarNext = document.getElementById('seqBarNext');
+  const seqBarPlay = document.getElementById('seqBarPlay');
+  const playIcon  = document.getElementById('seqBarPlayIcon');
+  const playLabel = document.getElementById('seqBarPlayLabel');
+  const playBtn = document.getElementById('playBtn');
+  const tlPlayBtn = document.getElementById('tlPlayBtn');
+  const playable = currentPhaseHasPlayablePlayback();
+  const playFromHerePlayable = projectHasPlayablePlayback();
+  const activeTransition = getActiveCanonicalTransitionRefs();
+  // During an active/paused transition, Previous/Next always target the actual
+  // transition source/target - not just whichever chip is currently highlighted.
+  const hasPrev = activeTransition ? true : hasPreviousCanonicalMove();
+  const hasNext = activeTransition ? true : hasNextCanonicalMove();
+  const canonicalMove = getCanonicalMoveDisplay();
+  updatePhaseUI();
+  syncSequenceBarSummary(canonicalMove);
+  if (prevBtn) prevBtn.disabled = !hasPrev;
+  if (nextBtn) nextBtn.disabled = !hasNext;
+  if (seqBarPrev) seqBarPrev.disabled = !hasPrev;
+  if (seqBarNext) seqBarNext.disabled = !hasNext;
+  if (seqBarPrev) seqBarPrev.setAttribute('aria-disabled', String(!hasPrev));
+  if (seqBarNext) seqBarNext.setAttribute('aria-disabled', String(!hasNext));
+  if (seqBarPrev) seqBarPrev.title = activeTransition
+    ? 'Stop playback and return to the previous Move'
+    : (canonicalMove.hasSelection ? 'Previous Move' : 'Previous Move unavailable');
+  if (seqBarNext) seqBarNext.title = activeTransition
+    ? 'Stop playback and jump to the next Move'
+    : (canonicalMove.hasSelection ? 'Next Move' : 'Next Move unavailable');
+  const isPaused = !S.animating && S.animT > 0;
+  const anyPlaybackActive = S.animating || isPaused;
+  if (seqBarPlay) seqBarPlay.disabled = anyPlaybackActive ? false : !playFromHerePlayable;
+  if (seqBarPlay) seqBarPlay.title = S.animating
+    ? 'Pause playback'
+    : isPaused
+      ? 'Resume playback'
+      : playFromHerePlayable
+        ? 'Play from the current move through to the end'
+        : 'No later move available to play';
+  if (playIcon)  playIcon.innerHTML = S.animating ? '&#9208;' : '&#9654;';
+  if (playLabel) playLabel.textContent = S.animating ? 'PAUSE' : (isPaused ? 'RESUME' : 'PLAY');
+  if (playBtn) playBtn.disabled = !playable;
+  if (tlPlayBtn) tlPlayBtn.disabled = !playable;
+  scheduleSequenceBarScroller({ center: true, behavior: 'smooth' });
+  updateSequenceDockUI();
+  scheduleSequenceDockPosition();
+}
+
+let seqBarScrollRefreshRaf = 0;
+let seqBarScrollShouldCenter = false;
+let seqBarScrollBehavior = 'smooth';
+let seqBarScrollBindingsReady = false;
+
+function getSequenceBarElements() {
+  return {
+    strip: document.getElementById('phaseChipStrip'),
+    shell: document.getElementById('seqBarStripShell'),
+    scrollPrev: document.getElementById('seqBarScrollPrev'),
+    scrollNext: document.getElementById('seqBarScrollNext'),
+    moveIndicator: document.getElementById('seqBarMoveIndicator'),
+    phaseIndicator: document.getElementById('seqBarPhaseIndicator'),
+  };
+}
+
+function centerSequenceBarOnCurrentChip({ behavior = 'smooth' } = {}) {
+  const { strip } = getSequenceBarElements();
+  if (!strip) return;
+  const activeChip = strip.querySelector('.tb-phase-chip.active');
+  if (!activeChip) return;
+  const maxScroll = Math.max(0, strip.scrollWidth - strip.clientWidth);
+  if (maxScroll <= 0) return;
+  const targetLeft = Math.max(
+    0,
+    Math.min(
+      activeChip.offsetLeft - ((strip.clientWidth - activeChip.offsetWidth) / 2),
+      maxScroll
+    )
+  );
+  strip.scrollTo({ left: targetLeft, behavior });
+}
+
+function refreshSequenceBarScroller() {
+  seqBarScrollRefreshRaf = 0;
+  const { strip, shell, scrollPrev, scrollNext } = getSequenceBarElements();
+  if (!strip || !shell) return;
+  if (seqBarScrollShouldCenter) centerSequenceBarOnCurrentChip({ behavior: seqBarScrollBehavior });
+  seqBarScrollShouldCenter = false;
+  seqBarScrollBehavior = 'smooth';
+
+  const maxScroll = Math.max(0, strip.scrollWidth - strip.clientWidth);
+  const canScrollLeft = strip.scrollLeft > 2;
+  const canScrollRight = strip.scrollLeft < maxScroll - 2;
+  shell.dataset.canScrollLeft = canScrollLeft ? 'true' : 'false';
+  shell.dataset.canScrollRight = canScrollRight ? 'true' : 'false';
+  if (scrollPrev) {
+    scrollPrev.disabled = !canScrollLeft;
+    scrollPrev.setAttribute('aria-disabled', canScrollLeft ? 'false' : 'true');
+  }
+  if (scrollNext) {
+    scrollNext.disabled = !canScrollRight;
+    scrollNext.setAttribute('aria-disabled', canScrollRight ? 'false' : 'true');
+  }
+}
+
+function scheduleSequenceBarScroller({ center = false, behavior = 'smooth' } = {}) {
+  if (center) {
+    seqBarScrollShouldCenter = true;
+    seqBarScrollBehavior = behavior;
+  }
+  if (seqBarScrollRefreshRaf) return;
+  seqBarScrollRefreshRaf = requestAnimationFrame(refreshSequenceBarScroller);
+}
+
+function scrollSequenceBarBy(direction) {
+  const { strip } = getSequenceBarElements();
+  if (!strip) return;
+  const distance = Math.max(strip.clientWidth * 0.62, 180) * direction;
+  strip.scrollBy({ left: distance, behavior: 'smooth' });
+  scheduleSequenceBarScroller();
+}
+
+function syncSequenceBarSummary(canonicalMove = getCanonicalMoveDisplay()) {
+  const { moveIndicator, phaseIndicator } = getSequenceBarElements();
+  if (moveIndicator) {
+    moveIndicator.textContent = canonicalMove.hasSelection
+      ? tr('dock.moveOf', { current: canonicalMove.current, total: canonicalMove.count })
+      : tr('dock.moveEmpty');
+  }
+  if (phaseIndicator) {
+    const phaseTotal = Array.isArray(GamePlan.phases) ? GamePlan.phases.length : 0;
+    const currentPhase = phaseTotal ? GamePlan.currentPhase + 1 : 0;
+    phaseIndicator.textContent = `${tr('phase.short', {}, 'PHASE')} ${currentPhase} / ${Math.max(phaseTotal, 1)}`;
+  }
+}
+
+function initSequenceBarNavigator() {
+  if (seqBarScrollBindingsReady) return;
+  const { strip, scrollPrev, scrollNext } = getSequenceBarElements();
+  if (!strip) return;
+  seqBarScrollBindingsReady = true;
+  strip.addEventListener('scroll', () => scheduleSequenceBarScroller());
+  scrollPrev?.addEventListener('click', () => scrollSequenceBarBy(-1));
+  scrollNext?.addEventListener('click', () => scrollSequenceBarBy(1));
+  window.addEventListener('resize', () => scheduleSequenceBarScroller({ center: true, behavior: 'auto' }));
 }
 
 //  ANIMATION
-function toggleSmartPlay() {
-  // If currently playing, pause
-  if (S.animating) {
-    stopPlayback(false);
+function isCanonicalPlaybackPaused() {
+  return !S.animating && S.animT > 0;
+}
+
+// Resumes whichever session (preview / phase / from-here) is currently paused,
+// using the state it was started with. Never re-derives or redefines the mode.
+function resumeCanonicalPlayback() {
+  if (!currentPhaseHasPlayablePlayback()) {
+    stopPlayback(true);
+    setHint('This is the final move. There is no next move to continue.');
+    refreshInteractionUI();
     return;
   }
-  // If on last step or only 1 step, restart from step 0 then play
-  const count = sequenceStepCount();
-  if (count <= 1 || S.currentStep >= count - 1) {
-    S.currentStep = 0;
-    setLiveBoardFromStep(S.steps[0]);
-    refreshInteractionUI();
+  S.animating = true;
+  S.lastTs = null;
+  setPlayBtnState();
+  updateTL();
+  render();
+  canonicalPlaybackRafHandle = requestAnimationFrame(animLoop);
+}
+
+// While animating or paused, the canonical transition in flight always has a
+// resolvable source (the still-selected Move) and target (the next Move the
+// engine is animating toward) - independent of which chip happens to be
+// highlighted. Returns null when idle.
+function getActiveCanonicalTransitionRefs() {
+  if (!S.animating && !isCanonicalPlaybackPaused()) return null;
+  const fromIdx = getCurrentCanonicalMoveIndex();
+  const toIdx = canonicalPlaybackTargetIndex(fromIdx);
+  if (fromIdx < 0 || toIdx === null) return null;
+  return { fromIdx, toIdx };
+}
+
+// Fully cancels any active/paused playback session and lands cleanly on the
+// given canonical Move index, selected and editable. Shared by transport
+// (Previous/Next), Move chips and Phase labels - never a second engine.
+function cancelPlaybackAndSelect(index) {
+  stopPlayback(true);
+  clearCanonicalPlaybackOrigin();
+  activateCanonicalMoveForPlayback(index, { resetProgress: true });
+  updateTL();
+  render();
+}
+
+function handleCanonicalPrevious() {
+  const transition = getActiveCanonicalTransitionRefs();
+  if (transition) {
+    cancelPlaybackAndSelect(transition.fromIdx);
+  } else {
+    goToPreviousCanonicalMove();
   }
-  // Play from current position
+  mobileAutoReturnFromFitFullPitch();
+}
+window.handleCanonicalPrevious = handleCanonicalPrevious;
+
+function handleCanonicalNext() {
+  const transition = getActiveCanonicalTransitionRefs();
+  if (transition) {
+    cancelPlaybackAndSelect(transition.toIdx);
+  } else {
+    goToNextCanonicalMove();
+  }
+  mobileAutoReturnFromFitFullPitch();
+}
+window.handleCanonicalNext = handleCanonicalNext;
+
+function handleCanonicalMoveChipSelect(index) {
+  const transition = getActiveCanonicalTransitionRefs();
+  if (transition) {
+    cancelPlaybackAndSelect(index);
+  } else {
+    goToCanonicalMove(index);
+  }
+  mobileAutoReturnFromFitFullPitch();
+}
+
+function toggleSmartPlay() {
+  // PRIMARY PLAY (desktop): run the sequence from the CURRENT phase through every
+  // later phase to the end. Repeat clicks pause, then resume from where it stopped.
+  // Single-move preview stays available via previewCurrentMove()/togglePlay().
+  if (S.animating) {
+    stopPlayback(false);
+    refreshInteractionUI();
+    updateTL();
+    render();
+    return;
+  }
+  togglePlayAll();
+}
+
+// Secondary: preview only the current phase transition (the old single-step play).
+function previewCurrentMove() {
+  if (S.animating) { stopPlayback(false); refreshInteractionUI(); render(); return; }
   togglePlay();
 }
+window.previewCurrentMove = previewCurrentMove;
 window.toggleSmartPlay = toggleSmartPlay;
 
 function togglePlay() {
@@ -5275,81 +11285,88 @@ function togglePlay() {
     render();
     return;
   }
-  if (sequenceStepCount() <= 1 || S.currentStep >= sequenceStepCount() - 1) {
-    togglePlayAll();
+  if (isCanonicalPlaybackPaused()) {
+    resumeCanonicalPlayback();
     return;
   }
   S.playAll = false;
+  canonicalPlaybackBoundaryIndex = null;
+  canonicalPlaybackMode = 'preview';
   persistCurrentPhase();
+  captureCanonicalPlaybackOrigin();
   if (!currentPhaseHasPlayablePlayback()) {
+    clearCanonicalPlaybackOrigin();
     stopPlayback(false);
-    setHint('Add another phase to animate the board.');
+    setHint('This is the final move. There is no next move to preview.');
     refreshInteractionUI();
     return;
   }
-  if (phasePlaybackTargetIndex() === null) {
-    stopPlayback(false);
-    setHint('This is the last phase. There is no next snapshot to animate to.');
-    refreshInteractionUI();
-    return;
-  }
-  activatePhaseForPlayback(GamePlan.currentPhase, { resetToStart: false });
-  if (S.animT <= 0 || S.animT >= 1) S.animT = 0;
+  S.animT = 0;
   S.animating = true;
-  const isPlay = S.animating;
-  syncPlayButtons();
-  if (isPlay) { S.lastTs = null; requestAnimationFrame(animLoop); }
+  S.lastTs = null;
+  setPlayBtnState();
+  canonicalPlaybackRafHandle = requestAnimationFrame(animLoop);
 }
 
 function togglePlayAll() {
-  if (S.playAll) {
+  if (!claimPhoneDataAction('more:play-all')) return;
     if (S.animating) {
       S.animating = false;
       S.lastTs = null;
-    } else {
-      if (!currentPhaseHasPlayablePlayback()) {
-        stopPlayback(false);
-        setHint('Draw a path, pass, or kick to animate this phase.');
-        refreshInteractionUI();
-        return;
-      }
-      S.animating = true;
-        S.lastTs = null;
-        requestAnimationFrame(animLoop);
-      }
     setPlayBtnState();
     refreshInteractionUI();
     updateTL();
     render();
     return;
   }
+  if (isCanonicalPlaybackPaused()) {
+    resumeCanonicalPlayback();
+    return;
+  }
 
   persistCurrentPhase();
+  captureCanonicalPlaybackOrigin();
   if (!currentPhaseHasPlayablePlayback()) {
+    clearCanonicalPlaybackOrigin();
     stopPlayback(false);
-    setHint('Add another phase to animate the board.');
-    refreshInteractionUI();
-    return;
-  }
-  if (phasePlaybackTargetIndex() === null) {
-    stopPlayback(false);
-    setHint('This is the last phase. There are no later phases to play.');
+    setHint('This is the final move. There are no later moves to play.');
     refreshInteractionUI();
     return;
   }
 
+  canonicalPlaybackBoundaryIndex = null;
+  canonicalPlaybackMode = 'from-here';
   S.playAll = true;
-  activatePhaseForPlayback(GamePlan.currentPhase, { resetToStart: false });
-  if (S.animT <= 0 || S.animT >= 1) S.animT = 0;
+  S.animT = 0;
   S.animating = true;
   S.lastTs = null;
   setPlayBtnState();
   updateTL();
   render();
-  requestAnimationFrame(animLoop);
+  canonicalPlaybackRafHandle = requestAnimationFrame(animLoop);
 }
 window.togglePlayAll = togglePlayAll;
 window.deleteStep = deleteStep;
+window.deleteCanonicalMove = deleteCanonicalMove;
+
+function playCurrentCanonicalPhase() {
+  const range = getCanonicalPhasePlaybackRange();
+  if (!range || range.moveCount <= 1) return;
+  persistCurrentPhase();
+  goToCanonicalMove(range.firstIndex);
+  captureCanonicalPlaybackOrigin();
+  canonicalPlaybackBoundaryIndex = range.lastIndex;
+  canonicalPlaybackMode = 'phase';
+  S.playAll = true;
+  S.animT = 0;
+  S.animating = true;
+  S.lastTs = null;
+  setPlayBtnState();
+  updateTL();
+  render();
+  canonicalPlaybackRafHandle = requestAnimationFrame(animLoop);
+}
+window.playCurrentCanonicalPhase = playCurrentCanonicalPhase;
 
 function animLoop(ts) {
   if (!S.animating) return;
@@ -5357,21 +11374,27 @@ function animLoop(ts) {
   if (S.lastTs !== null) {
     S.animT = Math.min(1, S.animT + (ts - S.lastTs) / 1000 * S.animSpd / DUR);
     if (S.animT >= 1) {
-      const targetIdx = phasePlaybackTargetIndex(GamePlan.currentPhase);
-      if (targetIdx !== null) {
-        activatePhaseForPlayback(targetIdx, { resetToStart: false });
-        if (S.playAll && phasePlaybackTargetIndex(GamePlan.currentPhase) !== null) {
+      const targetIdx = canonicalPlaybackTargetIndex(getCurrentCanonicalMoveIndex());
+      if (targetIdx !== null && activateCanonicalMoveForPlayback(targetIdx, { resetProgress: true })) {
+        const nextIdx = canonicalPlaybackTargetIndex(getCurrentCanonicalMoveIndex());
+        const withinBoundary = canonicalPlaybackBoundaryIndex === null
+          || (nextIdx !== null && nextIdx <= canonicalPlaybackBoundaryIndex);
+        if (S.playAll && nextIdx !== null && withinBoundary) {
           S.lastTs = ts;
           updateTL();
           render();
-          requestAnimationFrame(animLoop);
+          canonicalPlaybackRafHandle = requestAnimationFrame(animLoop);
           return;
         }
       }
       S.animating = false;
       S.playAll = false;
+      restoreCanonicalPlaybackOrigin();
       S.animT = 0;
       S.lastTs = null;
+      canonicalPlaybackBoundaryIndex = null;
+      canonicalPlaybackMode = 'idle';
+      canonicalPlaybackRafHandle = null;
       setPlayBtnState();
       refreshInteractionUI();
       render();
@@ -5381,7 +11404,7 @@ function animLoop(ts) {
   }
   S.lastTs = ts;
   render(); updateTL();
-  if (S.animating) requestAnimationFrame(animLoop);
+  if (S.animating) canonicalPlaybackRafHandle = requestAnimationFrame(animLoop);
 }
 function setPlayBtnState() {
   syncPlayButtons();
@@ -5403,7 +11426,7 @@ function chSpd(d) {
     ...(S.projectPlayback || {}),
     currentSpeed: S.animSpd,
   });
-  document.getElementById('spdLabel').textContent = fmtSpd(S.animSpd);
+  syncSpeedButtonsUI();
 }
 function updateTL() {
   const pct = S.animT * 100;
@@ -5445,18 +11468,21 @@ const MODE_LABELS = {
 
 HINTS.note  = 'NOTE – click the pitch to place a coaching cue card.';
 HINTS.arrow = 'ARROW – drag to draw a coaching annotation arrow. Does not animate players.';
-HINTS.zone  = 'CIRCLE – drag to place a highlight circle.';
+HINTS.zone  = 'CIRCLE – drag to place a circle or oval highlight. Hold Shift for a perfect circle.';
 MODE_LABELS.note  = 'Note';
+MODE_LABELS.playerLabel = 'Player Label';
 MODE_LABELS.arrow = 'Arrow';
 MODE_LABELS.zone  = 'Circle Highlight';
 
+HINTS.ellipse = HINTS.zone;
+MODE_LABELS.ellipse = 'Circle Highlight';
 HINTS.tele = 'TELESTRATOR - draw live ink that fades in 3 seconds.';
 MODE_LABELS.tele = 'Telestrator';
 
 const MOBILE_DRAWER_IDS = ['selection', 'annotations', 'notes', 'files'];
 
 function isMobileViewport() {
-  return window.matchMedia('(max-width: 768px)').matches;
+  return isPhoneViewport;
 }
 
 function setMobileToolsDropdownOpen(open) {
@@ -5491,53 +11517,62 @@ function setMobileSpd(val) {
   spdIdx = idx;
   S.animSpd = SPEEDS[spdIdx];
   S.projectPlayback = normalizePlaybackSettings({ ...(S.projectPlayback || {}), currentSpeed: S.animSpd });
-  document.getElementById('spdLabel').textContent = fmtSpd(S.animSpd);
-  [0.25, 0.5, 1, 2].forEach(v => {
-    const chip = document.getElementById('mspd-' + v);
-    if (chip) chip.classList.toggle('active', v === S.animSpd);
-  });
+  syncSpeedButtonsUI();
 }
 window.setMobileSpd = setMobileSpd;
 
 function isCompactViewport() {
-  return window.matchMedia('(max-width: 768px)').matches;
+  return isPhoneViewport;
 }
 
 function syncResponsiveToolbarLabels() {
   const compact = isCompactViewport();
-  document.querySelectorAll('[data-label-desktop]').forEach((btn) => {
-    const desktopLabel = btn.getAttribute('data-label-desktop') || '';
-    const mobileLabel = btn.getAttribute('data-label-mobile') || desktopLabel;
+  document.querySelectorAll('[data-label-desktop], [data-i18n-label-desktop]').forEach((btn) => {
+    const desktopKey = btn.getAttribute('data-i18n-label-desktop') || '';
+    const mobileKey = btn.getAttribute('data-i18n-label-mobile') || desktopKey;
+    const desktopLabel = desktopKey ? tr(desktopKey, {}, btn.getAttribute('data-label-desktop') || '') : (btn.getAttribute('data-label-desktop') || '');
+    const mobileLabel = mobileKey ? tr(mobileKey, {}, btn.getAttribute('data-label-mobile') || desktopLabel) : (btn.getAttribute('data-label-mobile') || desktopLabel);
     btn.innerHTML = compact ? mobileLabel : desktopLabel;
   });
 }
 
 function syncPlayButtons() {
   const compact = isCompactViewport();
-  const playable = currentPhaseHasPlayablePlayback();
+  const singlePlayable = currentPhaseHasPlayablePlayback();
+  const playAllPlayable = projectHasPlayablePlayback();
   const playBtn = document.getElementById('playBtn');
   const playAllBtn = document.getElementById('playAllBtn');
   const mobPlayBtn = document.getElementById('mobPlayBtn');
+  const mobileTopPlayBtn = document.getElementById('mobileTopPlayBtn');
   const tlPlayBtn = document.getElementById('tlPlayBtn');
   const singlePlayActive = S.animating && !S.playAll;
   const playAllLocked = S.playAll;
-  const singlePlayLabel = singlePlayActive ? (compact ? '||' : 'PAUSE') : (compact ? '\u25b6' : 'PLAY');
-  const playAllLabel = S.animating && S.playAll ? (compact ? '||' : '\u23f8 PAUSE') : (compact ? '\u25b6\u25b6' : '\u25b6\u25b6 PLAY ALL');
+  const singlePlayLabel = singlePlayActive ? (compact ? '||' : tr('play.pause', {}, 'PAUSE')) : (compact ? '\u25b6' : tr('play.play', {}, 'PLAY'));
+  const playAllLabel = S.animating && S.playAll ? (compact ? '||' : `\u23f8 ${tr('play.pauseAll', {}, 'PAUSE ALL')}`) : (compact ? '\u25b6\u25b6' : `\u25b6\u25b6 ${tr('play.playAll', {}, 'PLAY ALL')}`);
   if (playBtn) {
     playBtn.textContent = singlePlayLabel;
-    playBtn.disabled = !playable || playAllLocked;
+    playBtn.disabled = !singlePlayable || playAllLocked;
   }
   if (playAllBtn) {
     playAllBtn.textContent = playAllLabel;
-    playAllBtn.disabled = !playable;
+    playAllBtn.disabled = !playAllPlayable;
   }
   if (tlPlayBtn) {
-    tlPlayBtn.textContent = singlePlayActive ? 'Pause' : 'Play';
-    tlPlayBtn.disabled = !playable || playAllLocked;
+    tlPlayBtn.textContent = singlePlayActive ? tr('play.pauseTitle', {}, 'Pause') : tr('play.playTitle', {}, 'Play');
+    tlPlayBtn.disabled = !singlePlayable || playAllLocked;
   }
   if (mobPlayBtn) {
-    mobPlayBtn.textContent = S.animating ? '\u23f8 PAUSE' : '\u25b6 PLAY';
-    mobPlayBtn.disabled = !playable;
+    mobPlayBtn.textContent = S.animating ? `\u23f8 ${tr('play.pause', {}, 'PAUSE')}` : `\u25b6 ${tr('play.play', {}, 'PLAY')}`;
+    mobPlayBtn.disabled = !singlePlayable;
+  }
+  if (mobileTopPlayBtn) {
+    // Universal Pause/Resume control on phone (mirrors the desktop dock's
+    // sequenceDockPlay): idle -> Play from Here; while any session (Preview,
+    // Play Phase or Play from Here, however it was started) is active or
+    // paused, this becomes the single Pause/Resume control for it.
+    const mobileSessionActive = S.animating || isCanonicalPlaybackPaused();
+    mobileTopPlayBtn.textContent = S.animating ? tr('play.pauseTitle', {}, 'Pause') : (isCanonicalPlaybackPaused() ? tr('play.resume', {}, 'Resume') : tr('play.playTitle', {}, 'Play'));
+    mobileTopPlayBtn.disabled = mobileSessionActive ? false : !playAllPlayable;
   }
 }
 
@@ -5559,18 +11594,52 @@ function toggleMobileDrawer(id) {
 window.toggleMobileDrawer = toggleMobileDrawer;
 
 function updateMobileUI() {
-  const mobileBoardName = document.getElementById('mobileBoardName');
-  const mobilePlayBtn = document.getElementById('mobilePlayBtn');
-  const mobileSequencePlayBtn = document.getElementById('mobileSequencePlayBtn');
-  const mobilePrevStepBtn = document.getElementById('mobilePrevStepBtn');
-  const mobileNextStepBtn = document.getElementById('mobileNextStepBtn');
+  const mobilePhaseCounter = document.getElementById('mobilePhaseCounter');
   const mobileAddAttackBtn = document.getElementById('mobileAddAttackBtn');
   const mobileAddDefenceBtn = document.getElementById('mobileAddDefenceBtn');
-  const mobileBoardSummary = document.getElementById('mobileBoardSummary');
+  const mobileMoreAddAttackBtn = document.getElementById('mobileMoreAddAttackBtn');
+  const mobileMoreAddDefenceBtn = document.getElementById('mobileMoreAddDefenceBtn');
+  const mobileMorePrevPhaseBtn = document.getElementById('mobileMorePrevPhaseBtn');
+  const mobileMoreNextPhaseBtn = document.getElementById('mobileMoreNextPhaseBtn');
+  const mobileMorePrevStepBtn = document.getElementById('mobileMorePrevStepBtn');
+  const mobileMoreNextStepBtn = document.getElementById('mobileMoreNextStepBtn');
+  const mobileMorePlayAllBtn = document.getElementById('mobileMorePlayAllBtn');
   const count = sequenceStepCount();
   const playable = currentPhaseHasPlayablePlayback();
-  const owner = normalizePlayerRef(S.ballOwner);
-  const ownerText = owner ? `Ball: ${owner.team === 'A' ? 'A' : 'D'} #${owner.num}` : (S.ball ? 'Ball: Loose' : 'Ball: Off board');
+
+  syncResponsiveToolbarLabels();
+  syncPlayButtons();
+  if (mobilePhaseCounter) mobilePhaseCounter.textContent = `${tr('phase.short', {}, 'PHASE')} ${GamePlan.currentPhase + 1} / ${GamePlan.phases.length}`;
+  [0.25, 0.5, 1, 2].forEach(v => {
+    const chip = document.getElementById('mspd-' + v);
+    if (chip) chip.classList.toggle('active', v === S.animSpd);
+  });
+  if (mobileMorePrevPhaseBtn) mobileMorePrevPhaseBtn.disabled = GamePlan.currentPhase === 0;
+  if (mobileMoreNextPhaseBtn) mobileMoreNextPhaseBtn.disabled = GamePlan.currentPhase >= GamePlan.phases.length - 1;
+  if (mobileMorePrevStepBtn) mobileMorePrevStepBtn.disabled = S.currentStep === 0;
+  if (mobileMoreNextStepBtn) mobileMoreNextStepBtn.disabled = S.currentStep >= count - 1;
+  if (mobileAddAttackBtn) mobileAddAttackBtn.disabled = S.atkUsed.size >= 15;
+  if (mobileAddDefenceBtn) mobileAddDefenceBtn.disabled = S.defUsed.size >= 15;
+  if (mobileMoreAddAttackBtn) mobileMoreAddAttackBtn.disabled = S.atkUsed.size >= 15;
+  if (mobileMoreAddDefenceBtn) mobileMoreAddDefenceBtn.disabled = S.defUsed.size >= 15;
+  if (mobileMorePlayAllBtn) {
+    mobileMorePlayAllBtn.textContent = S.animating && S.playAll ? '⏸ PAUSE ALL' : '▶▶ PLAY ALL';
+    mobileMorePlayAllBtn.disabled = !playable;
+  }
+  MOBILE_DRAWER_IDS.forEach(id => {
+    const section = document.getElementById(`drawer-${id}`);
+    if (!section) return;
+    if (!isPhoneViewport) {
+      section.classList.remove('is-open');
+    }
+  });
+  if (!isPhoneViewport) {
+    closeMobileToolsDropdown();
+    closeMobileBoardMenu();
+    closeMobileNotesSheet();
+    setMobileMoreDrawerOpen(false);
+  }
+  return;
 
   syncResponsiveToolbarLabels();
   syncPlayButtons();
@@ -5595,7 +11664,7 @@ function updateMobileUI() {
   if (mobileAddAttackBtn) mobileAddAttackBtn.disabled = S.atkUsed.size >= 15;
   if (mobileAddDefenceBtn) mobileAddDefenceBtn.disabled = S.defUsed.size >= 15;
 
-  ['move', 'run', 'pass', 'kick', 'tele', 'zone', 'box', 'erase', 'note', 'arrow'].forEach(tool => {
+  ['move', 'run', 'pass', 'kick', 'tele', 'zone', 'box', 'ellipse', 'erase', 'note', 'arrow'].forEach(tool => {
     const btn = document.getElementById(`mq-${tool}`);
     if (btn) btn.classList.toggle('active', S.tool === tool);
   });
@@ -5608,6 +11677,52 @@ function updateMobileUI() {
     }
   });
   if (!isMobileViewport()) closeMobileToolsDropdown();
+}
+
+function updateMobileUI() {
+  const mobilePhaseCounter = document.getElementById('mobilePhaseCounter');
+  const mobileAddAttackBtn = document.getElementById('mobileAddAttackBtn');
+  const mobileAddDefenceBtn = document.getElementById('mobileAddDefenceBtn');
+  const mobileMoreAddAttackBtn = document.getElementById('mobileMoreAddAttackBtn');
+  const mobileMoreAddDefenceBtn = document.getElementById('mobileMoreAddDefenceBtn');
+  const mobileMorePrevPhaseBtn = document.getElementById('mobileMorePrevPhaseBtn');
+  const mobileMoreNextPhaseBtn = document.getElementById('mobileMoreNextPhaseBtn');
+  const mobileMorePrevStepBtn = document.getElementById('mobileMorePrevStepBtn');
+  const mobileMoreNextStepBtn = document.getElementById('mobileMoreNextStepBtn');
+  const mobileMorePlayAllBtn = document.getElementById('mobileMorePlayAllBtn');
+  const count = sequenceStepCount();
+  const playable = currentPhaseHasPlayablePlayback();
+
+  syncResponsiveToolbarLabels();
+  syncPlayButtons();
+  if (mobilePhaseCounter) mobilePhaseCounter.textContent = `${tr('phase.short', {}, 'PHASE')} ${GamePlan.currentPhase + 1} / ${GamePlan.phases.length}`;
+  [0.25, 0.5, 1, 2].forEach(v => {
+    const chip = document.getElementById('mspd-' + v);
+    if (chip) chip.classList.toggle('active', v === S.animSpd);
+  });
+  if (mobileMorePrevPhaseBtn) mobileMorePrevPhaseBtn.disabled = GamePlan.currentPhase === 0;
+  if (mobileMoreNextPhaseBtn) mobileMoreNextPhaseBtn.disabled = GamePlan.currentPhase >= GamePlan.phases.length - 1;
+  if (mobileMorePrevStepBtn) mobileMorePrevStepBtn.disabled = S.currentStep === 0;
+  if (mobileMoreNextStepBtn) mobileMoreNextStepBtn.disabled = S.currentStep >= count - 1;
+  if (mobileAddAttackBtn) mobileAddAttackBtn.disabled = S.atkUsed.size >= 15;
+  if (mobileAddDefenceBtn) mobileAddDefenceBtn.disabled = S.defUsed.size >= 15;
+  if (mobileMoreAddAttackBtn) mobileMoreAddAttackBtn.disabled = S.atkUsed.size >= 15;
+  if (mobileMoreAddDefenceBtn) mobileMoreAddDefenceBtn.disabled = S.defUsed.size >= 15;
+  if (mobileMorePlayAllBtn) {
+    mobileMorePlayAllBtn.textContent = S.animating && S.playAll ? 'â¸ PAUSE ALL' : 'â–¶â–¶ PLAY ALL';
+    mobileMorePlayAllBtn.disabled = !playable;
+  }
+  MOBILE_DRAWER_IDS.forEach(id => {
+    const section = document.getElementById(`drawer-${id}`);
+    if (!section) return;
+    if (!isPhoneViewport) section.classList.remove('is-open');
+  });
+  if (!isPhoneViewport) {
+    closeMobileToolsDropdown();
+    closeMobileBoardMenu();
+    closeMobileNotesSheet();
+    setMobileMoreDrawerOpen(false);
+  }
 }
 
 function getSelectedSummary() {
@@ -5634,7 +11749,10 @@ function getSelectedSummary() {
   const ann = selectedAnnotation();
   if (ann) {
     if (ann.type === 'note') {
-      return { title: 'Tactical Note', meta: 'Move it on the board or update the note text below.' };
+      return { title: 'Tactical Note', meta: 'Move it on the board, drag a corner handle to resize it, or update the note text below.' };
+    }
+    if (ann.type === 'playerLabel') {
+      return { title: 'Player Label', meta: 'This label stays attached to its player. Drag it to change its offset, or edit the text inline.' };
     }
     if (ann.type === 'arrow') {
       return { title: 'Free Arrow', meta: 'Drag the line or either endpoint in Move to refine the arrow.' };
@@ -5643,7 +11761,10 @@ function getSelectedSummary() {
       return { title: 'Circle Highlight', meta: 'Drag the circle to move it or drag the outer handle to resize it.' };
     }
     if (ann.type === 'box') {
-      return { title: 'Box Highlight', meta: 'Drag inside the box to move it or drag any corner handle to resize it.' };
+      return { title: 'Box Highlight', meta: 'Drag inside the box to move it, use the round handle above it to rotate, or drag any corner handle to resize it.' };
+    }
+    if (ann.type === 'ellipse') {
+      return { title: 'Circle Highlight', meta: 'Drag inside the shape to move it, use the round handle above it to rotate, or drag any corner handle to resize it. Hold Shift while resizing for a perfect circle.' };
     }
   }
   if (players.length > 1) {
@@ -5747,9 +11868,13 @@ function updatePaletteSummary() {
   const available = document.getElementById('palAvailable');
   const ballStatus = document.getElementById('palBallStatus');
   const palCopy = document.getElementById('palCopy');
+  const attackPlayerCount = document.getElementById('attackPlayerCount');
+  const defencePlayerCount = document.getElementById('defencePlayerCount');
 
   if (atkTabCount) atkTabCount.textContent = `${atkCount} / 15`;
   if (defTabCount) defTabCount.textContent = `${defCount} / 15`;
+  if (attackPlayerCount) attackPlayerCount.textContent = `${atkCount} / 15`;
+  if (defencePlayerCount) defencePlayerCount.textContent = `${defCount} / 15`;
   if (onBoard) onBoard.textContent = `${activeCount} / 15`;
   if (available) available.textContent = String(15 - activeCount);
   if (ballStatus) {
@@ -5776,6 +11901,8 @@ function updateBoardStatus() {
   const toolbarMode = document.getElementById('toolbarModeInline');
   const gainlineBtn = document.getElementById('gainlineToggleBtn');
   const mobGainlineBtn = document.getElementById('mobGainlineBtn');
+  const ghostPrevBtn = document.getElementById('ghostPreviousToggleBtn');
+  const mobGhostPrevBtn = document.getElementById('mobGhostPrevBtn');
   const mobBallBtn = document.querySelector('#mobileMoreDrawer .mob-more-btn[onclick*="addBall"]');
   const count = sequenceStepCount();
   const owner = normalizePlayerRef(S.ballOwner);
@@ -5785,7 +11912,18 @@ function updateBoardStatus() {
   if (text) text.textContent = summary;
   if (toolbarMode) toolbarMode.textContent = `Mode: ${MODE_LABELS[S.tool] || 'Board'}`;
   if (gainlineBtn) gainlineBtn.classList.toggle('active', showGainline);
-  if (mobGainlineBtn) mobGainlineBtn.classList.toggle('active', showGainline);
+  if (mobGainlineBtn) {
+    mobGainlineBtn.classList.toggle('is-active', showGainline);
+    mobGainlineBtn.textContent = showGainline ? 'ON' : 'OFF';
+  }
+  if (ghostPrevBtn) {
+    ghostPrevBtn.classList.toggle('active', !!S.showGhostPrevious);
+    ghostPrevBtn.setAttribute('aria-pressed', S.showGhostPrevious ? 'true' : 'false');
+  }
+  if (mobGhostPrevBtn) {
+    mobGhostPrevBtn.classList.toggle('is-active', !!S.showGhostPrevious);
+    mobGhostPrevBtn.textContent = S.showGhostPrevious ? 'ON' : 'OFF';
+  }
   if (mobBallBtn) mobBallBtn.disabled = !!S.ball;
   if (empty) empty.classList.toggle('hidden', !!S.players.length || !!S.ball || !!S.annotations.length);
   if (shouldShowFirstUseTutorial() && !_tourActive) {
@@ -5793,14 +11931,89 @@ function updateBoardStatus() {
   }
 }
 
+function syncAttackDirectionUI() {
+  const direction = currentAttackDirection();
+  const copy = attackDirectionUiCopy();
+  const desktopLabel = document.getElementById('attackDirectionLabel');
+  const mobileLabel = document.getElementById('mobAttackDirectionLabel');
+  const desktopGroup = document.getElementById('attackDirectionGroup');
+  const mobileGroup = document.getElementById('mobAttackDirectionGroup');
+  const upButtons = [
+    document.getElementById('attackDirectionUpBtn'),
+    document.getElementById('mobAttackDirectionUpBtn'),
+  ];
+  const downButtons = [
+    document.getElementById('attackDirectionDownBtn'),
+    document.getElementById('mobAttackDirectionDownBtn'),
+  ];
+  if (desktopLabel) desktopLabel.textContent = copy.label;
+  if (mobileLabel) mobileLabel.textContent = copy.label;
+  if (desktopGroup) desktopGroup.setAttribute('aria-label', copy.label);
+  if (mobileGroup) mobileGroup.setAttribute('aria-label', copy.label);
+  upButtons.forEach((btn) => {
+    if (!btn) return;
+    const active = direction === ATTACK_DIRECTION_UP;
+    btn.textContent = copy.upShort;
+    btn.title = copy.up;
+    btn.setAttribute('aria-label', copy.up);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    btn.classList.toggle('active', active);
+    btn.classList.toggle('is-active', active);
+  });
+  downButtons.forEach((btn) => {
+    if (!btn) return;
+    const active = direction === ATTACK_DIRECTION_DOWN;
+    btn.textContent = copy.downShort;
+    btn.title = copy.down;
+    btn.setAttribute('aria-label', copy.down);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    btn.classList.toggle('active', active);
+    btn.classList.toggle('is-active', active);
+  });
+}
+
 function toggleGainline() {
+  if (!claimPhoneDataAction('more:gainline')) return;
   showGainline = !showGainline;
+  resetDeleteConfirm('phase');
+  resetDeleteConfirm('move');
   closeRadialMenu();
   setHint(showGainline ? 'Gainline visible. Drag it in Move mode to reposition it.' : 'Gainline hidden.');
   refreshInteractionUI();
   render();
 }
 window.toggleGainline = toggleGainline;
+
+function setAttackDirection(direction, { snapshotBefore = true } = {}) {
+  const next = normalizeAttackDirection(direction);
+  const current = currentAttackDirection();
+  if (next === current) return false;
+  if (snapshotBefore) snapshot();
+  if (!S.playMetadata) S.playMetadata = emptyPlayMetadata(currentPlayTitle());
+  S.playMetadata = normalizeProjectMetadata(
+    { name: currentPlayTitle() },
+    { ...(S.playMetadata || {}), title: currentPlayTitle(), attackDirection: next }
+  );
+  const carrier = S.players.find((player) => player.isBC);
+  updateGainDisplayForY(carrier ? carrier.y : GAINLINE_Y);
+  setHint(next === ATTACK_DIRECTION_UP
+    ? 'Attack direction set to upfield. Positive gain now reads toward the top try line.'
+    : 'Attack direction set to downfield. Positive gain now reads toward the bottom try line.');
+  refreshInteractionUI();
+  render();
+  return true;
+}
+window.setAttackDirection = setAttackDirection;
+
+function toggleGhostPrevious() {
+  if (!claimPhoneDataAction('more:ghost-previous')) return;
+  S.showGhostPrevious = !S.showGhostPrevious;
+  closeRadialMenu();
+  setHint(S.showGhostPrevious ? 'Ghost previous is on. Previous positions render as reference outlines only.' : 'Ghost previous is off. Only the current move keyframe renders as solid tokens.');
+  refreshInteractionUI();
+  render();
+}
+window.toggleGhostPrevious = toggleGhostPrevious;
 
 function updateAnnotationPanel() {
   const copy = document.getElementById('annotationCopy');
@@ -5811,9 +12024,11 @@ function updateAnnotationPanel() {
   } else if (S.tool === 'arrow') {
     copy.textContent = 'Drag on the field to draw a free tactical arrow.';
   } else if (S.tool === 'zone') {
-    copy.textContent = 'Drag on the field to size a circle highlight for space, support, or defensive gaps.';
+    copy.textContent = 'Drag on the field to size a circle or oval highlight for space, support, or defensive gaps. Hold Shift for a perfect circle.';
   } else if (S.tool === 'box') {
     copy.textContent = 'Drag on the field to size a box highlight for channels, pressure areas, or field zones.';
+  } else if (S.tool === 'ellipse') {
+    copy.textContent = 'Drag on the field to size a circle or oval highlight for space, support, or defensive gaps. Hold Shift for a perfect circle.';
   } else if (S.tool === 'kick') {
     copy.textContent = 'Secondary tool: click the kicker, then the target.';
   } else if (S.tool === 'erase') {
@@ -5826,7 +12041,7 @@ function updateAnnotationPanel() {
 function updatePlayMetadataPanel() {
   const metadata = buildPlayMetadata();
   const titleValue = document.getElementById('metaTitleValue');
-  if (titleValue) titleValue.textContent = metadata.title || 'Untitled Play';
+  if (titleValue) titleValue.textContent = metadata.title || tr('untitled.play', {}, 'Untitled Play');
 
   const purpose = document.getElementById('metaPurpose');
   const decisionCue = document.getElementById('metaDecisionCue');
@@ -5869,25 +12084,32 @@ function updatePlayMetadataFromInputs() {
     }
   );
   updatePlayMetadataPanel();
+  scheduleAutosave();
 }
 
 function focusSelectedNoteInput(selectAll = false) {
-  const ann = selectedAnnotation();
-  const noteInput = document.getElementById('selNoteInput');
-  if (!ann || ann.type !== 'note' || !noteInput) return;
-  requestAnimationFrame(() => {
-    noteInput.focus();
-    if (selectAll) noteInput.select();
-  });
+  beginSelectedNoteInlineEdit({ selectAll });
 }
 
 function updateSelectedNoteText(value) {
   const ann = selectedAnnotation();
-  if (!ann || ann.type !== 'note') return;
-  ann.text = (value || '').trim() || ANNOTATION_NOTE_DEFAULT;
+  if (!ann || !isEditableTextAnnotationType(ann.type)) return;
+  ann.text = String(value ?? '').slice(0, 160);
+  if (ann.type === 'note') clampNoteAnnotation(ann);
+  scheduleAutosave();
   refreshInteractionUI();
   render();
 }
+
+function setSelectedNoteAlign(align) {
+  const ann = selectedAnnotation();
+  if (!ann || !isEditableTextAnnotationType(ann.type)) return;
+  ann.align = align === 'center' || align === 'right' ? align : 'left';
+  scheduleAutosave();
+  refreshInteractionUI();
+  render();
+}
+window.setSelectedNoteAlign = setSelectedNoteAlign;
 
 const TOOL_GUIDE_CONTENT = {
   move:  { icon: '↖', desc: 'Move objects. Drag players, ball, paths or notes to reposition. Click a run path, pass or kick to select it.' },
@@ -5901,6 +12123,8 @@ const TOOL_GUIDE_CONTENT = {
   note:  { icon: '✎', desc: 'Tap on the field to place a coaching cue card.' },
   erase: { icon: '✕', desc: 'Tap any player, ball, path, or annotation to remove it.' },
 };
+
+TOOL_GUIDE_CONTENT.ellipse = { icon: '()', desc: 'Drag on the field to draw a circle or oval highlight area. Hold Shift for a perfect circle.' };
 
 function updateSmartPanel() {
   const guide = TOOL_GUIDE_CONTENT[S.tool] || TOOL_GUIDE_CONTENT.run || TOOL_GUIDE_CONTENT.move;
@@ -5933,7 +12157,7 @@ function updateSmartPanel() {
   if (kickStep1) kickStep1.classList.toggle('active', isKick && !activeWorkflowPlayerId());
   if (kickStep2) kickStep2.classList.toggle('active', isKick && !!activeWorkflowPlayerId());
 
-  const isAnnotationTool = S.tool === 'note' || S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box';
+  const isAnnotationTool = S.tool === 'note' || S.tool === 'arrow' || S.tool === 'zone' || S.tool === 'box' || S.tool === 'ellipse';
   const defaultState = document.getElementById('spDefaultState');
   const hasSelection = !!S.selectedPlayerId || !!S.selectedGroupId || isBallSelected() || !!selectedAnnotationId();
   const showDefault = !hasSelection && !isKick;
@@ -5966,6 +12190,7 @@ function toggleMobileDrawer() {
   panel.classList.add('sp-drawer-open');
   if (backdrop) backdrop.classList.add('open');
   if (toggle) toggle.setAttribute('aria-expanded', 'true');
+  scheduleSequenceDockPosition();
 }
 function closeMobileDrawer() {
   const panel    = document.getElementById('smartPanel');
@@ -5974,9 +12199,53 @@ function closeMobileDrawer() {
   if (panel) panel.classList.remove('sp-drawer-open');
   if (backdrop) backdrop.classList.remove('open');
   if (toggle) toggle.setAttribute('aria-expanded', 'false');
+  scheduleSequenceDockPosition();
 }
 window.toggleMobileDrawer = toggleMobileDrawer;
 window.closeMobileDrawer  = closeMobileDrawer;
+
+function setMobileBoardMenuOpen(open) {
+  const menu = document.getElementById('mobileBoardMenu');
+  const btn = document.getElementById('mobileBoardMenuBtn');
+  const isOpen = !!open && isPhoneViewport;
+  if (!menu) return;
+  if (isOpen) {
+    closeMobileNotesSheet();
+    setMobileMoreDrawerOpen(false);
+  }
+  menu.classList.toggle('open', isOpen);
+  menu.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+  if (btn) btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+}
+function toggleMobileBoardMenu() {
+  const menu = document.getElementById('mobileBoardMenu');
+  if (!menu) return;
+  setMobileBoardMenuOpen(!menu.classList.contains('open'));
+}
+function closeMobileBoardMenu() {
+  setMobileBoardMenuOpen(false);
+}
+window.toggleMobileBoardMenu = toggleMobileBoardMenu;
+window.closeMobileBoardMenu = closeMobileBoardMenu;
+
+function setMobileNotesSheetOpen(open) {
+  const sheet = document.getElementById('mobileNotesSheet');
+  const isOpen = !!open && isPhoneViewport;
+  if (!sheet) return;
+  sheet.classList.toggle('open', isOpen);
+  sheet.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+}
+function openMobileNotesSheet() {
+  if (!claimPhoneDataAction('more:notes')) return;
+  closeMobileBoardMenu();
+  setMobileMoreDrawerOpen(false);
+  setMobileNotesSheetOpen(true);
+}
+function closeMobileNotesSheet() {
+  setMobileNotesSheetOpen(false);
+}
+window.openMobileNotesSheet = openMobileNotesSheet;
+window.closeMobileNotesSheet = closeMobileNotesSheet;
 
 /* ── Coaching drawer ── */
 function toggleCoachingDrawer() {
@@ -6006,19 +12275,41 @@ window.closeCoachingDrawer = closeCoachingDrawer;
 function toggleAccordion(id) {
   const section = document.getElementById(id);
   if (!section) return;
+  const setOpen = (target, open) => {
+    target.classList.toggle('sp-acc-open', open);
+    const targetTrigger = target.querySelector(':scope > .sp-acc-trigger');
+    if (targetTrigger) targetTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+  };
   const isOpen = section.classList.contains('sp-acc-open');
-  section.classList.toggle('sp-acc-open', !isOpen);
-  const trigger = section.querySelector('.sp-acc-trigger');
-  if (trigger) trigger.setAttribute('aria-expanded', !isOpen ? 'true' : 'false');
-  try { localStorage.setItem('sp-acc-' + id, isOpen ? '0' : '1'); } catch(e) {}
+  const shouldOpen = !isOpen;
+  const desktopAccordion = !document.body.classList.contains('is-phone');
+  const group = section.getAttribute('data-accordion-group');
+  if (desktopAccordion && shouldOpen && group) {
+    const groupSections = document.querySelectorAll('.sp-acc-section[data-accordion-group="' + group + '"]');
+    groupSections.forEach(function(target) {
+      if (target !== section) setOpen(target, false);
+    });
+  }
+  setOpen(section, shouldOpen);
+  scheduleSequenceDockPosition();
 }
 window.toggleAccordion = toggleAccordion;
 
 function setAnnotationColor(color) {
   const ann = selectedAnnotation();
+  if (ann?.type === 'arrow' || (!ann && S.tool === 'arrow')) {
+    applyArrowStyleSelection({ color });
+    return;
+  }
+  if (isShapeAnnotationType(ann?.type) || (!ann && isShapeAnnotationType(S.tool))) {
+    applyShapeStyleSelection({ color });
+    return;
+  }
   if (ann) {
+    const annId = selectedAnnotationId();
     snapshot();
-    ann.color = color;
+    const target = annId ? findAnnotationById(annId) : selectedAnnotation();
+    if (target) target.color = color;
     refreshInteractionUI();
     render();
     return;
@@ -6030,44 +12321,79 @@ function setAnnotationColor(color) {
 }
 window.setAnnotationColor = setAnnotationColor;
 
+function setArrowThickness(thickness) {
+  if (S.tool !== 'arrow' && selectedAnnotation()?.type !== 'arrow') return;
+  applyArrowStyleSelection({ thickness });
+}
+window.setArrowThickness = setArrowThickness;
+
+function setArrowDash(dash) {
+  if (S.tool !== 'arrow' && selectedAnnotation()?.type !== 'arrow') return;
+  applyArrowStyleSelection({ dash });
+}
+window.setArrowDash = setArrowDash;
+
+function setShapeThickness(thickness) {
+  if (!isShapeAnnotationType(S.tool) && !isShapeAnnotationType(selectedAnnotation()?.type)) return;
+  applyShapeStyleSelection({ thickness });
+}
+window.setShapeThickness = setShapeThickness;
+
+function setShapeDash(dash) {
+  if (!isShapeAnnotationType(S.tool) && !isShapeAnnotationType(selectedAnnotation()?.type)) return;
+  applyShapeStyleSelection({ dash });
+}
+window.setShapeDash = setShapeDash;
+
+function setShapeFill(fill) {
+  if (!isShapeAnnotationType(S.tool) && !isShapeAnnotationType(selectedAnnotation()?.type)) return;
+  applyShapeStyleSelection({ fill });
+}
+window.setShapeFill = setShapeFill;
+
 function refreshInteractionUI() {
   persistCurrentStep();
   updateSelInfo();
   rebuildPalette();
   updatePaletteSummary();
   updateBoardStatus();
+  syncAttackDirectionUI();
   updatePlayMetadataPanel();
   updateSequenceUI();
   updateMobileUI();
   updateSmartPanel();
+  syncHistoryControls();
+  scheduleSequenceDockPosition();
+  syncNoteInlineEditor();
+}
+
+function scrollCompactToolbarToolIntoView(tool = S.tool) {
+  const toolbar = document.getElementById('compactToolbar');
+  const btn = toolbar?.querySelector(`.tool-btn[data-tool="${tool}"]`);
+  if (!toolbar || !btn) return;
+  requestAnimationFrame(() => {
+    const targetLeft = Math.max(0, btn.offsetLeft - Math.max(24, (toolbar.clientWidth - btn.offsetWidth) / 2));
+    const maxScroll = Math.max(0, toolbar.scrollWidth - toolbar.clientWidth);
+    toolbar.scrollLeft = clamp(targetLeft, 0, maxScroll);
+  });
 }
 
 function setTool(t) {
-  if (t === S.tool) {
-    if (t === 'kick' && S.activeKickerId) { cancelArmedKick(); return; }
-    if (t === 'pass' && S.activePasserId) {
-      clearPassKickState();
-      clearSelectedObject();
-      clearDragPlayer();
-      S.pointerTap = null;
-      returnInteractionToMoveTool();
-      refreshInteractionUI();
-      render();
-      return;
-    }
-    if (t === 'run' && S.activeRunSourceId) { cancelArmedRun(); return; }
-    if (t === 'pass' || t === 'kick' || t === 'run') {
-      clearPassKickState();
-      clearArmedRunState();
-      clearSelectedObject();
-      clearDragPlayer();
-      S.drawing = null;
-      S.pointerTap = null;
-      returnInteractionToMoveTool();
-      refreshInteractionUI();
-      render();
-      return;
-    }
+  if (t === 'ellipse') t = 'zone';
+  // Any call to setTool() - rail click or radial dispatch alike - starts by
+  // treating a prior radial one-shot Arrow as abandoned. activateRadialAction()
+  // re-arms it immediately after calling setTool('arrow') below, so the flag
+  // still ends up correctly set for a genuine radial activation; this only
+  // prevents a stale flag from an abandoned radial attempt silently making a
+  // later, unrelated rail Arrow click player-anchored.
+  S.radialArrowSourcePlayerId = null;
+  if (t === S.tool && t !== 'move') {
+    // Second click on the already-active rail tool: cancel it and return to
+    // Move. One canonical helper (also used by Escape) replaces the previous
+    // ad-hoc per-tool special cases here, so every tool - not just
+    // erase/pass/kick/run - toggles off the same way.
+    cancelActiveBoardInteraction();
+    return;
   }
   const switchingAwayFromKick = t !== 'kick' && S.activeKickerId;
   const switchingAwayFromRun = t !== 'run' && S.activeRunSourceId;
@@ -6075,7 +12401,7 @@ function setTool(t) {
   if (switchingAwayFromRun) cancelArmedRun();
   S.tool = t;
   if (t !== 'run')           S.drawing = null;
-  if (t !== 'arrow' && t !== 'zone' && t !== 'box') S.annotationDraft = null;
+  if (t !== 'arrow' && t !== 'zone' && t !== 'box' && t !== 'ellipse') S.annotationDraft = null;
   if (t !== 'tele') teleDrawing = null;
   if (t !== 'pass' && t !== 'kick') clearPassKickState();
   if (t !== 'run') clearArmedRunState();
@@ -6085,26 +12411,322 @@ function setTool(t) {
   S.selectedPassIdx = null;
   document.querySelectorAll('[data-tool]').forEach(b => b.classList.remove('active'));
   document.querySelectorAll(`[data-tool="${t}"]`).forEach(b => b.classList.add('active'));
+  scrollCompactToolbarToolIntoView(t);
   cv.style.cursor = t === 'move' ? 'default' : 'crosshair';
-  setHint(HINTS[t] || '');
+  if (t === 'run' && S.selectedPlayerId !== null && !selectedGroup()) {
+    const selectedPlayer = S.players.find(player => player.id === S.selectedPlayerId) || null;
+    if (selectedPlayer) {
+      setArmedRunSource(selectedPlayer.id);
+      selectPlayer(selectedPlayer.id, { highlightedIds: [selectedPlayer.id] });
+      const teamLabel = selectedPlayer.team === 'A' ? 'Attack' : 'Defence';
+      setHint(`Run from ${teamLabel} #${selectedPlayer.num}. Drag on the pitch to draw the path, or tap the same player again to cancel.`);
+    } else {
+      setHint(HINTS[t] || '');
+    }
+  } else if ((t === 'pass' || t === 'kick') && S.selectedPlayerId !== null && !selectedGroup()) {
+    const selectedPlayer = S.players.find(player => player.id === S.selectedPlayerId) || null;
+    if (selectedPlayer) {
+      setWorkflowSource(selectedPlayer.id, t);
+      selectPlayer(selectedPlayer.id, { highlightedIds: [selectedPlayer.id] });
+      S.ballOwner = playerRef(selectedPlayer);
+      S.ballAttached = true;
+      if (!S.ball) S.ball = { x: selectedPlayer.x, y: selectedPlayer.y };
+      syncAttachedBallToOwner();
+      applyBallOwnershipVisualState();
+      const teamLabel = selectedPlayer.team === 'A' ? 'Attack' : 'Defence';
+      setHint(t === 'kick'
+        ? `Kick from ${teamLabel} #${selectedPlayer.num}. Tap a receiver or field target.`
+        : `Pass from ${teamLabel} #${selectedPlayer.num}. Tap the receiver.`);
+    } else {
+      setHint(HINTS[t] || '');
+    }
+  } else {
+    setHint(HINTS[t] || '');
+  }
   updateAnnotationPanel();
   refreshInteractionUI();
   render();
 }
 function setHint(txt) { document.getElementById('hint').textContent = txt; }
 
+
+window.addEventListener('animator-languagechange', () => {
+  HINTS.move = hintText('move');
+  HINTS.run = hintText('run');
+  HINTS.pass = hintText('pass');
+  HINTS.kick = hintText('kick');
+  HINTS.erase = hintText('erase');
+  HINTS.box = hintText('box');
+  HINTS.note = hintText('note');
+  HINTS.arrow = hintText('arrow');
+  HINTS.zone = hintText('zone');
+  HINTS.ellipse = hintText('zone');
+  HINTS.tele = hintText('tele');
+
+  MODE_LABELS.move = modeLabel('move');
+  MODE_LABELS.run = modeLabel('run');
+  MODE_LABELS.pass = modeLabel('pass');
+  MODE_LABELS.kick = modeLabel('kick');
+  MODE_LABELS.erase = modeLabel('erase');
+  MODE_LABELS.box = modeLabel('box');
+  MODE_LABELS.note = modeLabel('note');
+  MODE_LABELS.arrow = modeLabel('arrow');
+  MODE_LABELS.zone = modeLabel('zone');
+  MODE_LABELS.ellipse = modeLabel('ellipse');
+  MODE_LABELS.tele = modeLabel('tele');
+
+  updateAnnotationPanel();
+  updatePresetOptionsUI();
+  updatePlayMetadataPanel();
+  refreshSavedPlayList();
+  updateSelInfo();
+  refreshInteractionUI();
+  updateSequenceUI();
+  if (!document.getElementById('playerNumberPopover')?.hidden) renderPlayerNumberPicker();
+  if (_tourActive) _tourShowStep(_tourCurrentStep);
+  render();
+});
+
+
 function toggleMobileMoreDrawer() {
   const drawer = document.getElementById('mobileMoreDrawer');
   const btn    = document.getElementById('mobMoreBtn');
   if (!drawer) return;
+  setMobileMoreDrawerOpen(!drawer.classList.contains('open'));
+  return;
   const isOpen = drawer.classList.toggle('open');
   drawer.setAttribute('aria-hidden', String(!isOpen));
   if (btn) btn.textContent = isOpen ? 'MORE ▾' : 'MORE ▴';
 }
 window.toggleMobileMoreDrawer = toggleMobileMoreDrawer;
 
+function setMobileMoreDrawerOpen(open) {
+  const drawer = document.getElementById('mobileMoreDrawer');
+  const btn    = document.getElementById('mobMoreBtn');
+  const isOpen = !!open && isMobilePortraitBoard;
+  if (!drawer) return;
+  drawer.classList.toggle('open', isOpen);
+  drawer.setAttribute('aria-hidden', String(!isOpen));
+  if (btn) btn.textContent = isOpen ? 'MORE ▾' : 'MORE ▴';
+}
+
+function toggleMobileMoreDrawer() {
+  const drawer = document.getElementById('mobileMoreDrawer');
+  if (!drawer) return;
+  closeMobileBoardMenu();
+  closeMobileNotesSheet();
+  setMobileMoreDrawerOpen(!drawer.classList.contains('open'));
+}
+window.toggleMobileMoreDrawer = toggleMobileMoreDrawer;
+
+function setMobileMoreDrawerOpen(open) {
+  const drawer = document.getElementById('mobileMoreDrawer');
+  const btn    = document.getElementById('mobMoreBtn');
+  const isOpen = !!open && isPhoneViewport;
+  if (!drawer) return;
+  drawer.classList.toggle('open', isOpen);
+  drawer.setAttribute('aria-hidden', String(!isOpen));
+  if (btn) btn.textContent = isOpen ? 'MORE â–¾' : 'MORE â–´';
+}
+
+function toggleMobileMoreDrawer() {
+  const drawer = document.getElementById('mobileMoreDrawer');
+  if (!drawer) return;
+  closeMobileBoardMenu();
+  closeMobileNotesSheet();
+  setMobileMoreDrawerOpen(!drawer.classList.contains('open'));
+}
+window.toggleMobileMoreDrawer = toggleMobileMoreDrawer;
+
+function setMobileMoreDrawerOpen(open) {
+  const drawer = document.getElementById('mobileMoreDrawer');
+  const backdrop = document.getElementById('mobileMoreBackdrop');
+  const btn    = document.getElementById('mobMoreBtn');
+  const isOpen = !!open && isPhoneViewport;
+  if (!drawer) return;
+  // updateMobileUI() calls this unconditionally on every resize() pass (to
+  // force the drawer closed off-phone) - scheduleResizePass() must only fire
+  // when the drawer's open state actually flips, or resize() -> updateMobileUI()
+  // -> setMobileMoreDrawerOpen(false) -> scheduleResizePass() -> next-frame
+  // resize() forms an unconditional, self-perpetuating render loop that never
+  // settles even at complete idle.
+  const wasOpen = drawer.classList.contains('open');
+  drawer.classList.toggle('open', isOpen);
+  drawer.setAttribute('aria-hidden', String(!isOpen));
+  if (backdrop) backdrop.classList.toggle('open', isOpen);
+  if (isOpen) drawer.scrollTop = 0;
+  if (btn) btn.textContent = isOpen ? 'MORE v' : 'MORE ^';
+  if (isOpen !== wasOpen) scheduleResizePass();
+}
+
+// ---- Portrait editing-view scroll lifecycle -------------------------------
+
+// The halfway line (field y=50) sits exactly at the vertical midpoint of the
+// field's own display bounds (F.DY0..F.DY1 are symmetric around 50), which
+// is exactly #canvasWrap's own vertical centre - so centring the wrap's
+// centre in #canvasHost's viewport centres the halfway line.
+function centerPortraitHalfwayLine() {
+  const host = document.getElementById('canvasHost');
+  const wrap = document.getElementById('canvasWrap');
+  if (!host || !wrap) return;
+  host.scrollTop = Math.max(0, (wrap.offsetHeight - host.clientHeight) / 2);
+}
+
+function restorePortraitScrollPosition() {
+  const host = document.getElementById('canvasHost');
+  if (!host) return;
+  if (Number.isFinite(mobilePortraitScrollTop)) {
+    const maxScroll = Math.max(0, host.scrollHeight - host.clientHeight);
+    host.scrollTop = Math.max(0, Math.min(mobilePortraitScrollTop, maxScroll));
+  } else {
+    centerPortraitHalfwayLine();
+  }
+}
+
+let mobileLastKnownPortraitState = null; // null=unknown (first phone entry), then true/false
+
+// Called from resize() on every settled phone pass. Detects genuine
+// orientation TRANSITIONS (not every resize) to: save the editing-view
+// scroll position when leaving portrait, and restore it (or centre the
+// halfway line, for a first-ever entry) when (re)entering it.
+function handleMobilePortraitScrollLifecycle(isPortraitNow) {
+  const wasPortrait = mobileLastKnownPortraitState;
+  if (wasPortrait === true && !isPortraitNow) {
+    const host = document.getElementById('canvasHost');
+    if (host && !mobileFitFullPitch) mobilePortraitScrollTop = host.scrollTop;
+  }
+  const enteringPortrait = isPortraitNow && wasPortrait !== true;
+  mobileLastKnownPortraitState = isPortraitNow;
+  if (enteringPortrait && !mobileFitFullPitch) {
+    // Wait for the scroll container's CSS (overflow-y:auto, natural tall
+    // #canvasWrap) to be the settled, active layout before reading/writing
+    // scrollTop - one rAF for this resize pass's own layout, one more so any
+    // dependent reflow (e.g. the toolbar/header switching modes too) settles.
+    requestAnimationFrame(() => requestAnimationFrame(restorePortraitScrollPosition));
+  }
+}
+
+function mobileAutoReturnFromFitFullPitch() {
+  if (mobileFitFullPitch) toggleMobileFitFullPitch(false);
+}
+
+// Portrait-only. Temporarily contain-fits the whole pitch (both goalposts
+// visible, no scroll) instead of the default large, scrollable editing view.
+// Auto-returns to editing view on the next player select/drag/add or Move
+// change (mobileAutoReturnFromFitFullPitch's call sites); pressing the same
+// More button again also toggles it back manually - never a second,
+// duplicate playback/view control.
+function toggleMobileFitFullPitch(forceValue) {
+  if (!isMobilePortraitBoard) return;
+  const next = typeof forceValue === 'boolean' ? forceValue : !mobileFitFullPitch;
+  if (next === mobileFitFullPitch) return;
+  if (next) {
+    // Entering: remember the editing-view scroll position so returning to it
+    // (whether via auto-return or a manual second press) restores exactly.
+    const host = document.getElementById('canvasHost');
+    if (host) mobilePortraitScrollTop = host.scrollTop;
+  }
+  mobileFitFullPitch = next;
+  const btn = document.getElementById('mobileMoreFitPitchBtn');
+  if (btn) btn.textContent = mobileFitFullPitch ? 'EDITING VIEW' : 'FIT FULL PITCH';
+  scheduleResizePass();
+  if (!mobileFitFullPitch) {
+    requestAnimationFrame(() => requestAnimationFrame(restorePortraitScrollPosition));
+  }
+}
+window.toggleMobileFitFullPitch = toggleMobileFitFullPitch;
+
+function updateMobileUI() {
+  const mobilePhasePill = document.getElementById('mobilePhasePill');
+  const mobilePhaseCounterLabel = document.getElementById('mobilePhaseCounterLabel');
+  const mobilePhasePrevBtn = document.getElementById('mobilePhasePrevBtn');
+  const mobilePhaseNextBtn = document.getElementById('mobilePhaseNextBtn');
+  const mobilePhaseStepperValue = document.getElementById('mobilePhaseStepperValue');
+  const mobileMoveStepperValue = document.getElementById('mobileMoveStepperValue');
+  const mobilePhaseDeleteBtn = document.getElementById('mobilePhaseDeleteBtn');
+  const mobileMoveDeleteBtn = document.getElementById('mobileMoveDeleteBtn');
+  const mobGainlineBtn = document.getElementById('mobGainlineBtn');
+  const mobileRailAddAttackBtn = document.getElementById('mobileRailAddAttackBtn');
+  const mobileRailAddDefenceBtn = document.getElementById('mobileRailAddDefenceBtn');
+  const mobileMorePlayPhaseBtn = document.getElementById('mobileMorePlayPhaseBtn');
+  const mobileMorePreviewBtn = document.getElementById('mobileMorePreviewBtn');
+  const playAllPlayable = projectHasPlayablePlayback();
+
+  syncResponsiveToolbarLabels();
+  syncPlayButtons();
+  if (mobilePhasePill) updateMobilePhaseCounterLabel();
+  if (mobilePhaseCounterLabel) {
+    mobilePhaseCounterLabel.textContent = `PHASE ${GamePlan.currentPhase + 1}/${GamePlan.phases.length} · MOVE ${S.currentStep + 1}/${sequenceStepCount()}`;
+  }
+  syncSpeedButtonsUI();
+  // Header chevrons step canonical Moves (see the bindSinglePhoneButton wiring
+  // below), so their disabled state follows the canonical Move boundary, not
+  // the current Phase's boundary.
+  {
+    const canonicalIndex = getCurrentCanonicalMoveIndex();
+    const canonicalCount = getCanonicalMoveCount();
+    if (mobilePhasePrevBtn) mobilePhasePrevBtn.disabled = canonicalIndex <= 0;
+    if (mobilePhaseNextBtn) mobilePhaseNextBtn.disabled = canonicalIndex < 0 || canonicalIndex >= canonicalCount - 1;
+  }
+  if (mobilePhaseStepperValue) mobilePhaseStepperValue.textContent = `${GamePlan.currentPhase + 1}/${GamePlan.phases.length}`;
+  if (mobileMoveStepperValue) mobileMoveStepperValue.textContent = `${sequenceStepCount()}/${sequenceStepCount()}`;
+  if (mobilePhaseDeleteBtn) {
+    mobilePhaseDeleteBtn.textContent = phoneDeleteConfirmState.phase ? 'SURE?' : '-';
+    mobilePhaseDeleteBtn.classList.toggle('is-confirming', phoneDeleteConfirmState.phase);
+  }
+  if (mobileMoveDeleteBtn) {
+    mobileMoveDeleteBtn.textContent = phoneDeleteConfirmState.move ? 'SURE?' : '-';
+    mobileMoveDeleteBtn.classList.toggle('is-confirming', phoneDeleteConfirmState.move);
+  }
+  if (mobGainlineBtn) {
+    mobGainlineBtn.textContent = showGainline ? 'ON' : 'OFF';
+    mobGainlineBtn.classList.toggle('is-active', showGainline);
+  }
+  if (mobileRailAddAttackBtn) mobileRailAddAttackBtn.disabled = S.atkUsed.size >= 15;
+  if (mobileRailAddDefenceBtn) mobileRailAddDefenceBtn.disabled = S.defUsed.size >= 15;
+  // Play Phase / Preview Move (More panel): same rule as the desktop dock -
+  // keep their normal label at all times, disable while any playback session
+  // (started from either of them or from the top Play control) is active or
+  // paused, so the top control remains the single Pause/Resume authority.
+  const mobileAnySessionActive = S.animating || isCanonicalPlaybackPaused();
+  if (mobileMorePlayPhaseBtn) {
+    const phaseRange = getCanonicalPhasePlaybackRange();
+    const playPhasePlayable = !!phaseRange && phaseRange.moveCount > 1;
+    mobileMorePlayPhaseBtn.disabled = mobileAnySessionActive || !playPhasePlayable;
+    mobileMorePlayPhaseBtn.title = mobileAnySessionActive
+      ? 'Stop the current playback first'
+      : (playPhasePlayable ? 'Play this Phase from its first Move' : 'This Phase contains only one Move');
+  }
+  if (mobileMorePreviewBtn) {
+    const previewPlayable = currentPhaseHasPlayablePlayback();
+    mobileMorePreviewBtn.disabled = mobileAnySessionActive || !previewPlayable;
+    mobileMorePreviewBtn.title = mobileAnySessionActive
+      ? 'Stop the current playback first'
+      : (previewPlayable ? 'Preview the next transition' : 'No later move available to preview');
+  }
+  const mobileMoreFitPitchBtn = document.getElementById('mobileMoreFitPitchBtn');
+  if (mobileMoreFitPitchBtn) {
+    // Portrait-only view toggle - not meaningful in landscape (already a
+    // contain-fit presentation view with no editing-view/scroll mode).
+    mobileMoreFitPitchBtn.disabled = !isMobilePortraitBoard;
+    mobileMoreFitPitchBtn.textContent = mobileFitFullPitch ? 'EDITING VIEW' : 'FIT FULL PITCH';
+  }
+  MOBILE_DRAWER_IDS.forEach(id => {
+    const section = document.getElementById(`drawer-${id}`);
+    if (!section) return;
+    if (!isPhoneViewport) section.classList.remove('is-open');
+  });
+  if (!isPhoneViewport) {
+    closeMobileToolsDropdown();
+    closeMobileBoardMenu();
+    closeMobileNotesSheet();
+    setMobileMoreDrawerOpen(false);
+  }
+}
+
 function clearPaths()  { snapshot(); S.paths=[]; S.passes=[]; S.drawing=null; setHint('Paths cleared. Choose the next action.'); refreshInteractionUI(); render(); }
 function clearSelection() {
+  endNoteInlineEdit();
   clearSelectedObject();
   S.selectedPassIdx = null;
   S.selectedPathPid = null;
@@ -6116,7 +12738,7 @@ function clearSelection() {
   clearArmedRunState();
   S.drawing = null;
   S.annotationDraft = null;
-  setHint('Selection cleared. Choose the next action.');
+  setHint(tr('selection.clear', {}, 'Clear Selection'));
   updatePresetOptionsUI();
   updateAnnotationPanel();
   refreshInteractionUI();
@@ -6126,74 +12748,55 @@ window.clearSelection = clearSelection;
 
 function cancelActiveBoardInteraction() {
   closeMobileToolsDropdown();
-  if (S.annotationDraft) {
-    S.annotationDraft = null;
-    S.dragging = null;
-    S.pointerTap = null;
-    setHint(`${MODE_LABELS[S.tool] || 'Tool'} cancelled.`);
-    updateAnnotationPanel();
-    refreshInteractionUI();
-    render();
-    return true;
-  }
-  if (S.drawing) {
-    S.drawing = null;
-    clearArmedRunState();
-    S.dragging = null;
-    S.pointerTap = null;
-    setHint('Run path cancelled.');
-    refreshInteractionUI();
-    render();
-    return true;
-  }
-  if (teleDrawing) {
-    teleDrawing = null;
-    S.dragging = null;
-    S.pointerTap = null;
-    clearHighlightedPlayers();
-    setHint('Telestrator cancelled.');
-    refreshInteractionUI();
-    render();
-    return true;
-  }
-  if (activeWorkflowPlayerId()) {
-    if (S.tool === 'kick' && S.activeKickerId) {
-      return cancelArmedKick();
-    }
-    clearPassKickState();
-    clearSelectedObject();
-    clearDragPlayer();
-    S.pointerTap = null;
-    returnInteractionToMoveTool();
-    refreshInteractionUI();
-    render();
-    return true;
-  }
-  if (S.activeRunSourceId) {
-    return cancelArmedRun();
-  }
-  if (S.tool === 'pass' || S.tool === 'kick' || S.tool === 'run') {
-    clearPassKickState();
-    clearArmedRunState();
-    clearSelectedObject();
-    clearDragPlayer();
-    S.drawing = null;
-    S.pointerTap = null;
-    returnInteractionToMoveTool();
-    refreshInteractionUI();
-    render();
-    return true;
-  }
-  if (S.selectedPlayerId !== null || S.selectedGroupId !== null || isBallSelected() || selectedAnnotationId() || S.selectedPassIdx !== null || S.selectedPathPid !== null) {
-    clearSelection();
-    return true;
-  }
-  closeMobileToolsDropdown();
-  return false;
+  // Single canonical "cancel everything, land on Move" path - shared by
+  // Escape and by setTool()'s same-tool-click toggle, so a second click on
+  // any active rail tool and pressing Escape always produce the exact same
+  // safe, neutral result, no matter which tool was active or how far into
+  // its interaction (armed-but-idle, mid-draft, mid-drag) the coach got.
+  const hadInteraction = !!(
+    (S.radialArrowSourcePlayerId !== null && S.radialArrowSourcePlayerId !== undefined) ||
+    S.annotationDraft ||
+    S.drawing ||
+    teleDrawing ||
+    activeWorkflowPlayerId() ||
+    S.activeRunSourceId ||
+    S.tool !== 'move' ||
+    S.selectedPlayerId !== null ||
+    S.selectedGroupId !== null ||
+    isBallSelected() ||
+    selectedAnnotationId() ||
+    S.selectedPassIdx !== null ||
+    S.selectedPathPid !== null
+  );
+  if (!hadInteraction) return false;
+
+  S.radialArrowSourcePlayerId = null;
+  S.annotationDraft = null;
+  S.drawing = null;
+  teleDrawing = null;
+  clearPassKickState();
+  clearArmedRunState();
+  clearSelectedObject();
+  clearDragPlayer();
+  clearPendingGroupPlacement();
+  clearHighlightedPlayers();
+  S.selectedPassIdx = null;
+  S.selectedPathPid = null;
+  S.dragging = null;
+  S.pointerTap = null;
+  returnInteractionToMoveTool();
+  updateAnnotationPanel();
+  refreshInteractionUI();
+  render();
+  return true;
 }
 function clearAll() {
+  clearPendingCanonicalPhaseStart();
+  if (!claimPhoneDataAction('more:clear')) return;
   if (!confirm('Clear all players and paths? This cannot be undone.')) return;
   snapshot();
+  resetDeleteConfirm('phase');
+  resetDeleteConfirm('move');
   currentPresetId = null;
   GamePlan.name = 'New Play';
   GamePlan.currentPhase = 0;
@@ -6205,17 +12808,23 @@ function clearAll() {
   S.projectPlayback = null;
   S.annotations = [];
   S.drawing=null; S.passFrom=null; S.annotationDraft=null; S.selected=null; S.selectedPlayerId=null; S.selectedPlayerIds=[]; S.selectedGroupId=null; S.selectedAnnotationIdValue=null; S.selectedObjectType=null; S.dragPlayerId=null; S.activePasserId=null; S.activeKickerId=null; S.activeRunSourceId=null; S.highlightedPlayerIds=[]; S.ballAssignCandidate=null; S.selectedPathPid=null; S.selectedPassIdx=null; S.pendingGroupPlacement=null;
-  S.animT=0; S.animating=false;
-  S.animSpd=1; spdIdx=2;
+  S.animT=0; S.animating=false; S.playAll=false;
+  canonicalPlaybackBoundaryIndex = null;
+  canonicalPlaybackMode = 'idle';
+  S.animSpd=1; spdIdx=0;
+  showGainline=false;
   S.nextId=1;
   S.steps=[emptyStepState()]; S.currentStep=0;
   S.atkUsed=new Set(); S.defUsed=new Set();
+  sequenceDockView = 'primary';
   document.getElementById('playName').value='New Play';
   setHint('Board reset. Start by adding players from the left.');
-  document.getElementById('spdLabel').textContent = '1×';
+  syncSpeedButtonsUI();
   updateAnnotationPanel();
   updatePhaseUI();
   setPlayBtnState(); rebuildPalette(); refreshInteractionUI(); updateTL(); render();
+  removeRecoveryDraft();
+  replaceRecoveryDraftWithCurrentBoard();
 }
 
 function updateSelInfo() {
@@ -6223,13 +12832,73 @@ function updateSelInfo() {
   const meta = document.getElementById('selMeta');
   const clearBtn = document.getElementById('selClearBtn');
   const deleteBtn = document.getElementById('selDeleteBtn');
+  const gainlinePanel = document.getElementById('gainlinePanel');
+  const actionRow = box?.querySelector('.sp-sel-actions') || null;
   const giveBallBtn = document.getElementById('selGiveBallBtn');
   const groupActions = document.getElementById('spGroupActions');
   const groupModeBtn = document.getElementById('selGroupModeBtn');
   const regroupBtn = document.getElementById('selRegroupBtn');
+  const arrowToolCards = [
+    document.getElementById('spArrowToolCard'),
+    document.getElementById('mobileArrowToolCard'),
+  ].filter(Boolean);
+  const arrowToolCopies = [
+    document.getElementById('spArrowToolCopy'),
+    document.getElementById('mobileArrowToolCopy'),
+  ].filter(Boolean);
+  const arrowColorPickers = [
+    document.getElementById('spArrowColorPicker'),
+    document.getElementById('mobileArrowColorPicker'),
+  ].filter(Boolean);
+  const arrowStyleControls = [
+    document.getElementById('spArrowStyleControls'),
+    document.getElementById('mobileArrowStyleControls'),
+  ].filter(Boolean);
+  const shapeToolCards = [
+    document.getElementById('spShapeToolCard'),
+    document.getElementById('mobileShapeToolCard'),
+  ].filter(Boolean);
+  const shapeToolCopies = [
+    document.getElementById('spShapeToolCopy'),
+    document.getElementById('mobileShapeToolCopy'),
+  ].filter(Boolean);
+  const shapeColorPickers = [
+    document.getElementById('spShapeColorPicker'),
+    document.getElementById('mobileShapeColorPicker'),
+  ].filter(Boolean);
+  const shapeStyleControls = [
+    document.getElementById('spShapeStyleControls'),
+    document.getElementById('mobileShapeStyleControls'),
+  ].filter(Boolean);
   const editWrap = document.getElementById('selEditWrap');
   const editLabel = document.getElementById('selEditLabel');
   const noteInput = document.getElementById('selNoteInput');
+  const floatingToolbar = document.getElementById('floatingSelectionToolbar');
+  const floatingToolbarTitle = document.getElementById('floatingSelectionToolbarTitle');
+  const floatingToolbarColorItem = document.getElementById('floatingToolbarColorItem');
+  const floatingToolbarColorValue = document.getElementById('floatingToolbarColorValue');
+  const floatingToolbarColorSwatch = document.getElementById('floatingToolbarColorSwatch');
+  const floatingToolbarLineItem = document.getElementById('floatingToolbarLineItem');
+  const floatingToolbarLineBtn = document.getElementById('floatingToolbarLineBtn');
+  const floatingToolbarLineValue = document.getElementById('floatingToolbarLineValue');
+  const floatingToolbarLinePreview = document.getElementById('floatingToolbarLinePreview');
+  const floatingToolbarWeightItem = document.getElementById('floatingToolbarWeightItem');
+  const floatingToolbarWeightBtn = document.getElementById('floatingToolbarWeightBtn');
+  const floatingToolbarWeightValue = document.getElementById('floatingToolbarWeightValue');
+  const floatingToolbarWeightPreview = document.getElementById('floatingToolbarWeightPreview');
+  const floatingToolbarFillItem = document.getElementById('floatingToolbarFillItem');
+  const floatingToolbarFillBtn = document.getElementById('floatingToolbarFillBtn');
+  const floatingToolbarFillValue = document.getElementById('floatingToolbarFillValue');
+  const floatingToolbarFillPreview = document.getElementById('floatingToolbarFillPreview');
+  const floatingToolbarAlignItem = document.getElementById('floatingToolbarAlignItem');
+  const floatingToolbarAlignBtn = document.getElementById('floatingToolbarAlignBtn');
+  const floatingToolbarAlignValue = document.getElementById('floatingToolbarAlignValue');
+  const floatingToolbarOpacityItem = document.getElementById('floatingToolbarOpacityItem');
+  const floatingToolbarOpacityBtn = document.getElementById('floatingToolbarOpacityBtn');
+  const floatingToolbarOpacityLabel = document.getElementById('floatingToolbarOpacityLabel');
+  const floatingToolbarOpacityValue = document.getElementById('floatingToolbarOpacityValue');
+  const floatingToolbarOpacity = document.getElementById('floatingToolbarOpacity');
+  const floatingToolbarEditNoteBtn = document.getElementById('floatingToolbarEditNoteBtn');
   const summary = getSelectedSummary();
   const ann = selectedAnnotation();
   const group = selectedGroup();
@@ -6237,16 +12906,25 @@ function updateSelInfo() {
     ? S.players.find(player => player.id === S.selectedPlayerId) || null
     : null;
   const playerGroup = !group && selectedPlayer ? groupForPlayer(selectedPlayer) : null;
+  const arrowStyle = currentArrowStyleSelection();
+  const activeShapeType = isShapeAnnotationType(ann?.type) ? ann.type : (isShapeAnnotationType(S.tool) ? S.tool : null);
+  const shapeStyle = currentShapeStyleSelection(activeShapeType);
+  const arrowStyleVisible = S.tool === 'arrow' || ann?.type === 'arrow';
+  const shapeStyleVisible = !!activeShapeType;
+  const annotationToolbarVisible = !!ann && S.selectedPassIdx === null && S.selectedPathPid === null;
+  const showSelectionCard = summary.title !== '-' && !ann;
   document.getElementById('selName').textContent = summary.title;
   if (meta) meta.textContent = summary.meta;
-  box.classList.toggle('visible', summary.title !== '-');
+  box.classList.toggle('visible', showSelectionCard);
   box.classList.toggle('annotation-selected', !!ann && S.selectedPassIdx === null && S.selectedPathPid === null);
   if (editWrap) editWrap.classList.toggle('visible', ann?.type === 'note');
-  if (editLabel) editLabel.textContent = ann?.type === 'note' ? 'Note Text' : 'Details';
+  if (editLabel) editLabel.textContent = ann?.type === 'note' ? tr('note.text', {}, 'Note Text') : tr('details', {}, 'Details');
   if (noteInput) {
-    noteInput.value = ann?.type === 'note' ? ann.text : '';
+    if (noteInput !== document.activeElement) {
+      noteInput.value = ann?.type === 'note' ? String(ann.text ?? '') : '';
+    }
     noteInput.disabled = ann?.type !== 'note';
-    noteInput.placeholder = ann?.type === 'note' ? 'Refine the coaching cue' : 'Update note text';
+    noteInput.placeholder = ann?.type === 'note' ? tr('note.refineCue', {}, 'Refine the coaching cue') : tr('note.placeholder', {}, 'Update note text');
   }
   const giveBallTarget = manualBallAssignmentTarget();
   if (giveBallBtn) {
@@ -6254,31 +12932,51 @@ function updateSelInfo() {
     giveBallBtn.disabled = !giveBallTarget;
     giveBallBtn.onclick = giveBallToSelectedPlayer;
     if (giveBallTarget) {
-      giveBallBtn.textContent = `Give Ball to ${giveBallTarget.team === 'A' ? 'A' : 'D'} #${giveBallTarget.num}`;
+      giveBallBtn.textContent = tr('giveBall.to', {
+        team: giveBallTarget.team === 'A' ? 'A' : 'D',
+        num: giveBallTarget.num,
+      }, `Give Ball to ${giveBallTarget.team === 'A' ? 'A' : 'D'} #${giveBallTarget.num}`);
     }
   }
   const colorPicker = document.getElementById('spColorPicker');
   if (colorPicker) {
-    colorPicker.hidden = !ann && !group && !selectedPlayer;
-    if (ann || group || selectedPlayer) {
+    const selectionColorVisible = !ann && (!!group || !!selectedPlayer);
+    colorPicker.hidden = !selectionColorVisible;
+    if (selectionColorVisible) {
       const currentColor = ann
         ? (ann.color || annotationColor(ann.type))
         : group
           ? (group.color || PRESET_GROUP_ATTACK)
           : (selectedPlayer?.colorOverride || playerColorPalette(selectedPlayer).fill);
-      colorPicker.querySelectorAll('.sp-color-swatch').forEach(sw => {
-        sw.classList.toggle('active', sw.dataset.color === currentColor);
-      });
+      syncColorSwatches(colorPicker, currentColor);
     }
   }
-  const shapeActions = document.getElementById('spShapeActions');
-  const shapeOpacity = document.getElementById('shapeOpacity');
-  if (shapeActions) {
-    shapeActions.hidden = !ann;
-    if (ann && shapeOpacity) {
-      shapeOpacity.value = String(Number(ann.opacity) || 1);
-    }
-  }
+  arrowToolCards.forEach(card => { card.hidden = !arrowStyleVisible; });
+  arrowToolCopies.forEach(copy => {
+    copy.textContent = ann?.type === 'arrow'
+      ? tr('style.selectedLive', { item: tr('mode.arrow', {}, 'Arrow').toLowerCase() }, 'Selected arrow updates live as you change style.')
+      : tr('style.chooseDefault', {}, 'Choose the default style before drawing.');
+  });
+  arrowStyleControls.forEach(controlSet => {
+    controlSet.hidden = !arrowStyleVisible;
+    syncArrowStyleButtons(controlSet, arrowStyle);
+  });
+  arrowColorPickers.forEach(picker => {
+    if (arrowStyleVisible) syncColorSwatches(picker, arrowStyle.color);
+  });
+  shapeToolCards.forEach(card => { card.hidden = !shapeStyleVisible; });
+  shapeToolCopies.forEach(copy => {
+    copy.textContent = isShapeAnnotationType(ann?.type)
+      ? tr('style.selectedLive', { item: tr('shape.style', {}, 'Shape Style').toLowerCase() }, 'Selected shape updates live as you change style.')
+      : tr('style.chooseDefault', {}, 'Choose the default style before drawing.');
+  });
+  shapeStyleControls.forEach(controlSet => {
+    controlSet.hidden = !shapeStyleVisible;
+    syncShapeStyleButtons(controlSet, shapeStyle);
+  });
+  shapeColorPickers.forEach(picker => {
+    if (shapeStyleVisible) syncColorSwatches(picker, shapeStyle.color);
+  });
   const hasAnySelection = !!S.selectedPlayerId || !!group || isBallSelected() || !!ann || S.selectedPassIdx !== null || S.selectedPathPid !== null;
   if (groupActions) {
     const canUnlock = !!group && group.active;
@@ -6287,44 +12985,129 @@ function updateSelInfo() {
     if (groupModeBtn) {
       groupModeBtn.hidden = !canUnlock;
       groupModeBtn.onclick = editSelectedPackIndividuals;
+      groupModeBtn.textContent = tr('editIndividuals', {}, 'Edit Individuals');
     }
     if (regroupBtn) {
       regroupBtn.hidden = !canRegroup;
       regroupBtn.onclick = regroupSelectedPack;
-      if (canRegroup) regroupBtn.textContent = `Regroup ${playerGroup.label}`;
+      if (canRegroup) {
+        regroupBtn.textContent = tr('regroup.packNamed', { label: playerGroup.label }, `Regroup ${playerGroup.label}`);
+      } else {
+        regroupBtn.textContent = tr('regroupPack', {}, 'Regroup Pack');
+      }
     }
   }
   if (deleteBtn) {
     deleteBtn.onclick = deleteSelected;
-    if (S.selectedPathPid !== null) deleteBtn.textContent = 'Remove Run Path';
+    if (S.selectedPathPid !== null) deleteBtn.textContent = tr('remove.runPath', {}, 'Remove Run Path');
     else if (S.selectedPassIdx !== null) {
       const pass = S.passes[S.selectedPassIdx];
-      deleteBtn.textContent = pass?.style === 'pass' ? 'Remove Pass' : 'Remove Kick';
+      deleteBtn.textContent = pass?.style === 'pass'
+        ? tr('remove.pass', {}, 'Remove Pass')
+        : tr('remove.kick', {}, 'Remove Kick');
     }
-    else if (isBallSelected()) deleteBtn.textContent = 'Remove Ball';
-    else if (ann) deleteBtn.textContent = `Remove ${MODE_LABELS[ann.type] || 'Item'}`;
+    else if (isBallSelected()) deleteBtn.textContent = tr('remove.ball', {}, 'Remove Ball');
+    else if (ann) deleteBtn.textContent = tr('remove.item', { item: MODE_LABELS[ann.type] || 'Item' }, `Remove ${MODE_LABELS[ann.type] || 'Item'}`);
     else if (S.selectedPlayerId !== null) {
       const pl = S.players.find(p => p.id === S.selectedPlayerId);
-      deleteBtn.textContent = pl ? 'Remove from Field' : 'Remove Player';
+      deleteBtn.textContent = pl
+        ? tr('remove.fromField', {}, 'Remove from Field')
+        : tr('remove.player', {}, 'Remove Player');
     } else {
-      deleteBtn.textContent = 'Remove Player';
+      deleteBtn.textContent = tr('remove.player', {}, 'Remove Player');
     }
     deleteBtn.disabled = !hasAnySelection || !!group;
   }
   if (clearBtn) {
     clearBtn.onclick = clearSelection;
-    clearBtn.textContent = hasAnySelection ? 'Clear Selection' : 'No Selection';
+    clearBtn.textContent = hasAnySelection ? tr('selection.clear', {}, 'Clear Selection') : tr('selection.none', {}, 'No Selection');
     clearBtn.disabled = !hasAnySelection;
   }
-  const carrier = S.players.find(p => p.isBC);
-  if (carrier) updateGainDisplayForY(carrier.y);
+  if (actionRow) actionRow.hidden = !!ann;
+  if (gainlinePanel) {
+    gainlinePanel.hidden = !selectedPlayer;
+  }
+  const gainTarget = selectedPlayer || S.players.find(p => p.isBC) || null;
+  if (gainTarget) updateGainDisplayForY(gainTarget.y);
   else updateGainDisplayForY(GAINLINE_Y);
 
-  // Floating delete bar — show when annotation selected (Canva-style, works on touch)
-  const floatBar = document.getElementById('floatDeleteBar');
-  if (floatBar) {
-    const annSelected = !!selectedAnnotationId();
-    floatBar.hidden = !annSelected;
+  if (floatingToolbar) {
+    floatingToolbar.hidden = !annotationToolbarVisible;
+    if (annotationToolbarVisible) {
+      floatingToolbar.dataset.kind = ann.type;
+      if (floatingToolbarTitle) floatingToolbarTitle.textContent = annotationToolbarTitle(ann);
+      if (floatingToolbarColorItem) {
+        floatingToolbarColorItem.hidden = false;
+        syncColorSwatches(floatingToolbarColorItem, ann.color || annotationColor(ann.type));
+      }
+      if (floatingToolbarColorSwatch) floatingToolbarColorSwatch.style.background = ann.color || annotationColor(ann.type);
+      if (floatingToolbarColorValue) floatingToolbarColorValue.textContent = annotationColorLabel(ann.color || annotationColor(ann.type));
+
+      const showLine = ann.type === 'arrow' || isShapeAnnotationType(ann.type);
+      if (floatingToolbarLineItem) floatingToolbarLineItem.hidden = !showLine;
+      if (floatingToolbarLineBtn) floatingToolbarLineBtn.hidden = !showLine;
+      if (showLine) {
+        const lineValue = ann.type === 'arrow' ? arrowStyle.dash : currentShapeStyleSelection(ann.type).dash;
+        if (floatingToolbarLinePreview) floatingToolbarLinePreview.dataset.line = lineValue;
+        if (floatingToolbarLineValue) floatingToolbarLineValue.textContent = styleLineLabel(lineValue);
+      }
+
+      const showWeight = ann.type === 'arrow' || isShapeAnnotationType(ann.type);
+      if (floatingToolbarWeightItem) floatingToolbarWeightItem.hidden = !showWeight;
+      if (floatingToolbarWeightBtn) floatingToolbarWeightBtn.hidden = !showWeight;
+      if (showWeight) {
+        const weightValue = ann.type === 'arrow' ? arrowStyle.thickness : currentShapeStyleSelection(ann.type).thickness;
+        if (floatingToolbarWeightPreview) floatingToolbarWeightPreview.dataset.weight = weightValue;
+        if (floatingToolbarWeightValue) floatingToolbarWeightValue.textContent = styleWeightLabel(weightValue);
+      }
+
+      const showFill = isShapeAnnotationType(ann.type);
+      if (floatingToolbarFillItem) floatingToolbarFillItem.hidden = !showFill;
+      if (floatingToolbarFillBtn) floatingToolbarFillBtn.hidden = !showFill;
+      if (showFill) {
+        const fillValue = currentShapeStyleSelection(ann.type).fill;
+        if (floatingToolbarFillPreview) {
+          floatingToolbarFillPreview.dataset.fill = fillValue;
+          floatingToolbarFillPreview.style.color = ann.color || annotationColor(ann.type);
+        }
+        if (floatingToolbarFillValue) floatingToolbarFillValue.textContent = shapeFillLabel(fillValue);
+      }
+
+      const showAlign = ann.type === 'note' || ann.type === 'playerLabel';
+      if (floatingToolbarEditNoteBtn) floatingToolbarEditNoteBtn.hidden = !showAlign;
+      if (floatingToolbarAlignItem) floatingToolbarAlignItem.hidden = !showAlign;
+      if (floatingToolbarAlignBtn) floatingToolbarAlignBtn.hidden = !showAlign;
+      if (showAlign) {
+        const alignValue = noteAlignValue(ann);
+        syncNoteAlignButtons(floatingToolbar, alignValue);
+        if (floatingToolbarAlignValue) floatingToolbarAlignValue.textContent = noteAlignLabel(alignValue);
+      }
+
+      const showOpacity = ann.type === 'note' || ann.type === 'playerLabel' || isShapeAnnotationType(ann.type);
+      if (floatingToolbarOpacityItem) floatingToolbarOpacityItem.hidden = !showOpacity;
+      if (floatingToolbarOpacityBtn) floatingToolbarOpacityBtn.hidden = !showOpacity;
+      if (showOpacity) {
+        const opacityValue = clamp(Number(ann.opacity) || 1, 0.2, 1);
+        if (floatingToolbarOpacity) floatingToolbarOpacity.value = String(opacityValue);
+        if (floatingToolbarOpacityLabel) floatingToolbarOpacityLabel.textContent = ann.type === 'note' || ann.type === 'playerLabel' ? 'Transparency' : 'Opacity';
+        if (floatingToolbarOpacityValue) floatingToolbarOpacityValue.textContent = `${Math.round(opacityValue * 100)}%`;
+      }
+
+      if (ann.type === 'arrow') syncArrowStyleButtons(floatingToolbar, arrowStyle);
+      else if (isShapeAnnotationType(ann.type)) syncShapeStyleButtons(floatingToolbar, currentShapeStyleSelection(ann.type));
+
+      if (floatingToolbarOpenFlyout) {
+        const activeTrigger = floatingToolbar.querySelector(`[data-flyout-target="${floatingToolbarOpenFlyout}"]`);
+        if (!activeTrigger || activeTrigger.hidden || activeTrigger.closest('[hidden]')) {
+          closeFloatingToolbarFlyout();
+        }
+      }
+      scheduleFloatingSelectionToolbarUpdate();
+    } else {
+      floatingToolbar.dataset.kind = '';
+      if (floatingToolbarEditNoteBtn) floatingToolbarEditNoteBtn.hidden = true;
+      closeFloatingToolbarFlyout();
+    }
   }
 }
 
@@ -6344,32 +13127,9 @@ function setTab(tab) {
 
 function rebuildPalette() {
   const grid = document.getElementById('palGrid');
-  const attackRow = document.getElementById('attackPlayerRow');
-  const defenceRow = document.getElementById('defencePlayerRow');
   if (grid) grid.innerHTML = '';
-  if (attackRow) attackRow.innerHTML = '';
-  if (defenceRow) defenceRow.innerHTML = '';
-
-  [
-    { key: 'atk', team: 'A', used: S.atkUsed, target: attackRow },
-    { key: 'def', team: 'D', used: S.defUsed, target: defenceRow },
-  ].forEach(({ key, team, used, target }) => {
-    if (!target) return;
-    for (let n = 1; n <= 15; n++) {
-      const existing = S.players.find((player) => player.num === n && player.team === team) || null;
-      const isSelected = !!existing && isPlayerSelected(existing.id);
-      const btn = document.createElement('button');
-      btn.className = `player-token ${key}${used.has(n) ? ' on' : ''}${isSelected ? ' active' : ''}`;
-      btn.textContent = n;
-      btn.title = used.has(n)
-        ? `${isSelected ? 'Deselect' : 'Select'} ${team==='A'?'Attack':'Defence'} #${n}`
-        : `Add ${team==='A'?'Attack':'Defence'} #${n}`;
-      btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
-      btn.onclick = (event) => togglePalettePlayer(n, team, event);
-      target.appendChild(btn);
-    }
-  });
   updatePaletteSummary();
+  if (!document.getElementById('playerNumberPopover')?.hidden) renderPlayerNumberPicker();
 }
 
 function makeBoardData(nameOverride) {
@@ -6377,6 +13137,7 @@ function makeBoardData(nameOverride) {
 }
 
 function applyBoardData(play, { snapshotBefore = true } = {}) {
+  clearPendingCanonicalPhaseStart();
   const project = normalizeProjectRecord(play);
   if (!project) return false;
   if (snapshotBefore) snapshot();
@@ -6391,6 +13152,9 @@ function applyBoardData(play, { snapshotBefore = true } = {}) {
   setLiveBoardFromStep(activePhase.steps[activePhase.currentStep] || emptyStepState());
   S.animT = 0;
   S.animating = false;
+  S.playAll = false;
+  canonicalPlaybackBoundaryIndex = null;
+  canonicalPlaybackMode = 'idle';
   clearSelectedObject();
   S.selectedPlayerIds = [];
   S.drawing = null;
@@ -6402,6 +13166,7 @@ function applyBoardData(play, { snapshotBefore = true } = {}) {
   S.projectPlayback = p.playback;
   S.animSpd = S.projectPlayback?.currentSpeed || 1;
   spdIdx = Math.max(0, SPEEDS.indexOf(S.animSpd));
+  sequenceDockView = 'primary';
   if (p.metadata?.source !== 'preset') currentPresetId = null;
   document.getElementById('playName').value = GamePlan.name || 'Untitled Play';
   syncPlayMetadataTitle();
@@ -6415,6 +13180,7 @@ function applyBoardData(play, { snapshotBefore = true } = {}) {
   render();
   setTool('move');
   completeFirstUseTutorial();
+  replaceRecoveryDraftWithCurrentBoard();
   return true;
 }
 
@@ -6456,6 +13222,7 @@ function saveCurrentPlay() {
   refreshSavedPlayList();
   setHint(`Saved "${entry.name}" locally.`);
   refreshInteractionUI();
+  replaceRecoveryDraftWithCurrentBoard();
 }
 
 function refreshSavedPlayList() {
@@ -6464,23 +13231,29 @@ function refreshSavedPlayList() {
   const saved = getSavedPlays();
   wrap.innerHTML = '';
   if (!saved.length) {
-    wrap.innerHTML = '<div class="saved-play-empty">No local saves yet. Save the current board to keep building from it later.</div>';
+    wrap.innerHTML = `<div class="saved-play-empty">${tr('saved.empty', {}, 'No local saves yet. Save the current board to keep building from it later.')}</div>`;
     return;
   }
   saved.forEach(item => {
     const card = document.createElement('div');
     card.className = 'saved-play-card';
-    const savedDate = item.savedAt ? new Date(item.savedAt).toLocaleString() : 'Saved locally';
+    const savedDate = item.savedAt ? new Date(item.savedAt).toLocaleString() : tr('saved.local', {}, 'Saved locally');
     card.innerHTML = `<div class="saved-play-main">
       <div>
         <div class="saved-play-name">${item.name}</div>
-        <div class="saved-play-meta">${savedDate}<br>${item.steps?.length || 1} step${(item.steps?.length || 1) === 1 ? '' : 's'} · ${item.players?.length || 0} players · ${(item.paths||[]).length} paths · ${(item.passes||[]).length} passes</div>
+        <div class="saved-play-meta">${savedDate}<br>${tr('saved.meta', {
+          steps: item.steps?.length || 1,
+          stepsLabel: (item.steps?.length || 1) === 1 ? tr('saved.step', {}, 'step') : tr('saved.steps', {}, 'steps'),
+          players: item.players?.length || 0,
+          paths: (item.paths || []).length,
+          passes: (item.passes || []).length,
+        }, `${item.steps?.length || 1} step${(item.steps?.length || 1) === 1 ? '' : 's'} · ${item.players?.length || 0} players · ${(item.paths||[]).length} paths · ${(item.passes||[]).length} passes`)}</div>
       </div>
     </div>
     <div class="saved-play-actions">
-      <button class="saved-play-btn" data-action="load">Load</button>
-      <button class="saved-play-btn" data-action="export">Export</button>
-      <button class="saved-play-btn danger" data-action="delete">Delete</button>
+      <button class="saved-play-btn" data-action="load">${tr('saved.load', {}, 'Load')}</button>
+      <button class="saved-play-btn" data-action="export">${tr('saved.export', {}, 'Export')}</button>
+      <button class="saved-play-btn danger" data-action="delete">${tr('saved.delete', {}, 'Delete')}</button>
     </div>`;
     card.querySelector('[data-action="load"]').onclick = () => {
       if (applyBoardData(item)) {
@@ -6503,108 +13276,236 @@ function deleteSavedPlay(id, name) {
 }
 
 function exportPlayData(play) {
-  const project = normalizeProjectRecord(play) || makeBoardData();
-  const payload = {
-    schemaVersion: PROJECT_SCHEMA_VERSION,
-    projectType: PROJECT_TYPE,
-    exportedAt: nowIso(),
-    project: {
-      name: project.name,
-      currentPhase: project.currentPhase,
-      phases: project.phases,
-    },
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  const safeName = (project.name || 'untitled-play').replace(/[^\w-]+/g, '_');
-  link.href = url;
-  link.download = `${safeName}.json`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  let project;
+  try {
+    project = validateExportProject(normalizeProjectRecord(play) || makeBoardData());
+  } catch {
+    setHint('Export failed. The current play data could not be validated.');
+    refreshInteractionUI();
+    return;
+  }
+  const payload = buildCanonicalPlayEnvelope(project);
+  buildExportDownload(project.name, payload);
   setHint(`Exported "${project.name}" as JSON.`);
   refreshInteractionUI();
+  replaceRecoveryDraftWithCurrentBoard();
+}
+
+function currentBoardLanguage() {
+  return window.AnimatorBoardI18n?.getLanguage?.() || document.documentElement.lang || 'en';
+}
+
+function buildPdfExportProject() {
+  updatePlayMetadataFromInputs();
+  return validateExportProject(normalizeProjectRecord(makeBoardData()));
+}
+
+async function capturePdfStepSnapshot(step, options = {}) {
+  const width = Math.max(1200, Number(options.width) || 2200);
+  const height = Math.max(700, Number(options.height) || 1320);
+  const dpr = Math.max(1, Number(options.dpr) || 2);
+  const rotateLandscape = options.rotateLandscape !== false;
+  const offscreen = document.createElement('canvas');
+  const offscreenCtx = offscreen.getContext('2d');
+  const savedStep = liveBoardToStepState();
+  const savedState = {
+    nextId: S.nextId,
+    selected: S.selected,
+    selectedPlayerId: S.selectedPlayerId,
+    selectedPlayerIds: Array.isArray(S.selectedPlayerIds) ? [...S.selectedPlayerIds] : [],
+    selectedGroupId: S.selectedGroupId,
+    selectedObjectType: S.selectedObjectType,
+    selectedAnnotationIdValue: S.selectedAnnotationIdValue,
+    selectedPassIdx: S.selectedPassIdx,
+    selectedPathPid: S.selectedPathPid,
+    dragging: S.dragging ? cloneData(S.dragging) : null,
+    dragPlayerId: S.dragPlayerId,
+    dragOff: S.dragOff ? { ...S.dragOff } : { x: 0, y: 0 },
+    drawing: S.drawing ? cloneData(S.drawing) : null,
+    passFrom: S.passFrom,
+    activePasserId: S.activePasserId,
+    activeKickerId: S.activeKickerId,
+    activeRunSourceId: S.activeRunSourceId,
+    annotationDraft: S.annotationDraft ? cloneData(S.annotationDraft) : null,
+    ballAssignCandidate: S.ballAssignCandidate,
+    pointerTap: S.pointerTap ? cloneData(S.pointerTap) : null,
+    highlightedPlayerIds: Array.isArray(S.highlightedPlayerIds) ? [...S.highlightedPlayerIds] : [],
+    currentStepBaseline: S.currentStepBaseline ? cloneStepState(S.currentStepBaseline) : null,
+    radialMenu,
+    cvW,
+    cvH,
+    sc,
+    sx,
+    sy,
+    ox,
+    oy,
+    renderDpr,
+    isPhoneViewport,
+    isMobilePortraitBoard,
+    isPhoneLandscapeBoard,
+    viewportState: viewportState ? cloneData(viewportState) : null,
+    staticFieldCanvas,
+    staticFieldCtx,
+    staticFieldCacheKey,
+  };
+
+  try {
+    renderDpr = dpr;
+    const metrics = computeDesktopCanvasMetrics(width, height);
+    cvW = metrics.cvW;
+    cvH = metrics.cvH;
+    sc = metrics.sc;
+    sx = metrics.sx;
+    sy = metrics.sy;
+    ox = metrics.ox;
+    oy = metrics.oy;
+    isPhoneViewport = false;
+    isMobilePortraitBoard = false;
+    isPhoneLandscapeBoard = false;
+    viewportState = {
+      mode: 'pdf-export',
+      cssWidth: cvW,
+      cssHeight: cvH,
+      availW: cvW,
+      availH: cvH,
+      fieldCssW: FVW * sx,
+      fieldCssH: FVH * sy,
+      fieldTop: oy,
+      fieldBottom: oy + (FVH * sy),
+      dpr: renderDpr,
+    };
+    syncCanvasResolution(offscreen, offscreenCtx, cvW, cvH);
+    staticFieldCanvas = null;
+    staticFieldCtx = null;
+    staticFieldCacheKey = '';
+    setLiveBoardFromStep(step);
+    clearSelectedObject();
+    S.selected = null;
+    S.selectedPassIdx = null;
+    S.selectedPathPid = null;
+    S.dragging = null;
+    S.dragPlayerId = null;
+    S.drawing = null;
+    S.passFrom = null;
+    S.activePasserId = null;
+    S.activeKickerId = null;
+    S.activeRunSourceId = null;
+    S.annotationDraft = null;
+    S.ballAssignCandidate = null;
+    S.pointerTap = null;
+    S.highlightedPlayerIds = [];
+    radialMenu = null;
+    invalidateStaticFieldCache();
+    withRenderContext(offscreenCtx, () => render());
+    const pitchStart = toC(0, F.YMIN);
+    const pitchEnd = toC(F.W, F.YMAX);
+    const cropLeft = Math.max(0, Math.floor(Math.min(pitchStart.x, pitchEnd.x) * renderDpr));
+    const cropTop = Math.max(0, Math.floor(Math.min(pitchStart.y, pitchEnd.y) * renderDpr));
+    const cropRight = Math.min(offscreen.width, Math.ceil(Math.max(pitchStart.x, pitchEnd.x) * renderDpr));
+    const cropBottom = Math.min(offscreen.height, Math.ceil(Math.max(pitchStart.y, pitchEnd.y) * renderDpr));
+    const cropWidth = Math.max(1, cropRight - cropLeft);
+    const cropHeight = Math.max(1, cropBottom - cropTop);
+    const cropped = document.createElement('canvas');
+    cropped.width = cropWidth;
+    cropped.height = cropHeight;
+    const croppedCtx = cropped.getContext('2d');
+    croppedCtx.drawImage(offscreen, cropLeft, cropTop, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
+
+    let finalCanvas = cropped;
+    if (rotateLandscape && cropHeight > cropWidth) {
+      const rotated = document.createElement('canvas');
+      rotated.width = cropHeight;
+      rotated.height = cropWidth;
+      const rotatedCtx = rotated.getContext('2d');
+      rotatedCtx.translate(rotated.width / 2, rotated.height / 2);
+      rotatedCtx.rotate(Math.PI / 2);
+      rotatedCtx.drawImage(cropped, -cropWidth / 2, -cropHeight / 2);
+      finalCanvas = rotated;
+    }
+
+    return {
+      dataUrl: finalCanvas.toDataURL('image/png'),
+      width: finalCanvas.width,
+      height: finalCanvas.height,
+      crop: {
+        width: cropWidth,
+        height: cropHeight,
+      },
+    };
+  } finally {
+    renderDpr = savedState.renderDpr;
+    cvW = savedState.cvW;
+    cvH = savedState.cvH;
+    sc = savedState.sc;
+    sx = savedState.sx;
+    sy = savedState.sy;
+    ox = savedState.ox;
+    oy = savedState.oy;
+    isPhoneViewport = savedState.isPhoneViewport;
+    isMobilePortraitBoard = savedState.isMobilePortraitBoard;
+    isPhoneLandscapeBoard = savedState.isPhoneLandscapeBoard;
+    viewportState = savedState.viewportState;
+    staticFieldCanvas = savedState.staticFieldCanvas;
+    staticFieldCtx = savedState.staticFieldCtx;
+    staticFieldCacheKey = savedState.staticFieldCacheKey;
+    setLiveBoardFromStep(savedStep, { keepSelection: false });
+    S.nextId = savedState.nextId;
+    S.selected = savedState.selected;
+    S.selectedPlayerId = savedState.selectedPlayerId;
+    S.selectedPlayerIds = savedState.selectedPlayerIds;
+    S.selectedGroupId = savedState.selectedGroupId;
+    S.selectedObjectType = savedState.selectedObjectType;
+    S.selectedAnnotationIdValue = savedState.selectedAnnotationIdValue;
+    S.selectedPassIdx = savedState.selectedPassIdx;
+    S.selectedPathPid = savedState.selectedPathPid;
+    S.dragging = savedState.dragging;
+    S.dragPlayerId = savedState.dragPlayerId;
+    S.dragOff = savedState.dragOff;
+    S.drawing = savedState.drawing;
+    S.passFrom = savedState.passFrom;
+    S.activePasserId = savedState.activePasserId;
+    S.activeKickerId = savedState.activeKickerId;
+    S.activeRunSourceId = savedState.activeRunSourceId;
+    S.annotationDraft = savedState.annotationDraft;
+    S.ballAssignCandidate = savedState.ballAssignCandidate;
+    S.pointerTap = savedState.pointerTap;
+    S.highlightedPlayerIds = savedState.highlightedPlayerIds;
+    S.currentStepBaseline = savedState.currentStepBaseline;
+    radialMenu = savedState.radialMenu;
+    syncLegacySelectionState();
+    syncCanvasResolution(cv, ctx, cvW, cvH);
+    invalidateStaticFieldCache();
+    render();
+  }
 }
 
 async function exportPDF() {
-  updatePlayMetadataFromInputs();
-  if (!window.jspdf?.jsPDF || typeof window.qrcode !== 'function') {
+  if (!window.jspdf?.jsPDF || !window.AnimatorBoardPdf?.exportReport) {
     setHint('PDF export is unavailable right now. Reload the board and try again.');
     refreshInteractionUI();
     return;
   }
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  const W = 297, H = 210;
-  const playName = document.getElementById('playName').value || 'Play';
-  const noteFields = [
-    ['PHASE PURPOSE', document.getElementById('metaPurpose')?.value?.trim() || ''],
-    ['DECISION CUE', document.getElementById('metaDecisionCue')?.value?.trim() || ''],
-    ['COACHING POINTS', readMetaList(['metaCoachingPoint1', 'metaCoachingPoint2', 'metaCoachingPoint3'], 3).join('\n')],
-    ['COMMON MISTAKES', readMetaList(['metaCommonMistake1', 'metaCommonMistake2', 'metaCommonMistake3'], 3).join('\n')],
-  ];
-
-  doc.setFillColor(10, 19, 16);
-  doc.rect(0, 0, W, H, 'F');
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(22);
-  doc.text('RDA TACTICAL BOARD', 14, 14);
-  doc.setFontSize(14);
-  doc.setTextColor(251, 191, 36);
-  doc.text(playName, 14, 22);
-
-  const imgData = cv.toDataURL('image/png');
-  doc.addImage(imgData, 'PNG', 14, 28, 110, 155);
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(10);
-  let noteY = 32;
-  noteFields.forEach(([label, val]) => {
-    if (!val) return;
-    doc.setTextColor(251, 191, 36);
-    doc.setFontSize(8);
-    doc.text(label, 135, noteY);
-    noteY += 5;
-    doc.setTextColor(220, 220, 220);
-    doc.setFontSize(9);
-    const lines = doc.splitTextToSize(val, 75);
-    doc.text(lines, 135, noteY);
-    noteY += lines.length * 5 + 4;
-  });
-
-  const qr = qrcode(0, 'M');
-  qr.addData(window.location.href);
-  qr.make();
-  const qrImg = qr.createDataURL(4);
-  doc.addImage(qrImg, 'PNG', 255, 160, 30, 30);
-  doc.setTextColor(150, 150, 150);
-  doc.setFontSize(7);
-  doc.text('Scan to open live board', 256, 194);
-
-  doc.save(`${playName || 'play'}.pdf`);
-  setHint(`Exported "${playName}" as PDF.`);
-  refreshInteractionUI();
+  try {
+    const project = buildPdfExportProject();
+    const result = await window.AnimatorBoardPdf.exportReport({
+      project,
+      language: currentBoardLanguage(),
+      captureStepImage: capturePdfStepSnapshot,
+      fileName: currentPlayTitle(),
+    });
+    setHint(`Exported "${result?.fileName || currentPlayTitle()}" as PDF.`);
+    refreshInteractionUI();
+    replaceRecoveryDraftWithCurrentBoard();
+  } catch (error) {
+    console.error('PDF export failed', error);
+    setHint('PDF export failed. Please try again.');
+    refreshInteractionUI();
+  }
 }
 window.exportPDF = exportPDF;
 
 function exportCurrentPlay() {
-  const play = serializePlay();
-  const blob = new Blob([JSON.stringify(play, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  const safeName = (play.meta.name || 'untitled-play').replace(/[^\w-]+/g, '_');
-  link.href = url;
-  link.download = `${safeName}.json`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-  setHint(`Exported "${play.meta.name}" as JSON.`);
-  refreshInteractionUI();
+  exportPlayData(makeBoardData());
 }
 
 function triggerImportPlay() {
@@ -6613,29 +13514,65 @@ function triggerImportPlay() {
 }
 
 function importPlayFromFile(file) {
+  clearPendingCanonicalPhaseStart();
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
     try {
-      const raw = JSON.parse(reader.result);
-      const play = migratePlay(raw);
-      deserializePlay(play);
-      setTool('move');
-      setHint(`Imported "${play.meta?.name || 'Untitled Play'}" from JSON.`);
-      refreshInteractionUI();
+      let parsed;
+      try {
+        parsed = JSON.parse(reader.result);
+      } catch {
+        throw new Error('This file is not a valid Rugby GamePlan play.');
+      }
+      const importResult = prepareImportedProject(parsed);
+      if (isMeaningfulBoardProject(makeBoardData())) {
+        const message = 'Importing this play will replace the current board.';
+        if (!window.confirm(message)) {
+          setHint('Import cancelled.');
+          refreshInteractionUI();
+          return;
+        }
+      }
+      applyImportedProject(importResult);
     } catch (err) {
       console.error('Import failed:', err);
-      setHint(`Import failed: ${err.message}`);
+      const message = typeof err?.message === 'string' && err.message
+        ? err.message
+        : 'This play could not be imported. Your current board was not changed.';
+      setHint(message);
       refreshInteractionUI();
     }
   };
-  reader.readAsText(file);
+  reader.readAsText(file, 'utf-8');
 }
 
 
 document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (annotationEditableTarget(e.target)) return;
   const k = e.key.toLowerCase();
+  const cmdOrCtrl = e.ctrlKey || e.metaKey;
+  if (cmdOrCtrl && k === 'c' && selectedAnnotationId()) {
+    if (copySelectedAnnotationToClipboard()) e.preventDefault();
+    return;
+  }
+  if (cmdOrCtrl && k === 'v') {
+    if (pasteAnnotationFromClipboard()) e.preventDefault();
+    return;
+  }
+  if (cmdOrCtrl && k === 'd' && selectedAnnotationId()) {
+    if (duplicateSelected()) e.preventDefault();
+    return;
+  }
+  if (selectedAnnotationId() && (k === 'arrowleft' || k === 'arrowright' || k === 'arrowup' || k === 'arrowdown')) {
+    const step = e.shiftKey ? ANNOTATION_NUDGE_STEP_LARGE : ANNOTATION_NUDGE_STEP;
+    const dx = k === 'arrowleft' ? -step : k === 'arrowright' ? step : 0;
+    const dy = k === 'arrowup' ? -step : k === 'arrowdown' ? step : 0;
+    if (nudgeSelectedAnnotation(dx, dy)) {
+      e.preventDefault();
+      return;
+    }
+  }
   const map = {v:'move',r:'run',p:'pass',k:'kick',e:'erase',t:'tele',c:'zone',b:'box'};
   if (map[k])           { setTool(map[k]); return; }
   if (k===' ')          { e.preventDefault(); togglePlay(); return; }
@@ -6643,6 +13580,14 @@ document.addEventListener('keydown', e => {
   if (k === 'arrowright') { e.preventDefault(); goToPhase(GamePlan.currentPhase + 1); return; }
   if (k==='escape')     {
     e.preventDefault();
+    if (!document.getElementById('playerNumberPopover')?.hidden) {
+      closePlayerNumberPicker();
+      return;
+    }
+    if (document.getElementById('mobileMoreDrawer')?.classList.contains('open')) {
+      setMobileMoreDrawerOpen(false);
+      return;
+    }
     if (radialMenu) {
       closeRadialMenu();
       render();
@@ -6651,8 +13596,8 @@ document.addEventListener('keydown', e => {
     cancelActiveBoardInteraction();
     return;
   }
-  if (k==='z'&&(e.ctrlKey||e.metaKey)&&e.shiftKey) { e.preventDefault(); redo(); return; }
-  if (k==='z'&&(e.ctrlKey||e.metaKey)) { e.preventDefault(); undo(); }
+  if (k==='z'&&cmdOrCtrl&&e.shiftKey) { e.preventDefault(); redo(); return; }
+  if (k==='z'&&cmdOrCtrl) { e.preventDefault(); undo(); }
   if (k==='delete'||k==='backspace') {
     if (S.selectedPlayerId !== null || S.selectedGroupId !== null || isBallSelected() || selectedAnnotationId() || S.selectedPassIdx !== null || S.selectedPathPid !== null) {
       e.preventDefault();
@@ -6680,21 +13625,23 @@ _trackThumb.addEventListener('pointermove', e => {
 });
 _trackThumb.addEventListener('pointerup', () => trackDrag = false);
 _trackThumb.addEventListener('pointercancel', () => trackDrag = false);
-_trackThumb.addEventListener('touchstart', e => { e.preventDefault(); trackDrag = true; }, { passive: false });
-_trackThumb.addEventListener('touchmove', e => {
-  if (!trackDrag) return;
-  const ne = normEvent(e);
-  const r = document.getElementById('track').getBoundingClientRect();
-  const raw = clamp((ne.clientX - r.left) / r.width, 0, 1);
-  if (!S.animating && sequenceStepCount() > 1) {
-    gotoStep(Math.round(raw * (sequenceStepCount() - 1)));
-    return;
-  }
-  S.animT = raw;
-  updateTL(); render();
-}, { passive: false });
-_trackThumb.addEventListener('touchend',    () => trackDrag = false, { passive: false });
-_trackThumb.addEventListener('touchcancel', () => trackDrag = false, { passive: false });
+if (!supportsPointerEvents) {
+  _trackThumb.addEventListener('touchstart', e => { e.preventDefault(); trackDrag = true; }, { passive: false });
+  _trackThumb.addEventListener('touchmove', e => {
+    if (!trackDrag) return;
+    const ne = normEvent(e);
+    const r = document.getElementById('track').getBoundingClientRect();
+    const raw = clamp((ne.clientX - r.left) / r.width, 0, 1);
+    if (!S.animating && sequenceStepCount() > 1) {
+      gotoStep(Math.round(raw * (sequenceStepCount() - 1)));
+      return;
+    }
+    S.animT = raw;
+    updateTL(); render();
+  }, { passive: false });
+  _trackThumb.addEventListener('touchend',    () => trackDrag = false, { passive: false });
+  _trackThumb.addEventListener('touchcancel', () => trackDrag = false, { passive: false });
+}
 
 //  INIT
 GamePlan.phases = GamePlan.phases.map((phase, index) => normalizePhaseState(phase, index));
@@ -6714,20 +13661,174 @@ updatePlayMetadataPanel();
 document.getElementById('playName').addEventListener('input', () => {
   GamePlan.name = currentPlayTitle();
   syncPlayMetadataTitle();
+  syncMobileBoardNameInput();
+  scheduleAutosave();
   refreshInteractionUI();
 });
+document.getElementById('mobilePlayNameInput')?.addEventListener('input', (e) => {
+  const desktopInput = document.getElementById('playName');
+  if (!desktopInput) return;
+  if (desktopInput.value !== e.target.value) {
+    desktopInput.value = e.target.value;
+  }
+  GamePlan.name = currentPlayTitle();
+  syncPlayMetadataTitle();
+  scheduleAutosave();
+  refreshInteractionUI();
+});
+getAutosaveStatusElements().restoreBtn?.addEventListener('click', restoreRecoveryDraftFromPrompt);
+getAutosaveStatusElements().discardBtn?.addEventListener('click', discardRecoveryDraftFromPrompt);
+getAutosaveStatusElements().laterBtn?.addEventListener('click', () => hideRecoveryDraftPrompt({ deferForSession: true }));
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') flushAutosaveOnPageHide();
+});
+window.addEventListener('pagehide', flushAutosaveOnPageHide);
+window.addEventListener('beforeunload', flushAutosaveOnPageHide);
+setAutosaveStatus('saved');
+maybeOfferRecoveryDraftOnStartup();
 window.serializePlay = serializePlay;
 window.deserializePlay = deserializePlay;
 window.migratePlay = migratePlay;
+window.__animatorDebug = {
+  getState: () => S,
+  toCanvasPoint: (...args) => toC(...args),
+  playerLabelBounds: (...args) => playerLabelBounds(...args),
+  getRadialMenu: () => radialMenu,
+  makeBoardData: (...args) => makeBoardData(...args),
+  applyBoardData: (...args) => applyBoardData(...args),
+};
 
 document.addEventListener('pointerdown', e => {
   if (!radialMenu) return;
+  if (radialEventTargetsMenu(e)) return;
   const menu = document.getElementById('radialMenu');
   if (menu && !menu.contains(e.target)) {
     closeRadialMenu();
     render();
   }
 });
+document.addEventListener('pointerdown', (e) => {
+  const popover = document.getElementById('playerNumberPopover');
+  if (!popover || popover.hidden) return;
+  const activeAnchor = playerNumberPickerState.anchorId ? document.getElementById(playerNumberPickerState.anchorId) : null;
+  if (popover.contains(e.target) || activeAnchor?.contains(e.target)) return;
+  closePlayerNumberPicker();
+}, { capture: true });
+window.addEventListener('resize', () => {
+  if (document.getElementById('playerNumberPopover')?.hidden) return;
+  positionPlayerNumberPicker();
+});
+document.addEventListener('scroll', () => {
+  if (document.getElementById('playerNumberPopover')?.hidden) return;
+  positionPlayerNumberPicker();
+}, true);
+document.getElementById('mobileMoreDrawer')?.addEventListener('click', (e) => {
+  const actionBtn = e.target.closest('.mob-more-btn');
+  if (!actionBtn || actionBtn.disabled) return;
+  if (actionBtn.dataset.tool === 'arrow' || actionBtn.dataset.tool === 'zone') return;
+  setTimeout(() => setMobileMoreDrawerOpen(false), 0);
+});
+
+// Tap-outside-to-close for the mobile More drawer, mirroring the existing
+// mobileToolsDropdown outside-closer below. Intercepted at document capture
+// phase on pointerdown, touchstart AND click - earlier than the canvas's own
+// bubble-phase pointerdown handler and earlier than any bindSinglePhoneButton
+// touchend handler - so the swallowed tap never reaches the pitch or another
+// control underneath (no player move/select, no path draw, no other button,
+// including a plain <a href> whose navigation is normally driven by the
+// eventual click, not by pointerdown/touchstart). A single physical tap fires
+// pointerdown, touchstart AND click as three separate events; the drawer is
+// already closed by the first of them, so later ones re-check "was this
+// gesture already swallowed" via a short time window rather than re-testing
+// the (now-closed) drawer's live state, or their own preventDefault would be
+// skipped and the underlying click would still fire.
+let mobileMoreDrawerSwallowUntil = 0;
+function handleMobileMoreDrawerOutsideTap(e) {
+  const drawer = document.getElementById('mobileMoreDrawer');
+  const moreBtn = document.getElementById('mobMoreBtn');
+  const isOutsideOpenDrawer = !!drawer && drawer.classList.contains('open')
+    && !drawer.contains(e.target) && !moreBtn?.contains(e.target);
+  const withinSwallowWindow = Date.now() <= mobileMoreDrawerSwallowUntil;
+  if (!isOutsideOpenDrawer && !withinSwallowWindow) return;
+  e.preventDefault();
+  e.stopPropagation();
+  e.stopImmediatePropagation?.();
+  if (isOutsideOpenDrawer) {
+    mobileMoreDrawerSwallowUntil = Date.now() + 500;
+    setMobileMoreDrawerOpen(false);
+  }
+}
+document.addEventListener('pointerdown', handleMobileMoreDrawerOutsideTap, { capture: true });
+document.addEventListener('touchstart', handleMobileMoreDrawerOutsideTap, { capture: true, passive: false });
+document.addEventListener('click', handleMobileMoreDrawerOutsideTap, { capture: true });
+
+function bindSinglePhoneButton(id, handler) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  let lastFireAt = -Infinity;
+  const invoke = (e) => {
+    if (!isPhoneViewport) return;
+    const now = (typeof performance !== 'undefined' && Number.isFinite(performance.now())) ? performance.now() : Date.now();
+    if (now - lastFireAt < PHONE_UI_ACTION_GUARD_MS) {
+      e.preventDefault();
+      e.stopImmediatePropagation?.();
+      e.stopPropagation();
+      return;
+    }
+    lastFireAt = now;
+    e.preventDefault();
+    e.stopImmediatePropagation?.();
+    e.stopPropagation();
+    handler();
+  };
+
+  el.style.touchAction = 'manipulation';
+  el.addEventListener('touchend', invoke, { capture: true, passive: false });
+  el.addEventListener('pointerup', (e) => {
+    if (e.pointerType === 'touch') invoke(e);
+  }, true);
+  el.addEventListener('click', (e) => {
+    if (!isPhoneViewport) return;
+    e.preventDefault();
+    e.stopImmediatePropagation?.();
+    e.stopPropagation();
+  }, true);
+}
+
+bindSinglePhoneButton('mobileRailAddAttackBtn', () => addNextAvailablePlayer('A'));
+bindSinglePhoneButton('mobileRailAddDefenceBtn', () => addNextAvailablePlayer('D'));
+bindSinglePhoneButton('mobileRailAddAttackPickerBtn', () => togglePlayerNumberPicker('A', 'mobileRailAddAttackPickerBtn'));
+bindSinglePhoneButton('mobileRailAddDefencePickerBtn', () => togglePlayerNumberPicker('D', 'mobileRailAddDefencePickerBtn'));
+bindSinglePhoneButton('mobileStepBtn', () => addStep());
+bindSinglePhoneButton('mobMoreBtn', () => toggleMobileMoreDrawer());
+// The top header chevrons step one canonical Move at a time (matching the
+// "MOVE X/Y" half of the header label), sharing the same transport-interrupt
+// behaviour as the desktop seq-bar Previous/Next: mid-playback they cancel and
+// land on the transition's source/destination Move rather than stepping Phases.
+bindSinglePhoneButton('mobilePhasePrevBtn', () => handleCanonicalPrevious());
+bindSinglePhoneButton('mobilePhaseNextBtn', () => handleCanonicalNext());
+bindSinglePhoneButton('mobilePhaseAddBtn', () => addPhaseAfterCurrent());
+bindSinglePhoneButton('mobilePhaseDeleteBtn', () => deleteCurrentPhaseWithConfirm());
+bindSinglePhoneButton('mobileMoveDeleteBtn', () => deleteLastMoveWithConfirm());
+
+let lastPhoneUiActivation = { key: '', target: null, at: -Infinity };
+document.addEventListener('click', (e) => {
+  if (!isPhoneViewport) return;
+  const actionEl = e.target.closest('#topbar button, #bottomPanel button, #mobileBoardMenu button, #mobileNotesSheet button, #playerSelector button');
+  if (!actionEl) return;
+  const key = actionEl.id || actionEl.dataset.tool || actionEl.getAttribute('onclick') || actionEl.textContent.trim();
+  const at = Number.isFinite(e.timeStamp) ? e.timeStamp : performance.now();
+  const isDuplicate = lastPhoneUiActivation.key === key &&
+    lastPhoneUiActivation.target === actionEl &&
+    (at - lastPhoneUiActivation.at) < 450;
+  if (isDuplicate) {
+    e.preventDefault();
+    e.stopImmediatePropagation?.();
+    e.stopPropagation();
+    return;
+  }
+  lastPhoneUiActivation = { key, target: actionEl, at };
+}, true);
 [
   'metaPurpose',
   'metaCoachingPoint1',
@@ -6742,16 +13843,29 @@ document.addEventListener('pointerdown', e => {
 });
 document.getElementById('selNoteInput').addEventListener('input', e => updateSelectedNoteText(e.target.value));
 document.getElementById('selNoteInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    e.target.blur();
-  }
   if (e.key === 'Escape') {
     const ann = selectedAnnotation();
     if (ann?.type === 'note') {
-      e.target.value = ann.text;
+      e.target.value = String(ann.text ?? '');
     }
     e.target.blur();
+  }
+});
+document.getElementById('noteInlineEditor').addEventListener('input', e => {
+  updateSelectedNoteText(e.target.value);
+  const ann = selectedAnnotation();
+  if (isEditableTextAnnotationType(ann?.type) && e.target.value !== ann.text) {
+    e.target.value = ann.text;
+  }
+  syncNoteInlineEditor();
+});
+document.getElementById('noteInlineEditor').addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation?.();
+    endNoteInlineEdit();
+    refreshInteractionUI();
+    render();
   }
 });
 document.getElementById('importPlayInput').addEventListener('change', e => {
@@ -6768,6 +13882,9 @@ let _boardBootstrapped = false;
 function _initBoard() {
   if (_boardBootstrapped) return;
   _boardBootstrapped = true;
+  initSequenceBarNavigator();
+  initSequenceControlDock();
+  bindViewportObservers();
   resize();
   ensureSteps();
   currentPresetId = null;
@@ -6790,29 +13907,24 @@ if (document.readyState === 'loading') {
   });
 }
 
-window.addEventListener('resize', () => {
-  resize();
-  render();
-});
-
-// On iOS, orientation change fires before new dimensions are ready
-window.addEventListener('orientationchange', () => {
-  setTimeout(() => { resize(); render(); }, 120);
-});
-
 (function initAccordions() {
-  ['accPurpose', 'accDecision', 'accCoaching', 'accMistakes'].forEach(function(id) {
-    try {
-      if (localStorage.getItem('sp-acc-' + id) === '1') {
-        var section = document.getElementById(id);
-        if (section) {
-          section.classList.add('sp-acc-open');
-          var trigger = section.querySelector('.sp-acc-trigger');
-          if (trigger) trigger.setAttribute('aria-expanded', 'true');
-        }
-      }
-    } catch(e) {}
+  const isPhone = document.body.classList.contains('is-phone');
+  ['accPresets', 'accCoachNotes', 'accPurpose', 'accDecision', 'accCoaching', 'accMistakes'].forEach(function(id) {
+    var section = document.getElementById(id);
+    if (!section) return;
+    section.classList.remove('sp-acc-open');
+    var trigger = section.querySelector(':scope > .sp-acc-trigger');
+    if (trigger) trigger.setAttribute('aria-expanded', 'false');
   });
+  if (isPhone) {
+    ['accPresets', 'accCoachNotes'].forEach(function(id) {
+      var section = document.getElementById(id);
+      if (!section) return;
+      section.classList.add('sp-acc-open');
+      var trigger = section.querySelector(':scope > .sp-acc-trigger');
+      if (trigger) trigger.setAttribute('aria-expanded', 'true');
+    });
+  }
 })();
 
 document.addEventListener('pointerdown', e => {
@@ -6824,4 +13936,5 @@ document.addEventListener('pointerdown', e => {
   }
 }, { capture: true });
 
-
+window.goToPhase = goToPhase;
+window.addPhase = addPhase;
