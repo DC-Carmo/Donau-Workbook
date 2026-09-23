@@ -6284,3 +6284,27 @@ body:not(.is-phone) .sp-field-textarea { resize: vertical; min-height: 44px; lin
     content: "\2715";
   }
 }
+
+/* Laptop display rotation: the virtual drawing canvas remains portrait. */
+body.laptop-landscape #workspace {
+  grid-template-columns: 152px minmax(0, 1fr);
+}
+body.laptop-landscape #canvasHost { grid-column: 2; margin-right: 196px; }
+body.laptop-landscape #canvasWrap { padding: 0; }
+body.laptop-landscape #field {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(90deg);
+  transform-origin: center;
+}
+body.laptop-landscape #bottomPanel { grid-column: 2; }
+body.laptop-landscape #smartPanel { width: 152px; min-width: 0; padding: 8px; overflow-y: auto; }
+body.laptop-landscape #smartPanel .sp-ctx-zone { padding: 0; }
+body.laptop-landscape #smartPanel .sp-default-state { padding: 10px; }
+body.laptop-landscape #smartPanel .sp-default-tip { display: block; }
+body.laptop-landscape #smartPanel .sp-ctx-hdr { padding: 8px; gap: 4px; }
+body.laptop-landscape #smartPanel .sp-ctx-mode { letter-spacing: .06em; }
+body.laptop-landscape #sequenceControlDock { width: 180px; max-width: 180px; padding: 10px; }
+body.laptop-landscape #sequenceControlDock .sequence-dock__grid { grid-template-columns: minmax(0, 1fr); }
+body.laptop-landscape #sequenceControlDock button { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
