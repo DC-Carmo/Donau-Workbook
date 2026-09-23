@@ -16,10 +16,7 @@
   let savedScroll;
   let savedWrapStyle;
   let inertElements = [];
-  // A laptop window may become wider than 1500px when its stage goes fullscreen.
-  // Keep that presentation alive without enabling entry from desktop or phone.
-  const eligible = () => !isPhoneViewport && (isLaptopBoardViewport() ||
-    (body.classList.contains('present-mode') && document.fullscreenElement === stage));
+  const eligible = () => !isPhoneViewport;
   const active = () => eligible() && body.classList.contains('present-mode');
 
   const controls = document.createElement('div');
@@ -76,7 +73,7 @@
     const availableWidth = Math.max(1, width - 24);
     const barBottom = parseFloat(getComputedStyle(controls).bottom) || 12;
     const availableHeight = Math.max(1, height - barHeight - barBottom - 24);
-    // Match the laptop renderer's equal-scale field proportions. Only the
+    // Match the presentation-only renderer's equal-scale field proportions. Only the
     // display canvas is rotated, never the wrapper measured by resize().
     const aspect = FVW / FVH;
     const quarterTurn = rotation % 180 !== 0;
@@ -115,9 +112,8 @@
     savedScroll = { left: stage.scrollLeft, top: stage.scrollTop };
     savedWrapStyle = wrap.getAttribute('style');
     body.classList.add('present-mode');
-    body.classList.remove('laptop-landscape');
     controls.hidden = false;
-    rotation = 0;
+    rotation = 90;
     // Make every branch outside the stage inert; keep its original state.
     let branch = stage;
     inertElements = [];

@@ -50,8 +50,6 @@ let cvW=0, cvH=0, sc=1, sx=1, sy=1, ox=0, oy=0, renderDpr=1;
 let isPhoneViewport = false;
 let isMobilePortraitBoard = false;
 let isPhoneLandscapeBoard = false;
-// Display-only quarter-turn; never serialized into a play.
-let isLaptopLandscapeBoard = false;
 let phoneVerticalPanPx = 0;
 let phoneVerticalOverflowPx = 0;
 let phoneUserPanned = false;
@@ -409,7 +407,7 @@ function renderRadialMenu() {
     return;
   }
 
-  const center = laptopDisplayPoint(toC(pl.x, pl.y));
+  const center = toC(pl.x, pl.y);
   radialMenu.x = center.x;
   radialMenu.y = center.y;
   menu.innerHTML = '';
@@ -644,9 +642,9 @@ function translatePathPoints(path, dx, dy) {
   }));
 }
 
-// The laptop view excludes the existing phone classifier and full desktop.
+// Match the laptop toolbar breakpoint without changing phone or desktop sizing.
 function isLaptopBoardViewport() {
-  return !isPhoneViewport && window.matchMedia('(max-width: 1499.98px)').matches;
+  return !isPhoneViewport && window.matchMedia('(min-width: 1280px) and (max-width: 1499.98px)').matches;
 }
 
 function resize() {
@@ -695,8 +693,6 @@ function resize() {
   isPhoneViewport = isPhone;
   isMobilePortraitBoard = MOBILE_PORTRAIT;
   isPhoneLandscapeBoard = PHONE_LANDSCAPE;
-  isLaptopLandscapeBoard = isLaptopBoardViewport() && !document.body.classList.contains('present-mode');
-  document.body.classList.toggle('laptop-landscape', isLaptopLandscapeBoard);
   document.body.classList.toggle('is-phone', isPhone);
   document.body.classList.toggle('tb-mobile-portrait', MOBILE_PORTRAIT);
   document.body.classList.toggle('tb-fit-full-pitch', isPhone && MOBILE_PORTRAIT && mobileFitFullPitch);
@@ -785,11 +781,8 @@ function resize() {
       fieldBottom: phoneBox.availBottom,
       dpr: renderDpr,
     };
-  } else if (isLaptopLandscapeBoard || document.body.classList.contains('present-mode')) {
-    // Render field coordinates at a uniform scale into a virtual canvas, then
-    // rotate the display. The legacy desktop/phone projection stays untouched.
-    cvW = isLaptopLandscapeBoard ? wrapH : wrapW;
-    cvH = isLaptopLandscapeBoard ? wrapW : wrapH;
+  } else if (document.body.classList.contains('present-mode')) {
+    // Presentation alone uses true field proportions; editing keeps its original projection.
     cv.style.width = `${cvW}px`;
     cv.style.height = `${cvH}px`;
     sc = Math.max(0.01, Math.min((cvW - 2) / FVW, (cvH - 2) / FVH));
@@ -797,16 +790,11 @@ function resize() {
     sy = sc;
     ox = (cvW - FVW * sx) / 2;
     oy = (cvH - FVH * sy) / 2;
-    phoneVerticalOverflowPx = 0;
-    phoneVerticalPanPx = 0;
     viewportState = {
-      mode: isLaptopLandscapeBoard ? 'laptop-landscape' : 'presentation', cssWidth: wrapW, cssHeight: wrapH,
-      availTop: 0, availBottom: wrapH, availH: wrapH, availW: wrapW,
-      fieldCssW: isLaptopLandscapeBoard ? FVH * sy : FVW * sx,
-      fieldCssH: isLaptopLandscapeBoard ? FVW * sx : FVH * sy,
-      baseX: isLaptopLandscapeBoard ? oy : ox, baseY: isLaptopLandscapeBoard ? ox : oy,
-      fieldTop: isLaptopLandscapeBoard ? ox : oy,
-      fieldBottom: isLaptopLandscapeBoard ? ox + FVW * sx : oy + FVH * sy,
+      mode: 'presentation', cssWidth: cvW, cssHeight: cvH,
+      availTop: 0, availBottom: cvH, availH: cvH, availW: cvW,
+      fieldCssW: FVW * sx, fieldCssH: FVH * sy,
+      baseX: ox, baseY: oy, fieldTop: oy, fieldBottom: oy + FVH * sy,
       overflow: 0, panY: 0, panYMin: 0, panYMax: 0, dpr: renderDpr,
     };
   } else {
@@ -5862,12 +5850,6 @@ function drawPlayer(fx, fy, num, team, selected, isBallCarrier, palette = null) 
   ctx.lineWidth   = selected ? (isMobileBoardViewport() ? 2 : 2.5) : (isMobileBoardViewport() ? 1.5 : 1.8);
   ctx.stroke();
 
-  // Counter-rotate player numbers in the laptop display only.
-  if (isLaptopLandscapeBoard) {
-    ctx.translate(p.x, p.y);
-    ctx.rotate(-Math.PI / 2);
-    ctx.translate(-p.x, -p.y);
-  }
   // Number
   ctx.fillStyle = '#ffffff';
   ctx.font = `800 ${Math.max(10, r * (isMobileBoardViewport() ? 0.98 : 0.94))}px "Barlow Condensed"`;
@@ -6713,8 +6695,8 @@ function playerLabelMetrics(annotation, players = S.players) {
 function playerLabelBounds(annotation, players = S.players) {
   const box = playerLabelMetrics(annotation, players);
   if (!box.player) return null;
-  const halfW = isLaptopLandscapeBoard ? box.height / sx / 2 : box.widthField / 2;
-  const halfH = isLaptopLandscapeBoard ? box.width / sy / 2 : box.heightField / 2;
+  const halfW = box.widthField / 2;
+  const halfH = box.heightField / 2;
   return {
     left: box.x - halfW,
     right: box.x + halfW,
@@ -6824,9 +6806,7 @@ function syncNoteInlineEditor() {
     hideNoteInlineEditor();
     return;
   }
-  const center = laptopDisplayPoint(toC(box.x, box.y));
-  editor.style.transform = isLaptopLandscapeBoard && annotation.type === 'note' ? 'rotate(90deg)' : '';
-  editor.style.transformOrigin = 'center';
+  const center = toC(box.x, box.y);
   const left = center.x - (box.width / 2);
   const top = center.y - (box.height / 2);
   const opacity = clamp(Number(annotation.opacity) || 1, 0.2, 1);
@@ -6998,8 +6978,8 @@ function annotationFieldBounds(annotation) {
 function annotationScreenBounds(annotation) {
   const bounds = annotationFieldBounds(annotation);
   if (!bounds) return null;
-  const topLeft = laptopDisplayPoint(toC(bounds.left, bounds.top));
-  const bottomRight = laptopDisplayPoint(toC(bounds.right, bounds.bottom));
+  const topLeft = toC(bounds.left, bounds.top);
+  const bottomRight = toC(bounds.right, bounds.bottom);
   return {
     left: Math.min(topLeft.x, bottomRight.x),
     right: Math.max(topLeft.x, bottomRight.x),
@@ -7231,7 +7211,6 @@ function drawNoteAnnotation(note, selected = false) {
 }
 
 function noteResizeCursorForHandle(handle) {
-  if (isLaptopLandscapeBoard) handle = ({ nw: 'ne', ne: 'se', se: 'sw', sw: 'nw' })[handle] || handle;
   if (handle === 'nw' || handle === 'se') return 'nwse-resize';
   if (handle === 'ne' || handle === 'sw') return 'nesw-resize';
   return 'default';
@@ -7769,12 +7748,6 @@ function drawPlayerLabelAnnotation(annotation, selected = false, players = S.pla
   const box = playerLabelMetrics(annotation, players);
   if (!box.player) return;
   const center = toC(box.x, box.y);
-  if (isLaptopLandscapeBoard) {
-    ctx.save();
-    ctx.translate(center.x, center.y);
-    ctx.rotate(-Math.PI / 2);
-    ctx.translate(-center.x, -center.y);
-  }
   const left = center.x - (box.width / 2);
   const top = center.y - (box.height / 2);
   ctx.save();
@@ -7812,7 +7785,6 @@ function drawPlayerLabelAnnotation(annotation, selected = false, players = S.pla
     ctx.setLineDash([]);
     ctx.restore();
   }
-  if (isLaptopLandscapeBoard) ctx.restore();
 }
 
 function renderAnnotations(layer, annotations = S.annotations, players = S.players) {
@@ -8007,16 +7979,8 @@ function animPos(pl, t) {
 }
 
 //  MOUSE HANDLING
-function laptopDisplayPoint(point) {
-  return isLaptopLandscapeBoard ? { x: cvH - point.y, y: point.x } : point;
-}
-// Undo the display rotation first; frC then removes offsets and field scale.
-function getF(e) { const p = getPx(e); return frC(p.x, p.y); }
-function getPx(e) {
-  const r = cv.getBoundingClientRect();
-  const x = e.clientX - r.left, y = e.clientY - r.top;
-  return isLaptopLandscapeBoard ? { x: y, y: cvH - x } : { x, y };
-}
+function getF(e)  { const r=cv.getBoundingClientRect(); return frC(e.clientX-r.left, e.clientY-r.top); }
+function getPx(e) { const r=cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
 const PRT = () => (R() + 1) / sc; // player hit radius in field units
 
 function getPointerSamples(e) {
@@ -10409,8 +10373,8 @@ function setSequenceDockVisibility(isVisible) {
 function getRenderedPitchViewportRect() {
   const canvasRect = cv.getBoundingClientRect();
   if (canvasRect.width <= 0 || canvasRect.height <= 0) return null;
-  const pitchStart = laptopDisplayPoint(toC(0, F.YMIN));
-  const pitchEnd = laptopDisplayPoint(toC(F.W, F.YMAX));
+  const pitchStart = toC(0, F.YMIN);
+  const pitchEnd = toC(F.W, F.YMAX);
   return {
     left: canvasRect.left + Math.min(pitchStart.x, pitchEnd.x),
     right: canvasRect.left + Math.max(pitchStart.x, pitchEnd.x),
@@ -10560,9 +10524,7 @@ function positionSequenceControlDock() {
   );
   const rightSpace = viewportRight - pitchRect.right;
   const leftSpace = pitchRect.left - safeLeftBoundary;
-  const placement = isLaptopLandscapeBoard
-    ? { mode: 'compact', side: 'right', width: SEQUENCE_DOCK_COMPACT_WIDTH }
-    : getSequenceDockPlacement(rightSpace, leftSpace);
+  const placement = getSequenceDockPlacement(rightSpace, leftSpace);
   if (!placement) {
     setSequenceDockVisibility(false);
     return;
@@ -13436,7 +13398,6 @@ async function capturePdfStepSnapshot(step, options = {}) {
     isPhoneViewport,
     isMobilePortraitBoard,
     isPhoneLandscapeBoard,
-    isLaptopLandscapeBoard,
     viewportState: viewportState ? cloneData(viewportState) : null,
     staticFieldCanvas,
     staticFieldCtx,
@@ -13456,7 +13417,6 @@ async function capturePdfStepSnapshot(step, options = {}) {
     isPhoneViewport = false;
     isMobilePortraitBoard = false;
     isPhoneLandscapeBoard = false;
-    isLaptopLandscapeBoard = false;
     viewportState = {
       mode: 'pdf-export',
       cssWidth: cvW,
@@ -13539,7 +13499,6 @@ async function capturePdfStepSnapshot(step, options = {}) {
     isPhoneViewport = savedState.isPhoneViewport;
     isMobilePortraitBoard = savedState.isMobilePortraitBoard;
     isPhoneLandscapeBoard = savedState.isPhoneLandscapeBoard;
-    isLaptopLandscapeBoard = savedState.isLaptopLandscapeBoard;
     viewportState = savedState.viewportState;
     staticFieldCanvas = savedState.staticFieldCanvas;
     staticFieldCtx = savedState.staticFieldCtx;
