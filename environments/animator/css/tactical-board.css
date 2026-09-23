@@ -6271,3 +6271,8 @@ body:not(.is-phone) .sp-field-textarea { resize: vertical; min-height: 44px; lin
     font-size: 0;
   }
 }
+
+/* Pitch-only laptop padding: retain the readable top/bottom bar dimensions. */
+@media (min-width: 1280px) and (max-width: 1499.98px) {
+  body:not(.is-phone) #canvasWrap { padding: 0; }
+}

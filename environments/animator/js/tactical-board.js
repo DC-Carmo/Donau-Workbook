@@ -642,6 +642,11 @@ function translatePathPoints(path, dx, dy) {
   }));
 }
 
+// Match the laptop toolbar breakpoint without changing phone or desktop sizing.
+function isLaptopBoardViewport() {
+  return !isPhoneViewport && window.matchMedia('(min-width: 1280px) and (max-width: 1499.98px)').matches;
+}
+
 function resize() {
   const wrap = document.getElementById('canvasWrap');
   const vv = getVisualViewportBox();
@@ -782,8 +787,12 @@ function resize() {
     wrap.style.width = '';
     wrap.style.height = '';
     cvH = Math.max(1, cv.clientHeight || wrapH || (window.innerHeight * 0.6));
-    const baseFromWidth = (cvW - padX * 2) / (FVW * FIELD_X_STRETCH);
-    const baseFromHeight = (cvH - padY * 2) / FVH;
+    const laptop = isLaptopBoardViewport();
+    // Reserve the dock's right-hand band and retain the original pitch shape.
+    // Only laptop pitch padding is reduced; the readable bars keep their height.
+    const pitchAreaWidth = laptop ? cvW - SEQUENCE_DOCK_FULL_WIDTH - 16 : cvW;
+    const baseFromWidth = (pitchAreaWidth - padX * 2) / (FVW * FIELD_X_STRETCH);
+    const baseFromHeight = (cvH - (laptop ? 2 : padY) * 2) / FVH;
     sc = Math.max(0.01, Math.min(baseFromWidth, baseFromHeight));
     sx = sc * FIELD_X_STRETCH;
     sy = sc;
@@ -796,7 +805,9 @@ function resize() {
     const _pitchW = FVW * sx;
     const _centeredOx = (cvW - _pitchW) / 2;
     const _dockBand = 320 + SEQUENCE_DOCK_GAP + 16; // dock width + gap + breathing
-    if (_centeredOx < _dockBand && (cvW - _pitchW) >= _dockBand + 2 * padX) {
+    if (laptop) {
+      ox = (pitchAreaWidth - _pitchW) / 2;
+    } else if (_centeredOx < _dockBand && (cvW - _pitchW) >= _dockBand + 2 * padX) {
       ox = clamp((cvW - _pitchW) - _dockBand, padX, Math.max(padX, cvW * 0.11));
     } else {
       ox = _centeredOx;
@@ -10520,9 +10531,11 @@ function positionSequenceControlDock() {
   if (previousHiddenAfterMode) dock.hidden = true;
   dock.style.visibility = previousVisibilityAfterMode;
 
-  const dockLeft = sequenceDockSide === 'right'
-    ? pitchRect.right + SEQUENCE_DOCK_GAP
-    : pitchRect.left - activeDockWidth - SEQUENCE_DOCK_GAP;
+  const dockLeft = isLaptopBoardViewport() && sequenceDockSide === 'right'
+    ? viewportRight - activeDockWidth - 16
+    : sequenceDockSide === 'right'
+      ? pitchRect.right + SEQUENCE_DOCK_GAP
+      : pitchRect.left - activeDockWidth - SEQUENCE_DOCK_GAP;
 
   const topLimit = Math.max(viewportTop + 10, topbar.getBoundingClientRect().bottom + 10);
   const hardBottom = Math.min(viewportTop + viewportHeight - 10, bottomPanel.getBoundingClientRect().top - 10);
