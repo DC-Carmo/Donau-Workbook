@@ -50,6 +50,7 @@ let cvW=0, cvH=0, sc=1, sx=1, sy=1, ox=0, oy=0, renderDpr=1;
 let isPhoneViewport = false;
 let isMobilePortraitBoard = false;
 let isPhoneLandscapeBoard = false;
+let editPassPreview = null; // Visual only; never serialized or added to undo history.
 let phoneVerticalPanPx = 0;
 let phoneVerticalOverflowPx = 0;
 let phoneUserPanned = false;
@@ -1435,7 +1436,7 @@ const NOTE_LEGACY_REFERENCE_SCALE = 10;
 const NOTE_LEGACY_FONT_PX = 12.5;
 const STEP_MIN_COUNT = 3;
 let firstUseTutorialDismissed = false;
-const BOARD_BALL_ASSET_SRC = '../../assets/donau/images/rugby_ball_clean.svg';
+const BOARD_BALL_ASSET_SRC = '../../assets/donau/images/rugby_ball_noblue.svg';
 const boardBallAsset = new Image();
 let boardBallAssetReady = false;
 
@@ -2090,6 +2091,7 @@ function serializeGamePlan(nameOverride) {
 }
 
 function setLiveBoardFromStep(step, { keepSelection = false } = {}) {
+  editPassPreview = null;
   const normalized = normalizeStepState(step);
   const selectedPlayerRef = keepSelection && S.selectedObjectType === 'player'
     ? playerRef(S.players.find(pl => pl.id === S.selectedPlayerId))
@@ -6238,7 +6240,7 @@ function prepareBallMotion(motion, fromStep, toStep) {
     const receiver = buildStepLookup(toStep.players).get(motion.to);
     const from = passer ? attachedBallPositionForPlayer(passer) : resolveBallEndpoint(fromStep);
     const to = receiver ? attachedBallPositionForPlayer(receiver) : resolveBallEndpoint(toStep);
-    return { kind: 'pass', from, to, sample: (t) => ({
+    return { kind: 'pass', from, to, fromKey: motion.from, toKey: motion.to, sample: (t) => ({
       pos: from && to ? _cmrLerp(from, to, t) : (from || to),
       owner: t <= 0 ? motion.from : (t >= 1 ? motion.to : null),
     }) };
@@ -6276,6 +6278,28 @@ function preparePlaybackLeg(fromStep, toStep) {
   const motion = deriveBallMotion(fromStep, toStep, motionStep);
   if (motion.warnings && motion.warnings.length) debug.warnings.push(...motion.warnings);
   const ball = prepareBallMotion(motion, fromStep, toStep);
+  if (ball.kind === 'pass' && ball.from && ball.to) {
+    const duration = computePlaybackSegmentDurationSeconds(fromStep, toStep, fromStep);
+    const flightSeconds = passFlightSeconds(d2(ball.from, ball.to));
+    const releaseAt = Math.max(0, duration - flightSeconds - PASS_CATCH_SECONDS);
+    const arrivalAt = releaseAt + flightSeconds;
+    // Aim at the receiver's actual position at catch time, including a running
+    // receiver. The flight stays straight; after the catch the ball follows them.
+    const passer = players.get(ball.fromKey);
+    const receiver = players.get(ball.toKey);
+    const from = passer ? attachedBallPositionForPlayer(passer.trajectory.sampleByDistance(releaseAt / duration)) : ball.from;
+    const receiverAtCatch = receiver?.trajectory.sampleByDistance(arrivalAt / duration);
+    const to = receiverAtCatch ? attachedBallPositionForPlayer(receiverAtCatch) : ball.to;
+    ball.sample = (t, byKey) => {
+      const elapsed = t * duration - releaseAt;
+      const visual = samplePassVisual(from, to, receiverAtCatch || to, elapsed, flightSeconds);
+      const owner = elapsed <= 0 ? ball.fromKey : visual.arrived ? ball.toKey : null;
+      const carrier = owner && byKey.get(owner);
+      if (carrier) visual.ball = attachedBallPositionForPlayer(carrier);
+      if (visual.arrived && carrier) visual.receiver = carrier;
+      return { pos: visual.ball, owner, passFlight: visual };
+    };
+  }
   return { players, ball, annotations: motionStep.annotations, paths: motionStep.paths, passes: motionStep.passes, debug };
 }
 
@@ -6298,8 +6322,7 @@ function samplePlaybackLeg(leg, t) {
     byKey.set(key, pos);
   }
   const b = leg.ball.sample(f, byKey);
-  const passFlight = leg.ball.kind === 'pass' && leg.ball.from && leg.ball.to
-    ? { from: leg.ball.from, to: leg.ball.to, progress: f } : null;
+  const passFlight = b.passFlight || null;
   return { players, passFlight, ball: b.pos, ballOwner: playerKeyToRef(b.owner), annotations: leg.annotations, paths: leg.paths, passes: leg.passes, localT: f };
 }
 
@@ -6460,21 +6483,75 @@ function drawKickToTarget(x1, y1, x2, y2, progress = 1, selected = false) {
   }
 }
 
+const PASS_CATCH_SECONDS = 0.4;
+function passFlightSeconds(distance) { return clamp(distance / 70, 0.45, 1.1); }
+function passEase(t) { const u = clamp(t, 0, 1); return u * u * (3 - 2 * u); }
+
+function samplePassVisual(from, to, receiver, elapsed, flightSeconds) {
+  const progress = clamp(elapsed / flightSeconds, 0, 1);
+  const catchProgress = clamp((elapsed - flightSeconds) / PASS_CATCH_SECONDS, 0, 1);
+  return {
+    from, to, receiver, progress, catchProgress,
+    arrived: elapsed >= flightSeconds,
+    ball: _cmrLerp(from, to, passEase(progress)),
+    beamOpacity: passEase(elapsed / 0.08) * (1 - passEase(catchProgress)),
+    catchOpacity: elapsed >= flightSeconds && catchProgress < 1 ? Math.sin(Math.PI * catchProgress) : 0,
+    complete: elapsed >= flightSeconds + PASS_CATCH_SECONDS,
+  };
+}
+
+function startPassPreview(passer, receiver) {
+  if (!passer || !receiver) return;
+  const from = attachedBallPositionForPlayer(passer);
+  const to = attachedBallPositionForPlayer(receiver);
+  editPassPreview = {
+    from, to, receiver: { x: receiver.x, y: receiver.y },
+    seconds: passFlightSeconds(d2(from, to)), startedAt: performance.now(),
+  };
+  scheduleRender();
+}
+
+function sampleEditPassPreview() {
+  if (!editPassPreview) return null;
+  const p = editPassPreview;
+  const visual = samplePassVisual(p.from, p.to, p.receiver, (performance.now() - p.startedAt) / 1000, p.seconds);
+  if (visual.complete) { editPassPreview = null; return null; }
+  scheduleRender();
+  return visual;
+}
+
 function drawPassFlight(flight) {
-  if (!flight || flight.progress <= 0 || flight.progress >= 1) return;
+  if (!flight || flight.beamOpacity <= 0) return;
   const a = toC(flight.from.x, flight.from.y);
   const b = toC(flight.to.x, flight.to.y);
   ctx.save();
+  ctx.globalAlpha = flight.beamOpacity;
   ctx.lineCap = 'round';
   ctx.setLineDash([]);
-  ctx.beginPath();
-  ctx.moveTo(a.x, a.y);
-  ctx.lineTo(b.x, b.y);
-  ctx.strokeStyle = 'rgba(7,16,24,0.32)';
-  ctx.lineWidth = 3.5;
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+  ctx.shadowColor = 'rgba(245,197,96,0.55)';
+  ctx.shadowBlur = 7;
+  ctx.strokeStyle = 'rgba(235,184,76,0.22)';
+  ctx.lineWidth = 3;
   ctx.stroke();
-  ctx.strokeStyle = 'rgba(245,243,237,0.64)';
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,225,159,0.8)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawPassCatch(flight) {
+  if (!flight || flight.catchOpacity <= 0 || flight.complete) return;
+  const at = toC(flight.receiver.x, flight.receiver.y);
+  ctx.save();
+  ctx.globalAlpha = flight.catchOpacity * 0.45;
+  ctx.strokeStyle = '#f5cd7f';
+  ctx.shadowColor = '#eab957';
+  ctx.shadowBlur = 6;
   ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(at.x, at.y, R() * (1.05 + flight.catchProgress * 0.65), 0, Math.PI * 2);
   ctx.stroke();
   ctx.restore();
 }
@@ -7862,6 +7939,7 @@ function render() {
   drawField();
 
   if (shouldRenderSequencePreview()) {
+    editPassPreview = null;
     const frame = buildSequenceFrame(S.animT);
     const playerLookup = new Map(frame.players.map(pl => [playerKey(pl), pl]));
     const animatedKickBall = resolveAnimatedKickBall(frame, playerLookup);
@@ -7892,6 +7970,7 @@ function render() {
     frame.players.forEach(pl => {
       if (samePlayerRef(playerRef(pl), frame.ballOwner)) drawBallCarrierHighlight(pl.x, pl.y);
     });
+    drawPassCatch(frame.passFlight);
     renderAnnotations('notes', frame.annotations, frame.players);
     closeRadialMenu();
     scheduleFloatingSelectionToolbarUpdate();
@@ -7901,6 +7980,8 @@ function render() {
   const t = (S.animating || isCanonicalPlaybackPaused()) ? S.animT : 0;
   const animatedKickBall = resolveLiveAnimatedKickBall(t);
   renderAnnotations('zones');
+  const editFlight = sampleEditPassPreview();
+  drawPassFlight(editFlight);
 
   S.passes.forEach((pass, passIdx) => {
     const fp = S.players.find(p => p.id === pass.from);
@@ -7973,15 +8054,16 @@ function render() {
   livePlayers.forEach(pl => {
     const pos = S.animating ? animPos(pl, t) : pl;
     const sel = isPlayerSelected(pl.id);
-    drawPlayer(pos.x, pos.y, pl.num, pl.team, sel, pl.isBC, playerColorPalette(pl));
+    drawPlayer(pos.x, pos.y, pl.num, pl.team, sel, pl.isBC && (!editFlight || editFlight.arrived), playerColorPalette(pl));
   });
-  const liveBall = animatedKickBall || S.ball;
+  const liveBall = editFlight?.ball || animatedKickBall || S.ball;
   if (liveBall) {
     drawBall(liveBall.x, liveBall.y, isBallSelected());
   }
   livePlayers.forEach(pl => {
-    if (pl.isBC) drawBallCarrierHighlight(pl.x, pl.y);
+    if (pl.isBC && (!editFlight || editFlight.arrived)) drawBallCarrierHighlight(pl.x, pl.y);
   });
+  drawPassCatch(editFlight);
   renderAnnotations('notes');
   const now = Date.now();
   [...teleStrokes, ...(teleDrawing ? [teleDrawing] : [])].forEach(s => {
@@ -8251,6 +8333,7 @@ function showPhoneMoveToast() {
 }
 
 function handlePointerDown(e) {
+  editPassPreview = null;
   clearPendingNoteSelectionClear();
   const fp = getF(e);
   const clampedFieldPoint = clampFieldPoint(fp);
@@ -8753,6 +8836,7 @@ function handlePointerDown(e) {
           S.ballOwner = playerRef(pl);
           S.ballAttached = true;
           syncAttachedBallToOwner();
+          startPassPreview(S.players.find(player => player.id === activeSourceId), pl);
         }
         clearPassKickState();
         clearSelectedObject();
@@ -9974,6 +10058,12 @@ function computePlaybackSegmentDurationSeconds(fromStep, toStep, motionStep = to
   const dominantDistance = Math.max(maxPlayerDistance, passOrKickDistance);
   if (dominantDistance <= 0.05) return PLAYBACK_STATIC_MOVE_DURATION;
   const playerDuration = maxPlayerDistance > 0 ? (maxPlayerDistance / PLAYBACK_MOVE_UNITS_PER_SECOND) : 0;
+  if (ballMotion.kind === 'pass') {
+    // Keep the corrected, distance-based timing, with a short flight and enough
+    // time for the catch/fade. Runs retain their own duration and shared clock.
+    return clamp(Math.max(playerDuration > 0 ? playerDuration + 0.8 : 0,
+      passFlightSeconds(ballDistance) + PASS_CATCH_SECONDS), 0.85, PLAYBACK_MAX_MOVE_DURATION);
+  }
   const ballDuration = passOrKickDistance > 0 ? (passOrKickDistance / PLAYBACK_BALL_UNITS_PER_SECOND) : 0;
   return clamp(Math.max(playerDuration, ballDuration) + 0.8, PLAYBACK_MIN_MOVE_DURATION, PLAYBACK_MAX_MOVE_DURATION);
 }
@@ -12476,6 +12566,7 @@ function scrollCompactToolbarToolIntoView(tool = S.tool) {
 }
 
 function setTool(t) {
+  editPassPreview = null;
   if (t === 'ellipse') t = 'zone';
   // Any call to setTool() - rail click or radial dispatch alike - starts by
   // treating a prior radial one-shot Arrow as abandoned. activateRadialAction()
