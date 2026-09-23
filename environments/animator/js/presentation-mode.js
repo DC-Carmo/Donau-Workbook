@@ -7,7 +7,6 @@
   const wrap = document.getElementById('canvasWrap');
   const entry = document.getElementById('presentButton');
   const topbar = document.getElementById('topbar');
-  const menu = document.querySelector('.mobile-board-menu-actions');
   const sourcePlay = document.getElementById('seqBarPlay');
   let rotation = 0;
   let frame = 0;
@@ -17,7 +16,7 @@
   let savedScroll;
   let savedWrapStyle;
   let inertElements = [];
-  const active = () => body.classList.contains('present-mode');
+  const active = () => !isPhoneViewport && body.classList.contains('present-mode');
 
   const controls = document.createElement('div');
   controls.id = 'presentControls';
@@ -30,7 +29,6 @@
     <button type="button" data-present="flip" aria-label="Flip 180 degrees">Flip</button>
     <button type="button" data-present="play">Play</button>
     <button type="button" data-present="exit">Exit</button>`;
-  stage.append(controls);
   const play = controls.querySelector('[data-present="play"]');
 
   function syncPlayback() {
@@ -46,21 +44,19 @@
   });
 
   function positionEntry() {
-    if (active()) return;
-    const compact = body.classList.contains('is-phone');
-    const parent = compact ? menu : topbar;
-    if (entry.parentElement !== parent) parent.append(entry);
-    entry.classList.toggle('mobile-board-menu-btn', compact);
-    if (!compact) {
-      const anchor = document.querySelector('.seq-bar').getBoundingClientRect();
-      // An out-of-flow tab attached to the top bar adds no width/height to
-      // any existing control or layout, including tightly packed laptops.
-      entry.style.left = `${Math.max(8, Math.min(innerWidth - 104, anchor.right - 96))}px`;
-      entry.style.top = `${topbar.getBoundingClientRect().bottom + 6}px`;
-    } else {
-      entry.style.removeProperty('left');
-      entry.style.removeProperty('top');
+    // Use the board's existing classifier, including touch/coarse-pointer rules.
+    entry.hidden = isPhoneViewport;
+    if (isPhoneViewport) {
+      if (body.classList.contains('present-mode')) exitPresentMode();
+      controls.remove();
+      return;
     }
+    if (!controls.isConnected) stage.append(controls);
+    if (active()) return;
+    const anchor = document.querySelector('.seq-bar').getBoundingClientRect();
+    // An out-of-flow tab leaves every existing control's geometry unchanged.
+    entry.style.left = `${Math.max(8, Math.min(innerWidth - 104, anchor.right - 96))}px`;
+    entry.style.top = `${topbar.getBoundingClientRect().bottom + 6}px`;
   }
 
   function fitPresentation() {
@@ -78,9 +74,7 @@
     const availableHeight = Math.max(1, height - barHeight - barBottom - 24);
     // Match the EXISTING renderer's natural orientation/aspect. Only the
     // display canvas is rotated, never the wrapper measured by resize().
-    const phone = body.classList.contains('is-phone');
-    const landscape = phone && !body.classList.contains('tb-mobile-portrait');
-    const aspect = landscape ? FVH / FVW : FVW * (phone ? 1 : FIELD_X_STRETCH) / FVH;
+    const aspect = FVW * FIELD_X_STRETCH / FVH;
     const quarterTurn = rotation % 180 !== 0;
     const limitW = quarterTurn ? availableHeight : availableWidth;
     const limitH = quarterTurn ? availableWidth : availableHeight;
@@ -111,12 +105,11 @@
   }
 
   function enterPresentMode() {
-    if (active()) return;
+    if (isPhoneViewport || active()) return;
     const token = ++generation;
     previousFocus = document.activeElement;
     savedScroll = { left: stage.scrollLeft, top: stage.scrollTop };
     savedWrapStyle = wrap.getAttribute('style');
-    closeMobileBoardMenu();
     body.classList.add('present-mode');
     controls.hidden = false;
     rotation = 0;
@@ -154,7 +147,8 @@
   }
 
   function exitPresentMode() {
-    if (!active()) return;
+    // Cleanup must also run when an active presentation becomes a phone layout.
+    if (!body.classList.contains('present-mode')) return;
     ++generation;
     body.classList.remove('present-mode');
     controls.hidden = true;
@@ -231,7 +225,7 @@
   new ResizeObserver(scheduleFit).observe(controls);
   let layoutKey = '';
   new MutationObserver(() => {
-    const nextKey = `${active()}/${body.classList.contains('is-phone')}/${body.classList.contains('tb-mobile-portrait')}`;
+    const nextKey = `${body.classList.contains('present-mode')}/${isPhoneViewport}`;
     if (nextKey === layoutKey) return;
     layoutKey = nextKey;
     positionEntry();
