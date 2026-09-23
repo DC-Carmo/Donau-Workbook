@@ -7943,10 +7943,12 @@ function render() {
     const frame = buildSequenceFrame(S.animT);
     const playerLookup = new Map(frame.players.map(pl => [playerKey(pl), pl]));
     const animatedKickBall = resolveAnimatedKickBall(frame, playerLookup);
+    const passFlight = animatedKickBall ? null : resolveAnimatedPassFlight(frame, playerLookup);
+    const animatedPassBall = resolveAnimatedPassBall(frame, playerLookup, passFlight);
     renderAnnotations('zones', frame.annotations, frame.players);
-    drawPassFlight(frame.passFlight);
+    drawPassFlight(passFlight);
     frame.passes.forEach(pass => {
-      if (pass.style === 'pass') return;
+      if (pass.style !== 'kick') return;
       const from = playerLookup.get(playerKey({ num: pass.fromNum, team: pass.fromT }));
       if (!from) return;
       if (pass.style === 'kick' && pass.targetX !== undefined) {
@@ -7955,8 +7957,7 @@ function render() {
       }
       const to = playerLookup.get(playerKey({ num: pass.toNum, team: pass.toT }));
       if (!to) return;
-      const col = pass.style === 'kick' ? '#f59e0b' : 'rgba(255,255,255,0.75)';
-      drawArc(from.x, from.y, to.x, to.y, col, 1, pass.style === 'kick');
+      drawArc(from.x, from.y, to.x, to.y, '#f59e0b', 1, true);
     });
     frame.paths.forEach(path => {
       if (path.pts.length < 2) return;
@@ -7964,13 +7965,14 @@ function render() {
     });
     renderAnnotations('lines', frame.annotations, frame.players);
     renderPathOriginMarkers(frame.players, frame.paths);
-    frame.players.forEach(pl => drawPlayer(pl.x, pl.y, pl.num, pl.team, false, samePlayerRef(playerRef(pl), frame.ballOwner), playerColorPalette(pl)));
-    const frameBall = animatedKickBall || frame.ball;
+    const showCarrier = !passFlight || passFlight.progress <= 0 || passFlight.arrived;
+    frame.players.forEach(pl => drawPlayer(pl.x, pl.y, pl.num, pl.team, false, showCarrier && samePlayerRef(playerRef(pl), frame.ballOwner), playerColorPalette(pl)));
+    const frameBall = animatedKickBall || animatedPassBall || frame.ball;
     if (frameBall) drawBall(frameBall.x, frameBall.y, false);
     frame.players.forEach(pl => {
-      if (samePlayerRef(playerRef(pl), frame.ballOwner)) drawBallCarrierHighlight(pl.x, pl.y);
+      if (showCarrier && samePlayerRef(playerRef(pl), frame.ballOwner)) drawBallCarrierHighlight(pl.x, pl.y);
     });
-    drawPassCatch(frame.passFlight);
+    drawPassCatch(passFlight);
     renderAnnotations('notes', frame.annotations, frame.players);
     closeRadialMenu();
     scheduleFloatingSelectionToolbarUpdate();
@@ -7979,8 +7981,10 @@ function render() {
 
   const t = (S.animating || isCanonicalPlaybackPaused()) ? S.animT : 0;
   const animatedKickBall = resolveLiveAnimatedKickBall(t);
+  const passFlight = animatedKickBall ? null : resolveLiveAnimatedPassFlight(t);
+  const animatedPassBall = resolveLiveAnimatedPassBall(t, passFlight);
   renderAnnotations('zones');
-  const editFlight = sampleEditPassPreview();
+  const editFlight = passFlight || sampleEditPassPreview();
   drawPassFlight(editFlight);
 
   S.passes.forEach((pass, passIdx) => {
@@ -8056,7 +8060,7 @@ function render() {
     const sel = isPlayerSelected(pl.id);
     drawPlayer(pos.x, pos.y, pl.num, pl.team, sel, pl.isBC && (!editFlight || editFlight.arrived), playerColorPalette(pl));
   });
-  const liveBall = editFlight?.ball || animatedKickBall || S.ball;
+  const liveBall = animatedKickBall || animatedPassBall || editFlight?.ball || S.ball;
   if (liveBall) {
     drawBall(liveBall.x, liveBall.y, isBallSelected());
   }
@@ -10266,6 +10270,50 @@ function resolveAnimatedKickBall(frame, playerLookup) {
     x: lerp(from.x, target.x, frame.localT),
     y: lerp(from.y, target.y, frame.localT),
   };
+}
+
+// Compatibility flight for live playback and frames without a prepared leg.
+// Use the same carried-ball offset at both ends so arrival does not jump when
+// ownership is restored. Beam and ball always share these exact endpoints.
+function resolvePassFlightBetweenPlayers(fromPlayer, toPlayer, progress) {
+  const p = clamp(progress, 0, 1);
+  const from = attachedBallPositionForPlayer(fromPlayer);
+  const to = attachedBallPositionForPlayer(toPlayer);
+  return {
+    from, to, receiver: toPlayer, progress: p,
+    ball: _cmrLerp(from, to, p),
+    arrived: p >= 1, complete: p >= 1,
+    beamOpacity: passEase(p / 0.08) * (1 - passEase((p - 0.85) / 0.15)),
+    catchOpacity: 0,
+  };
+}
+
+function resolveAnimatedPassFlight(frame, playerLookup) {
+  if (frame?.passFlight) return frame.passFlight;
+  const pass = [...(frame?.passes || [])].reverse().find(p => p.style !== 'kick');
+  if (!pass) return null;
+  const from = playerLookup.get(playerKey({ num: pass.fromNum, team: pass.fromT }));
+  const to = playerLookup.get(playerKey({ num: pass.toNum, team: pass.toT }));
+  return from && to ? resolvePassFlightBetweenPlayers(from, to, frame.localT) : null;
+}
+
+function resolveAnimatedPassBall(frame, playerLookup, flight = resolveAnimatedPassFlight(frame, playerLookup)) {
+  return flight?.ball || null;
+}
+
+function resolveLiveAnimatedPassFlight(progress) {
+  if (!S.animating && !isCanonicalPlaybackPaused()) return null;
+  const pass = [...(S.passes || [])].reverse().find(p => p.style !== 'kick');
+  if (!pass) return null;
+  const fromPlayer = S.players.find(player => player.id === pass.from);
+  const toPlayer = S.players.find(player => player.id === pass.to);
+  return fromPlayer && toPlayer
+    ? resolvePassFlightBetweenPlayers(animPos(fromPlayer, progress), animPos(toPlayer, progress), progress)
+    : null;
+}
+
+function resolveLiveAnimatedPassBall(progress, flight = resolveLiveAnimatedPassFlight(progress)) {
+  return flight?.ball || null;
 }
 
 function resolveLiveAnimatedKickBall(progress) {
