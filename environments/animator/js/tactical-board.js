@@ -792,7 +792,7 @@ function resize() {
     // Only laptop pitch padding is reduced; the readable bars keep their height.
     const pitchAreaWidth = laptop ? cvW - SEQUENCE_DOCK_FULL_WIDTH - 16 : cvW;
     const baseFromWidth = (pitchAreaWidth - padX * 2) / (FVW * FIELD_X_STRETCH);
-    const baseFromHeight = (cvH - (laptop ? 2 : padY) * 2) / FVH;
+    const baseFromHeight = (cvH - (laptop ? 1 : padY) * 2) / FVH;
     sc = Math.max(0.01, Math.min(baseFromWidth, baseFromHeight));
     sx = sc * FIELD_X_STRETCH;
     sy = sc;

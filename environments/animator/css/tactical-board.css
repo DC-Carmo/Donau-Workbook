@@ -6215,10 +6215,10 @@ body:not(.is-phone) .sp-field-textarea { resize: vertical; min-height: 44px; lin
    layouts unchanged; the existing compact layouts below 1280px retain control. */
 @media (min-width: 1280px) and (max-width: 1499.98px) {
   body:not(.is-phone) #topbar {
-    padding: 4px 8px;
+    padding: 1px 8px;
     gap: 8px;
-    flex-basis: 60px;
-    min-height: 60px;
+    flex-basis: 48px;
+    min-height: 48px;
   }
   body:not(.is-phone) .tb-title-shell {
     flex: 1 1 160px;
@@ -6235,6 +6235,7 @@ body:not(.is-phone) .sp-field-textarea { resize: vertical; min-height: 44px; lin
     flex: 0 1 420px;
     min-width: 320px;
     gap: 6px;
+    padding-block: 1px;
   }
   body:not(.is-phone) .seq-bar-summary {
     flex-direction: column;
@@ -6245,7 +6246,7 @@ body:not(.is-phone) .sp-field-textarea { resize: vertical; min-height: 44px; lin
   body:not(.is-phone) .tb-actions {
     flex: 0 0 auto;
     gap: 4px;
-    padding: 3px 4px;
+    padding: 1px 4px;
   }
   body:not(.is-phone) .tb-actions .c-btn {
     padding-inline: 8px;
@@ -6255,12 +6256,12 @@ body:not(.is-phone) .sp-field-textarea { resize: vertical; min-height: 44px; lin
   body:not(.is-phone) .tb-history-controls { gap: 4px; }
   body:not(.is-phone) .tb-history-btn { width: 36px; height: 36px; }
   body:not(.is-phone) #workspace {
-    --desktop-toolbar-h: 48px;
+    --desktop-toolbar-h: 36px;
     --desktop-pill-font: 0.82rem;
   }
   body:not(.is-phone) #compactToolbar .board-pill {
-    min-height: 40px;
-    padding: 6px 8px;
+    min-height: 32px;
+    padding: 3px 8px;
     font-size: 0.82rem;
   }
   /* Existing abbreviated labels are painted by ::after. Keep the source
@@ -6275,4 +6276,11 @@ body:not(.is-phone) .sp-field-textarea { resize: vertical; min-height: 44px; lin
 /* Pitch-only laptop padding: retain the readable top/bottom bar dimensions. */
 @media (min-width: 1280px) and (max-width: 1499.98px) {
   body:not(.is-phone) #canvasWrap { padding: 0; }
+}
+
+/* Do not expose the translated HTML entity as literal generated text. */
+@media (min-width: 1280px) and (max-width: 1499.98px) {
+  body:not(.is-phone) #compactToolbar #mobileClearBtn::after {
+    content: "\2715";
+  }
 }
