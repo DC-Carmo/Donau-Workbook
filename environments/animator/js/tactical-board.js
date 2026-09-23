@@ -1649,7 +1649,7 @@ window.startTour = startTour;
 
 const R = () => {
   if (isPhoneViewport) return Math.max(20, Math.min(27, sc * 2.38));
-  return Math.max(13, Math.min(30, sc * 2.22));
+  return Math.max(12, Math.min(26, sc * 1.8));
 };
 
 function nowIso() {
