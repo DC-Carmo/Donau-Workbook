@@ -6210,3 +6210,64 @@ body:not(.is-phone) .sp-field-textarea:focus {
   border-color: rgba(227,178,60,0.5); background: rgba(255,255,255,0.06);
 }
 body:not(.is-phone) .sp-field-textarea { resize: vertical; min-height: 44px; line-height: 1.35; }
+
+/* Laptop-only toolbar sizing. Keep the 1500px desktop boundary and phone
+   layouts unchanged; the existing compact layouts below 1280px retain control. */
+@media (min-width: 1280px) and (max-width: 1499.98px) {
+  body:not(.is-phone) #topbar {
+    padding: 4px 8px;
+    gap: 8px;
+    flex-basis: 60px;
+    min-height: 60px;
+  }
+  body:not(.is-phone) .tb-title-shell {
+    flex: 1 1 160px;
+    min-width: 0;
+    gap: 6px;
+  }
+  body:not(.is-phone) #playName {
+    flex: 1 1 0;
+    width: 100%;
+    min-width: 0;
+    padding-inline: 6px;
+  }
+  body:not(.is-phone) .seq-bar {
+    flex: 0 1 420px;
+    min-width: 320px;
+    gap: 6px;
+  }
+  body:not(.is-phone) .seq-bar-summary {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 90px;
+  }
+  body:not(.is-phone) .tb-actions {
+    flex: 0 0 auto;
+    gap: 4px;
+    padding: 3px 4px;
+  }
+  body:not(.is-phone) .tb-actions .c-btn {
+    padding-inline: 8px;
+    font-size: 0.64rem;
+    letter-spacing: 0.06em;
+  }
+  body:not(.is-phone) .tb-history-controls { gap: 4px; }
+  body:not(.is-phone) .tb-history-btn { width: 36px; height: 36px; }
+  body:not(.is-phone) #workspace {
+    --desktop-toolbar-h: 48px;
+    --desktop-pill-font: 0.82rem;
+  }
+  body:not(.is-phone) #compactToolbar .board-pill {
+    min-height: 40px;
+    padding: 6px 8px;
+    font-size: 0.82rem;
+  }
+  /* Existing abbreviated labels are painted by ::after. Keep the source
+     text suppressed so increasing the type does not duplicate each label. */
+  body:not(.is-phone) #compactToolbar .board-pill[data-label-mobile],
+  body:not(.is-phone) #compactToolbar #gainlineToggleBtn,
+  body:not(.is-phone) #compactToolbar #ghostPreviousToggleBtn {
+    font-size: 0;
+  }
+}
