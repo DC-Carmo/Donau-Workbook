@@ -1435,7 +1435,7 @@ const NOTE_LEGACY_REFERENCE_SCALE = 10;
 const NOTE_LEGACY_FONT_PX = 12.5;
 const STEP_MIN_COUNT = 3;
 let firstUseTutorialDismissed = false;
-const BOARD_BALL_ASSET_SRC = '../../assets/donau/images/rugby_ball_fire_scalable_bottom_right_fixed.svg';
+const BOARD_BALL_ASSET_SRC = '../../assets/donau/images/rugby_ball_clean.svg';
 const boardBallAsset = new Image();
 let boardBallAssetReady = false;
 
@@ -6231,9 +6231,21 @@ function prepareBallMotion(motion, fromStep, toStep) {
       return c ? { pos: { x: c.x + BALL_CARRY_OFFSET.x, y: c.y + BALL_CARRY_OFFSET.y }, owner: motion.owner } : { pos: null, owner: null };
     } };
   }
-  if (motion.kind === 'pass' || motion.kind === 'kick') {
+  if (motion.kind === 'pass') {
+    // The edit action already assigns the ball to the receiver. Reconstruct
+    // the flight from the recorded passer/receiver, not that final ball pose.
+    const passer = buildStepLookup(fromStep.players).get(motion.from);
+    const receiver = buildStepLookup(toStep.players).get(motion.to);
+    const from = passer ? attachedBallPositionForPlayer(passer) : resolveBallEndpoint(fromStep);
+    const to = receiver ? attachedBallPositionForPlayer(receiver) : resolveBallEndpoint(toStep);
+    return { kind: 'pass', from, to, sample: (t) => ({
+      pos: from && to ? _cmrLerp(from, to, t) : (from || to),
+      owner: t <= 0 ? motion.from : (t >= 1 ? motion.to : null),
+    }) };
+  }
+  if (motion.kind === 'kick') {
     const a = resolveBallEndpoint(fromStep) || { x: 34, y: 50 };
-    const b = motion.kind === 'pass' ? (resolveBallEndpoint(toStep) || a) : { x: motion.pass?.targetX ?? a.x, y: motion.pass?.targetY ?? a.y };
+    const b = { x: motion.pass?.targetX ?? a.x, y: motion.pass?.targetY ?? a.y };
     const traj = prepareTrajectory(a, b, null);
     return { kind: motion.kind, sample: (t) => ({ pos: traj.sampleByDistance(t), owner: t <= 0 ? motion.from : (t >= 1 ? (motion.to || null) : null) }) };
   }
@@ -6286,7 +6298,9 @@ function samplePlaybackLeg(leg, t) {
     byKey.set(key, pos);
   }
   const b = leg.ball.sample(f, byKey);
-  return { players, ball: b.pos, ballOwner: playerKeyToRef(b.owner), annotations: leg.annotations, paths: leg.paths, passes: leg.passes, localT: f };
+  const passFlight = leg.ball.kind === 'pass' && leg.ball.from && leg.ball.to
+    ? { from: leg.ball.from, to: leg.ball.to, progress: f } : null;
+  return { players, passFlight, ball: b.pos, ballOwner: playerKeyToRef(b.owner), annotations: leg.annotations, paths: leg.paths, passes: leg.passes, localT: f };
 }
 
 const PLAYBACK_SHADOW = false;
@@ -6369,6 +6383,8 @@ function hitRunPath(fp) {
 }
 
 function hitPassLine(fp) {
+  // Hidden, completed passes must not intercept clicks on empty pitch.
+  if ((!S.animating && !isCanonicalPlaybackPaused()) || S.animT <= 0 || S.animT >= 1) return -1;
   const HIT_DIST = 14;
   const cp = toC(fp.x, fp.y);
   for (let i = S.passes.length - 1; i >= 0; i--) {
@@ -6442,6 +6458,25 @@ function drawKickToTarget(x1, y1, x2, y2, progress = 1, selected = false) {
     ctx.globalAlpha = 1;
     ctx.restore();
   }
+}
+
+function drawPassFlight(flight) {
+  if (!flight || flight.progress <= 0 || flight.progress >= 1) return;
+  const a = toC(flight.from.x, flight.from.y);
+  const b = toC(flight.to.x, flight.to.y);
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y);
+  ctx.lineTo(b.x, b.y);
+  ctx.strokeStyle = 'rgba(7,16,24,0.32)';
+  ctx.lineWidth = 3.5;
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(245,243,237,0.64)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawArc(x1, y1, x2, y2, color, progress = 1, thick = false, selected = false) {
@@ -7831,7 +7866,9 @@ function render() {
     const playerLookup = new Map(frame.players.map(pl => [playerKey(pl), pl]));
     const animatedKickBall = resolveAnimatedKickBall(frame, playerLookup);
     renderAnnotations('zones', frame.annotations, frame.players);
+    drawPassFlight(frame.passFlight);
     frame.passes.forEach(pass => {
+      if (pass.style === 'pass') return;
       const from = playerLookup.get(playerKey({ num: pass.fromNum, team: pass.fromT }));
       if (!from) return;
       if (pass.style === 'kick' && pass.targetX !== undefined) {
@@ -7879,8 +7916,6 @@ function render() {
     const ta = animPos(tp, t);
     if (pass.style === 'kick') {
       drawKickLine(fa.x, fa.y, ta.x, ta.y, 1, isSelected);
-    } else {
-      drawArc(fa.x, fa.y, ta.x, ta.y, 'rgba(255,255,255,0.75)', 1, false, isSelected);
     }
   });
 
@@ -8707,7 +8742,7 @@ function handlePointerDown(e) {
         refreshInteractionUI();
       } else if (pl.id !== activeSourceId) {
         // Second click: complete the pass/kick
-        const dup = S.passes.find(p => p.from === activeSourceId && p.to === pl.id);
+        const dup = S.passes.find(p => p.from === activeSourceId && p.to === pl.id && p.style === S.tool);
         if (!dup) S.passes.push({ from: activeSourceId, to: pl.id, style: S.tool });
         if (S.tool === 'kick') {
           S.ball = { x: pl.x, y: pl.y };
@@ -8858,10 +8893,10 @@ function handlePointerMove(e) {
         pl.x = clamp(fp.x - S.dragOff.x, -2, 70);
         pl.y = clamp(fp.y - S.dragOff.y, -11, 111);
 
-        // Warn if this player has a pass drawn from them - moving after drawing distorts the arc
+        // Warn if this player has a pass drawn from them - moving changes the recorded action endpoints
         if (!S.dragging._passWarnShown && S.passes.some(p => p.from === pl.id)) {
           S.dragging._passWarnShown = true;
-          setHint('Pass already drawn from this player. Hit + STEP before repositioning to keep the arc accurate.');
+          setHint('Pass already drawn from this player. Hit + STEP before repositioning to keep the action accurate.');
         }
 
         const path = S.paths.find(p => p.pid === pl.id);
@@ -9927,7 +9962,14 @@ function computePlaybackSegmentDurationSeconds(fromStep, toStep, motionStep = to
 
   const fromBall = resolveStepBall(from);
   const toBall = resolveStepBall(to);
-  const ballDistance = fromBall && toBall ? d2(fromBall, toBall) : 0;
+  let ballDistance = fromBall && toBall ? d2(fromBall, toBall) : 0;
+  const ballMotion = deriveBallMotion(from, to, motion);
+  if (ballMotion.kind === 'pass') {
+    const flight = prepareBallMotion(ballMotion, from, to);
+    // A completed edit stores the receiver pose in both moves. Time playback
+    // from the same actual endpoints used to render the pass, not that zero delta.
+    if (flight.from && flight.to) ballDistance = d2(flight.from, flight.to);
+  }
   const passOrKickDistance = Array.isArray(motion.passes) && motion.passes.length ? ballDistance : 0;
   const dominantDistance = Math.max(maxPlayerDistance, passOrKickDistance);
   if (dominantDistance <= 0.05) return PLAYBACK_STATIC_MOVE_DURATION;
@@ -12481,6 +12523,7 @@ function setTool(t) {
   } else if ((t === 'pass' || t === 'kick') && S.selectedPlayerId !== null && !selectedGroup()) {
     const selectedPlayer = S.players.find(player => player.id === S.selectedPlayerId) || null;
     if (selectedPlayer) {
+      snapshot();
       setWorkflowSource(selectedPlayer.id, t);
       selectPlayer(selectedPlayer.id, { highlightedIds: [selectedPlayer.id] });
       S.ballOwner = playerRef(selectedPlayer);

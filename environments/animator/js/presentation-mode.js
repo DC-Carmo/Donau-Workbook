@@ -8,6 +8,8 @@
   const entry = document.getElementById('presentButton');
   const topbar = document.getElementById('topbar');
   const sourcePlay = document.getElementById('seqBarPlay');
+  const sourcePrevious = document.getElementById('seqBarPrev');
+  const sourceNext = document.getElementById('seqBarNext');
   let rotation = 0;
   let frame = 0;
   let fullscreenOwned = false;
@@ -25,12 +27,27 @@
   controls.setAttribute('role', 'toolbar');
   controls.setAttribute('aria-label', 'Presentation controls');
   controls.innerHTML = `
+    <div class="present-controls-row">
+      <button type="button" data-present="previous-phase">Previous phase</button>
+      <button type="button" data-present="previous-move">Previous move</button>
+      <button type="button" data-present="play">Play</button>
+      <button type="button" data-present="next-move">Next move</button>
+      <button type="button" data-present="next-phase">Next phase</button>
+    </div>
+    <div class="present-controls-row">
     <button type="button" data-present="left" aria-label="Rotate left 90 degrees">Rotate ◄</button>
     <button type="button" data-present="right" aria-label="Rotate right 90 degrees">Rotate ►</button>
     <button type="button" data-present="flip" aria-label="Flip 180 degrees">Flip</button>
-    <button type="button" data-present="play">Play</button>
-    <button type="button" data-present="exit">Exit</button>`;
+    <output class="present-position" aria-live="polite"></output>
+    <button type="button" data-present="exit">Exit</button>
+    </div>`;
   const play = controls.querySelector('[data-present="play"]');
+  const position = controls.querySelector('.present-position');
+
+  function phaseTarget(direction) {
+    const targetPhase = GamePlan.currentPhase + direction;
+    return getCanonicalMoveRefs().findIndex(ref => ref.phaseIndex === targetPhase);
+  }
 
   function syncPlayback() {
     if (!active()) return;
@@ -38,11 +55,21 @@
     play.textContent = S.animating ? 'Pause' : 'Play';
     play.disabled = sourcePlay.disabled;
     play.setAttribute('aria-label', S.animating ? 'Pause sequence' : 'Play sequence');
+    controls.querySelector('[data-present="previous-move"]').disabled = sourcePrevious.disabled;
+    controls.querySelector('[data-present="next-move"]').disabled = sourceNext.disabled;
+    controls.querySelector('[data-present="previous-phase"]').disabled = phaseTarget(-1) < 0;
+    controls.querySelector('[data-present="next-phase"]').disabled = phaseTarget(1) < 0;
+    const move = getCanonicalMoveDisplay();
+    const label = `Phase ${GamePlan.currentPhase + 1}/${GamePlan.phases.length} · Move ${move.current || 0}/${move.count}`;
+    if (position.textContent !== label) position.textContent = label;
   }
-  new MutationObserver(syncPlayback).observe(sourcePlay, {
-    subtree: true, childList: true, characterData: true, attributes: true,
-    attributeFilter: ['disabled', 'aria-label'],
-  });
+  const transportObserver = new MutationObserver(syncPlayback);
+  for (const source of [sourcePlay, sourcePrevious, sourceNext, document.getElementById('phaseChipStrip')]) {
+    transportObserver.observe(source, {
+      subtree: true, childList: true, characterData: true, attributes: true,
+      attributeFilter: ['disabled', 'aria-label'],
+    });
+  }
 
   function positionEntry() {
     // Use the board's existing classifier, including touch/coarse-pointer rules.
@@ -131,7 +158,7 @@
     stage.scrollTo(0, 0);
     fitPresentation();
     syncPlayback();
-    controls.querySelector('button').focus({ preventScroll: true });
+    controls.querySelector('button:not(:disabled)').focus({ preventScroll: true });
     // Request synchronously in the user's gesture. The scoped fixed stage
     // is already the fallback for unsupported/denied fullscreen (e.g. iOS).
     try {
@@ -181,8 +208,17 @@
       case 'right': setPresentRotation(rotation + 90); break;
       case 'flip': setPresentRotation(rotation + 180); break;
       case 'play': toggleSmartPlay(); syncPlayback(); break;
+      case 'previous-move': handleCanonicalPrevious(); break;
+      case 'next-move': handleCanonicalNext(); break;
+      case 'previous-phase':
+      case 'next-phase': {
+        const index = phaseTarget(event.target.closest('button').dataset.present === 'previous-phase' ? -1 : 1);
+        if (index >= 0) handleCanonicalMoveChipSelect(index);
+        break;
+      }
       case 'exit': exitPresentMode(); break;
     }
+    syncPlayback();
   });
   // Capture at window, ahead of the editor's document/canvas shortcuts.
   for (const type of ['keydown', 'keyup', 'keypress']) {

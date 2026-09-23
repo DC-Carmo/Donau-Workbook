@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-23.2 -14 160 112">
+  <defs>
+    <radialGradient id="rbLeather" cx="40%" cy="34%" r="78%">
+      <stop offset="0%" stop-color="#efc985"/>
+      <stop offset="42%" stop-color="#d19f52"/>
+      <stop offset="100%" stop-color="#83521f"/>
+    </radialGradient>
+    <linearGradient id="rbSheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.38"/>
+      <stop offset="45%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <g transform="rotate(-18 60 42)">
+    <ellipse cx="60" cy="42" rx="52" ry="29.5" fill="url(#rbLeather)" stroke="#5b3813" stroke-width="2.4"/>
+    <ellipse cx="60" cy="42" rx="52" ry="29.5" fill="url(#rbSheen)"/>
+    <path d="M11 42 Q60 25 109 42" fill="none" stroke="#f5ecd8" stroke-width="2.3" stroke-linecap="round" opacity="0.8"/>
+    <path d="M11 42 Q60 59 109 42" fill="none" stroke="#f5ecd8" stroke-width="2.3" stroke-linecap="round" opacity="0.8"/>
+    <line x1="39" y1="42" x2="81" y2="42" stroke="#faf4e6" stroke-width="2.6" stroke-linecap="round"/>
+    <g stroke="#faf4e6" stroke-width="2.1" stroke-linecap="round">
+      <line x1="46" y1="37" x2="46" y2="47"/>
+      <line x1="53" y1="36" x2="53" y2="48"/>
+      <line x1="60" y1="35.5" x2="60" y2="48.5"/>
+      <line x1="67" y1="36" x2="67" y2="48"/>
+      <line x1="74" y1="37" x2="74" y2="47"/>
+    </g>
+  </g>
+</svg>
