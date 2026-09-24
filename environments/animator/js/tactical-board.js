@@ -6484,7 +6484,7 @@ function drawKickToTarget(x1, y1, x2, y2, progress = 1, selected = false) {
 }
 
 const PASS_CATCH_SECONDS = 0.4;
-function passFlightSeconds(distance) { return clamp(distance / 70, 0.45, 1.1); }
+function passFlightSeconds(distance) { return clamp(distance / 26, 1.0, 2.5); }
 function passEase(t) { const u = clamp(t, 0, 1); return u * u * (3 - 2 * u); }
 
 function samplePassVisual(from, to, receiver, elapsed, flightSeconds) {
@@ -10279,13 +10279,10 @@ function resolvePassFlightBetweenPlayers(fromPlayer, toPlayer, progress) {
   const p = clamp(progress, 0, 1);
   const from = attachedBallPositionForPlayer(fromPlayer);
   const to = attachedBallPositionForPlayer(toPlayer);
-  return {
-    from, to, receiver: toPlayer, progress: p,
-    ball: _cmrLerp(from, to, p),
-    arrived: p >= 1, complete: p >= 1,
-    beamOpacity: passEase(p / 0.08) * (1 - passEase((p - 0.85) / 0.15)),
-    catchOpacity: 0,
-  };
+  const flightSeconds = passFlightSeconds(d2(from, to));
+  const duration = playbackDurationSeconds();
+  const releaseAt = Math.max(0, duration - flightSeconds - PASS_CATCH_SECONDS);
+  return samplePassVisual(from, to, toPlayer, p * duration - releaseAt, flightSeconds);
 }
 
 function resolveAnimatedPassFlight(frame, playerLookup) {
