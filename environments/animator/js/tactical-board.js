@@ -2465,12 +2465,16 @@ function canonicalPlaybackTargetIndex(startIndex = getCurrentCanonicalMoveIndex(
   return startIndex + 1;
 }
 
+function hasBallFlight(passes = S.passes) {
+  return Array.isArray(passes) && passes.some(pass => pass.style === 'pass' || pass.style === 'kick');
+}
+
 function currentPhaseHasPlayablePlayback() {
-  return canonicalPlaybackTargetIndex() !== null;
+  return canonicalPlaybackTargetIndex() !== null || hasBallFlight();
 }
 
 function projectHasPlayablePlayback() {
-  return canonicalPlaybackTargetIndex() !== null;
+  return currentPhaseHasPlayablePlayback();
 }
 
 function phasePlaybackStepAt(index) {
@@ -10079,6 +10083,15 @@ function playbackDurationSeconds() {
   const toRef = getCanonicalMoveRef(toIdx);
   const from = canonicalPlaybackStepAt(fromRef) || emptyStepState();
   const to = canonicalPlaybackStepAt(toRef) || from;
+  if (!toRef && from.passes.some(pass => pass.style === 'kick')) {
+    // A final-move kick has no destination snapshot. Time its recorded flight,
+    // rather than the unchanged stored ball position in two identical poses.
+    const lookup = buildStepLookup(from.players);
+    const start = resolveAnimatedKickBall({ ...from, localT: 0 }, lookup);
+    const end = resolveAnimatedKickBall({ ...from, localT: 1 }, lookup);
+    if (start && end) return clamp(d2(start, end) / PLAYBACK_BALL_UNITS_PER_SECOND + 0.8,
+      PLAYBACK_MIN_MOVE_DURATION, PLAYBACK_MAX_MOVE_DURATION);
+  }
   return computePlaybackSegmentDurationSeconds(from, to, from);
 }
 
@@ -10236,17 +10249,19 @@ function buildSequenceFrame(progress) {
   const fromRef = getCanonicalMoveRef(fromIdx);
   const toRef = getCanonicalMoveRef(toIdx);
   from = canonicalPlaybackStepAt(fromRef) || emptyStepState();
-  if (toIdx === null || !toRef) {
+  if ((toIdx === null || !toRef) && !hasBallFlight(from.passes)) {
     return {
       ...from,
       segmentIndex: fromIdx,
       localT: 0,
     };
   }
+  // Replay final-move actions against the same pose without creating a saved
+  // move. The existing leg sampler owns flight, easing, beam and catch timing.
   to = canonicalPlaybackStepAt(toRef) || from;
   motionStep = to;
   let segmentIndex = fromIdx;
-  if (PLAYBACK_SHADOW) runPlaybackShadowCheck(from, to, fromIdx, toIdx);
+  if (PLAYBACK_SHADOW && toRef) runPlaybackShadowCheck(from, to, fromIdx, toIdx);
 
   const leg = preparePlaybackLeg(from, to);
   const sampled = samplePlaybackLeg(leg, localT);
