@@ -1097,8 +1097,8 @@ let lastNoteSelectionTap = { id: null, at: 0 };
 const PROJECT_TYPE = 'coachmato.animator.project';
 const PLAYBACK_TIMELINE_MODEL = 'global_progress_v1';
 const DEFAULT_PLAYBACK_DURATION = 5;
-const PLAYBACK_MOVE_UNITS_PER_SECOND = 6;
-const PLAYBACK_BALL_UNITS_PER_SECOND = 8;
+const PLAYBACK_MOVE_UNITS_PER_SECOND = 4;
+const PLAYBACK_BALL_UNITS_PER_SECOND = 5;
 const PLAYBACK_MIN_MOVE_DURATION = 2.4;
 const PLAYBACK_MAX_MOVE_DURATION = 8;
 const PLAYBACK_STATIC_MOVE_DURATION = 0.05;
@@ -2471,6 +2471,11 @@ function hasBallFlight(passes = S.passes) {
 
 function currentPhaseHasPlayablePlayback() {
   return canonicalPlaybackTargetIndex() !== null || hasBallFlight();
+}
+
+function playbackTargetIndex(startIndex = getCurrentCanonicalMoveIndex()) {
+  const target = canonicalPlaybackTargetIndex(startIndex);
+  return canonicalPlaybackBoundaryIndex !== null && target > canonicalPlaybackBoundaryIndex ? null : target;
 }
 
 function projectHasPlayablePlayback() {
@@ -6284,7 +6289,7 @@ function preparePlaybackLeg(fromStep, toStep) {
   const ball = prepareBallMotion(motion, fromStep, toStep);
   if (ball.kind === 'pass' && ball.from && ball.to) {
     const duration = computePlaybackSegmentDurationSeconds(fromStep, toStep, fromStep);
-    const flightSeconds = passFlightSeconds(d2(ball.from, ball.to));
+    const flightSeconds = sequencePassFlightSeconds(d2(ball.from, ball.to), duration);
     const releaseAt = Math.max(0, duration - flightSeconds - PASS_CATCH_SECONDS);
     const arrivalAt = releaseAt + flightSeconds;
     // Aim at the receiver's actual position at catch time, including a running
@@ -6489,6 +6494,9 @@ function drawKickToTarget(x1, y1, x2, y2, progress = 1, selected = false) {
 
 const PASS_CATCH_SECONDS = 0.4;
 function passFlightSeconds(distance) { return clamp(distance / 26, 1.0, 2.5); }
+function sequencePassFlightSeconds(distance, duration) {
+  return Math.max(passFlightSeconds(distance), Math.min(2.1, duration - PASS_CATCH_SECONDS));
+}
 function passEase(t) { const u = clamp(t, 0, 1); return u * u * (3 - 2 * u); }
 
 function samplePassVisual(from, to, receiver, elapsed, flightSeconds) {
@@ -10070,7 +10078,7 @@ function computePlaybackSegmentDurationSeconds(fromStep, toStep, motionStep = to
     // Keep the corrected, distance-based timing, with a short flight and enough
     // time for the catch/fade. Runs retain their own duration and shared clock.
     return clamp(Math.max(playerDuration > 0 ? playerDuration + 0.8 : 0,
-      passFlightSeconds(ballDistance) + PASS_CATCH_SECONDS), 0.85, PLAYBACK_MAX_MOVE_DURATION);
+      passFlightSeconds(ballDistance) + PASS_CATCH_SECONDS), PLAYBACK_MIN_MOVE_DURATION, PLAYBACK_MAX_MOVE_DURATION);
   }
   const ballDuration = passOrKickDistance > 0 ? (passOrKickDistance / PLAYBACK_BALL_UNITS_PER_SECOND) : 0;
   return clamp(Math.max(playerDuration, ballDuration) + 0.8, PLAYBACK_MIN_MOVE_DURATION, PLAYBACK_MAX_MOVE_DURATION);
@@ -10078,7 +10086,7 @@ function computePlaybackSegmentDurationSeconds(fromStep, toStep, motionStep = to
 
 function playbackDurationSeconds() {
   const fromIdx = getCurrentCanonicalMoveIndex();
-  const toIdx = canonicalPlaybackTargetIndex(fromIdx);
+  const toIdx = playbackTargetIndex(fromIdx);
   const fromRef = getCanonicalMoveRef(fromIdx);
   const toRef = getCanonicalMoveRef(toIdx);
   const from = canonicalPlaybackStepAt(fromRef) || emptyStepState();
@@ -10245,7 +10253,7 @@ function buildSequenceFrame(progress) {
   let to = null;
   let motionStep = null;
   const fromIdx = getCurrentCanonicalMoveIndex();
-  const toIdx = canonicalPlaybackTargetIndex(fromIdx);
+  const toIdx = playbackTargetIndex(fromIdx);
   const fromRef = getCanonicalMoveRef(fromIdx);
   const toRef = getCanonicalMoveRef(toIdx);
   from = canonicalPlaybackStepAt(fromRef) || emptyStepState();
@@ -10294,8 +10302,8 @@ function resolvePassFlightBetweenPlayers(fromPlayer, toPlayer, progress) {
   const p = clamp(progress, 0, 1);
   const from = attachedBallPositionForPlayer(fromPlayer);
   const to = attachedBallPositionForPlayer(toPlayer);
-  const flightSeconds = passFlightSeconds(d2(from, to));
   const duration = playbackDurationSeconds();
+  const flightSeconds = sequencePassFlightSeconds(d2(from, to), duration);
   const releaseAt = Math.max(0, duration - flightSeconds - PASS_CATCH_SECONDS);
   return samplePassVisual(from, to, toPlayer, p * duration - releaseAt, flightSeconds);
 }
@@ -11621,12 +11629,14 @@ function animLoop(ts) {
   if (S.lastTs !== null) {
     S.animT = Math.min(1, S.animT + (ts - S.lastTs) / 1000 * S.animSpd / DUR);
     if (S.animT >= 1) {
-      const targetIdx = canonicalPlaybackTargetIndex(getCurrentCanonicalMoveIndex());
+      const targetIdx = playbackTargetIndex();
       if (targetIdx !== null && activateCanonicalMoveForPlayback(targetIdx, { resetProgress: true })) {
-        const nextIdx = canonicalPlaybackTargetIndex(getCurrentCanonicalMoveIndex());
+        const nextIdx = playbackTargetIndex();
         const withinBoundary = canonicalPlaybackBoundaryIndex === null
-          || (nextIdx !== null && nextIdx <= canonicalPlaybackBoundaryIndex);
-        if (S.playAll && nextIdx !== null && withinBoundary) {
+          || getCurrentCanonicalMoveIndex() <= canonicalPlaybackBoundaryIndex;
+        // The final move can contain its own pass/kick. Play that action before
+        // finishing instead of switching to its already-completed saved pose.
+        if (S.playAll && (nextIdx !== null || hasBallFlight()) && withinBoundary) {
           S.lastTs = ts;
           updateTL();
           render();
