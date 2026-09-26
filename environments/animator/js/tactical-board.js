@@ -6179,12 +6179,19 @@ function buildArcLengthSampler(rawPoints, samplesPerSeg = 16) {
   return { sampleByDistance, length: total, kind: 'spline', points };
 }
 
+function playbackBallAction(passes) {
+  // Match the final action used when carrying a move forward. An earlier kick
+  // must not mask a later pass merely because kick rendering has precedence.
+  return [...(passes || [])].reverse().find(pass => pass && (pass.style === 'pass' || pass.style === 'kick')) || null;
+}
+
 function deriveBallMotion(fromStep, toStep, motionStep) {
   const warnings = [];
   const passes = Array.isArray(motionStep?.passes) ? motionStep.passes : [];
-  const kick = passes.find(p => p && p.style === 'kick');
+  const action = playbackBallAction(passes);
+  const kick = action?.style === 'kick' ? action : null;
   if (kick) return { kind: 'kick', from: playerKey({ num: kick.fromNum, team: kick.fromT }), pass: kick, warnings };
-  const pass = passes.find(p => p && p.style === 'pass');
+  const pass = action?.style === 'pass' ? action : null;
   if (pass) return { kind: 'pass', from: playerKey({ num: pass.fromNum, team: pass.fromT }), to: playerKey({ num: pass.toNum, team: pass.toT }), pass, warnings };
   const fromOwner = fromStep?.ballAttached ? normalizePlayerRef(fromStep.ballOwner) : null;
   const toOwner = toStep?.ballAttached ? normalizePlayerRef(toStep.ballOwner) : null;
@@ -6309,7 +6316,7 @@ function preparePlaybackLeg(fromStep, toStep) {
       return { pos: visual.ball, owner, passFlight: visual };
     };
   }
-  return { players, ball, annotations: motionStep.annotations, paths: motionStep.paths, passes: motionStep.passes, debug };
+  return { players, ball, ballAction: motion.pass || null, annotations: motionStep.annotations, paths: motionStep.paths, passes: motionStep.passes, debug };
 }
 
 function playerKeyToRef(key) {
@@ -6332,7 +6339,7 @@ function samplePlaybackLeg(leg, t) {
   }
   const b = leg.ball.sample(f, byKey);
   const passFlight = b.passFlight || null;
-  return { players, passFlight, ball: b.pos, ballOwner: playerKeyToRef(b.owner), annotations: leg.annotations, paths: leg.paths, passes: leg.passes, localT: f };
+  return { players, passFlight, ballAction: leg.ballAction, ball: b.pos, ballOwner: playerKeyToRef(b.owner), ballAttached: !!b.owner, annotations: leg.annotations, paths: leg.paths, passes: leg.passes, localT: f };
 }
 
 const PLAYBACK_SHADOW = false;
@@ -10091,7 +10098,13 @@ function playbackDurationSeconds() {
   const toRef = getCanonicalMoveRef(toIdx);
   const from = canonicalPlaybackStepAt(fromRef) || emptyStepState();
   const to = canonicalPlaybackStepAt(toRef) || from;
-  if (!toRef && from.passes.some(pass => pass.style === 'kick')) {
+  const action = playbackBallAction(from.passes);
+  if (!toRef && action?.style === 'pass') {
+    // Like a final kick, a final pass is timed from its recorded action, not
+    // the zero delta between two copies of the receiver-owned saved ball.
+    return computePlaybackSegmentDurationSeconds(from, from, from);
+  }
+  if (!toRef && action?.style === 'kick') {
     // A final-move kick has no destination snapshot. Time its recorded flight,
     // rather than the unchanged stored ball position in two identical poses.
     const lookup = buildStepLookup(from.players);
@@ -10251,7 +10264,6 @@ function buildSequenceFrame(progress) {
   const localT = clamp(progress, 0, 1);
   let from = null;
   let to = null;
-  let motionStep = null;
   const fromIdx = getCurrentCanonicalMoveIndex();
   const toIdx = playbackTargetIndex(fromIdx);
   const fromRef = getCanonicalMoveRef(fromIdx);
@@ -10267,19 +10279,19 @@ function buildSequenceFrame(progress) {
   // Replay final-move actions against the same pose without creating a saved
   // move. The existing leg sampler owns flight, easing, beam and catch timing.
   to = canonicalPlaybackStepAt(toRef) || from;
-  motionStep = to;
-  let segmentIndex = fromIdx;
   if (PLAYBACK_SHADOW && toRef) runPlaybackShadowCheck(from, to, fromIdx, toIdx);
 
   const leg = preparePlaybackLeg(from, to);
   const sampled = samplePlaybackLeg(leg, localT);
-  return { ...sampled, segmentIndex: fromIdx };
+  // All action metadata belongs to the source move of N -> N+1. Destination
+  // ownership is only a saved endpoint; it must never select the flight.
+  return { ...sampled, passes: from.passes, segmentIndex: fromIdx };
 }
 
 function resolveAnimatedKickBall(frame, playerLookup) {
   if (!frame?.passes?.length) return null;
-  const activeKick = [...frame.passes].reverse().find(pass => pass.style === 'kick');
-  if (!activeKick) return null;
+  const activeKick = frame.ballAction || playbackBallAction(frame.passes);
+  if (activeKick?.style !== 'kick') return null;
   const from = playerLookup.get(playerKey({ num: activeKick.fromNum, team: activeKick.fromT }));
   if (!from) return null;
   let target = null;
@@ -10309,9 +10321,9 @@ function resolvePassFlightBetweenPlayers(fromPlayer, toPlayer, progress) {
 }
 
 function resolveAnimatedPassFlight(frame, playerLookup) {
-  if (frame?.passFlight) return frame.passFlight;
-  const pass = [...(frame?.passes || [])].reverse().find(p => p.style !== 'kick');
-  if (!pass) return null;
+  const pass = frame?.ballAction || playbackBallAction(frame?.passes);
+  if (pass?.style !== 'pass') return null;
+  if (frame.passFlight) return frame.passFlight;
   const from = playerLookup.get(playerKey({ num: pass.fromNum, team: pass.fromT }));
   const to = playerLookup.get(playerKey({ num: pass.toNum, team: pass.toT }));
   return from && to ? resolvePassFlightBetweenPlayers(from, to, frame.localT) : null;
@@ -10323,8 +10335,8 @@ function resolveAnimatedPassBall(frame, playerLookup, flight = resolveAnimatedPa
 
 function resolveLiveAnimatedPassFlight(progress) {
   if (!S.animating && !isCanonicalPlaybackPaused()) return null;
-  const pass = [...(S.passes || [])].reverse().find(p => p.style !== 'kick');
-  if (!pass) return null;
+  const pass = playbackBallAction(S.passes);
+  if (pass?.style !== 'pass') return null;
   const fromPlayer = S.players.find(player => player.id === pass.from);
   const toPlayer = S.players.find(player => player.id === pass.to);
   return fromPlayer && toPlayer
@@ -10338,8 +10350,8 @@ function resolveLiveAnimatedPassBall(progress, flight = resolveLiveAnimatedPassF
 
 function resolveLiveAnimatedKickBall(progress) {
   if (!S.animating || !S.passes?.length) return null;
-  const activeKick = [...S.passes].reverse().find(pass => pass.style === 'kick');
-  if (!activeKick) return null;
+  const activeKick = playbackBallAction(S.passes);
+  if (activeKick?.style !== 'kick') return null;
   const fromPlayer = S.players.find(player => player.id === activeKick.from);
   if (!fromPlayer) return null;
   const from = animPos(fromPlayer, progress);
