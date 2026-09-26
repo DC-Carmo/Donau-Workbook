@@ -1097,9 +1097,9 @@ let lastNoteSelectionTap = { id: null, at: 0 };
 const PROJECT_TYPE = 'coachmato.animator.project';
 const PLAYBACK_TIMELINE_MODEL = 'global_progress_v1';
 const DEFAULT_PLAYBACK_DURATION = 5;
-const PLAYBACK_MOVE_UNITS_PER_SECOND = 4;
-const PLAYBACK_BALL_UNITS_PER_SECOND = 5;
-const PLAYBACK_MIN_MOVE_DURATION = 2.4;
+const PLAYBACK_MOVE_UNITS_PER_SECOND = 2.5;
+const PLAYBACK_BALL_UNITS_PER_SECOND = 3;
+const PLAYBACK_MIN_MOVE_DURATION = 3.8;
 const PLAYBACK_MAX_MOVE_DURATION = 8;
 const PLAYBACK_STATIC_MOVE_DURATION = 0.05;
 
@@ -6493,9 +6493,9 @@ function drawKickToTarget(x1, y1, x2, y2, progress = 1, selected = false) {
 }
 
 const PASS_CATCH_SECONDS = 0.4;
-function passFlightSeconds(distance) { return clamp(distance / 26, 1.0, 2.5); }
+function passFlightSeconds(distance) { return clamp(distance / 16, 1.8, 4.0); }
 function sequencePassFlightSeconds(distance, duration) {
-  return Math.max(passFlightSeconds(distance), Math.min(2.1, duration - PASS_CATCH_SECONDS));
+  return Math.max(passFlightSeconds(distance), Math.min(3.4, duration - PASS_CATCH_SECONDS));
 }
 function passEase(t) { const u = clamp(t, 0, 1); return u * u * (3 - 2 * u); }
 
